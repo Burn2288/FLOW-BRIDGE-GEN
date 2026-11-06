@@ -22,3 +22,7 @@
 - 2026-11-06 (МСК) · S1-TG-RECOVERY · аудитор vankhu21 · Codex vankhu21 · STARTED · Проверка повторной выдачи уже сохранённого изображения после сбоя Telegram · Границы: тесты выдачи и «Мои работы», минимальная правка обработчика Telegram только при воспроизводимом дефекте · Зависит от базового стенда PR #2 · https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/2
 
 - 2026-11-06 22:46 МСК · S1-TG-RECOVERY · аудитор vankhu21 · Codex vankhu21 · HANDED_OFF · Задание опубликовано для исполнителя: воспроизвести сбой sendPhoto после сохранения и повторную выдачу из «Моих работ» с той же тестовой БД без повторной генерации · Границы: Telegram и тесты · База: PR #2 · https://github.com/Burn2288/FLOW-BRIDGE-GEN/issues/3
+
+- 2026-11-06 (МСК) · S1-TG-RECOVERY · аудитор vankhu21 · Codex vankhu21 · DONE · PASS на изолированном стенде, SHA c1c3a0f7324d21ab2f6a0763847c548fc9c2b617, восстановление того же PNG после HTTP 400 и рестарта, один вызов тестового провайдера, CI 201 passed · PR #4 остаётся на ревью, P0 BLOCKED_LIVE · https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/4 · https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628798
+
+- 2026-11-06 (МСК) · P0-IMAGE-VALIDATION · аудитор vankhu21 · Codex vankhu21 · STARTED · Проверка целостности PNG/JPEG до сохранения · Границы: декодирование изображения в interaction.py, зависимости при необходимости и регрессионные тесты, без изменения Telegram, миграций и оплаты · База: PR #2, отдельная ветка, без зависимости от PR #4 · Проверено отсутствие активного пересечения в журнале.
