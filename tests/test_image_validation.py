@@ -22,11 +22,12 @@ from test_ui import Bot, event
 
 OPERATION = "images.generate"
 MODEL = {
-    "id": "nano-banana-2",
+    "id": "flux-schnell",
     "title": "Image fixture",
     "provider": "clodex",
     "availability": "key_available",
     "operations": [OPERATION],
+    "protocols": ["image-generation"],
 }
 PNG_SIGNATURE_ONLY = bytes.fromhex("89504e470d0a1a0a")
 JPEG_MARKERS_ONLY = bytes.fromhex("ffd8ffffd9")
@@ -37,6 +38,38 @@ def encoded_image(format, size=(32, 32), mode="RGB", **options):
     with Image.new(mode, size) as image:
         image.save(buffer, format=format, **options)
     return buffer.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("url", "dns", "reason"),
+    [
+        ("http://fixture.invalid/image", None, "url_scheme"),
+        ("https:/image", None, "url_host_missing"),
+        ("https://user:password@fixture.invalid/image", None, "url_userinfo"),
+        ("https://fixture.invalid:8443/image", None, "url_port"),
+        ("https://fixture.invalid/image", [], "dns_no_addresses"),
+        ("https://fixture.invalid/image", ["93.184.216.34", "127.0.0.1"], "dns_non_public"),
+        ("https://fixture.invalid/image", ["not-an-ip"], "dns_invalid_address"),
+        ("https://fixture.invalid/image", socket.gaierror("private DNS details"), "dns_lookup"),
+    ],
+)
+async def test_image_download_diagnostics_do_not_log_url(monkeypatch, capsys, url, dns, reason):
+    async def resolve(*args, **kwargs):
+        assert dns is not None, "URL must be rejected before DNS"
+        if isinstance(dns, OSError):
+            raise dns
+        return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", (ip, 443)) for ip in dns]
+
+    def unexpected_request(request):
+        pytest.fail("Rejected URL must not reach the HTTP transport")
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", resolve)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(unexpected_request)) as client:
+        with pytest.raises(Rejected):
+            await interaction.download_image(client, url + "?signature=fixture-secret", request_id=1)
+    output = capsys.readouterr().out
+    assert f'"reason": "{reason}"' in output
+    assert all(value not in output for value in ("fixture.invalid", "fixture-secret", "password", "private DNS details"))
 
 
 def png_chunk(kind, data):
@@ -224,6 +257,7 @@ async def test_corrupt_provider_image_is_not_saved_sent_or_retried(env, tmp_path
         interaction_mode="live",
         interaction_pairs=(f"{OPERATION}:{MODEL['id']}",),
         clodex_key="fixture-only",
+        interaction_limit=1,
     )
     bot = Bot()
     bot.send_photo = AsyncMock()

@@ -8,7 +8,7 @@ from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardBut
 from .core import Service,Rejected,uid
 from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
-from .interaction import IMAGE_PILOT_MODELS,trace_interaction
+from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
@@ -382,13 +382,16 @@ class TelegramApp:
             _,version,section,page=data.split(':')
             await self.show_store_models(ext,version,section,int(page));return
         if route in ('smodel','srun'):
-            _,version,section,page,index=data.split(':')
+            _,version,section,page,index,*options=data.split(':')
+            if options and (route!='srun' or options!=['high']):
+                raise Rejected('Этот режим недоступен.')
             snapshot=self.catalogue_snapshot(version)
             index=int(index)
             if index not in self.store_models(snapshot,section,ext):
                 raise Rejected('Модель больше не доступна в этом разделе.')
             if route=='srun':
-                await self.begin_interaction(u,ext,version,index,STORE_SECTIONS[section][1],request_id=request_id);return
+                await self.begin_interaction(u,ext,version,index,STORE_SECTIONS[section][1],
+                                             request_id=request_id,quality=options[0] if options else None);return
             await self.show_store_model(ext,snapshot,section,int(page),index);return
         if data=='accept':
             await self.svc.accept(u);await self.show_home(ext);return
@@ -513,7 +516,7 @@ class TelegramApp:
         data=self.catalogue_snapshot(version);sources=data.get('sources',[])
         if not 0<=index<len(sources):raise Rejected('Агрегатор недоступен.')
         source=sources[index];provider=source['provider']
-        models=[m for m in data['models'] if m.get('provider')==provider]
+        models=[m for m in data['models'] if m.get('provider')==provider and not is_disabled_model(m)]
         functions=[f for f in data.get('functions',[]) if f.get('provider')==provider and not f.get('documentation_only')]
         docs=[f for f in data.get('functions',[]) if f.get('provider')==provider and f.get('documentation_only')]
         scope='Публичный каталог. Доступность по ключу ещё не проверена.' if source['scope']=='public_only' else 'Список получен через /v1/models для ключа сервиса.'
@@ -540,12 +543,11 @@ class TelegramApp:
             index for index,model in enumerate(snapshot['models'])
             if model.get('provider')=='clodex'
             and model.get('availability')=='key_available'
+            and not is_disabled_model(model)
             and (
                 f"{section}:{model['id']}" in published
                 or (section=='speech' and self.cfg.speech_pilot and ext in self.cfg.admin_ids
                     and model['id'].replace('-','_')=='eleven_v4')
-                or (section=='image' and ext in self.cfg.admin_ids and self.cfg.interaction_mode=='live'
-                    and model['id'] in IMAGE_PILOT_MODELS and self.model_can_run(model,'images.generate'))
             )
         ]
 
@@ -578,6 +580,8 @@ class TelegramApp:
         status='Запуск этой модели пока недоступен.'
         if self.model_can_run(model,operation):
             rows.append([(('Выбрать голос' if operation=='audio.speech' and self.cfg.speech_pilot else title),f'srun:{version}:{section}:{page}:{index}')])
+            if operation=='images.generate' and model['id'] in HIGH_QUALITY_IMAGE_MODELS:
+                rows.append([('Качество: high',f'srun:{version}:{section}:{page}:{index}:high')])
             status='Выберите действие, чтобы продолжить.'
         if section in ('image','speech'):
             rows.append([('Работы этой модели',f'mwork:{version}:{section}:{index}:0')])
@@ -593,8 +597,8 @@ class TelegramApp:
             await self.catalogue_screen(ext,str(e));return
         if data.get('sources'):
             categories=[{'title':s['provider']+' · '+('публичный каталог' if s['scope']=='public_only' else 'доступно ключу'),
-                         'models':[m for m in data['models'] if m.get('provider')==s['provider']]} for s in data['sources']]
-        else:categories=groups(data)  # Backward-compatible imported snapshots.
+                         'models':[m for m in data['models'] if m.get('provider')==s['provider'] and not is_disabled_model(m)]} for s in data['sources']]
+        else:categories=groups({**data,'models':[m for m in data['models'] if not is_disabled_model(m)]})
         if group is None:
             rows=[[(g['title']+f" ({len(g['models'])})",f"cat:{data['version']}:{i}:0")] for i,g in enumerate(categories)]
             label='Каталог провайдеров и моделей:'
@@ -621,6 +625,7 @@ class TelegramApp:
         data=self.catalogue_snapshot(version)
         if not 0<=index<len(data['models']):raise Rejected('Модель недоступна.')
         m=data['models'][index]
+        if is_disabled_model(m):raise Rejected('Модель недоступна.')
         availability='Доступность для ключа не проверена (публичная витрина).'
         if m.get('availability')=='key_available':availability='Модель возвращена API для ключа сервиса.'
         protocols=', '.join(m.get('protocols',[])) or 'не указаны'
@@ -676,7 +681,7 @@ class TelegramApp:
         data=self.catalogue_snapshot(version);functions=data.get('functions',[])
         if not 0<=index<len(functions) or not 0<=page<=2000:raise Rejected('Функция недоступна.')
         fn=functions[index]
-        models=[(i,m) for i,m in enumerate(data['models']) if m.get('provider')==fn['provider']]
+        models=[(i,m) for i,m in enumerate(data['models']) if m.get('provider')==fn['provider'] and not is_disabled_model(m)]
         rows=[[(m['title'],f'bind:{version}:{index}:{i}')] for i,m in models[page*5:page*5+5]]
         nav=[]
         if page:nav.append(('Назад',f'choosefn:{version}:{index}:{page-1}'))
@@ -686,6 +691,7 @@ class TelegramApp:
         await self.catalogue_screen(ext,'Выберите модель для проверки формы. Совместимость с операцией ещё нужно подтвердить.',buttons(rows))
 
     def model_can_run(self,model,operation):
+        if is_disabled_model(model):return False
         if operation=='audio.speech':
             # The configured TTS model is an operator-approved binding for this operation.
             return (
@@ -701,7 +707,7 @@ class TelegramApp:
             mode=='mock' or f'{operation}:{model["id"]}' in self.cfg.interaction_pairs
         )
 
-    async def begin_interaction(self,u,ext,version,index,operation,*,request_id=None):
+    async def begin_interaction(self,u,ext,version,index,operation,*,request_id=None,quality=None):
         models=self.catalogue_snapshot(version)['models']
         if self.cfg.interaction_mode=='live' and operation!='audio.speech' and (
             self.cfg.access_mode!='private' or ext not in self.cfg.admin_ids
@@ -711,6 +717,9 @@ class TelegramApp:
         if not model or not self.model_can_run(model,operation):
             trace_interaction(request_id,'operation_unavailable',operation=operation,model=model['id'] if model else None)
             raise Rejected('Для этой модели запуск пока недоступен.')
+        if quality is not None and (quality!='high' or operation!='images.generate'
+                                    or model['id'] not in HIGH_QUALITY_IMAGE_MODELS):
+            raise Rejected('Это качество недоступно для выбранной модели.')
         if operation=='audio.speech':
             if self.cfg.speech_pilot:
                 await self.load_pilot_voices()
@@ -720,10 +729,15 @@ class TelegramApp:
             await self.svc.conversation(u,'text')
             await self.catalogue_screen(ext,'Отправьте текст до 3000 символов. Затем выберите голос.',buttons([[('Главное меню','home')]]))
             return
-        await self.svc.aggregate_context(u,{'interaction':operation,'model_id':model['id'],'history':[]})
+        context={'interaction':operation,'model_id':model['id'],'history':[]}
+        if quality is not None:
+            context['quality']=quality
+        await self.svc.aggregate_context(u,context)
         mode='Тест без отправки в CLODEX. ' if self.cfg.interaction_mode=='mock' else 'Запрос будет отправлен в CLODEX. '
         if operation=='images.generate':
-            title = '🍌 Nano Banana 2' if model['id']=='nano-banana-2' else model['title']
+            title = model['title']
+            if quality is not None:
+                title += '\nКачество: '+quality
             text = (
                 title+'\n\n'
                 'Опишите, какую картинку хотите, и отправьте сообщение. '
@@ -784,7 +798,8 @@ class TelegramApp:
                 after_message_id=message.message_id,
             )
         try:
-            result=await execute(operation,model,prompt,history,mode=mode,key=self.cfg.clodex_key,request_id=request_id)
+            result=await execute(operation,model,prompt,history,mode=mode,key=self.cfg.clodex_key,
+                                 request_id=request_id,quality=context.get('quality'))
         except Rejected:
             trace_interaction(request_id,'generation_failed')
             if operation!='images.generate':
@@ -834,7 +849,7 @@ class TelegramApp:
         data=self.catalogue_snapshot(version)
         if not 0<=fi<len(data.get('functions',[])) or not 0<=mi<len(data['models']):raise Rejected('Действие устарело.')
         fn=data['functions'][fi];model=data['models'][mi]
-        if fn['provider']!=model.get('provider') or not fn['request_preview_supported']:raise Rejected('Операция недоступна.')
+        if fn['provider']!=model.get('provider') or is_disabled_model(model) or not fn['request_preview_supported']:raise Rejected('Операция недоступна.')
         context={'version':version,'fi':fi,'mi':mi,'values':{},'field_index':0}
         await self.svc.aggregate_context(u,context)
         labels={'prompt':'Введите запрос','text':'Введите текст для озвучки','voice':'Введите проверенный Voice ID'}

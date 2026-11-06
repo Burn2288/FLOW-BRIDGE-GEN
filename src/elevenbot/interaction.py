@@ -34,10 +34,8 @@ ADAM7_PASSES = (
 )
 PATHS = {'chat': '/v1/chat/completions', 'images.generate': '/v1/images/generations'}
 PROTOCOLS = {'chat': 'openai', 'images.generate': 'image-generation'}
-NANO_BANANA_2 = 'nano-banana-2'
-# Explicit pilot binding. CLODEX's public model metadata only advertises OpenAI;
-# the operator must opt in to probing the shared Images Generations endpoint.
-IMAGE_PILOT_MODELS = {NANO_BANANA_2}
+DISABLED_CLODEX_MODELS = frozenset({'nano-banana-2', 'gpt-image-2'})
+HIGH_QUALITY_IMAGE_MODELS = frozenset({'gpt-image-2.5-sunburst'})
 
 # Small PNG fixture for checking Telegram delivery without sending data to CLODEX.
 MOCK_IMAGE = base64.b64decode(
@@ -52,15 +50,17 @@ class Result:
     filename: str = ''
 
 
+def is_disabled_model(model):
+    return model.get('provider') == 'clodex' and model.get('id') in DISABLED_CLODEX_MODELS
+
+
 def supports(model, operation, *, live):
     return (
         operation in PATHS and model.get('provider') == 'clodex'
+        and not is_disabled_model(model)
         and (not live or (
             model.get('availability') == 'key_available'
-            and (
-                PROTOCOLS[operation] in model.get('protocols', [])
-                or (operation == 'images.generate' and model.get('id') in IMAGE_PILOT_MODELS)
-            )
+            and PROTOCOLS[operation] in model.get('protocols', [])
         ))
     )
 
@@ -189,47 +189,74 @@ def image_url(payload):
     return url if isinstance(url, str) and url else None
 
 
+class _ImageDownloadError(ValueError):
+    def __init__(self, reason):
+        super().__init__(reason)
+        self.reason = reason
+
+
 async def download_image(http, url, request_id):
     trace_interaction(request_id, 'image_download_start')
+    phase = 'url_parse'
     try:
         async with asyncio.timeout(30):
             for _ in range(4):
+                phase = 'url_parse'
                 target = httpx.URL(url)
-                if (target.scheme != 'https' or not target.host or target.userinfo
-                        or target.port not in (None, 443)):
-                    raise ValueError('Unsupported image URL')
+                if target.scheme != 'https':
+                    raise _ImageDownloadError('url_scheme')
+                if not target.host:
+                    raise _ImageDownloadError('url_host_missing')
+                if target.userinfo:
+                    raise _ImageDownloadError('url_userinfo')
+                if target.port not in (None, 443):
+                    raise _ImageDownloadError('url_port')
+                phase = 'dns_lookup'
                 addresses = await asyncio.get_running_loop().getaddrinfo(
                     target.raw_host.decode('ascii'), 443, type=socket.SOCK_STREAM,
                 )
+                phase = 'dns_invalid_address'
                 ips = [ip_address(address[4][0]) for address in addresses]
-                if not ips or any(not ip.is_global or ip.is_multicast for ip in ips):
-                    raise ValueError('Non-public image address')
+                if not ips:
+                    raise _ImageDownloadError('dns_no_addresses')
+                if any(not ip.is_global or ip.is_multicast for ip in ips):
+                    raise _ImageDownloadError('dns_non_public')
                 # Pin the checked address and keep TLS verification on the original hostname.
+                phase = 'request_build'
                 request = httpx.Request(
                     'GET', target.copy_with(host=str(ips[0])),
                     headers={'Host': target.netloc.decode('ascii')},
                     extensions={'sni_hostname': target.raw_host.decode('ascii')},
                 )
+                phase = 'http_request'
                 response = await http.send(request, stream=True, auth=None, follow_redirects=False)
                 try:
                     trace_interaction(request_id, 'image_download_headers', status=response.status_code)
                     if response.status_code in (301, 302, 303, 307, 308):
-                        url = str(target.join(response.headers['location']))
+                        location = response.headers.get('location')
+                        if location is None:
+                            raise _ImageDownloadError('redirect_location_missing')
+                        phase = 'redirect_url'
+                        url = str(target.join(location))
                         continue
+                    phase = 'http_status'
                     response.raise_for_status()
                     image = bytearray()
+                    phase = 'body_read'
                     async for part in response.aiter_bytes(65536):
                         if len(image) + len(part) > IMAGE_LIMIT:
-                            raise ValueError('Image too large')
+                            raise _ImageDownloadError('image_too_large')
                         image.extend(part)
+                    phase = 'image_invalid'
                     result = await asyncio.to_thread(image_result, bytes(image))
                     trace_interaction(request_id, 'image_download_ok', image_bytes=len(image))
                     return result
                 finally:
                     await response.aclose()
-            raise ValueError('Too many image redirects')
+            raise _ImageDownloadError('redirect_limit')
     except (Rejected, httpx.HTTPError, httpx.InvalidURL, OSError, KeyError, ValueError) as error:
-        trace_interaction(request_id, 'image_download_failed', error_type=type(error).__name__)
+        reason = error.reason if isinstance(error, _ImageDownloadError) else phase
+        trace_interaction(request_id, 'image_download_failed', reason=reason, error_type=type(error).__name__)
         raise Rejected('Не удалось скачать готовое изображение CLODEX.') from None
 
 
@@ -262,9 +289,12 @@ def response_shape(payload):
     }
 
 
-async def execute(operation, model, prompt, history, *, mode, key='', client=None, request_id=None):
+async def execute(operation, model, prompt, history, *, mode, key='', client=None, request_id=None, quality=None):
     if mode not in ('mock', 'live') or not supports(model, operation, live=mode == 'live'):
         raise Rejected('Для этой модели запуск пока недоступен.')
+    if quality is not None and (quality != 'high' or operation != 'images.generate'
+                                or model['id'] not in HIGH_QUALITY_IMAGE_MODELS):
+        raise Rejected('Это качество недоступно для выбранной модели.')
     if mode == 'mock':
         if operation == 'chat':
             return Result(text='Тестовый ответ. Получен текст: '+prompt[:1000])
@@ -276,11 +306,13 @@ async def execute(operation, model, prompt, history, *, mode, key='', client=Non
         body.update(messages=[*history, {'role': 'user', 'content': prompt}], max_tokens=512)
     else:
         body.update(prompt=prompt, n=1, response_format='b64_json')
+        if quality is not None:
+            body['quality'] = quality
     async def call(http):
         started = time.monotonic()
         trace_interaction(request_id, 'http_start', method='POST', endpoint='https://clodex.xyz'+PATHS[operation],
                           model=model['id'], operation=operation, request_fields=sorted(body),
-                          response_format=body.get('response_format'))
+                          response_format=body.get('response_format'), quality=body.get('quality'))
         async with http.stream('POST', 'https://clodex.xyz'+PATHS[operation],
                                json=body, headers={'Authorization': 'Bearer '+key},
                                follow_redirects=False) as response:
@@ -322,13 +354,11 @@ async def execute(operation, model, prompt, history, *, mode, key='', client=Non
                     result = await download_image(downloader, url, request_id)
         trace_interaction(request_id, 'decode_ok', image_bytes=len(result.image))
         return result
-    nano_image = operation == 'images.generate' and model['id'] == NANO_BANANA_2
-    deadline = 150 if nano_image else 25
     try:
-        async with asyncio.timeout(deadline):
+        async with asyncio.timeout(25):
             if client is not None:
                 return await call(client)
-            async with httpx.AsyncClient(timeout=httpx.Timeout(140, connect=10) if nano_image else 20, trust_env=False) as http:
+            async with httpx.AsyncClient(timeout=20, trust_env=False) as http:
                 return await call(http)
     except httpx.HTTPStatusError as error:
         trace_interaction(request_id, 'http_error', status=error.response.status_code)
