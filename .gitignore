@@ -223,3 +223,14 @@ __marimo__/
 .env.*
 !.env.example
 /.local/
+*.env
+*.env.*
+!.env.example
+*.dump
+*.credentials.json
+/private-db/
+/data/
+/reports/
+/source.bundle
+/.acceptance-venv/
+/.demo-venv/
