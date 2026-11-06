@@ -1,0 +1,5 @@
+{
+  "operations_path": [],
+  "operation_tokens": {},
+  "source_evidence": "Default: model IDs only. Set a metadata path and operation-token mapping only after inspecting a real authorized API response. No Clodex capabilities schema has been assumed."
+}

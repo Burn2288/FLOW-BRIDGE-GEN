@@ -1,0 +1,234 @@
+"""Bounded request/response handlers shared by models on the same protocol."""
+import asyncio
+import base64
+import binascii
+import json
+import socket
+from ipaddress import ip_address
+import time
+from contextvars import ContextVar
+from dataclasses import dataclass
+
+import httpx
+
+from .core import Rejected
+
+provider_request_id = ContextVar('provider_request_id', default=None)
+
+TEXT_LIMIT = 6000
+IMAGE_LIMIT = 5 * 1024 * 1024
+PATHS = {'chat': '/v1/chat/completions', 'images.generate': '/v1/images/generations'}
+PROTOCOLS = {'chat': 'openai', 'images.generate': 'image-generation'}
+NANO_BANANA_2 = 'nano-banana-2'
+# Explicit pilot binding. CLODEX's public model metadata only advertises OpenAI;
+# the operator must opt in to probing the shared Images Generations endpoint.
+IMAGE_PILOT_MODELS = {NANO_BANANA_2}
+
+# Small PNG fixture for checking Telegram delivery without sending data to CLODEX.
+MOCK_IMAGE = base64.b64decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAeklEQVR4nO3PUQkAIBTAwFfIfmYypSH8OITBAtxm7fN1wwUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWPHYB+j3xLYWCDNkAAAAASUVORK5CYII='
+)
+
+
+@dataclass(frozen=True)
+class Result:
+    text: str = ''
+    image: bytes = b''
+    filename: str = ''
+
+
+def supports(model, operation, *, live):
+    return (
+        operation in PATHS and model.get('provider') == 'clodex'
+        and (not live or (
+            model.get('availability') == 'key_available'
+            and (
+                PROTOCOLS[operation] in model.get('protocols', [])
+                or (operation == 'images.generate' and model.get('id') in IMAGE_PILOT_MODELS)
+            )
+        ))
+    )
+
+
+def decode_result(operation, payload):
+    try:
+        if operation == 'chat':
+            text = payload['choices'][0]['message']['content']
+            if isinstance(text, str) and 0 < len(text.strip()) and len(text) <= 16000:
+                return Result(text=text)
+        else:
+            image = base64.b64decode(payload['data'][0]['b64_json'], validate=True)
+            return image_result(image)
+    except (KeyError, IndexError, TypeError, ValueError, binascii.Error):
+        pass
+    raise Rejected('CLODEX вернул неподдерживаемый результат.')
+
+
+def image_result(image):
+    if 0 < len(image) <= IMAGE_LIMIT:
+        if image.startswith(b'\x89PNG\r\n\x1a\n'):
+            return Result(image=image, filename='result.png')
+        if image.startswith(b'\xff\xd8\xff') and image.endswith(b'\xff\xd9'):
+            return Result(image=image, filename='result.jpg')
+    raise Rejected('CLODEX вернул неподдерживаемое изображение.')
+
+
+def image_url(payload):
+    if not isinstance(payload, dict):
+        return None
+    data = payload.get('data')
+    item = data[0] if isinstance(data, list) and data and isinstance(data[0], dict) else {}
+    url = item.get('url') or payload.get('url')
+    return url if isinstance(url, str) and url else None
+
+
+async def download_image(http, url, request_id):
+    trace_interaction(request_id, 'image_download_start')
+    try:
+        async with asyncio.timeout(30):
+            for _ in range(4):
+                target = httpx.URL(url)
+                if (target.scheme != 'https' or not target.host or target.userinfo
+                        or target.port not in (None, 443)):
+                    raise ValueError('Unsupported image URL')
+                addresses = await asyncio.get_running_loop().getaddrinfo(
+                    target.raw_host.decode('ascii'), 443, type=socket.SOCK_STREAM,
+                )
+                ips = [ip_address(address[4][0]) for address in addresses]
+                if not ips or any(not ip.is_global or ip.is_multicast for ip in ips):
+                    raise ValueError('Non-public image address')
+                # Pin the checked address and keep TLS verification on the original hostname.
+                request = httpx.Request(
+                    'GET', target.copy_with(host=str(ips[0])),
+                    headers={'Host': target.netloc.decode('ascii')},
+                    extensions={'sni_hostname': target.raw_host.decode('ascii')},
+                )
+                response = await http.send(request, stream=True, auth=None, follow_redirects=False)
+                try:
+                    trace_interaction(request_id, 'image_download_headers', status=response.status_code)
+                    if response.status_code in (301, 302, 303, 307, 308):
+                        url = str(target.join(response.headers['location']))
+                        continue
+                    response.raise_for_status()
+                    image = bytearray()
+                    async for part in response.aiter_bytes(65536):
+                        if len(image) + len(part) > IMAGE_LIMIT:
+                            raise ValueError('Image too large')
+                        image.extend(part)
+                    result = image_result(bytes(image))
+                    trace_interaction(request_id, 'image_download_ok', image_bytes=len(image))
+                    return result
+                finally:
+                    await response.aclose()
+            raise ValueError('Too many image redirects')
+    except (Rejected, httpx.HTTPError, httpx.InvalidURL, OSError, KeyError, ValueError) as error:
+        trace_interaction(request_id, 'image_download_failed', error_type=type(error).__name__)
+        raise Rejected('Не удалось скачать готовое изображение CLODEX.') from None
+
+
+def trace_interaction(request_id, stage, **fields):
+    if request_id is not None:
+        print(json.dumps({'event': 'interaction', 'request_id': request_id, 'stage': stage, **fields}), flush=True)
+
+
+def response_shape(payload):
+    if not isinstance(payload, dict):
+        return {'json_type': type(payload).__name__}
+    data = payload.get('data')
+    item = data[0] if isinstance(data, list) and data and isinstance(data[0], dict) else {}
+    encoded = item.get('b64_json')
+    error = payload.get('error')
+    code = error.get('code') if isinstance(error, dict) else None
+    return {
+        'has_error': 'error' in payload,
+        'error_code': code if type(code) is int or code in (
+            'model_not_found', 'invalid_request_error', 'unsupported_model', 'insufficient_quota',
+            'rate_limit_exceeded', 'invalid_api_key', 'content_policy_violation',
+        ) else None,
+        'data_items': len(data) if isinstance(data, list) else None,
+        'has_base64': 'b64_json' in item,
+        'base64_chars': len(encoded) if isinstance(encoded, str) else None,
+        'has_url': 'url' in item or 'url' in payload,
+        'has_choices': 'choices' in payload,
+        'has_candidates': 'candidates' in payload,
+        'has_task_id': 'task_id' in payload or 'task_id' in item,
+    }
+
+
+async def execute(operation, model, prompt, history, *, mode, key='', client=None, request_id=None):
+    if mode not in ('mock', 'live') or not supports(model, operation, live=mode == 'live'):
+        raise Rejected('Для этой модели запуск пока недоступен.')
+    if mode == 'mock':
+        if operation == 'chat':
+            return Result(text='Тестовый ответ. Получен текст: '+prompt[:1000])
+        return Result(image=MOCK_IMAGE, filename='test.png')
+    if not key:
+        raise Rejected('Ключ CLODEX не настроен.')
+    body = {'model': model['id']}
+    if operation == 'chat':
+        body.update(messages=[*history, {'role': 'user', 'content': prompt}], max_tokens=512)
+    else:
+        body.update(prompt=prompt, n=1, response_format='b64_json')
+    async def call(http):
+        started = time.monotonic()
+        trace_interaction(request_id, 'http_start', method='POST', endpoint='https://clodex.xyz'+PATHS[operation],
+                          model=model['id'], operation=operation, request_fields=sorted(body),
+                          response_format=body.get('response_format'))
+        async with http.stream('POST', 'https://clodex.xyz'+PATHS[operation],
+                               json=body, headers={'Authorization': 'Bearer '+key},
+                               follow_redirects=False) as response:
+            content_type = response.headers.get('content-type', '').partition(';')[0].lower()
+            trace_interaction(request_id, 'http_headers', status=response.status_code,
+                              content_type=content_type if content_type in (
+                                  'application/json', 'text/html', 'text/plain', 'application/octet-stream',
+                                  'image/png', 'image/jpeg', 'text/event-stream',
+                              ) else 'other',
+                              elapsed_ms=round((time.monotonic()-started)*1000))
+            if not response.is_success:
+                response.raise_for_status()
+            raw = bytearray()
+            async for part in response.aiter_bytes(65536):
+                if len(raw)+len(part) > 8*1024*1024:
+                    trace_interaction(request_id, 'http_body_too_large')
+                    raise Rejected('Ответ CLODEX слишком большой.')
+                raw.extend(part)
+        trace_interaction(request_id, 'http_body_received', bytes=len(raw),
+                          elapsed_ms=round((time.monotonic()-started)*1000))
+        payload = json.loads(raw)
+        trace_interaction(request_id, 'response_shape', **response_shape(payload))
+        try:
+            result = decode_result(operation, payload)
+        except Rejected:
+            url = image_url(payload) if operation == 'images.generate' else None
+            if not url:
+                trace_interaction(request_id, 'decode_failed')
+                raise
+            if client is not None:
+                result = await download_image(client, url, request_id)
+            else:
+                async with httpx.AsyncClient(
+                    trust_env=False, limits=httpx.Limits(max_keepalive_connections=0),
+                ) as downloader:
+                    result = await download_image(downloader, url, request_id)
+        trace_interaction(request_id, 'decode_ok', image_bytes=len(result.image))
+        return result
+    nano_image = operation == 'images.generate' and model['id'] == NANO_BANANA_2
+    deadline = 150 if nano_image else 25
+    try:
+        async with asyncio.timeout(deadline):
+            if client is not None:
+                return await call(client)
+            async with httpx.AsyncClient(timeout=httpx.Timeout(140, connect=10) if nano_image else 20, trust_env=False) as http:
+                return await call(http)
+    except httpx.HTTPStatusError as error:
+        trace_interaction(request_id, 'http_error', status=error.response.status_code)
+        raise Rejected(f'CLODEX вернул HTTP {error.response.status_code}.') from None
+    except (httpx.TimeoutException, TimeoutError) as error:
+        trace_interaction(request_id, 'timeout', error_type=type(error).__name__)
+        raise Rejected('CLODEX не ответил вовремя. Статус генерации неизвестен. Автоповтора нет.') from None
+    except httpx.RequestError as error:
+        trace_interaction(request_id, 'network_error', error_type=type(error).__name__)
+        raise Rejected('Сетевая ошибка при запросе к CLODEX. Автоповтора нет.') from None
+    except ValueError:
+        trace_interaction(request_id, 'invalid_json')
+        raise Rejected('CLODEX вернул ответ, который не удалось прочитать как JSON. Автоповтора нет.') from None
