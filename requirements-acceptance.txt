@@ -50,9 +50,13 @@ multidict==7.2.1
     # via
     #   aiohttp
     #   yarl
+numpy==2.5.4
+    # via simplejpeg
 packaging==26.3
     # via pytest
 pglast==8.7
+pillow==13.0.0
+    # via elevenbot
 pluggy==1.7.0
     # via pytest
 propcache==0.5.4
@@ -68,6 +72,8 @@ pygments==2.21.0
 pytest==9.2.0
     # via pytest-asyncio
 pytest-asyncio==1.4.1.post1
+simplejpeg==1.9.0
+    # via elevenbot
 socksio==1.0.0
     # via httpx
 typing-extensions==4.16.0
