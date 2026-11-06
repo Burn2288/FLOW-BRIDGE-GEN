@@ -8,6 +8,7 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = (
+    "AGENTS.md",
     "README.md",
     "CONTRIBUTING.md",
     "docs/README.md",
