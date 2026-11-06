@@ -72,18 +72,21 @@ class Service:
     async def reserve_interaction(self,u,update_id,*,operation,model_id):
         async with self.pool.acquire() as c,c.transaction():
             await self.authorize(c,u)
-            await c.execute('SELECT pg_advisory_xact_lock(921186)')
-            if await c.fetchval('SELECT halted FROM settings WHERE id=1 FOR SHARE'):
-                raise Rejected('Запуск временно остановлен.')
             unlimited=operation=='images.generate' and model_id=='nano-banana-2'
-            if not unlimited and (
-                await c.fetchval('SELECT count(*) FROM interaction_attempts WHERE NOT unlimited')>=self.cfg.interaction_limit
-            ):
-                raise Rejected('Лимит запросов пилота исчерпан.')
-            return bool(await c.fetchval(
-                'INSERT INTO interaction_attempts(update_id,user_id,unlimited) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING update_id',
-                update_id,u,unlimited,
-            ))
+            return await self.reserve_interaction_on(c,u,update_id,unlimited=unlimited)
+
+    async def reserve_interaction_on(self,c,u,update_id,*,unlimited):
+        await c.execute('SELECT pg_advisory_xact_lock(921186)')
+        if await c.fetchval('SELECT halted FROM settings WHERE id=1 FOR SHARE'):
+            raise Rejected('Запуск временно остановлен.')
+        if not unlimited and (
+            await c.fetchval('SELECT count(*) FROM interaction_attempts WHERE NOT unlimited')>=self.cfg.interaction_limit
+        ):
+            raise Rejected('Лимит запросов пилота исчерпан.')
+        return bool(await c.fetchval(
+            'INSERT INTO interaction_attempts(update_id,user_id,unlimited) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING update_id',
+            update_id,u,unlimited,
+        ))
 
     async def grant_speech_pilot_credit(self,external,amount):
         if (
@@ -186,6 +189,10 @@ class Service:
                     SELECT id,'succeeded',NULL,created_at,'image',model_id,true
                     FROM image_works WHERE user_id=$1 AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
+                    UNION ALL
+                    SELECT id,'succeeded',NULL,created_at,'video',model_id,true
+                    FROM video_jobs WHERE user_id=$1 AND status='succeeded' AND expires_at>now()
+                    AND ($3::text IS NULL OR model_id=$3)
                 ) works ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $2
                 """,u,max(0,offset),model_id)
 
@@ -206,6 +213,16 @@ class Service:
             row=await c.fetchrow("""
                 SELECT prompt,image,filename FROM image_works
                 WHERE id=$1 AND user_id=$2 AND expires_at>now()
+                """,uid(j),u)
+            if not row:raise Rejected('Файл недоступен или срок хранения истёк.')
+            return row
+
+    async def video_work(self,u,j):
+        async with self.pool.acquire() as c:
+            await self.authorize(c,u)
+            row=await c.fetchrow("""
+                SELECT prompt,video,'veo.mp4' AS filename FROM video_jobs
+                WHERE id=$1 AND user_id=$2 AND status='succeeded' AND expires_at>now()
                 """,uid(j),u)
             if not row:raise Rejected('Файл недоступен или срок хранения истёк.')
             return row
