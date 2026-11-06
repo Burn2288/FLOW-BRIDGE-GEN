@@ -69,14 +69,18 @@ async def main():
         if a.command=='bot':
             if not cfg.token:raise ValueError('TELEGRAM_BOT_TOKEN required')
             async with make_bot(cfg) as bot:
-                task=None
+                tasks=[]
                 if cfg.catalogue_enabled:
                     from .discovery import refresh_loop
-                    task=asyncio.create_task(refresh_loop(cfg))
+                    tasks.append(asyncio.create_task(refresh_loop(cfg)))
+                if cfg.video_pilot:
+                    from .video import VideoPilot
+                    tasks.append(asyncio.create_task(VideoPilot(pool,cfg).loop(bot)))
                 try:await poll(pool,cfg,bot)
                 finally:
-                    if task:
-                        task.cancel();await asyncio.gather(task,return_exceptions=True)
+                    for task in tasks:
+                        task.cancel()
+                    await asyncio.gather(*tasks,return_exceptions=True)
         else:
             provider=MockProvider() if cfg.mode=='mock' else DisabledProvider() if cfg.mode=='catalogue' else ClodexProvider(cfg)
             try:
