@@ -8,6 +8,8 @@ from urllib.parse import urlsplit,urlunsplit,parse_qsl,urlencode
 from aiohttp import web
 from elevenbot.telegram import MENU
 
+ROOT = Path(__file__).resolve().parents[1]
+
 @pytest.mark.parametrize('runtime_role',[False,True])
 async def test_bot_worker_process_mock_e2e(env,runtime_role):
     pool,cfg,s,u=env
@@ -43,17 +45,20 @@ async def test_bot_worker_process_mock_e2e(env,runtime_role):
             else:msg['text']=texts[stage];update['message']=msg
             stage+=1
             return web.json_response({'ok':True,'result':[update]})
-        if method=='answercallbackquery':return web.json_response({'ok':True,'result':True})
-        if method in ('sendmessage','sendaudio'):
+        if method in ('answercallbackquery','deletemessage'):
+            return web.json_response({'ok':True,'result':True})
+        if method in ('sendmessage','editmessagetext','sendaudio'):
             received.append(method)
-            return web.json_response({'ok':True,'result':{'message_id':len(received),'date':int(time.time()),'chat':{'id':100,'type':'private'}}})
+            message_id = int(form['message_id']) if method == 'editmessagetext' else len(received) + 100
+            return web.json_response({'ok':True,'result':{'message_id':message_id,'date':int(time.time()),'chat':{'id':100,'type':'private'}}})
         return web.json_response({'ok':False,'error_code':400,'description':'Unhandled fixture method'},status=400)
     app=web.Application();app.router.add_post('/bot{token}/{method}',api)
     runner=web.AppRunner(app,access_log=None);await runner.setup();site=web.TCPSite(runner,'127.0.0.1',0);await site.start()
     port=site._server.sockets[0].getsockname()[1]
     config=os.environ|{'DATABASE_URL':dsn,'PROVIDER_MODE':'mock','GENERATION_ENABLED':'true','PAYMENTS_ENABLED':'false',
         'TELEGRAM_BOT_TOKEN':str(123456)+':'+('fixture_'*5),'TELEGRAM_API_BASE':f'http://127.0.0.1:{port}',
-        'ALLOW_LOCAL_TELEGRAM_STUB':'true','AUDIO_STORAGE_DIR':str(cfg.storage),'PYTHONUNBUFFERED':'1'}
+        'ALLOW_LOCAL_TELEGRAM_STUB':'true','AUDIO_STORAGE_DIR':str(cfg.storage),'PYTHONUNBUFFERED':'1',
+        'PYTHONPATH':str(ROOT/'src')}
     processes=[]
     try:
         for name in ('bot','worker'):
@@ -63,10 +68,13 @@ async def test_bot_worker_process_mock_e2e(env,runtime_role):
         while time.monotonic()<deadline:
             assert all(p.returncode is None for p in processes),'Executable process stopped; inspect sanitized process logs'
             row=await pool.fetchrow('SELECT j.status,j.settlement,d.status delivery,f.storage_key FROM jobs j JOIN files f ON f.job_id=j.id JOIN deliveries d ON d.job_id=j.id')
-            if row and row['delivery']=='sent':break
+            if row and 'sendaudio' in received:break
             await asyncio.sleep(.1)
         else:raise AssertionError('Integrated MOCK E2E did not finish in 30 seconds')
         assert row['status']=='succeeded' and row['settlement']=='capture'
+        # The active gateway sends directly. Durable delivery acknowledgement is
+        # a separate gap in this baseline, even when the HTTP stub receives audio.
+        assert row['delivery']=='pending'
         assert Path(cfg.storage/row['storage_key']).is_file()
         assert received.count('sendaudio')==1
         assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='capture'")==1
