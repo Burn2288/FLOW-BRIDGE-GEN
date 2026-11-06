@@ -2,14 +2,19 @@
 import asyncio
 import base64
 import binascii
+from io import BytesIO
 import json
 import socket
+import struct
 from ipaddress import ip_address
 import time
+import zlib
 from contextvars import ContextVar
 from dataclasses import dataclass
 
 import httpx
+from PIL import Image
+from simplejpeg import decode_jpeg, decode_jpeg_header
 
 from .core import Rejected
 
@@ -17,6 +22,11 @@ provider_request_id = ContextVar('provider_request_id', default=None)
 
 TEXT_LIMIT = 6000
 IMAGE_LIMIT = 5 * 1024 * 1024
+IMAGE_MAX_SIDE = 8192
+IMAGE_MAX_PIXELS = 4096 * 4096
+IMAGE_MAX_FRAMES = 64
+PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
+PNG_END = b'\x00\x00\x00\x00IEND\xae\x42\x60\x82'
 PATHS = {'chat': '/v1/chat/completions', 'images.generate': '/v1/images/generations'}
 PROTOCOLS = {'chat': 'openai', 'images.generate': 'image-generation'}
 NANO_BANANA_2 = 'nano-banana-2'
@@ -64,12 +74,80 @@ def decode_result(operation, payload):
     raise Rejected('CLODEX вернул неподдерживаемый результат.')
 
 
+def _check_image_size(width, height, frames=1):
+    if not (1 <= width <= IMAGE_MAX_SIDE and 1 <= height <= IMAGE_MAX_SIDE
+            and 1 <= frames <= IMAGE_MAX_FRAMES
+            and width * height * frames <= IMAGE_MAX_PIXELS):
+        raise ValueError('Image dimensions exceed the decode budget')
+
+
+def _verify_png_streams(image, remaining):
+    # Pillow can finish reading pixels before zlib has validated the stream trailer.
+    source = memoryview(image)
+    offset = len(PNG_SIGNATURE)
+    stream = None
+    while offset < len(source):
+        length, kind = struct.unpack_from('>I4s', source, offset)
+        start = offset + 8
+        offset = start + length + 4  # Include the chunk CRC.
+        if offset > len(source):
+            raise ValueError('Truncated PNG chunk')
+        if kind in (b'fcTL', b'IEND'):
+            if stream is not None and not stream.eof:
+                raise ValueError('Incomplete PNG compression stream')
+            stream = None
+        if kind == b'IEND':
+            if offset == len(source):
+                return
+            break
+        if kind not in (b'IDAT', b'fdAT'):
+            continue
+        if stream is None:
+            stream = zlib.decompressobj()
+        # APNG frame data starts with a four-byte sequence number.
+        data = source[start + (4 if kind == b'fdAT' else 0):start + length]
+        while data:
+            remaining -= len(stream.decompress(data, 65536))
+            if remaining < 0 or stream.unused_data:
+                raise ValueError('Invalid or oversized PNG compression stream')
+            data = stream.unconsumed_tail
+    raise ValueError('Invalid PNG end chunk')
+
+
+def _verify_png(image):
+    if image[8:16] != b'\x00\x00\x00\x0dIHDR' or not image.endswith(PNG_END):
+        raise ValueError('Invalid PNG boundaries')
+    width, height = struct.unpack_from('>II', image, 16)
+    _check_image_size(width, height)
+    with Image.open(BytesIO(image), formats=('PNG',)) as decoded:
+        frames = decoded.n_frames
+        _check_image_size(width, height, frames)
+        decoded.verify()
+    # At most eight channel bytes and one row-filter byte per pixel.
+    _verify_png_streams(image, width * height * frames * 9)
+    # verify() checks PNG chunks. Reopen and decode the pixels as well.
+    with Image.open(BytesIO(image), formats=('PNG',)) as decoded:
+        for frame in range(frames):
+            decoded.seek(frame)
+            decoded.load()
+
+
 def image_result(image):
-    if 0 < len(image) <= IMAGE_LIMIT:
-        if image.startswith(b'\x89PNG\r\n\x1a\n'):
-            return Result(image=image, filename='result.png')
-        if image.startswith(b'\xff\xd8\xff') and image.endswith(b'\xff\xd9'):
-            return Result(image=image, filename='result.jpg')
+    try:
+        if 0 < len(image) <= IMAGE_LIMIT:
+            if image.startswith(PNG_SIGNATURE):
+                _verify_png(image)
+                return Result(image=image, filename='result.png')
+            if image.startswith(b'\xff\xd8\xff') and image.endswith(b'\xff\xd9'):
+                height, width, colorspace, _ = decode_jpeg_header(image, strict=True)
+                _check_image_size(width, height)
+                # Reject recoverable decoder errors, including truncated scan data with a valid EOI.
+                output = 'CMYK' if colorspace in ('CMYK', 'YCCK') else 'RGB'
+                decode_jpeg(image, colorspace=output, strict=True)
+                return Result(image=image, filename='result.jpg')
+    except (OSError, ValueError, SyntaxError, EOFError, struct.error, zlib.error,
+            Image.DecompressionBombError):
+        pass
     raise Rejected('CLODEX вернул неподдерживаемое изображение.')
 
 
@@ -115,7 +193,7 @@ async def download_image(http, url, request_id):
                         if len(image) + len(part) > IMAGE_LIMIT:
                             raise ValueError('Image too large')
                         image.extend(part)
-                    result = image_result(bytes(image))
+                    result = await asyncio.to_thread(image_result, bytes(image))
                     trace_interaction(request_id, 'image_download_ok', image_bytes=len(image))
                     return result
                 finally:
@@ -197,7 +275,10 @@ async def execute(operation, model, prompt, history, *, mode, key='', client=Non
         payload = json.loads(raw)
         trace_interaction(request_id, 'response_shape', **response_shape(payload))
         try:
-            result = decode_result(operation, payload)
+            if operation == 'images.generate':
+                result = await asyncio.to_thread(decode_result, operation, payload)
+            else:
+                result = decode_result(operation, payload)
         except Rejected:
             url = image_url(payload) if operation == 'images.generate' else None
             if not url:
