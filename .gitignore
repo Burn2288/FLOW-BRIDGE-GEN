@@ -218,3 +218,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local Flow-Bridge-Gen configuration and test artifacts
+.env.*
+!.env.example
+/.local/
+*.env
+*.env.*
+!.env.example
+*.dump
+*.credentials.json
+/private-db/
+/data/
+/reports/
+/source.bundle
+/.acceptance-venv/
+/.demo-venv/

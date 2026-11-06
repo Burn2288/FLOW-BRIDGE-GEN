@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "title": "CLODEX Docs V2",
+  "description": "Машиночитаемая документация CLODEX API: протоколы, модели, SDK, CLI, биллинг, надёжность и безопасность.",
+  "url": "https://clodex.xyz/docs-v2",
+  "markdown_url": "https://clodex.xyz/docs-v2.md",
+  "json_url": "https://clodex.xyz/docs-v2.json",
+  "language": "ru",
+  "updated": "2026-10-24",
+  "api_roots": {
+    "openai_compatible": "https://clodex.xyz/v1",
+    "anthropic_compatible": "https://clodex.xyz"
+  },
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Обзор платформы",
+      "summary": "Единый API gateway для GPT, Claude, Gemini, Grok и других моделей.",
+      "details": [
+        "CLODEX предоставляет единый аккаунт, API-ключи, баланс, usage-логи и маршруты OpenAI-compatible и Anthropic-compatible.",
+        "Доступность, лимиты и цены зависят от группы пользователя, ключа и активных каналов. Источник истины — /pricing и авторизованный /v1/models."
+      ],
+      "links": [
+        "/pricing",
+        "/docs",
+        "/v1/models"
+      ]
+    },
+    {
+      "id": "quickstart",
+      "title": "Быстрый старт",
+      "summary": "Создайте ключ и выполните первый запрос через OpenAI SDK или cURL.",
+      "details": [
+        "Для OpenAI SDK используйте base_url=https://clodex.xyz/v1 и API-ключ CLODEX.",
+        "Начните с короткого non-streaming запроса, затем отдельно проверьте streaming, ошибки и tool calls."
+      ],
+      "examples": [
+        "curl https://clodex.xyz/v1/responses -H \"Authorization: Bearer clodex_YOUR_KEY\" -H \"Content-Type: application/json\" -d '{\"model\":\"gpt-5.6-sol\",\"input\":\"Проверь этот запрос\"}'"
+      ],
+      "links": [
+        "/pricing",
+        "/docs#quickstart"
+      ]
+    },
+    {
+      "id": "authentication",
+      "title": "Авторизация",
+      "summary": "Ключи передаются в Authorization Bearer и не должны попадать в браузерный код.",
+      "details": [
+        "OpenAI-compatible: Authorization: Bearer clodex_YOUR_KEY.",
+        "Anthropic-compatible: x-api-key: clodex_YOUR_KEY или Authorization в зависимости от клиента.",
+        "Храните ключи только на сервере, выпускайте отдельный ключ на приложение и отзывайте скомпрометированные ключи."
+      ],
+      "links": [
+        "/docs#authentication",
+        "/profile",
+        "/keys"
+      ]
+    },
+    {
+      "id": "models",
+      "title": "Модели и capabilities",
+      "summary": "Каталог моделей и поддерживаемые операции нужно проверять перед запуском production-трафика.",
+      "details": [
+        "GET https://clodex.xyz/v1/models возвращает модели, доступные конкретному ключу.",
+        "Не подменяйте модель молча: если выбранная модель недоступна, возвращайте явную ошибку или используйте заранее определённый fallback.",
+        "Возможности chat, reasoning, tools, images, audio и video могут различаться между каналами."
+      ],
+      "links": [
+        "/pricing",
+        "/v1/models"
+      ]
+    },
+    {
+      "id": "reasoning",
+      "title": "Reasoning: Max и Ultra",
+      "summary": "Ultra — клиентский режим, а не серверная ступень выше max.",
+      "details": [
+        "GPT-6 Astra поддерживает серверные reasoning low, medium, high, xhigh и max. Отдельного API-уровня ultra нет.",
+        "gpt-6.1-sol доступна в каталоге Codex App с контекстом 200 000 токенов и reasoning low, medium, high, xhigh, max и ultra; ultra остаётся клиентским multi-agent режимом Codex.",
+        "В поддерживающем Ultra клиенте Codex этот режим включает максимальное reasoning и проактивных субагентов; запрос к API содержит max. Доступность зависит от модели, клиента и аккаунта.",
+        "CLODEx Web Chat может отправить ultra; на GPT-маршруте через CodexLB ultra преобразуется в max. Max и xhigh передаются без такого преобразования. Принудительная политика ключа или канала может переопределить effort.",
+        "Web Chat и CodexLB не запускают субагентов от одного значения ultra. Для сырого API запроса указывайте max: Responses использует reasoning.effort, а Chat Completions — reasoning_effort.",
+        "Запись max в usage-логе не различает Max и Ultra, если клиент нормализовал значение до отправки запроса."
+      ],
+      "examples": [
+        "curl https://clodex.xyz/v1/responses -H \"Authorization: Bearer $CLODEX_API_KEY\" -H \"Content-Type: application/json\" -d '{\"model\":\"gpt-6.1-sol\",\"input\":\"Explain this algorithm.\",\"reasoning\":{\"effort\":\"max\"}}'"
+      ],
+      "links": [
+        "/docs#reasoning",
+        "/v1/models/gpt-6.1-sol",
+        "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+        "https://developers.openai.com/api/docs/models/gpt-6-astra",
+        "https://learn.chatgpt.com/docs/models"
+      ]
+    },
+    {
+      "id": "responses",
+      "title": "Responses API",
+      "summary": "Основной OpenAI-compatible маршрут для типизированного ввода, streaming и tools.",
+      "details": [
+        "POST https://clodex.xyz/v1/responses принимает model и input.",
+        "Для streaming обрабатывайте SSE-события и требуйте финальное событие завершения.",
+        "Перед выполнением tool call проверьте JSON-аргументы, модель и права пользователя."
+      ],
+      "links": [
+        "/docs#responses",
+        "/v1/responses"
+      ]
+    },
+    {
+      "id": "chat-completions",
+      "title": "Chat Completions",
+      "summary": "Совместимый маршрут для существующих OpenAI-клиентов и простых диалогов.",
+      "details": [
+        "POST https://clodex.xyz/v1/chat/completions принимает messages и model.",
+        "Проверяйте finish_reason, ошибки upstream и terminal event в streaming-ответе.",
+        "Для новых agent-сценариев предпочтительнее Responses API, если его поддерживает выбранная модель."
+      ],
+      "links": [
+        "/docs#chat-completions",
+        "/v1/chat/completions"
+      ]
+    },
+    {
+      "id": "anthropic-messages",
+      "title": "Anthropic Messages",
+      "summary": "Anthropic-compatible endpoint для Claude SDK и Claude Code.",
+      "details": [
+        "POST https://clodex.xyz/v1/messages используется через base URL https://clodex.xyz.",
+        "Обычный ключ UNIFIED маршрутизирует Claude через CLAUDE_AWS. Включение Claude MAX у ключа создаёт scope [\"UNIFIED\",\"CLAUDE_MAX\"] и полностью заменяет Claude-маршрут на CLAUDE_MAX без fallback на AWS; остальные семейства моделей остаются в UNIFIED.",
+        "Сохраняйте content blocks, обрабатывайте tool_use и ждите обязательное message_stop в streaming."
+      ],
+      "links": [
+        "/claude-api",
+        "/claude-code-api",
+        "/docs#anthropic-messages"
+      ]
+    },
+    {
+      "id": "embeddings-rerank",
+      "title": "Embeddings и Rerank",
+      "summary": "Векторизация и переупорядочивание документов для поиска и RAG.",
+      "details": [
+        "Проверьте доступную embedding-модель через авторизованный каталог и не смешивайте векторы разных размерностей.",
+        "Индексируйте документы небольшими чанками, сохраняйте model и vector dimension рядом с индексом."
+      ],
+      "links": [
+        "/docs#embeddings-rerank",
+        "/v1/embeddings"
+      ]
+    },
+    {
+      "id": "images",
+      "title": "Images API",
+      "summary": "Генерация и редактирование изображений с учётом capability выбранной модели.",
+      "details": [
+        "Параметры image-моделей различаются: проверяйте размер, формат, качество и поддержку image input.",
+        "Большие результаты сохраняйте в собственное object storage и возвращайте клиенту контролируемую ссылку."
+      ],
+      "links": [
+        "/docs#images",
+        "/chat/images"
+      ]
+    },
+    {
+      "id": "audio",
+      "title": "Audio API",
+      "summary": "Синхронный и асинхронный TTS (ElevenLabs, MiniMax, CapCut, Qwen), клонирование голоса MiniMax по API, Speech-to-Speech, AI Dubbing, генерация музыки/SFX, транскрипция и Realtime WebSocket.",
+      "details": [
+        "POST https://clodex.xyz/v1/audio/speech синтезирует речь синхронно и возвращает MP3 (заголовок X-Clodex-Usage-Characters содержит число учтённых символов). Поддерживаются все модели ElevenLabs (eleven_v4, eleven_v4_turbo, eleven_v3, eleven_multilingual_v2, eleven_turbo_v2_5, eleven_flash_v2_5), MiniMax (speech-2.8-hd, speech-2.8-turbo, speech-2.6-hd, speech-2.6-turbo, speech-02-hd, speech-02-turbo), CapCut (capcut-tts) и Qwen (qwen-audio-3.0-tts-plus).",
+        "Клонированные голоса MiniMax (созданные в Studio или через POST /v1/audio/clones) полностью доступны по API: вызовите GET /v1/audio/clones или GET /v1/audio/voices?provider=minimax&source=cloned и передайте полученный id (voice_id) в поле voice в POST /v1/audio/speech или POST /v1/audios.",
+        "Управление клонами голоса по API (Bearer sk-...): GET /v1/audio/clones (список клонов), POST /v1/audio/clones (multipart/form-data: file, voice_name, language_tag, gender, need_noise_reduction, preview_text; $0.20 за клон), DELETE /v1/audio/clones/:id (удаление), GET /v1/audio/clones/sample?path=... (аудио-превью).",
+        "Асинхронные аудио-сервисы по API: POST /v1/audio/voice-changer (Speech-to-Speech смена голоса на eleven_multilingual_sts_v2, $0.16/мин), POST /v1/audio/dubbing/upload/{init,chunk,complete} (AI Video & Audio Dubbing на clodex-ai-dubbing, $0.48/мин), POST /v1/audios (Seed Audio 1.0, Music v1 и асинхронные TTS-задачи), POST /v1/audios/estimate (расчёт цены), GET /v1/audios/:task_id (статус задачи) и GET /v1/audios/:task_id/content?index=0 (скачивание результата).",
+        "Транскрипция и перевод: POST /v1/audio/transcriptions (qwen-audio-3.0-asr-flash, $0.002/мин) и POST /v1/audio/translations; потоковое голосовое общение — WSS /v1/realtime?model=qwen-audio-3.0-realtime-plus."
+      ],
+      "examples": [
+        "curl https://clodex.xyz/v1/audio/clones -H \"Authorization: Bearer $CLODEX_API_KEY\"",
+        "curl -X POST https://clodex.xyz/v1/audio/clones -H \"Authorization: Bearer $CLODEX_API_KEY\" -F \"file=@sample.mp3\" -F \"voice_name=MyVoice\" -F \"language_tag=Russian\" -F \"gender=Male\"",
+        "curl https://clodex.xyz/v1/audio/speech -H \"Authorization: Bearer $CLODEX_API_KEY\" -H \"Content-Type: application/json\" -d '{\"model\":\"speech-2.8-hd\",\"voice\":\"YOUR_CLONED_VOICE_ID\",\"language_code\":\"ru\",\"input\":\"Привет! Это клонированный голос MiniMax по API.\"}' --output speech.mp3"
+      ],
+      "links": [
+        "/docs#audio",
+        "/v1/audio/voices",
+        "/v1/audio/clones"
+      ]
+    },
+    {
+      "id": "video",
+      "title": "Video API",
+      "summary": "Асинхронная генерация видео (Text-to-Video, Image-to-Video, Video-to-Video), polling статуса и получение результата.",
+      "details": [
+        "Все видеомодели через API оплачиваются только с переводимого платного баланса кошелька, включая средства после подтверждённого пополнения. Промобаланс, CLODEx Credits и лимит подписки не используются.",
+        "Поддерживаются режимы Text-to-Video, Image-to-Video (image / images / end_frame) и Video-to-Video (video_url / video / videos — ссылка или data:video/mp4;base64,... до 30 МБ для 13 моделей: Seedance 2.5/2.0/2.0-fast/2.0-mini, Wan 3.0/2.7/2.6, Kling O3/O1, MiniMax H3, Gemini Omni 1.1 Flash, FLUX 3, Happy Horse 1.0).",
+        "Генерация видео может завершаться существенно позже выдачи generation ID: слот аккаунта удерживается до terminal status.",
+        "Результат нужно скачать потоково в приватное S3/R2-хранилище, не записывая временный upstream URL в логи.",
+        "При timeout используйте idempotency и ограниченный retry, не создавая дубликаты генерации."
+      ],
+      "links": [
+        "/video",
+        "/studio-v2",
+        "/docs#video"
+      ]
+    },
+    {
+      "id": "sdks",
+      "title": "SDK и cURL",
+      "summary": "Примеры подключения для Python, JavaScript, Go и raw HTTP.",
+      "details": [
+        "Большинство OpenAI SDK подключаются заменой api_key и base_url.",
+        "Не встраивайте ключ в browser bundle, мобильное приложение или публичный репозиторий."
+      ],
+      "links": [
+        "/docs#sdks",
+        "/openai-compatible-api"
+      ]
+    },
+    {
+      "id": "ide-cli",
+      "title": "IDE и CLI",
+      "summary": "CLODEx можно использовать в Codex, Claude Code, Cursor, Cline и OpenCode.",
+      "details": [
+        "OpenAI-compatible clients используют https://clodex.xyz/v1; Claude Code использует https://clodex.xyz.",
+        "В IDE задайте отдельный ключ, модель и лимит расходов для проекта."
+      ],
+      "links": [
+        "/claude-code-api",
+        "/connect",
+        "/docs#ide-cli"
+      ]
+    },
+    {
+      "id": "connect-cli",
+      "title": "CLODEx Connect",
+      "summary": "Device login и безопасная настройка клиентов без передачи ключа в чат.",
+      "details": [
+        "Используйте официальный пакет Connect и проверяйте подпись релиза перед установкой.",
+        "Команда doctor помогает проверить endpoint, авторизацию, модель и сетевое соединение."
+      ],
+      "links": [
+        "/connect",
+        "/docs#connect-cli"
+      ]
+    },
+    {
+      "id": "web-products",
+      "title": "Web-продукты",
+      "summary": "Chat, Coding, Studio, Design, Images, Clone и связанные рабочие пространства.",
+      "details": [
+        "Веб-продукты используют аккаунт CLODEX и не раскрывают API-ключ браузеру.",
+        "Доступ к продуктам и моделям может зависеть от авторизации, группы и баланса.",
+        "Все платные AI-операции внутри CLODEx Studio списываются только с платного баланса. Промобаланс, CLODEx Credits и лимит подписки для Studio не используются."
+      ],
+      "links": [
+        "/chat/clodex",
+        "/coding",
+        "/studio",
+        "/design",
+        "/video"
+      ]
+    },
+    {
+      "id": "account-api",
+      "title": "Account API",
+      "summary": "Аккаунт, ключи, quota и dashboard endpoints для собственных интеграций.",
+      "details": [
+        "Dashboard API не является публичным backend для конечных клиентов: передавайте операции через собственный авторизованный сервер.",
+        "Проверяйте владельца ключа и не принимайте user ID или token из непроверенного запроса."
+      ],
+      "links": [
+        "/docs#account-api",
+        "/keys",
+        "/profile"
+      ]
+    },
+    {
+      "id": "billing-usage",
+      "title": "Billing и Usage",
+      "summary": "Баланс, quota, cache tokens, списания и usage-логи.",
+      "details": [
+        "Платный баланс — переводимые средства кошелька, включая средства после подтверждённого пополнения. Промобаланс хранится отдельно и доступен только в поддерживаемых сервисах.",
+        "CLODEx Studio и все видеомодели используют только платный баланс; перед запуском проверяйте quote и доступный платный остаток.",
+        "Стоимость может включать input, output, cache read, reasoning или Fixed Usage в зависимости от модели.",
+        "Используйте usage logs и request ID как источник диагностики фактического списания.",
+        "Не фиксируйте цены в клиентском коде: публичный каталог и биллинг могут обновляться."
+      ],
+      "links": [
+        "/pricing",
+        "/billing",
+        "/usage-logs/common"
+      ]
+    },
+    {
+      "id": "errors",
+      "title": "Ошибки и retry",
+      "summary": "Единый разбор статусов, rate limit, timeout и upstream ошибок.",
+      "details": [
+        "Сохраняйте request ID, HTTP status, code и безопасное сообщение ошибки.",
+        "Повторяйте только классифицированные transient errors с exponential backoff и ограниченным числом попыток.",
+        "Ошибки auth, quota, validation и policy нельзя повторять вслепую."
+      ],
+      "links": [
+        "/docs#errors",
+        "/support"
+      ]
+    },
+    {
+      "id": "reliability",
+      "title": "Streaming и надёжность",
+      "summary": "Timeout, SSE, idempotency, polling и circuit breaker.",
+      "details": [
+        "Разделяйте connect timeout, response timeout и общий deadline операции.",
+        "EOF без terminal event считайте неполным ответом; безопасно завершайте или повторяйте только идемпотентную операцию.",
+        "Для async generation используйте lifecycle-aware scheduler и удерживайте concurrency slot до terminal status."
+      ],
+      "links": [
+        "/docs#reliability",
+        "/support"
+      ]
+    },
+    {
+      "id": "security",
+      "title": "Безопасность",
+      "summary": "Хранение ключей, приватность prompt и безопасные интеграции.",
+      "details": [
+        "Не логируйте Authorization, API keys, refresh tokens и чувствительные prompt без явного обоснования.",
+        "Ограничивайте модели, budget, payload size и инструменты на стороне приложения.",
+        "При компрометации ключа немедленно отзовите его и выпустите новый."
+      ],
+      "links": [
+        "/privacy",
+        "/docs#security"
+      ]
+    },
+    {
+      "id": "support",
+      "title": "Диагностика и поддержка",
+      "summary": "Как подготовить обращение, чтобы быстро разобрать проблему.",
+      "details": [
+        "Приложите request ID, дату и часовой пояс, endpoint, модель, HTTP status и безопасный фрагмент ошибки.",
+        "Не присылайте пароль, 2FA, полный API-ключ, cookies или приватные prompt."
+      ],
+      "links": [
+        "/support",
+        "https://t.me/clodex_labs"
+      ]
+    }
+  ]
+}

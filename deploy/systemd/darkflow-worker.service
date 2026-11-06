@@ -1,0 +1,33 @@
+[Unit]
+Description=DarkFlow Gen worker
+After=postgresql.service network-online.target darkflow-migrate.service
+Wants=network-online.target
+Requires=postgresql.service
+Requires=darkflow-migrate.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=darkflow
+Group=darkflow
+WorkingDirectory=/opt/darkflow
+Environment=PYTHONPATH=/opt/darkflow/src
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=/etc/darkflow/runtime.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/darkflow/.venv/bin/python -m elevenbot worker
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+StateDirectory=darkflow
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/darkflow
+
+[Install]
+WantedBy=multi-user.target
