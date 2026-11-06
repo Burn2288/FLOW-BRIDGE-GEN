@@ -27,6 +27,11 @@ IMAGE_MAX_PIXELS = 4096 * 4096
 IMAGE_MAX_FRAMES = 64
 PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
 PNG_END = b'\x00\x00\x00\x00IEND\xae\x42\x60\x82'
+PNG_CHANNELS = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}
+ADAM7_PASSES = (
+    (0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4),
+    (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2),
+)
 PATHS = {'chat': '/v1/chat/completions', 'images.generate': '/v1/images/generations'}
 PROTOCOLS = {'chat': 'openai', 'images.generate': 'image-generation'}
 NANO_BANANA_2 = 'nano-banana-2'
@@ -81,11 +86,23 @@ def _check_image_size(width, height, frames=1):
         raise ValueError('Image dimensions exceed the decode budget')
 
 
-def _verify_png_streams(image, remaining):
+def _png_scanline_bytes(width, height, bits_per_pixel, interlaced):
+    passes = ADAM7_PASSES if interlaced else ((0, 0, 1, 1),)
+    total = 0
+    for x, y, dx, dy in passes:
+        if x < width and y < height:
+            columns = (width - x + dx - 1) // dx
+            rows = (height - y + dy - 1) // dy
+            total += rows * (1 + (columns * bits_per_pixel + 7) // 8)
+    return total
+
+
+def _verify_png_streams(image, canvas, bits_per_pixel, interlaced, frames_left):
     # Pillow can finish reading pixels before zlib has validated the stream trailer.
     source = memoryview(image)
     offset = len(PNG_SIGNATURE)
     stream = None
+    frame_size = None
     while offset < len(source):
         length, kind = struct.unpack_from('>I4s', source, offset)
         start = offset + 8
@@ -93,21 +110,34 @@ def _verify_png_streams(image, remaining):
         if offset > len(source):
             raise ValueError('Truncated PNG chunk')
         if kind in (b'fcTL', b'IEND'):
-            if stream is not None and not stream.eof:
+            if stream is not None and (not stream.eof or remaining != 0):
                 raise ValueError('Incomplete PNG compression stream')
             stream = None
+        if kind == b'fcTL':
+            if length != 26:
+                raise ValueError('Invalid APNG frame control')
+            frame_size = struct.unpack_from('>II', source, start + 4)
+            if not (0 < frame_size[0] <= canvas[0] and 0 < frame_size[1] <= canvas[1]):
+                raise ValueError('Invalid APNG frame size')
         if kind == b'IEND':
             if offset == len(source):
                 return
             break
         if kind not in (b'IDAT', b'fdAT'):
             continue
+        if kind == b'fdAT' and (length < 4 or frame_size is None):
+            raise ValueError('APNG frame data without frame control')
         if stream is None:
+            if frames_left == 0:
+                raise ValueError('Too many PNG compression streams')
+            frames_left -= 1
+            width, height = canvas if kind == b'IDAT' else frame_size
+            remaining = _png_scanline_bytes(width, height, bits_per_pixel, interlaced)
             stream = zlib.decompressobj()
         # APNG frame data starts with a four-byte sequence number.
         data = source[start + (4 if kind == b'fdAT' else 0):start + length]
         while data:
-            remaining -= len(stream.decompress(data, 65536))
+            remaining -= len(stream.decompress(data, min(65536, remaining + 1)))
             if remaining < 0 or stream.unused_data:
                 raise ValueError('Invalid or oversized PNG compression stream')
             data = stream.unconsumed_tail
@@ -117,14 +147,13 @@ def _verify_png_streams(image, remaining):
 def _verify_png(image):
     if image[8:16] != b'\x00\x00\x00\x0dIHDR' or not image.endswith(PNG_END):
         raise ValueError('Invalid PNG boundaries')
-    width, height = struct.unpack_from('>II', image, 16)
+    width, height, depth, color_type, _, _, interlace = struct.unpack_from('>IIBBBBB', image, 16)
     _check_image_size(width, height)
     with Image.open(BytesIO(image), formats=('PNG',)) as decoded:
         frames = decoded.n_frames
         _check_image_size(width, height, frames)
         decoded.verify()
-    # At most eight channel bytes and one row-filter byte per pixel.
-    _verify_png_streams(image, width * height * frames * 9)
+    _verify_png_streams(image, (width, height), depth * PNG_CHANNELS[color_type], interlace, frames)
     # verify() checks PNG chunks. Reopen and decode the pixels as well.
     with Image.open(BytesIO(image), formats=('PNG',)) as decoded:
         for frame in range(frames):

@@ -39,6 +39,61 @@ def encoded_image(format, size=(32, 32), mode="RGB", **options):
     return buffer.getvalue()
 
 
+def png_chunk(kind, data):
+    chunk = kind + data
+    return struct.pack(">I", len(data)) + chunk + struct.pack(">I", zlib.crc32(chunk))
+
+
+def png_header(width, height, bit_depth, color_type, interlace=0):
+    return PNG_SIGNATURE_ONLY + png_chunk(
+        b"IHDR", struct.pack(">IIBBBBB", width, height, bit_depth, color_type, 0, 0, interlace),
+    )
+
+
+def test_rejects_rgb_png_with_extra_scanline_byte():
+    # One filter byte plus one RGB pixel uses four bytes. Only the length is wrong.
+    png = (
+        png_header(1, 1, 8, 2)
+        + png_chunk(b"IDAT", zlib.compress(bytes(5)))
+        + png_chunk(b"IEND", b"")
+    )
+    with pytest.raises(Rejected):
+        interaction.image_result(png)
+
+
+@pytest.mark.parametrize(("size", "data_length"), [(1, 2), (9, 42)])
+def test_adam7_png_uses_packed_scanlines_of_nonempty_passes(size, data_length):
+    header = png_header(size, size, 1, 0, interlace=1)
+    end = png_chunk(b"IEND", b"")
+    compressed = zlib.compress(bytes(data_length))
+    original = header + png_chunk(b"IDAT", compressed[:-2]) + png_chunk(b"IDAT", compressed[-2:]) + end
+    assert interaction.image_result(original).image == original
+    with pytest.raises(Rejected):
+        interaction.image_result(header + png_chunk(b"IDAT", zlib.compress(bytes(data_length + 1))) + end)
+
+
+@pytest.mark.parametrize("default_image", [False, True])
+def test_apng_checks_each_frame_at_its_own_dimensions(default_image):
+    def frame_control(sequence, width, height, x=0, y=0):
+        return png_chunk(b"fcTL", struct.pack(">IIIIIHHBB", sequence, width, height, x, y, 1, 10, 0, 0))
+
+    # Three RGB pixels plus a filter byte in each of the two canvas rows.
+    start = png_header(3, 2, 8, 2) + png_chunk(b"acTL", struct.pack(">II", 1 if default_image else 2, 0))
+    if not default_image:
+        start += frame_control(0, 3, 2)
+    start += png_chunk(b"IDAT", zlib.compress(bytes(20)))
+    sequence = 0 if default_image else 1
+    start += frame_control(sequence, 1, 1, x=1, y=1)
+    frame_sequence = struct.pack(">I", sequence + 1)
+    end = png_chunk(b"IEND", b"")
+    original = start + png_chunk(b"fdAT", frame_sequence + zlib.compress(bytes(4))) + end
+    assert interaction.image_result(original).image == original
+    for wrong_length in (3, 5):
+        corrupt = start + png_chunk(b"fdAT", frame_sequence + zlib.compress(bytes(wrong_length))) + end
+        with pytest.raises(Rejected):
+            interaction.image_result(corrupt)
+
+
 @pytest.fixture
 def provider_stub(monkeypatch):
     def make(image, source):
