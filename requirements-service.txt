@@ -46,6 +46,10 @@ multidict==7.2.1
     # via
     #   aiohttp
     #   yarl
+numpy==2.5.4
+    # via simplejpeg
+pillow==13.0.0
+    # via elevenbot
 propcache==0.5.4
     # via
     #   aiohttp
@@ -54,6 +58,8 @@ pydantic==2.13.5
     # via aiogram
 pydantic-core==2.46.5
     # via pydantic
+simplejpeg==1.9.0
+    # via elevenbot
 socksio==1.0.0
     # via httpx
 typing-extensions==4.16.0

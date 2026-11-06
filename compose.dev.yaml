@@ -1,0 +1,36 @@
+name: flowbridge-dev
+services:
+  db:
+    image: postgres:16.15-bookworm
+    environment:
+      POSTGRES_PASSWORD: isolated-test-only
+      POSTGRES_DB: flowbridge_dev
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./scripts/dev_db.sql:/docker-entrypoint-initdb.d/10-acceptance.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U postgres -d flowbridge_dev']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    command: [python, -u, scripts/dev_bot.py]
+    environment:
+      DATABASE_URL: postgresql://postgres:isolated-test-only@db:5432/flowbridge_dev
+      TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@db:5432/flowbridge_acceptance
+      AUDIO_STORAGE_DIR: /home/tester/data/audio
+      PYTHONPATH: /app/src
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - runtime:/home/tester
+networks:
+  default:
+    internal: true
+volumes:
+  postgres:
+  runtime:
