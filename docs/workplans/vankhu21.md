@@ -17,3 +17,9 @@
 - [PR №8](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/8) в `main`, коммит `eaadb892227e6b731e4cebccb071b23c1b209b3b`. Включает PR №7 и проверенные правки smoke-стенда.
 - [GitHub Actions на коммите PR](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353362). Локально прошли 238 тестов с отдельной PostgreSQL и заглушками Telegram/CLODEX.
 - Для принятия нужны ревью Burn2288 и успешные проверки актуального коммита. `gpt-image-2` ожидает повторной проверки генерации в тестовой ветке.
+
+## Veo 3.1 · S1–S2
+
+- [PR №9](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/9), коммит `b5c1368cf9663bd0be43a1e9c0b65816c51fe61d`. Владелец задачи vankhu21. База — ветка PR №8 до его слияния.
+- На изолированной PostgreSQL прошли 243 теста. Оба варианта Veo, повторное подтверждение, восстановление по ID и выдача проверены заглушками. Платных запусков нет. [GitHub Actions](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728186).
+- Перед живой приёмкой подтвердить успешные форматы ответов создания, статуса и скачивания CLODEX. Пилот выключен по умолчанию.
