@@ -47,3 +47,8 @@
 - [PR №13](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/13) поверх PR №12, SHA `6c82761c5e4c42e1129934884c5b23030df4e090`. Владелец vankhu21. Fish Audio и русские пресеты AnyVoice, оценка по UTF-16, однократный POST и повторная выдача MP3.
 - На отдельной PostgreSQL прошли 266 тестов. [CI приложения](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956970) и [CI документации](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956974). На стенде применена миграция 016, живая озвучка выключена.
 - Fish Audio доступна по ключу по ставке 50 токенов баланса за единицу UTF-16. Для 54 русских голосов AnyVoice тариф не подтверждён, запуск закрыт. PR ожидает ревью.
+
+## Приветствие DarkFlow | Gen · S1
+
+- [PR №14](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/14) поверх PR №13, SHA стенда `08c2ac88cb4a8c2981625a135ca83f495f0cf5d6`. Владелец vankhu21.
+- PNG и приветствие в Telegram после согласия или повторного `/start`, рабочее меню при недоступном баннере. 269 тестов на отдельной PostgreSQL. [CI приложения](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42415168316) и [CI документации](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42415168177). PR ожидает ревью.
