@@ -198,14 +198,17 @@ class Service:
 
     async def save_image_work(self,u,update_id,model_id,prompt,result):
         async with self.pool.acquire() as c:
-            await self.authorize(c,u)
-            job=await c.fetchval("""
-                INSERT INTO image_works(id,update_id,user_id,model_id,prompt,image,filename)
-                VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(update_id) DO NOTHING RETURNING id
-                """,uuid.uuid4(),update_id,u,model_id,prompt,result.image,result.filename)
-            return job or await c.fetchval(
-                'SELECT id FROM image_works WHERE update_id=$1 AND user_id=$2',update_id,u
-            )
+            return await self.save_image_work_on(c,u,update_id,model_id,prompt,result)
+
+    async def save_image_work_on(self,c,u,update_id,model_id,prompt,result):
+        await self.authorize(c,u)
+        job=await c.fetchval("""
+            INSERT INTO image_works(id,update_id,user_id,model_id,prompt,image,filename)
+            VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(update_id) DO NOTHING RETURNING id
+            """,uuid.uuid4(),update_id,u,model_id,prompt,result.image,result.filename)
+        return job or await c.fetchval(
+            'SELECT id FROM image_works WHERE update_id=$1 AND user_id=$2',update_id,u
+        )
 
     async def image_work(self,u,j):
         async with self.pool.acquire() as c:
