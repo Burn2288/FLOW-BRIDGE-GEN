@@ -93,7 +93,7 @@ async def test_telegram_aggregate_preview_vertical_slice_and_cancel(tmp_path):
  assert not svc.jobs and not svc.quotes
  await app.handle(event(callback=f'bind:{data["version"]}:{fi}:0'))
  await app.handle(event('/menu'));await app.handle(event('must not submit'))
- assert 'Выберите действие' in bot.sent[-1][0]
+ assert 'Выбери раздел' in bot.photos[-1][1]
  await app.handle(event(callback=f'bind:outdated:{fi}:0'))
  assert 'Каталог обновился' in bot.sent[-1][0]
 

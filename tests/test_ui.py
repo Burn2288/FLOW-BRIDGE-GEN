@@ -2,14 +2,19 @@
 from types import SimpleNamespace
 import uuid
 from datetime import datetime,timezone
+from dataclasses import replace
+from unittest.mock import AsyncMock
 import pytest
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.methods import SendPhoto
 from aiogram.types import Update
+from elevenbot import telegram
 from elevenbot.telegram import TelegramApp,MENU,menu
 from elevenbot.config import Config
-from elevenbot.core import Rejected
+from elevenbot.core import ConsentRequired,Rejected
 
 class Bot:
-    def __init__(self):self.sent=[];self.audio=[];self.answers=[]
+    def __init__(self):self.sent=[];self.audio=[];self.answers=[];self.photos=[]
     async def send_message(self,chat,text,reply_markup=None):self.sent.append((text,reply_markup));return SimpleNamespace(message_id=len(self.sent))
     async def edit_message_text(self,text,*,chat_id,message_id,reply_markup=None):
         self.sent.append((text,reply_markup))
@@ -17,6 +22,9 @@ class Bot:
     async def delete_message(self,chat,message_id):return True
     async def answer_callback_query(self,*args,**kw):self.answers.append(args)
     async def send_audio(self,*args,**kw):self.audio.append((args,kw));return SimpleNamespace(message_id=1)
+    async def send_photo(self,chat,photo,*,caption=None,reply_markup=None):
+        self.photos.append((photo,caption,reply_markup))
+        return SimpleNamespace(message_id=1000+len(self.photos))
     async def answer_pre_checkout_query(self,*args,**kw):self.answers.append(kw)
 
 class FakeService:
@@ -25,7 +33,7 @@ class FakeService:
     async def rate(self,*a,navigation=False):pass
     async def accept(self,*a):self.accepted=True
     async def conversation(self,u,step=None,text=None,voice=None,speed=None):
-        if not self.accepted:raise Rejected('Сначала примите условия через /start.')
+        if not self.accepted:raise ConsentRequired('Сначала примите условия через /start.')
         if step is not None:self.state={'step':step,'text_content':text,'voice':voice}
         return self.state
     async def quote(self,*args):return uuid.UUID(int=10),len(args[1])
@@ -44,6 +52,51 @@ def event(text=None,callback=None,payment=None):
 
 def app():
     bot=Bot();a=TelegramApp(None,Config(generation_enabled=True),bot);a.svc=FakeService();return a,bot
+
+
+async def test_welcome_consent_start_and_menu():
+    a,b=app()
+    a.cfg=replace(a.cfg,admin_ids=(100,))
+    await a.handle(event('/start'))
+    assert not b.photos
+    assert b.sent[-1][1].inline_keyboard[0][0].callback_data=='accept'
+
+    await a.handle(event(callback='accept'))
+    photo,caption,keyboard=b.photos[-1]
+    assert photo.data==telegram.WELCOME_BANNER.read_bytes()
+    assert caption==telegram.WELCOME_TEXT
+    assert '🎵 Создавай музыку' in caption
+    assert [row[0].text for row in keyboard.keyboard]==MENU
+
+    await a.handle(event('/start'))
+    assert len(b.photos)==2 and len(b.sent)==1
+    for label in MENU:
+        await a.handle(event(label))
+        assert 100 not in a.home_screens
+        assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
+        await a.handle(event(callback='home'))
+        assert 100 in a.home_screens
+    assert len(b.photos)==6
+
+
+@pytest.mark.parametrize('missing',[True,False])
+async def test_welcome_fallback_retains_public_keyboard(monkeypatch,tmp_path,missing):
+    a,b=app()
+    await a.svc.accept(a.svc.u)
+    if missing:
+        monkeypatch.setattr(telegram,'WELCOME_BANNER',tmp_path/'missing.png')
+    else:
+        error=TelegramBadRequest(SendPhoto(chat_id=100,photo='fixture'),'fixture')
+        b.send_photo=AsyncMock(side_effect=error)
+    await a.handle(event('/start'))
+    text,keyboard=b.sent[-1]
+    assert text==telegram.WELCOME_TEXT
+    assert [[button.text for button in row] for row in keyboard.keyboard]==[[telegram.OPEN_CATALOGUE]]
+    assert 100 in a.home_screens
+    await a.handle(event(telegram.OPEN_CATALOGUE))
+    assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
+    await a.handle(event(callback='home'))
+    assert b.sent[-1][0]==telegram.WELCOME_TEXT
 
 async def test_UI_full_dialog():
     a,b=app()

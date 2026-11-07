@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 class Rejected(Exception):
     pass
 
+class ConsentRequired(Rejected):
+    pass
+
 def uid(value):
     try: return uuid.UUID(str(value))
     except (ValueError,TypeError,AttributeError): raise Rejected('Кнопка устарела. Откройте меню.') from None
@@ -30,7 +33,7 @@ class Service:
         r=await c.fetchrow('SELECT * FROM users WHERE id=$1',u)
         if not r or r['blocked']: raise Rejected('Доступ временно ограничен. Обратитесь в поддержку.')
         if terms and not await c.fetchval("SELECT EXISTS(SELECT 1 FROM identities WHERE user_id=$1 AND terms_version='1' AND accepted_at IS NOT NULL)",u):
-            raise Rejected('Сначала примите условия через /start.')
+            raise ConsentRequired('Сначала примите условия через /start.')
 
     async def accept(self,u):
         async with self.pool.acquire() as c,c.transaction():
