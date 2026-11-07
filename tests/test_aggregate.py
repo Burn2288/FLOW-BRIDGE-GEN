@@ -83,6 +83,18 @@ async def test_telegram_aggregate_preview_vertical_slice_and_cancel(tmp_path):
  await app.handle(event('/start'));assert 'DarkFlow | Gen' in bot.sent[-1][0]
  await app.handle(event(callback='accept'))
  await app.handle(event('🌐 Агрегаторы'));assert 'Clodex' in bot.sent[-1][1].inline_keyboard[0][0].text
+ await app.handle(event(callback=bot.sent[-1][1].inline_keyboard[0][0].callback_data))
+ card={b.text:b.callback_data for row in bot.sent[-1][1].inline_keyboard for b in row}
+ assert list(card)[:4]==['🎬 Генерировать видео','🖼 Генерировать изображение','🎙 Озвучить текст','📁 Мои работы']
+ assert 'Открыть каталог' not in card
+ for title in ('🎬 Генерировать видео','🖼 Генерировать изображение'):
+  await app.handle(event(callback=card[title]))
+  assert bot.sent[-1][0].startswith(title)
+ await app.handle(event(callback='store'))
+ store={b.text:b.callback_data for row in bot.sent[-1][1].inline_keyboard for b in row}
+ assert {title:store[title] for title in list(card)[:4]}=={title:card[title] for title in list(card)[:4]}
+ await app.handle(event(callback=card['🧩 Модели']))
+ assert bot.sent[-1][0].startswith('clodex ·')
  await app.handle(event('🛠 Функции'))
  fi=next(i for i,f in enumerate(data['functions']) if f['id']=='chat')
  await app.handle(event(callback=f'fn:{data["version"]}:{fi}'))
@@ -93,7 +105,7 @@ async def test_telegram_aggregate_preview_vertical_slice_and_cancel(tmp_path):
  assert not svc.jobs and not svc.quotes
  await app.handle(event(callback=f'bind:{data["version"]}:{fi}:0'))
  await app.handle(event('/menu'));await app.handle(event('must not submit'))
- assert 'Выберите действие' in bot.sent[-1][0]
+ assert 'Выбери раздел' in bot.photos[-1][1]
  await app.handle(event(callback=f'bind:outdated:{fi}:0'))
  assert 'Каталог обновился' in bot.sent[-1][0]
 

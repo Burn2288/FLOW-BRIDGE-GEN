@@ -7,12 +7,25 @@ from datetime import datetime, timezone
 class Rejected(Exception):
     pass
 
+class ConsentRequired(Rejected):
+    pass
+
 def uid(value):
     try: return uuid.UUID(str(value))
     except (ValueError,TypeError,AttributeError): raise Rejected('Кнопка устарела. Откройте меню.') from None
 
 class Service:
     def __init__(self,pool,config): self.pool,self.cfg=pool,config
+
+    async def welcome_message(self,chat):
+        return await self.pool.fetchval(
+            "SELECT welcome_message_id FROM identities WHERE platform='telegram' AND external_id=$1",chat,
+        )
+
+    async def save_welcome_message(self,chat,message_id):
+        await self.pool.execute(
+            "UPDATE identities SET welcome_message_id=$2 WHERE platform='telegram' AND external_id=$1",chat,message_id,
+        )
 
     async def identity(self,external,platform='telegram'):
         async with self.pool.acquire() as c,c.transaction():
@@ -30,7 +43,7 @@ class Service:
         r=await c.fetchrow('SELECT * FROM users WHERE id=$1',u)
         if not r or r['blocked']: raise Rejected('Доступ временно ограничен. Обратитесь в поддержку.')
         if terms and not await c.fetchval("SELECT EXISTS(SELECT 1 FROM identities WHERE user_id=$1 AND terms_version='1' AND accepted_at IS NOT NULL)",u):
-            raise Rejected('Сначала примите условия через /start.')
+            raise ConsentRequired('Сначала примите условия через /start.')
 
     async def accept(self,u):
         async with self.pool.acquire() as c,c.transaction():

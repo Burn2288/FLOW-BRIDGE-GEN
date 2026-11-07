@@ -5,8 +5,8 @@ from pathlib import Path
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice)
-from .core import Service,Rejected,uid
-from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
+from .core import ConsentRequired,Service,Rejected,uid
+from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
 from .video import VideoPilot,VideoProtocolError,video_modes
@@ -28,6 +28,18 @@ STORE_SECTIONS={
     'speech':('🎙 Озвучить текст','audio.speech'),
 }
 OPEN_CATALOGUE='Открыть каталог'
+WELCOME_BANNER=Path(__file__).with_name('welcome.png')
+AGGREGATORS_ANIMATION=Path(__file__).with_name('darkflow-energy-strip.gif')
+WELCOME_TEXT=(
+    'Добро пожаловать в DarkFlow | Gen 🔮\n\n'
+    'Создавай контент с помощью нейросетей прямо в Telegram.\n\n'
+    '🎆 Генерируй изображения\n'
+    '🎬 Создавай видео\n'
+    '🎵 Создавай музыку\n'
+    '🎙 Озвучивай текст\n'
+    '💬 Общайся с ИИ-ассистентами\n\n'
+    'Выбери раздел, чтобы начать.'
+)
 ANYMODEL_SECTIONS={key:title for key,(title,_) in STORE_SECTIONS.items()}
 ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠 Инструменты')
 SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
@@ -43,13 +55,21 @@ STATUS={'queued':'В очереди','dispatching':'Создаётся','uncerta
 def buttons(rows):
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t,callback_data=d) for t,d in row] for row in rows])
 
-def menu():return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in MENU],resize_keyboard=True,is_persistent=True)
+def store_rows():
+    rows=[[(title,f'slist:current:{section}:0')] for section,(title,_) in STORE_SECTIONS.items()]
+    rows.append([('📁 Мои работы','history:0')])
+    return rows
+
+def menu(*,public=False):
+    labels=[OPEN_CATALOGUE] if public else MENU
+    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
 
 class TelegramApp:
     def __init__(self,pool,cfg,bot):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.catalogue_messages = {}
-        self.home_screens = set()
+        self.catalogue_animations = set()
+        self.aggregator_keyboard_messages = {}
         self.work_previews = {}
         self.pending_speech = {}
         self.video = VideoPilot(pool,cfg)
@@ -57,14 +77,14 @@ class TelegramApp:
         self.anymodel_speech = SpeechPilot(pool,cfg)
     async def say(self,chat,text,markup=None):
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
-            markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=OPEN_CATALOGUE)]],resize_keyboard=True,is_persistent=True)
+            markup=menu(public=True)
         return await self.bot.send_message(chat,text,reply_markup=markup)
-    async def catalogue_screen(self, chat, text, markup=None, *, after_message_id=None):
+    async def catalogue_screen(self, chat, text, markup=None, *, after_message_id=None, animation=None):
         self.pending_speech.pop(chat,None)
         await self.close_work_preview(chat)
         message_id = self.catalogue_messages.get(chat)
-        reply_keyboard = isinstance(markup, ReplyKeyboardMarkup)
-        if (message_id is not None and not reply_keyboard and chat not in self.home_screens
+        if (animation is None and message_id is not None and chat not in self.catalogue_animations
+                and not isinstance(markup, ReplyKeyboardMarkup)
                 and (after_message_id is None or message_id > after_message_id)):
             try:
                 await self.bot.edit_message_text(text, chat_id=chat, message_id=message_id, reply_markup=markup)
@@ -75,14 +95,24 @@ class TelegramApp:
                     return
                 if not any(detail in reason for detail in ('message to edit not found', "message can't be edited")):
                     raise
-        message = await self.say(chat, text, markup)
-        self.catalogue_messages[chat] = message.message_id
-        if reply_keyboard:
-            self.home_screens.add(chat)
+        message = None
+        if animation is not None:
+            try:
+                data=await asyncio.to_thread(animation.read_bytes)
+                message=await self.bot.send_animation(
+                    chat,BufferedInputFile(data,filename=animation.name),
+                    caption=text,reply_markup=markup,
+                )
+            except (OSError,ClientDecodeError,TelegramAPIError):
+                pass
+        if message is None:
+            message=await self.say(chat,text,markup)
+            self.catalogue_animations.discard(chat)
         else:
-            self.home_screens.discard(chat)
-        if message_id is not None:
-            await self.remove_menu_message(chat, message_id)
+            self.catalogue_animations.add(chat)
+        self.catalogue_messages[chat]=message.message_id
+        if message_id is not None and message_id!=message.message_id:
+            await self.remove_menu_message(chat,message_id)
 
     async def remove_menu_message(self, chat, message_id):
         try:
@@ -203,8 +233,10 @@ class TelegramApp:
                 catalogue_callback = data=='accept' or data=='providers' or data.partition(':')[0] in SCREEN_CALLBACKS
                 bot_screen = isinstance(e.message, Message) and e.message.from_user and e.message.from_user.is_bot
                 previous_screen = self.catalogue_messages.get(ext)
-                if catalogue_callback and bot_screen:
-                    self.catalogue_messages.setdefault(ext, e.message.message_id)
+                if catalogue_callback and bot_screen and previous_screen is None:
+                    self.catalogue_messages[ext]=e.message.message_id
+                    if e.message.animation:
+                        self.catalogue_animations.add(ext)
                 await self.callback(u,ext,data,request_id=update.update_id)
                 if (data=='home' and bot_screen and e.message.message_id not in
                         (previous_screen, self.catalogue_messages.get(ext)) and previous_screen is not None):
@@ -220,15 +252,21 @@ class TelegramApp:
                 await self.remove_menu_message(ext,update.message.message_id);return
             if text in ('/aggregators','/functions','🛠 Функции',MENU[0]):
                 await self.svc.conversation(u,'home')
+                if text==MENU[0] and ext in self.cfg.admin_ids:
+                    message=await self.say(ext,'Выберите агрегатор ниже.',menu())
+                    previous=self.aggregator_keyboard_messages.get(ext)
+                    self.aggregator_keyboard_messages[ext]=message.message_id
+                    if previous is not None:
+                        await self.remove_menu_message(ext,previous)
                 await self.show_providers(ext,after_message_id=update.message.message_id)
                 await self.remove_menu_message(ext,update.message.message_id);return
             if command=='/start':
                 try:
                     await self.svc.conversation(u,'home')
-                except Rejected:
-                    # New users need to see the consent screen before conversation access.
-                    pass
-                await self.catalogue_screen(ext,self.cfg.brand+' — агрегатор моделей и функций. Выберите агрегатор, затем его модели или функции.\n'+('Сейчас работает деморежим: тестовый звук, без оплаты.\n' if self.cfg.mode=='mock' else '')+'\nУсловия: '+self.cfg.terms+'\nПолитика: '+self.cfg.privacy,buttons([[('Принять','accept')]]))
+                except ConsentRequired:
+                    await self.catalogue_screen(ext,self.cfg.brand+' — агрегатор моделей и функций. Выберите агрегатор, затем его модели или функции.\n'+('Сейчас работает деморежим: тестовый звук, без оплаты.\n' if self.cfg.mode=='mock' else '')+'\nУсловия: '+self.cfg.terms+'\nПолитика: '+self.cfg.privacy,buttons([[('Принять','accept')]]))
+                else:
+                    await self.show_home(ext,replace_welcome=True)
                 await self.remove_menu_message(ext,update.message.message_id);return
             if text in ('/terms','/privacy','/support','/paysupport'):
                 await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
@@ -277,8 +315,7 @@ class TelegramApp:
                 await self.remove_menu_message(ext,update.message.message_id)
                 await self.voices(ext,after_message_id=update.message.message_id)
                 return
-            if ext not in self.home_screens:
-                await self.show_home(ext)
+            await self.show_home(ext)
         except Rejected as e:
             if update.message and update.message.successful_payment:
                 async with self.pool.acquire() as c,c.transaction():
@@ -528,8 +565,33 @@ class TelegramApp:
         if version and version!=data['version']:raise Rejected('Каталог обновился. Откройте раздел заново.')
         return data
 
-    async def show_home(self,ext):
-        await self.catalogue_screen(ext,self.cfg.brand+' · Главное меню\nВыберите действие в меню.',menu())
+    async def show_home(self,ext,*,replace_welcome=False):
+        previous=await self.svc.welcome_message(ext)
+        if previous is None or replace_welcome:
+            markup=menu(public=ext not in self.cfg.admin_ids)
+            try:
+                photo=BufferedInputFile(await asyncio.to_thread(WELCOME_BANNER.read_bytes),filename='welcome.png')
+                message=await self.bot.send_photo(ext,photo,caption=WELCOME_TEXT,reply_markup=markup)
+            except (OSError,ClientDecodeError,TelegramAPIError):
+                try:
+                    message=await self.say(ext,WELCOME_TEXT,markup)
+                except (ClientDecodeError,TelegramAPIError):
+                    if previous is None:
+                        raise
+                    return
+            await self.svc.save_welcome_message(ext,message.message_id)
+            keyboard_message=self.aggregator_keyboard_messages.pop(ext,None)
+            if keyboard_message is not None:
+                await self.remove_menu_message(ext,keyboard_message)
+            if previous is not None and previous!=message.message_id:
+                await self.remove_menu_message(ext,previous)
+
+        self.pending_speech.pop(ext,None)
+        await self.close_work_preview(ext)
+        temporary=self.catalogue_messages.pop(ext,None)
+        self.catalogue_animations.discard(ext)
+        if temporary is not None and temporary!=previous:
+            await self.remove_menu_message(ext,temporary)
 
     async def show_providers(self,ext,*,after_message_id=None):
         if ext not in self.cfg.admin_ids:
@@ -543,9 +605,10 @@ class TelegramApp:
             rows=[[('↻ Обновить экран','providers')]]
         if can_view(self.cfg,ext):
             rows.append([('AnyModel','am')])
-        rows.append([(OPEN_CATALOGUE,'store')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
-        await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id)
+        rows.append([('Главное меню','home')])
+        await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id,
+                                    animation=AGGREGATORS_ANIMATION)
 
     def anymodel_snapshot(self,ext,version=None):
         if not can_view(self.cfg,ext):
@@ -580,7 +643,7 @@ class TelegramApp:
         if route=='am':
             await self.svc.conversation(u,'home')
             rows=[[(title,f'amsection:{key}')] for key,title in ANYMODEL_SECTIONS.items()]
-            rows.extend([[('🧩 Модели','amcat:current:0')],[('← Агрегаторы','providers')]])
+            rows.extend([[(OPEN_CATALOGUE,'amcat:current:0')],[('← Агрегаторы','providers')]])
             try:
                 data=self.anymodel_snapshot(ext)
                 text=f"AnyModel\nМоделей: {len(data['models'])}\n"+self.anymodel_status(data)
@@ -774,17 +837,21 @@ class TelegramApp:
         scope='Публичный каталог. Доступность по ключу ещё не проверена.' if source['scope']=='public_only' else 'Список получен через /v1/models для ключа сервиса.'
         if data['fresh_until']<time.time():scope+=' Данные устарели.'
         if source.get('evidence',{}).get('unavailable_metadata'):scope+=' Часть метаданных временно недоступна.'
-        await self.catalogue_screen(ext,('Clodex' if provider=='clodex' else provider)+f"\nМоделей: {len(models)} · операций API: {len(functions)} · разделов документации: {len(docs)}\n"+scope+( '\nОткройте модель, чтобы увидеть доступные действия.' if self.cfg.interaction_mode!='off' else '\nГенерация через каталог пока выключена.'),buttons([
-            [('🧩 Модели',f'cat:{version}:{index}:0')],
+        models_route=f'cat:{version}:{index}:0'
+        if provider=='clodex':
+            rows=store_rows()+[[('🧩 Модели',models_route)]]
+        else:
+            rows=[[(OPEN_CATALOGUE,models_route)]]
+        rows.extend([
             [('🛠 Функции и возможности',f'pf:{version}:{index}:0')],
-            [('← Агрегаторы','providers')],
-            [(OPEN_CATALOGUE,'store')]]))
+            [('← Агрегаторы','providers')]])
+        await self.catalogue_screen(ext,('Clodex' if provider=='clodex' else provider)+f"\nМоделей: {len(models)} · операций API: {len(functions)} · разделов документации: {len(docs)}\n"+scope+( '\nОткройте модель, чтобы увидеть доступные действия.' if self.cfg.interaction_mode!='off' else '\nГенерация через каталог пока выключена.'),buttons(rows))
 
     async def show_store(self,ext):
-        rows=[[(title,f'slist:current:{section}:0')] for section,(title,_) in STORE_SECTIONS.items()]
-        rows.append([('📁 Мои работы','history:0')])
+        rows=store_rows()
         if ext in self.cfg.admin_ids:
             rows.append([('← Агрегаторы','providers')])
+        rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,'Каталог моделей. Выберите, что хотите сделать.',buttons(rows))
 
     def store_models(self,snapshot,section,ext):

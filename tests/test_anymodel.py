@@ -58,7 +58,7 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         await app.callback(user,100,routes(bot)['AnyModel'])
         assert 'Моделей: 23' in bot.sent[-1][0]
         assert 'Последнее успешное обновление' in bot.sent[-1][0]
-        await app.callback(user,100,routes(bot)['🧩 Модели'])
+        await app.callback(user,100,routes(bot)[telegram.OPEN_CATALOGUE])
         listed=set()
         for page in range(3):
             buttons=routes(bot)
