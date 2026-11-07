@@ -87,6 +87,8 @@ async def main():
                     if cfg.anymodel_key:
                         from .anymodel_image_jobs import AnyModelImageJobs
                         tasks.append(asyncio.create_task(AnyModelImageJobs(pool,cfg).loop(bot)))
+                        from .anymodel_video import AnyModelVideoPilot
+                        tasks.append(asyncio.create_task(AnyModelVideoPilot(pool,cfg).loop(bot)))
                 if cfg.video_pilot:
                     from .video import VideoPilot
                     tasks.append(asyncio.create_task(VideoPilot(pool,cfg).loop(bot)))

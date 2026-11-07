@@ -9,13 +9,16 @@ from .core import Service,Rejected,uid
 from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
-from .video import VideoPilot,video_modes
+from .video import VideoPilot,VideoProtocolError,video_modes
+from .anymodel_video import AnyModelVideoPilot,MODEL as ANYMODEL_VIDEO_MODEL,TITLE as ANYMODEL_VIDEO_TITLE
+from .anymodel_video import DURATION as ANYMODEL_VIDEO_SECONDS,RESOLUTION as ANYMODEL_VIDEO_RESOLUTION
+from .anymodel_video import ASPECT_RATIO as ANYMODEL_VIDEO_RATIO,USD_PER_TOKEN
 from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_chat,can_image,can_view,model_store
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
-ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage'}
+ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm'}
 CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|{'provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
@@ -48,6 +51,7 @@ class TelegramApp:
         self.work_previews = {}
         self.pending_speech = {}
         self.video = VideoPilot(pool,cfg)
+        self.anymodel_video = AnyModelVideoPilot(pool,cfg)
     async def say(self,chat,text,markup=None):
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
             markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=OPEN_CATALOGUE)]],resize_keyboard=True,is_persistent=True)
@@ -248,6 +252,8 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
+                if context and context.get('anymodel_video'):
+                    await self.anymodel_video_prompt(u,ext,text,context);return
                 if context and 'video_mode' in context:
                     await self.video_prompt(u,ext,text,context);return
                 if context and 'interaction' in context:
@@ -370,7 +376,7 @@ class TelegramApp:
     async def callback(self,u,ext,data,*,request_id=None):
         route=data.partition(':')[0]
         if route in ANYMODEL_ROUTES:
-            await self.anymodel_callback(u,ext,data);return
+            await self.anymodel_callback(u,ext,data,request_id=request_id);return
         if route in DEVELOPER_CALLBACKS and ext not in self.cfg.admin_ids:
             raise Rejected('Этот раздел доступен только разработчику.')
         if data=='store':
@@ -560,7 +566,7 @@ class TelegramApp:
         updated=datetime.fromtimestamp(data['fetched_at'],timezone.utc).strftime('%d.%m.%Y %H:%M UTC')
         return '\n'.join([f'{label}: {updated}',*lines])
 
-    async def anymodel_callback(self,u,ext,value):
+    async def anymodel_callback(self,u,ext,value,*,request_id=None):
         if not can_view(self.cfg,ext):
             raise Rejected('Раздел AnyModel доступен только тестовому администратору.')
         route,*parts=value.split(':')
@@ -576,6 +582,16 @@ class TelegramApp:
             await self.catalogue_screen(ext,text,buttons(rows));return
         if route=='amsection':
             await self.anymodel_section(ext,parts[0]);return
+        if route=='amvideo':
+            await self.anymodel_video_card(u,ext,start=parts==['run']);return
+        if route=='amvconfirm':
+            context=await self.svc.aggregate_context(u)
+            if request_id is None or not context or not context.get('anymodel_video') or context.get('quote_id')!=parts[0]:
+                raise Rejected('AnyModel: оценка устарела или заказ уже принят.')
+            await self.anymodel_video.confirm(u,parts[0],request_id,ANYMODEL_VIDEO_MODEL)
+            await self.svc.conversation(u,'home')
+            await self.catalogue_screen(ext,'AnyModel: задание принято. Отправлю ролик, когда он будет готов.',
+                                        buttons([[('📁 Мои работы','history:0')]]));return
         if route=='amimage':
             data=self.anymodel_snapshot(ext)
             model=next((m for m in data['models'] if m['id']==FIBO_MODEL),None)
@@ -612,6 +628,8 @@ class TelegramApp:
     async def anymodel_section(self,ext,section):
         if section not in ANYMODEL_SECTIONS:raise Rejected('AnyModel: раздел недоступен.')
         rows=[]
+        if section=='video':
+            rows.append([(ANYMODEL_VIDEO_TITLE,'amvideo:detail')])
         if section in ('image','chat'):
             try:
                 data=self.anymodel_snapshot(ext)
@@ -627,6 +645,42 @@ class TelegramApp:
         if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
         rows.append([('← AnyModel','am')])
         await self.catalogue_screen(ext,title,buttons(rows))
+
+    @staticmethod
+    def anymodel_video_price(price):
+        tokens=int(price/USD_PER_TOKEN)
+        return (f'{ANYMODEL_VIDEO_TITLE} · AnyModel\nID: {ANYMODEL_VIDEO_MODEL}\n'
+                f'{ANYMODEL_VIDEO_SECONDS} с · {ANYMODEL_VIDEO_RESOLUTION} · {ANYMODEL_VIDEO_RATIO}\n'
+                f'Оценка: {tokens:,} токенов баланса (≈ {price.normalize():f} USD).'.replace(',',' '))
+
+    async def anymodel_video_card(self,u,ext,*,start):
+        if start and not self.anymodel_video.enabled():
+            raise Rejected('AnyModel: тестовый запуск видео выключен.')
+        rows=[[('← Назад','amsection:video')]]
+        try:
+            price=await self.anymodel_video.current_price(ANYMODEL_VIDEO_MODEL)
+        except VideoProtocolError:
+            await self.catalogue_screen(ext,f'{ANYMODEL_VIDEO_TITLE} · AnyModel\n'
+                                        'Тариф не подтверждён. Тестовый запуск закрыт.',buttons(rows));return
+        text=self.anymodel_video_price(price)
+        if start:
+            await self.svc.aggregate_context(u,{'anymodel_video':True})
+            text+='\nПришлите описание ролика.'
+        elif self.anymodel_video.enabled():
+            rows.insert(0,[('🎬 Генерировать видео','amvideo:run')])
+        else:
+            text+='\nТестовый запуск выключен.'
+        await self.catalogue_screen(ext,text,buttons(rows))
+
+    async def anymodel_video_prompt(self,u,ext,text,context):
+        if not can_view(self.cfg,ext) or not self.anymodel_video.enabled():
+            raise Rejected('AnyModel: тестовый запуск видео выключен.')
+        if 'quote_id' in context:
+            raise Rejected('AnyModel: подтвердите оценку или откройте меню для отмены.')
+        quote_id,price=await self.anymodel_video.quote(u,ANYMODEL_VIDEO_MODEL,text)
+        await self.svc.aggregate_context(u,{**context,'quote_id':str(quote_id)})
+        await self.catalogue_screen(ext,self.anymodel_video_price(price)+'\nОценка действует 5 минут.',
+                                    buttons([[('Подтвердить',f'amvconfirm:{quote_id}')],[('Отмена','home')]]))
 
     async def provider_detail(self,ext,version,index):
         if ext not in self.cfg.admin_ids:
