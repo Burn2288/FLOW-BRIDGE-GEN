@@ -14,12 +14,12 @@ from elevenbot.config import Config
 from elevenbot.core import ConsentRequired,Rejected
 
 class Bot:
-    def __init__(self):self.sent=[];self.audio=[];self.answers=[];self.photos=[]
-    async def send_message(self,chat,text,reply_markup=None):self.sent.append((text,reply_markup));return SimpleNamespace(message_id=len(self.sent))
+    def __init__(self):self.sent=[];self.audio=[];self.answers=[];self.photos=[];self.deleted=[]
+    async def send_message(self,chat,text,reply_markup=None):self.sent.append((text,reply_markup));return SimpleNamespace(message_id=100+len(self.sent))
     async def edit_message_text(self,text,*,chat_id,message_id,reply_markup=None):
         self.sent.append((text,reply_markup))
         return SimpleNamespace(message_id=message_id)
-    async def delete_message(self,chat,message_id):return True
+    async def delete_message(self,chat,message_id):self.deleted.append(message_id);return True
     async def answer_callback_query(self,*args,**kw):self.answers.append(args)
     async def send_audio(self,*args,**kw):self.audio.append((args,kw));return SimpleNamespace(message_id=1)
     async def send_photo(self,chat,photo,*,caption=None,reply_markup=None):
@@ -28,10 +28,12 @@ class Bot:
     async def answer_pre_checkout_query(self,*args,**kw):self.answers.append(kw)
 
 class FakeService:
-    def __init__(self):self.u=uuid.uuid4();self.state={'step':'home','text_content':None,'voice':None};self.confirmations=0;self.accepted=False
+    def __init__(self):self.u=uuid.uuid4();self.state={'step':'home','text_content':None,'voice':None};self.confirmations=0;self.accepted=False;self.welcome=None
     async def identity(self,*a):return self.u
     async def rate(self,*a,navigation=False):pass
     async def accept(self,*a):self.accepted=True
+    async def welcome_message(self,chat):return self.welcome
+    async def save_welcome_message(self,chat,message_id):self.welcome=message_id
     async def conversation(self,u,step=None,text=None,voice=None,speed=None):
         if not self.accepted:raise ConsentRequired('Сначала примите условия через /start.')
         if step is not None:self.state={'step':step,'text_content':text,'voice':voice}
@@ -68,15 +70,17 @@ async def test_welcome_consent_start_and_menu():
     assert '🎵 Создавай музыку' in caption
     assert [row[0].text for row in keyboard.keyboard]==MENU
 
-    await a.handle(event('/start'))
-    assert len(b.photos)==2 and len(b.sent)==1
     for label in MENU:
         await a.handle(event(label))
-        assert 100 not in a.home_screens
+        temporary=a.catalogue_messages[100]
         assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
         await a.handle(event(callback='home'))
-        assert 100 in a.home_screens
-    assert len(b.photos)==6
+        assert temporary in b.deleted
+        assert 100 not in a.catalogue_messages
+    assert len(b.photos)==1 and 1001 not in b.deleted
+    await a.handle(event('/start'))
+    assert len(b.photos)==2 and b.deleted.count(1001)==1
+    assert 1002 not in b.deleted and a.svc.welcome==1002
 
 
 @pytest.mark.parametrize('missing',[True,False])
@@ -92,11 +96,39 @@ async def test_welcome_fallback_retains_public_keyboard(monkeypatch,tmp_path,mis
     text,keyboard=b.sent[-1]
     assert text==telegram.WELCOME_TEXT
     assert [[button.text for button in row] for row in keyboard.keyboard]==[[telegram.OPEN_CATALOGUE]]
-    assert 100 in a.home_screens
+    welcome=a.svc.welcome
     await a.handle(event(telegram.OPEN_CATALOGUE))
     assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
     await a.handle(event(callback='home'))
-    assert b.sent[-1][0]==telegram.WELCOME_TEXT
+    assert a.svc.welcome==welcome and welcome not in b.deleted and 100 not in a.catalogue_messages
+    assert len(b.sent)==2
+
+
+async def test_welcome_replacement_survives_restart_and_send_failure(env):
+    pool,cfg,_,user=env
+    cfg=replace(cfg,admin_ids=(100,))
+    bot=Bot()
+    app=TelegramApp(pool,cfg,bot)
+    await app.handle(event('/start'))
+    assert await app.svc.welcome_message(100)==1001
+
+    restarted=TelegramApp(pool,cfg,bot)
+    await restarted.handle(event(MENU[0]))
+    await restarted.handle(event(callback='home'))
+    await restarted.handle(event(MENU[1]))
+    assert len(bot.photos)==1 and 1001 not in bot.deleted
+
+    failure=TelegramBadRequest(SendPhoto(chat_id=100,photo='fixture'),'fixture')
+    send_photo,send_message=bot.send_photo,bot.send_message
+    bot.send_photo=AsyncMock(side_effect=failure)
+    bot.send_message=AsyncMock(side_effect=failure)
+    await restarted.handle(event('/start'))
+    assert await restarted.svc.welcome_message(100)==1001 and 1001 not in bot.deleted
+
+    bot.send_photo,bot.send_message=send_photo,send_message
+    await restarted.handle(event('/start'))
+    assert await restarted.svc.welcome_message(100)==1002
+    assert bot.deleted.count(1001)==1 and 1002 not in bot.deleted
 
 async def test_UI_full_dialog():
     a,b=app()

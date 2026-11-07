@@ -62,7 +62,6 @@ class TelegramApp:
     def __init__(self,pool,cfg,bot):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.catalogue_messages = {}
-        self.home_screens = set()
         self.work_previews = {}
         self.pending_speech = {}
         self.video = VideoPilot(pool,cfg)
@@ -76,8 +75,7 @@ class TelegramApp:
         self.pending_speech.pop(chat,None)
         await self.close_work_preview(chat)
         message_id = self.catalogue_messages.get(chat)
-        reply_keyboard = isinstance(markup, ReplyKeyboardMarkup)
-        if (message_id is not None and not reply_keyboard and chat not in self.home_screens
+        if (message_id is not None and not isinstance(markup, ReplyKeyboardMarkup)
                 and (after_message_id is None or message_id > after_message_id)):
             try:
                 await self.bot.edit_message_text(text, chat_id=chat, message_id=message_id, reply_markup=markup)
@@ -89,17 +87,9 @@ class TelegramApp:
                 if not any(detail in reason for detail in ('message to edit not found', "message can't be edited")):
                     raise
         message = await self.say(chat, text, markup)
-        await self.remember_screen(chat,message.message_id,home=reply_keyboard)
-
-    async def remember_screen(self,chat,message_id,*,home):
-        previous=self.catalogue_messages.get(chat)
-        self.catalogue_messages[chat]=message_id
-        if home:
-            self.home_screens.add(chat)
-        else:
-            self.home_screens.discard(chat)
-        if previous is not None and previous!=message_id:
-            await self.remove_menu_message(chat,previous)
+        self.catalogue_messages[chat]=message.message_id
+        if message_id is not None and message_id!=message.message_id:
+            await self.remove_menu_message(chat,message_id)
 
     async def remove_menu_message(self, chat, message_id):
         try:
@@ -245,7 +235,7 @@ class TelegramApp:
                 except ConsentRequired:
                     await self.catalogue_screen(ext,self.cfg.brand+' — агрегатор моделей и функций. Выберите агрегатор, затем его модели или функции.\n'+('Сейчас работает деморежим: тестовый звук, без оплаты.\n' if self.cfg.mode=='mock' else '')+'\nУсловия: '+self.cfg.terms+'\nПолитика: '+self.cfg.privacy,buttons([[('Принять','accept')]]))
                 else:
-                    await self.show_home(ext)
+                    await self.show_home(ext,replace_welcome=True)
                 await self.remove_menu_message(ext,update.message.message_id);return
             if text in ('/terms','/privacy','/support','/paysupport'):
                 await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
@@ -294,8 +284,7 @@ class TelegramApp:
                 await self.remove_menu_message(ext,update.message.message_id)
                 await self.voices(ext,after_message_id=update.message.message_id)
                 return
-            if ext not in self.home_screens:
-                await self.show_home(ext)
+            await self.show_home(ext)
         except Rejected as e:
             if update.message and update.message.successful_payment:
                 async with self.pool.acquire() as c,c.transaction():
@@ -545,17 +534,29 @@ class TelegramApp:
         if version and version!=data['version']:raise Rejected('Каталог обновился. Откройте раздел заново.')
         return data
 
-    async def show_home(self,ext):
+    async def show_home(self,ext,*,replace_welcome=False):
+        previous=await self.svc.welcome_message(ext)
+        if previous is None or replace_welcome:
+            markup=menu(public=ext not in self.cfg.admin_ids)
+            try:
+                photo=BufferedInputFile(await asyncio.to_thread(WELCOME_BANNER.read_bytes),filename='welcome.png')
+                message=await self.bot.send_photo(ext,photo,caption=WELCOME_TEXT,reply_markup=markup)
+            except (OSError,ClientDecodeError,TelegramAPIError):
+                try:
+                    message=await self.say(ext,WELCOME_TEXT,markup)
+                except (ClientDecodeError,TelegramAPIError):
+                    if previous is None:
+                        raise
+                    return
+            await self.svc.save_welcome_message(ext,message.message_id)
+            if previous is not None and previous!=message.message_id:
+                await self.remove_menu_message(ext,previous)
+
         self.pending_speech.pop(ext,None)
         await self.close_work_preview(ext)
-        markup=menu(public=ext not in self.cfg.admin_ids)
-        try:
-            photo=BufferedInputFile(await asyncio.to_thread(WELCOME_BANNER.read_bytes),filename='welcome.png')
-            message=await self.bot.send_photo(ext,photo,caption=WELCOME_TEXT,reply_markup=markup)
-        except (OSError,ClientDecodeError,TelegramAPIError):
-            await self.catalogue_screen(ext,WELCOME_TEXT,markup)
-            return
-        await self.remember_screen(ext,message.message_id,home=True)
+        temporary=self.catalogue_messages.pop(ext,None)
+        if temporary is not None and temporary!=previous:
+            await self.remove_menu_message(ext,temporary)
 
     async def show_providers(self,ext,*,after_message_id=None):
         if ext not in self.cfg.admin_ids:

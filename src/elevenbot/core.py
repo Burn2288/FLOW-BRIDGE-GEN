@@ -17,6 +17,16 @@ def uid(value):
 class Service:
     def __init__(self,pool,config): self.pool,self.cfg=pool,config
 
+    async def welcome_message(self,chat):
+        return await self.pool.fetchval(
+            "SELECT welcome_message_id FROM identities WHERE platform='telegram' AND external_id=$1",chat,
+        )
+
+    async def save_welcome_message(self,chat,message_id):
+        await self.pool.execute(
+            "UPDATE identities SET welcome_message_id=$2 WHERE platform='telegram' AND external_id=$1",chat,message_id,
+        )
+
     async def identity(self,external,platform='telegram'):
         async with self.pool.acquire() as c,c.transaction():
             await c.execute('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',f'{platform}:{external}')
