@@ -1,6 +1,9 @@
 """AnyModel catalogue and explicitly selected test chat."""
 
 import asyncio
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 import json
 from pathlib import Path
@@ -12,19 +15,44 @@ import httpx
 from .aggregate import ProviderRegistry
 from .discovery import DiscoveryError, SnapshotStore, normalize
 from .core import Rejected
-from .interaction import decode_result, download_image, image_url
+from .interaction import decode_result, download_image, image_url, trace_interaction
 
 BASE = 'https://anymodel.org/v1'
 PUBLIC_PRICING = 'https://anymodel.org/en/pricing'
 TEST_MODEL = 'ds/deepseek-v4-flash-vision'
 FIBO_MODEL = 'anymedia/fibo-2'
 IMAGE_OP = 'images.generate'
+IMAGE_ENDPOINT = BASE+'/images/generations'
+JOB_ID = re.compile(r'[A-Za-z0-9_-]{1,180}')
 MAX_BODY = 4 * 1024 * 1024
 MODEL_ID = re.compile(r'[A-Za-z0-9_.:@-]+(?:/[A-Za-z0-9_.:@-]+)+')
 
 
 class AnyModelError(Exception):
-    pass
+    def __init__(self,message,*,code='protocol',status=None,retry_after=5):
+        super().__init__(message)
+        self.code,self.status,self.retry_after=code,status,retry_after
+
+
+@dataclass(frozen=True)
+class ImageReply:
+    status: int
+    retry_after: float
+    body: bytes
+
+
+def retry_after(value):
+    if value:
+        try:
+            if value.isascii() and value.isdigit():
+                return min(float(value), 31_536_000)
+            when=parsedate_to_datetime(value)
+            if when.tzinfo is None:
+                when=when.replace(tzinfo=timezone.utc)
+            return max(0,(when-datetime.now(timezone.utc)).total_seconds())
+        except (ValueError,TypeError,OverflowError):
+            pass
+    return 5
 
 
 class PricingModels(HTMLParser):
@@ -78,7 +106,10 @@ class AnyModelProvider:
         self.key = key
         self.client = client
 
-    async def request(self, method, url, *, authenticated, max_body=MAX_BODY, **kwargs):
+    async def request(self,method,url,*,authenticated,**kwargs):
+        return (await self.read_response(method,url,authenticated=authenticated,**kwargs)).body
+
+    async def read_response(self,method,url,*,authenticated,max_body=MAX_BODY,accepted=(200,),**kwargs):
         if authenticated and not self.key:
             raise AnyModelError('тестовый ключ отсутствует')
         headers = {'Authorization': 'Bearer '+self.key} if authenticated else {}
@@ -86,28 +117,35 @@ class AnyModelProvider:
             async with asyncio.timeout(25), client.stream(
                 method, url, headers=headers, follow_redirects=False, **kwargs
             ) as response:
-                if response.status_code != 200:
-                    raise AnyModelError(f'HTTP {response.status_code}')
+                delay=retry_after(response.headers.get('Retry-After'))
+                if response.status_code not in accepted:
+                    raise AnyModelError(f'HTTP {response.status_code}',code=f'http_{response.status_code}',
+                                        status=response.status_code,retry_after=delay)
                 raw = bytearray()
                 async for chunk in response.aiter_bytes():
                     if len(raw) + len(chunk) > max_body:
-                        raise AnyModelError('превышен размер ответа')
+                        raise AnyModelError('превышен размер ответа',code='response_size',status=response.status_code)
                     raw.extend(chunk)
-                return raw
+                return ImageReply(response.status_code,delay,bytes(raw))
         try:
             if self.client is not None:
                 return await read(self.client)
             async with httpx.AsyncClient(timeout=httpx.Timeout(20, connect=5), trust_env=False) as client:
                 return await read(client)
-        except (httpx.HTTPError, TimeoutError):
-            raise AnyModelError('сетевая ошибка') from None
+        except (httpx.ConnectError,httpx.ConnectTimeout) as error:
+            code='connect_timeout' if isinstance(error,httpx.ConnectTimeout) else 'connect_error'
+            raise AnyModelError('сетевая ошибка',code=code) from None
+        except (httpx.ReadTimeout,TimeoutError):
+            raise AnyModelError('сетевая ошибка',code='response_timeout') from None
+        except httpx.HTTPError:
+            raise AnyModelError('сетевая ошибка',code='transport_error') from None
 
     @staticmethod
     def decode(raw):
         try:
             return json.loads(raw)
         except (ValueError, UnicodeError):
-            raise AnyModelError('некорректный JSON') from None
+            raise AnyModelError('некорректный JSON',code='invalid_json') from None
 
     async def collect(self):
         payload = self.decode(await self.request('GET', BASE+'/models', authenticated=True))
@@ -163,25 +201,45 @@ class AnyModelProvider:
         await asyncio.to_thread(store.write,data)
         return data
 
-    async def image(self, model, prompt, request_id):
+    async def submit_image(self,model,prompt):
         if model != FIBO_MODEL:
             raise AnyModelError('модель генерации изображения недоступна')
-        raw=await self.request('POST',BASE+'/images/generations',authenticated=True,
-                               max_body=8*1024*1024,json={'model':model,'prompt':prompt})
-        payload=self.decode(raw)
+        return await self.read_response('POST',IMAGE_ENDPOINT,authenticated=True,max_body=8*1024*1024,
+                                        accepted=(200,202),json={'model':model,'prompt':prompt,'background':True})
+
+    async def poll_image(self,job_id):
+        if not JOB_ID.fullmatch(job_id):
+            raise AnyModelError('некорректный ID задачи',code='job_id')
+        return await self.read_response('GET',f'{IMAGE_ENDPOINT}/{job_id}',authenticated=True,
+                                        max_body=8*1024*1024,accepted=(200,202))
+
+    def accepted_image_id(self,reply):
+        data=self.decode(reply.body)
+        job_id=data.get('id') if isinstance(data,dict) else None
+        if not isinstance(job_id,str) or not JOB_ID.fullmatch(job_id):
+            raise AnyModelError('некорректный ID задачи',code='job_id')
+        return job_id
+
+    async def image_result(self,reply,request_id):
+        payload=self.decode(reply.body)
         try:
-            return await asyncio.to_thread(decode_result,IMAGE_OP,payload)
+            result=await asyncio.to_thread(decode_result,IMAGE_OP,payload)
         except Rejected:
             url=image_url(payload)
             if not url:
-                raise AnyModelError('ответ не содержит поддерживаемого изображения') from None
+                trace_interaction(request_id,'anymodel_image_result',format='other')
+                raise AnyModelError('ответ не содержит поддерживаемого изображения',code='image_invalid') from None
+        else:
+            trace_interaction(request_id,'anymodel_image_result',format='b64_json')
+            return result
+        trace_interaction(request_id,'anymodel_image_result',format='url')
         try:
             if self.client is not None:
                 return await download_image(self.client,url,request_id)
             async with httpx.AsyncClient(trust_env=False,limits=httpx.Limits(max_keepalive_connections=0)) as media:
                 return await download_image(media,url,request_id)
         except (Rejected,TimeoutError):
-            raise AnyModelError('не удалось скачать или проверить изображение') from None
+            raise AnyModelError('не удалось скачать или проверить изображение',code='image_download') from None
 
     async def chat(self, model, prompt, history):
         if model != TEST_MODEL:

@@ -84,6 +84,9 @@ async def main():
                 if cfg.anymodel_test_enabled:
                     from .anymodel import refresh_anymodel
                     tasks.append(asyncio.create_task(refresh_anymodel(cfg)))
+                    if cfg.anymodel_key:
+                        from .anymodel_image_jobs import AnyModelImageJobs
+                        tasks.append(asyncio.create_task(AnyModelImageJobs(pool,cfg).loop(bot)))
                 if cfg.video_pilot:
                     from .video import VideoPilot
                     tasks.append(asyncio.create_task(VideoPilot(pool,cfg).loop(bot)))

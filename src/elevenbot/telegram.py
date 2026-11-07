@@ -1022,6 +1022,14 @@ class TelegramApp:
         prompt=update.message.text
         if not prompt or not prompt.strip() or len(prompt)>4000 or '\x00' in prompt:
             raise Rejected('AnyModel: отправьте текст от 1 до 4000 символов.')
+        if image:
+            from .anymodel_image_jobs import AnyModelImageJobs
+            jobs=AnyModelImageJobs(self.pool,self.cfg,adapter=AnyModelProvider(self.cfg.anymodel_key))
+            await jobs.submit(u,update.update_id,prompt)
+            await self.svc.conversation(u,'home')
+            await self.catalogue_screen(ext,'AnyModel: запрос принят. Бот пришлёт изображение, когда оно будет готово.',
+                                        buttons([[('📁 Мои работы','history:0')]]))
+            return
         try:
             reserved=await self.svc.reserve_interaction(u,update.update_id,operation=operation,model_id=model['id'])
             if not reserved:
@@ -1029,18 +1037,6 @@ class TelegramApp:
         except Rejected as error:
             raise Rejected(f'AnyModel: {error}') from None
         adapter=AnyModelProvider(self.cfg.anymodel_key)
-        if image:
-            try:
-                result=await adapter.image(model['id'],prompt,update.update_id)
-            except AnyModelError as error:
-                raise Rejected(f'AnyModel: {error}. Автоповтора нет.') from None
-            work=await self.svc.save_image_work(u,update.update_id,model['id'],prompt,result)
-            if work:
-                try:
-                    await self.open_work(u,ext,'image',str(work))
-                except (TelegramBadRequest,TelegramNetworkError):
-                    await self.say(ext,'AnyModel: изображение сохранено. Откройте «Мои работы».')
-            return
         history=context['history']
         try:
             reply=await adapter.chat(model['id'],prompt,history)
