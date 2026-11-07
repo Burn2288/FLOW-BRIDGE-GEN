@@ -11,10 +11,14 @@ import httpx
 
 from .aggregate import ProviderRegistry
 from .discovery import DiscoveryError, SnapshotStore, normalize
+from .core import Rejected
+from .interaction import decode_result, download_image, image_url
 
 BASE = 'https://anymodel.org/v1'
 PUBLIC_PRICING = 'https://anymodel.org/en/pricing'
 TEST_MODEL = 'ds/deepseek-v4-flash-vision'
+FIBO_MODEL = 'anymedia/fibo-2'
+IMAGE_OP = 'images.generate'
 MAX_BODY = 4 * 1024 * 1024
 MODEL_ID = re.compile(r'[A-Za-z0-9_.:@-]+(?:/[A-Za-z0-9_.:@-]+)+')
 
@@ -63,12 +67,18 @@ def can_chat(model, data):
             and data['fresh_until'] > time.time())
 
 
+def can_image(model, data):
+    return (model['provider'] == 'anymodel' and model['id'] == FIBO_MODEL
+            and model['availability'] == 'key_available' and IMAGE_OP in model['operations']
+            and data['fresh_until'] > time.time())
+
+
 class AnyModelProvider:
     def __init__(self, key, *, client=None):
         self.key = key
         self.client = client
 
-    async def request(self, method, url, *, authenticated, **kwargs):
+    async def request(self, method, url, *, authenticated, max_body=MAX_BODY, **kwargs):
         if authenticated and not self.key:
             raise AnyModelError('тестовый ключ отсутствует')
         headers = {'Authorization': 'Bearer '+self.key} if authenticated else {}
@@ -80,7 +90,7 @@ class AnyModelProvider:
                     raise AnyModelError(f'HTTP {response.status_code}')
                 raw = bytearray()
                 async for chunk in response.aiter_bytes():
-                    if len(raw) + len(chunk) > MAX_BODY:
+                    if len(raw) + len(chunk) > max_body:
                         raise AnyModelError('превышен размер ответа')
                     raw.extend(chunk)
                 return raw
@@ -109,7 +119,13 @@ class AnyModelProvider:
             models = normalize(payload)
         except DiscoveryError:
             raise AnyModelError('неизвестный формат каталога') from None
+        image_ids = {record['id'] for record in payload['data'] if record.get('kind') == 'image'}
         for model in models:
+            if model['id'] in image_ids:
+                model.update(operations=[IMAGE_OP],capabilities_known=True,protocols=['openai-images'])
+            if model['id'] == FIBO_MODEL:
+                if model['title'] == FIBO_MODEL:
+                    model['title'] = 'FIBO 2'
             # Exact route documented for this ID. Do not infer other models' capabilities from their names.
             if model['id'] == TEST_MODEL:
                 model.update(operations=['chat'], capabilities_known=True, protocols=['openai-chat'])
@@ -146,6 +162,26 @@ class AnyModelProvider:
             data['refresh_error'] = str(error)
         await asyncio.to_thread(store.write,data)
         return data
+
+    async def image(self, model, prompt, request_id):
+        if model != FIBO_MODEL:
+            raise AnyModelError('модель генерации изображения недоступна')
+        raw=await self.request('POST',BASE+'/images/generations',authenticated=True,
+                               max_body=8*1024*1024,json={'model':model,'prompt':prompt})
+        payload=self.decode(raw)
+        try:
+            return await asyncio.to_thread(decode_result,IMAGE_OP,payload)
+        except Rejected:
+            url=image_url(payload)
+            if not url:
+                raise AnyModelError('ответ не содержит поддерживаемого изображения') from None
+        try:
+            if self.client is not None:
+                return await download_image(self.client,url,request_id)
+            async with httpx.AsyncClient(trust_env=False,limits=httpx.Limits(max_keepalive_connections=0)) as media:
+                return await download_image(media,url,request_id)
+        except (Rejected,TimeoutError):
+            raise AnyModelError('не удалось скачать или проверить изображение') from None
 
     async def chat(self, model, prompt, history):
         if model != TEST_MODEL:
