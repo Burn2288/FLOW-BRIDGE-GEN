@@ -35,10 +35,12 @@ class AnyModelError(Exception):
 
 
 @dataclass(frozen=True)
-class ImageReply:
+class ProviderReply:
     status: int
     retry_after: float
     body: bytes
+    content_type: str
+    connection_id: str | None
 
 
 def retry_after(value):
@@ -109,10 +111,12 @@ class AnyModelProvider:
     async def request(self,method,url,*,authenticated,**kwargs):
         return (await self.read_response(method,url,authenticated=authenticated,**kwargs)).body
 
-    async def read_response(self,method,url,*,authenticated,max_body=MAX_BODY,accepted=(200,),**kwargs):
+    async def read_response(self,method,url,*,authenticated,max_body=MAX_BODY,accepted=(200,),
+                            request_headers=None,**kwargs):
         if authenticated and not self.key:
             raise AnyModelError('тестовый ключ отсутствует')
-        headers = {'Authorization': 'Bearer '+self.key} if authenticated else {}
+        headers=dict(request_headers or {})
+        if authenticated:headers['Authorization']='Bearer '+self.key
         async def read(client):
             async with asyncio.timeout(25), client.stream(
                 method, url, headers=headers, follow_redirects=False, **kwargs
@@ -126,7 +130,9 @@ class AnyModelProvider:
                     if len(raw) + len(chunk) > max_body:
                         raise AnyModelError('превышен размер ответа',code='response_size',status=response.status_code)
                     raw.extend(chunk)
-                return ImageReply(response.status_code,delay,bytes(raw))
+                return ProviderReply(response.status_code,delay,bytes(raw),
+                                     response.headers.get('content-type','').split(';')[0].lower(),
+                                     response.headers.get('x-9router-connection-id'))
         try:
             if self.client is not None:
                 return await read(self.client)

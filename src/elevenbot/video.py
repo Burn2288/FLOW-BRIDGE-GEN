@@ -26,6 +26,10 @@ class VideoProtocolError(Exception):
     pass
 
 
+class InvalidVideoError(VideoProtocolError):
+    pass
+
+
 def video_modes(cfg, snapshot, external_id):
     if not cfg.video_pilot or external_id not in cfg.admin_ids or cfg.access_mode != 'private':
         return {}
@@ -128,10 +132,30 @@ def video_failure(job, stage, error):
 
 
 class VideoPilot:
+    provider='clodex'
+    label='CLODEX'
+    title='Veo 3.1'
+    key_fingerprint=None
+
     def __init__(self, pool, cfg, *, api=None):
         self.pool, self.cfg = pool, cfg
         self.svc = Service(pool, cfg)
         self.api = api or VideoAPI(cfg.clodex_key)
+
+    def enabled(self):
+        return self.cfg.video_pilot and self.cfg.access_mode=='private' and self.cfg.interaction_mode=='live'
+
+    async def current_price(self,model):
+        return None
+
+    async def create_task(self,model,prompt,idempotency_key):
+        return await self.api.create(model,prompt),None
+
+    async def task_status(self,task,connection):
+        return await self.api.status(task)
+
+    async def task_content(self,task,connection):
+        return await self.api.download(task)
 
     async def quote(self, user, model, text):
         prompt = text.strip()
@@ -141,36 +165,47 @@ class VideoPilot:
             price = await self.api.estimate(model, prompt)
         except (httpx.HTTPError, TimeoutError, VideoProtocolError) as error:
             video_failure(None, 'video_estimate_failed', error)
-            raise Rejected('CLODEX не вернул оценку стоимости. Генерация не запущена.') from None
+            raise Rejected(f'{self.label}: не удалось подтвердить стоимость. Запуск закрыт.') from None
         quote_id = uuid4()
         async with self.pool.acquire() as conn:
             await self.svc.authorize(conn, user)
-            await conn.execute('INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd) VALUES($1,$2,$3,$4,$5)',
-                               quote_id, user, model, prompt, price)
+            await conn.execute('''
+                INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,provider,key_fingerprint)
+                VALUES($1,$2,$3,$4,$5,$6,$7)
+                ''',quote_id,user,model,prompt,price,self.provider,self.key_fingerprint)
         return quote_id, price
 
     async def confirm(self, user, quote_id, update_id, model):
-        if not self.cfg.video_pilot or self.cfg.access_mode != 'private' or self.cfg.interaction_mode != 'live':
+        if not self.enabled():
             raise Rejected('Пилот видео недоступен.')
         job = uid(quote_id)
+        try:
+            price=await self.current_price(model)
+        except (httpx.HTTPError,TimeoutError,VideoProtocolError) as error:
+            video_failure(job,'video_estimate_failed',error)
+            raise Rejected(f'{self.label}: не удалось подтвердить стоимость. Запуск закрыт.') from None
         async with self.pool.acquire() as conn, conn.transaction():
             await self.svc.authorize(conn, user)
-            prompt = await conn.fetchval("""
-                UPDATE video_jobs SET status='submitting',next_poll_at=now()+interval '1 minute'
-                WHERE id=$1 AND user_id=$2 AND model_id=$3 AND status='quoted' AND quote_expires_at>now()
-                RETURNING prompt
-                """, job, user, model)
-            if prompt is None:
+            reserved = await conn.fetchrow("""
+                UPDATE video_jobs SET status='submitting',next_poll_at=now()+interval '1 minute',
+                    idempotency_key=CASE WHEN provider='anymodel' THEN gen_random_uuid() ELSE idempotency_key END
+                WHERE id=$1 AND user_id=$2 AND model_id=$3 AND provider=$4
+                    AND key_fingerprint IS NOT DISTINCT FROM $5::text
+                    AND ($6::numeric IS NULL OR cost_usd=$6)
+                    AND status='quoted' AND quote_expires_at>now()
+                RETURNING prompt,idempotency_key
+                """,job,user,model,self.provider,self.key_fingerprint,price)
+            if reserved is None:
                 raise Rejected('Оценка устарела или заказ уже принят.')
             if not await self.svc.reserve_interaction_on(conn, user, update_id, unlimited=False):
                 raise Rejected('Запрос уже был принят. Автоматический повтор отключён.')
         # Claim is durable before the only POST. A lost response never triggers a retry.
         try:
-            provider_id = await self.api.create(model, prompt)
+            provider_id,connection=await self.create_task(model,reserved["prompt"],reserved["idempotency_key"])
             await self.pool.execute("""
-                UPDATE video_jobs SET status='polling',provider_id=$2,next_poll_at=now()
+                UPDATE video_jobs SET status='polling',provider_id=$2,connection_id=$3,next_poll_at=now()
                 WHERE id=$1 AND status='submitting'
-                """, job, provider_id)
+                """, job, provider_id,connection)
         except (httpx.HTTPError, TimeoutError, VideoProtocolError) as error:
             await self.pool.execute("UPDATE video_jobs SET status='uncertain',expires_at=now()+interval '7 days' WHERE id=$1 AND status='submitting'", job)
             video_failure(job, 'video_create_uncertain', error)
@@ -182,24 +217,27 @@ class VideoPilot:
             UPDATE video_jobs j SET next_poll_at=now()+interval '2 minutes'
             FROM (
                 SELECT id FROM video_jobs WHERE status='polling' AND next_poll_at<=now()
+                    AND provider=$1 AND key_fingerprint IS NOT DISTINCT FROM $2::text
                 ORDER BY next_poll_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) due
             WHERE j.id=due.id
-            RETURNING j.id,j.provider_id,j.next_poll_at
-            """)
+            RETURNING j.id,j.provider_id,j.connection_id,j.next_poll_at
+            """,self.provider,self.key_fingerprint)
         if not row:
             return False
-        job, task, lease = row
+        job, task, connection, lease = row
         status, video = 'polling', None
         try:
-            current = await self.api.status(task)
+            current = await self.task_status(task,connection)
             if current == 'failed':
                 status = 'failed'
             if current == 'done':
-                video = await self.api.download(task)
+                video = await self.task_content(task,connection)
                 status = 'succeeded'
         except (httpx.HTTPError, TimeoutError, VideoProtocolError) as error:
             video_failure(job, 'video_poll_failed', error)
+            if isinstance(error,InvalidVideoError):
+                status='failed'
         saved = await self.pool.fetchval("""
             UPDATE video_jobs SET status=$3,video=$4,
                 next_poll_at=now()+interval '10 seconds',
@@ -218,12 +256,12 @@ class VideoPilot:
         row = await self.pool.fetchrow("""
             UPDATE video_jobs j SET notify_at=now()+interval '2 minutes',notify_attempts=j.notify_attempts+1
             FROM (
-                SELECT id FROM video_jobs WHERE notify_at<=now() AND notify_attempts<3 AND expires_at>now()
+                SELECT id FROM video_jobs WHERE provider=$1 AND notify_at<=now() AND notify_attempts<3 AND expires_at>now()
                 ORDER BY notify_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) due
             WHERE j.id=due.id
             RETURNING j.id,j.user_id,j.video,j.notify_at
-            """)
+            """,self.provider)
         if not row:
             return False
         job, user, video, lease = row
@@ -235,10 +273,10 @@ class VideoPilot:
             try:
                 async with asyncio.timeout(60):
                     if video is None:
-                        await bot.send_message(external, 'CLODEX не смог завершить генерацию видео.')
+                        await bot.send_message(external, f'{self.label}: не удалось завершить обработку видео.')
                     else:
-                        await bot.send_video(external, BufferedInputFile(video, filename='veo.mp4'),
-                                             caption='Veo 3.1 · Видео также доступно в «Моих работах».')
+                        await bot.send_video(external, BufferedInputFile(video, filename='grok.mp4' if self.provider=='anymodel' else 'veo.mp4'),
+                                             caption=f'{self.title} · Видео также доступно в «Моих работах».')
             except (TelegramAPIError, TimeoutError) as error:
                 video_failure(job, 'video_delivery_failed', error)
                 return True
@@ -250,9 +288,9 @@ class VideoPilot:
             try:
                 await self.pool.execute("""
                     UPDATE video_jobs SET status='uncertain',expires_at=now()+interval '7 days'
-                    WHERE (status='submitting' AND next_poll_at<=now())
-                       OR (status='polling' AND created_at<now()-interval '1 day')
-                    """)
+                    WHERE provider=$1 AND ((status='submitting' AND next_poll_at<=now())
+                       OR (provider='clodex' AND status='polling' AND created_at<now()-interval '1 day'))
+                    """,self.provider)
                 if await self.poll_one(bot):
                     continue
                 if await self.notify_one(bot):
