@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 import asyncio
 import json
 import os
+from pathlib import Path
 import sys
 
 import httpx
@@ -202,7 +203,11 @@ async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch):
     schema=await pool.fetchval('SELECT current_schema()')
     process=await asyncio.create_subprocess_exec(
         sys.executable,'-c',POLL_AFTER_RESTART,
-        env=os.environ|{'FIBO_SCHEMA':schema,'FIBO_PNG':b64encode(png).decode()},
+        env=os.environ|{
+            'FIBO_SCHEMA':schema,
+            'FIBO_PNG':b64encode(png).decode(),
+            'PYTHONPATH':str(Path(__file__).resolve().parents[1]/'src'),
+        },
         stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,
     )
     try:
