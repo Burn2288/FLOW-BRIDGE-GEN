@@ -86,11 +86,11 @@ async def test_telegram_aggregate_preview_vertical_slice_and_cancel(tmp_path):
  await app.handle(event(callback=bot.sent[-1][1].inline_keyboard[0][0].callback_data))
  card={b.text:b.callback_data for row in bot.sent[-1][1].inline_keyboard for b in row}
  assert list(card)[:4]==['🎬 Генерировать видео','🖼 Генерировать изображение','🎙 Озвучить текст','📁 Мои работы']
- assert card['Открыть каталог']=='store'
+ assert 'Открыть каталог' not in card
  for title in ('🎬 Генерировать видео','🖼 Генерировать изображение'):
   await app.handle(event(callback=card[title]))
   assert bot.sent[-1][0].startswith(title)
- await app.handle(event(callback=card['Открыть каталог']))
+ await app.handle(event(callback='store'))
  store={b.text:b.callback_data for row in bot.sent[-1][1].inline_keyboard for b in row}
  assert {title:store[title] for title in list(card)[:4]}=={title:card[title] for title in list(card)[:4]}
  await app.handle(event(callback=card['🧩 Модели']))

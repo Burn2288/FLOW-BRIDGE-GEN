@@ -839,7 +839,7 @@ class TelegramApp:
         if source.get('evidence',{}).get('unavailable_metadata'):scope+=' Часть метаданных временно недоступна.'
         models_route=f'cat:{version}:{index}:0'
         if provider=='clodex':
-            rows=store_rows()+[[(OPEN_CATALOGUE,'store')],[('🧩 Модели',models_route)]]
+            rows=store_rows()+[[('🧩 Модели',models_route)]]
         else:
             rows=[[(OPEN_CATALOGUE,models_route)]]
         rows.extend([
