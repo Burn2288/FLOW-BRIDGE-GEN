@@ -55,6 +55,11 @@ STATUS={'queued':'В очереди','dispatching':'Создаётся','uncerta
 def buttons(rows):
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t,callback_data=d) for t,d in row] for row in rows])
 
+def store_rows():
+    rows=[[(title,f'slist:current:{section}:0')] for section,(title,_) in STORE_SECTIONS.items()]
+    rows.append([('📁 Мои работы','history:0')])
+    return rows
+
 def menu(*,public=False):
     labels=[OPEN_CATALOGUE] if public else MENU
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
@@ -832,14 +837,18 @@ class TelegramApp:
         scope='Публичный каталог. Доступность по ключу ещё не проверена.' if source['scope']=='public_only' else 'Список получен через /v1/models для ключа сервиса.'
         if data['fresh_until']<time.time():scope+=' Данные устарели.'
         if source.get('evidence',{}).get('unavailable_metadata'):scope+=' Часть метаданных временно недоступна.'
-        await self.catalogue_screen(ext,('Clodex' if provider=='clodex' else provider)+f"\nМоделей: {len(models)} · операций API: {len(functions)} · разделов документации: {len(docs)}\n"+scope+( '\nОткройте модель, чтобы увидеть доступные действия.' if self.cfg.interaction_mode!='off' else '\nГенерация через каталог пока выключена.'),buttons([
-            [(OPEN_CATALOGUE,f'cat:{version}:{index}:0')],
+        models_route=f'cat:{version}:{index}:0'
+        if provider=='clodex':
+            rows=store_rows()+[[(OPEN_CATALOGUE,'store')],[('🧩 Модели',models_route)]]
+        else:
+            rows=[[(OPEN_CATALOGUE,models_route)]]
+        rows.extend([
             [('🛠 Функции и возможности',f'pf:{version}:{index}:0')],
-            [('← Агрегаторы','providers')]]))
+            [('← Агрегаторы','providers')]])
+        await self.catalogue_screen(ext,('Clodex' if provider=='clodex' else provider)+f"\nМоделей: {len(models)} · операций API: {len(functions)} · разделов документации: {len(docs)}\n"+scope+( '\nОткройте модель, чтобы увидеть доступные действия.' if self.cfg.interaction_mode!='off' else '\nГенерация через каталог пока выключена.'),buttons(rows))
 
     async def show_store(self,ext):
-        rows=[[(title,f'slist:current:{section}:0')] for section,(title,_) in STORE_SECTIONS.items()]
-        rows.append([('📁 Мои работы','history:0')])
+        rows=store_rows()
         if ext in self.cfg.admin_ids:
             rows.append([('← Агрегаторы','providers')])
         rows.append([('Главное меню','home')])
