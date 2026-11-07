@@ -68,7 +68,7 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
             'amsection:video','amsection:image','amsection:speech','amsection:chat','amsection:tools',
             'amcat:current:0','providers',
         }
-        for section in ('speech','chat','tools'):
+        for section in ('chat','tools'):
             await app.callback(user,100,f'amsection:{section}')
             assert 'пока нет подключённых операций' in bot.sent[-1][0]
         await app.callback(user,100,home['🧩 Модели'])

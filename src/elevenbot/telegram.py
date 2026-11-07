@@ -14,11 +14,13 @@ from .anymodel_video import AnyModelVideoPilot,MODEL as ANYMODEL_VIDEO_MODEL,TIT
 from .anymodel_video import DURATION as ANYMODEL_VIDEO_SECONDS,RESOLUTION as ANYMODEL_VIDEO_RESOLUTION
 from .anymodel_video import ASPECT_RATIO as ANYMODEL_VIDEO_RATIO,USD_PER_TOKEN
 from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_chat,can_image,can_view,model_store
+from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
-ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm'}
+SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm'}
+ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm'}|SPEECH_ROUTES
 CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|{'provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
@@ -52,6 +54,7 @@ class TelegramApp:
         self.pending_speech = {}
         self.video = VideoPilot(pool,cfg)
         self.anymodel_video = AnyModelVideoPilot(pool,cfg)
+        self.anymodel_speech = SpeechPilot(pool,cfg)
     async def say(self,chat,text,markup=None):
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
             markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=OPEN_CATALOGUE)]],resize_keyboard=True,is_persistent=True)
@@ -254,6 +257,8 @@ class TelegramApp:
                 context=await self.svc.aggregate_context(u)
                 if context and context.get('anymodel_video'):
                     await self.anymodel_video_prompt(u,ext,text,context);return
+                if context and 'anymodel_speech' in context:
+                    await self.anymodel_speech_prompt(u,ext,text,context);return
                 if context and 'video_mode' in context:
                     await self.video_prompt(u,ext,text,context);return
                 if context and 'interaction' in context:
@@ -570,6 +575,8 @@ class TelegramApp:
         if not can_view(self.cfg,ext):
             raise Rejected('Раздел AnyModel доступен только тестовому администратору.')
         route,*parts=value.split(':')
+        if route in SPEECH_ROUTES:
+            await self.anymodel_speech_callback(u,ext,route,value.partition(':')[2],request_id);return
         if route=='am':
             await self.svc.conversation(u,'home')
             rows=[[(title,f'amsection:{key}')] for key,title in ANYMODEL_SECTIONS.items()]
@@ -630,6 +637,8 @@ class TelegramApp:
         rows=[]
         if section=='video':
             rows.append([(ANYMODEL_VIDEO_TITLE,'amvideo:detail')])
+        if section=='speech':
+            rows.extend([[(FISH_TITLE,'amspeech:fish')],[('AnyVoice','amspeech:anyvoice')]])
         if section in ('image','chat'):
             try:
                 data=self.anymodel_snapshot(ext)
@@ -645,6 +654,77 @@ class TelegramApp:
         if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
         rows.append([('← AnyModel','am')])
         await self.catalogue_screen(ext,title,buttons(rows))
+
+    async def anymodel_speech_callback(self,u,ext,route,arg,request_id):
+        pilot=self.anymodel_speech
+        back=[('← Озвучить текст','amsection:speech')]
+        try:
+            if route=='amsconfirm':
+                context=await self.svc.aggregate_context(u)
+                if request_id is None or not context or context.get('speech_quote')!=arg:
+                    raise Rejected('AnyModel: оценка устарела или запрос уже принят.')
+                work=await pilot.confirm(u,ext,arg,request_id)
+                audio=await self.svc.audio_work(u,work)
+                await self.bot.send_audio(ext,BufferedInputFile(audio['audio'],filename=audio['filename']),
+                                          caption=audio['caption'])
+                await self.svc.conversation(u,'home')
+                await self.catalogue_screen(ext,'AnyModel: озвучка сохранена.',
+                                            buttons([[('📁 Мои работы','history:0')]]))
+                return
+            if route=='amvoices':
+                await self.svc.conversation(u,'home')
+                voices=list((await pilot.voices()).values())
+                page=min(max(int(arg),0),max(0,(len(voices)-1)//10))
+                rows=[[(voice['name'][:80]+(' · ИИ-имитация' if voice.get('imitation') is True else ''),
+                        'amvoice:'+voice['model'])] for voice in voices[page*10:(page+1)*10]]
+                nav=[]
+                if page>0:nav.append(('← Назад',f'amvoices:{page-1}'))
+                if (page+1)*10<len(voices):nav.append(('Далее →',f'amvoices:{page+1}'))
+                if nav:rows.append(nav)
+                rows.append([('← AnyVoice','amspeech:anyvoice')])
+                await self.catalogue_screen(ext,f'AnyVoice · Русские голоса ({len(voices)})',buttons(rows))
+                return
+            if route=='amspeech' and arg=='anyvoice':
+                await self.svc.conversation(u,'home')
+                await self.catalogue_screen(ext,'AnyVoice · AnyModel\nВыберите русский голос для ИИ-озвучки.',
+                                            buttons([[('Выбрать голос','amvoices:0')],back]))
+                return
+            if route!='amvoice' and arg!='fish':
+                raise Rejected('AnyModel: карточка недоступна.')
+            model=arg if route=='amvoice' else FISH
+            title,rate=await pilot.model(model)
+        except AnyModelError as error:
+            trace_interaction(request_id,'anymodel_speech_metadata_failed',reason=error.code)
+            await self.svc.conversation(u,'home')
+            await self.catalogue_screen(ext,'AnyModel: не удалось проверить каталог или тариф. Запуск закрыт.',
+                                        buttons([back]))
+            return
+        await self.svc.aggregate_context(u,{'anymodel_speech':model})
+        text=f'{title} · AnyModel\nID: {model}\n'
+        if model==FISH:text+='Голос по умолчанию.\n'
+        text+='Пришлите текст.\n'
+        if rate is None:
+            text+='Тариф не подтверждён. Тестовый запуск закрыт.'
+        else:
+            text+=f'Тариф: {rate.normalize():f} токенов баланса за единицу UTF-16.'
+            if not pilot.enabled(ext):text+='\nТестовый запуск выключен.'
+        rows=[[('← Выбрать голос','amvoices:0')],back] if route=='amvoice' else [back]
+        await self.catalogue_screen(ext,text,buttons(rows))
+
+    async def anymodel_speech_prompt(self,u,ext,text,context):
+        if not self.anymodel_speech.enabled(ext):
+            raise Rejected('AnyModel: тестовый запуск озвучки выключен.')
+        if 'speech_quote' in context:
+            raise Rejected('AnyModel: подтвердите оценку или откройте меню для отмены.')
+        try:
+            quote,title,units,cost=await self.anymodel_speech.quote(u,context['anymodel_speech'],text)
+        except AnyModelError as error:
+            trace_interaction(None,'anymodel_speech_metadata_failed',reason=error.code)
+            raise Rejected('AnyModel: не удалось подтвердить тариф. Запуск закрыт.') from None
+        await self.svc.aggregate_context(u,{**context,'speech_quote':str(quote)})
+        await self.catalogue_screen(ext,f'{title} · AnyModel\n{units} единиц UTF-16\n'
+                                    f'Стоимость: {cost.normalize():f} токенов баланса. Оценка действует 5 минут.',
+                                    buttons([[('Подтвердить',f'amsconfirm:{quote}')],[('Отмена','home')]]))
 
     @staticmethod
     def anymodel_video_price(price):

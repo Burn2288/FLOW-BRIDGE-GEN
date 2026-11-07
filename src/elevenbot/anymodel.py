@@ -112,13 +112,13 @@ class AnyModelProvider:
         return (await self.read_response(method,url,authenticated=authenticated,**kwargs)).body
 
     async def read_response(self,method,url,*,authenticated,max_body=MAX_BODY,accepted=(200,),
-                            request_headers=None,**kwargs):
+                            request_headers=None,deadline=25,**kwargs):
         if authenticated and not self.key:
             raise AnyModelError('тестовый ключ отсутствует')
         headers=dict(request_headers or {})
         if authenticated:headers['Authorization']='Bearer '+self.key
         async def read(client):
-            async with asyncio.timeout(25), client.stream(
+            async with asyncio.timeout(deadline), client.stream(
                 method, url, headers=headers, follow_redirects=False, **kwargs
             ) as response:
                 delay=retry_after(response.headers.get('Retry-After'))
