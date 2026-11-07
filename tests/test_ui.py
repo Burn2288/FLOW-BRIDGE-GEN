@@ -147,11 +147,17 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
         b.send_animation=AsyncMock(side_effect=error)
     await a.handle(event('/start'))
     await a.handle(event(MENU[0]))
+    _,keyboard=b.sent[-2]
+    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU]
     first=a.catalogue_messages[100]
     text,markup=b.sent[-1]
     assert text.startswith('DarkFlow | Gen\nВыберите агрегатор')
-    assert 'am' in [button.callback_data for row in markup.inline_keyboard for button in row]
+    options={button.text:button.callback_data for row in markup.inline_keyboard for button in row}
+    assert options['AnyModel']=='am' and telegram.OPEN_CATALOGUE not in options
     await a.handle(event(callback='am'))
+    _,markup=b.sent[-1]
+    assert any(button.text==telegram.OPEN_CATALOGUE and button.callback_data=='amcat:current:0'
+               for row in markup.inline_keyboard for button in row)
     if not rejected:
         assert b.animations[0].data==telegram.AGGREGATORS_ANIMATION.read_bytes()
         assert first in b.deleted

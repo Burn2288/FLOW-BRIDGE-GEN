@@ -64,6 +64,7 @@ class TelegramApp:
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.catalogue_messages = {}
         self.catalogue_animations = set()
+        self.aggregator_keyboard_messages = {}
         self.work_previews = {}
         self.pending_speech = {}
         self.video = VideoPilot(pool,cfg)
@@ -246,6 +247,12 @@ class TelegramApp:
                 await self.remove_menu_message(ext,update.message.message_id);return
             if text in ('/aggregators','/functions','🛠 Функции',MENU[0]):
                 await self.svc.conversation(u,'home')
+                if text==MENU[0] and ext in self.cfg.admin_ids:
+                    message=await self.say(ext,'Выберите агрегатор ниже.',menu())
+                    previous=self.aggregator_keyboard_messages.get(ext)
+                    self.aggregator_keyboard_messages[ext]=message.message_id
+                    if previous is not None:
+                        await self.remove_menu_message(ext,previous)
                 await self.show_providers(ext,after_message_id=update.message.message_id)
                 await self.remove_menu_message(ext,update.message.message_id);return
             if command=='/start':
@@ -568,6 +575,9 @@ class TelegramApp:
                         raise
                     return
             await self.svc.save_welcome_message(ext,message.message_id)
+            keyboard_message=self.aggregator_keyboard_messages.pop(ext,None)
+            if keyboard_message is not None:
+                await self.remove_menu_message(ext,keyboard_message)
             if previous is not None and previous!=message.message_id:
                 await self.remove_menu_message(ext,previous)
 
@@ -590,7 +600,6 @@ class TelegramApp:
             rows=[[('↻ Обновить экран','providers')]]
         if can_view(self.cfg,ext):
             rows.append([('AnyModel','am')])
-        rows.append([(OPEN_CATALOGUE,'store')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id,
@@ -629,7 +638,7 @@ class TelegramApp:
         if route=='am':
             await self.svc.conversation(u,'home')
             rows=[[(title,f'amsection:{key}')] for key,title in ANYMODEL_SECTIONS.items()]
-            rows.extend([[('🧩 Модели','amcat:current:0')],[('← Агрегаторы','providers')]])
+            rows.extend([[(OPEN_CATALOGUE,'amcat:current:0')],[('← Агрегаторы','providers')]])
             try:
                 data=self.anymodel_snapshot(ext)
                 text=f"AnyModel\nМоделей: {len(data['models'])}\n"+self.anymodel_status(data)
@@ -824,10 +833,9 @@ class TelegramApp:
         if data['fresh_until']<time.time():scope+=' Данные устарели.'
         if source.get('evidence',{}).get('unavailable_metadata'):scope+=' Часть метаданных временно недоступна.'
         await self.catalogue_screen(ext,('Clodex' if provider=='clodex' else provider)+f"\nМоделей: {len(models)} · операций API: {len(functions)} · разделов документации: {len(docs)}\n"+scope+( '\nОткройте модель, чтобы увидеть доступные действия.' if self.cfg.interaction_mode!='off' else '\nГенерация через каталог пока выключена.'),buttons([
-            [('🧩 Модели',f'cat:{version}:{index}:0')],
+            [(OPEN_CATALOGUE,f'cat:{version}:{index}:0')],
             [('🛠 Функции и возможности',f'pf:{version}:{index}:0')],
-            [('← Агрегаторы','providers')],
-            [(OPEN_CATALOGUE,'store')]]))
+            [('← Агрегаторы','providers')]]))
 
     async def show_store(self,ext):
         rows=[[(title,f'slist:current:{section}:0')] for section,(title,_) in STORE_SECTIONS.items()]
