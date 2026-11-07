@@ -6,7 +6,7 @@ from dataclasses import replace
 from unittest.mock import AsyncMock
 import pytest
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.methods import SendPhoto
+from aiogram.methods import SendAnimation, SendPhoto
 from aiogram.types import Update
 from elevenbot import telegram
 from elevenbot.telegram import TelegramApp,MENU,menu
@@ -14,7 +14,7 @@ from elevenbot.config import Config
 from elevenbot.core import ConsentRequired,Rejected
 
 class Bot:
-    def __init__(self):self.sent=[];self.audio=[];self.answers=[];self.photos=[];self.deleted=[]
+    def __init__(self):self.sent=[];self.audio=[];self.answers=[];self.photos=[];self.deleted=[];self.animations=[]
     async def send_message(self,chat,text,reply_markup=None):self.sent.append((text,reply_markup));return SimpleNamespace(message_id=100+len(self.sent))
     async def edit_message_text(self,text,*,chat_id,message_id,reply_markup=None):
         self.sent.append((text,reply_markup))
@@ -25,6 +25,9 @@ class Bot:
     async def send_photo(self,chat,photo,*,caption=None,reply_markup=None):
         self.photos.append((photo,caption,reply_markup))
         return SimpleNamespace(message_id=1000+len(self.photos))
+    async def send_animation(self,chat,animation,*,caption,reply_markup):
+        self.animations.append(animation)
+        return await self.send_message(chat,caption,reply_markup)
     async def answer_pre_checkout_query(self,*args,**kw):self.answers.append(kw)
 
 class FakeService:
@@ -129,6 +132,35 @@ async def test_welcome_replacement_survives_restart_and_send_failure(env):
     await restarted.handle(event('/start'))
     assert await restarted.svc.welcome_message(100)==1002
     assert bot.deleted.count(1001)==1 and 1002 not in bot.deleted
+
+
+@pytest.mark.parametrize('rejected',[False,True])
+async def test_aggregators_animation_navigation(monkeypatch,rejected):
+    a,b=app()
+    a.cfg=replace(a.cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True)
+    await a.svc.accept(a.svc.u)
+    monkeypatch.setattr(a,'catalogue_snapshot',lambda: {'sources':[]})
+    monkeypatch.setattr(a,'anymodel_snapshot',lambda *args: {'models':[],'sources':[{'scope':'public_only'}]})
+    monkeypatch.setattr(a,'anymodel_status',lambda data: 'Тестовый каталог')
+    if rejected:
+        error=TelegramBadRequest(SendAnimation(chat_id=100,animation='fixture'),'fixture')
+        b.send_animation=AsyncMock(side_effect=error)
+    await a.handle(event('/start'))
+    await a.handle(event(MENU[0]))
+    first=a.catalogue_messages[100]
+    text,markup=b.sent[-1]
+    assert text.startswith('DarkFlow | Gen\nВыберите агрегатор')
+    assert 'am' in [button.callback_data for row in markup.inline_keyboard for button in row]
+    await a.handle(event(callback='am'))
+    if not rejected:
+        assert b.animations[0].data==telegram.AGGREGATORS_ANIMATION.read_bytes()
+        assert first in b.deleted
+    await a.handle(event(callback='providers'))
+    second=a.catalogue_messages[100]
+    assert second!=first
+    await a.handle(event(callback='home'))
+    assert second in b.deleted and 1001 not in b.deleted
+    assert len(b.photos)==1 and len(b.animations)==(0 if rejected else 2)
 
 async def test_UI_full_dialog():
     a,b=app()

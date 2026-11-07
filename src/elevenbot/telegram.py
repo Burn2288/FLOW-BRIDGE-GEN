@@ -29,6 +29,7 @@ STORE_SECTIONS={
 }
 OPEN_CATALOGUE='Открыть каталог'
 WELCOME_BANNER=Path(__file__).with_name('welcome.png')
+AGGREGATORS_ANIMATION=Path(__file__).with_name('darkflow-energy-strip.gif')
 WELCOME_TEXT=(
     'Добро пожаловать в DarkFlow | Gen 🔮\n\n'
     'Создавай контент с помощью нейросетей прямо в Telegram.\n\n'
@@ -62,6 +63,7 @@ class TelegramApp:
     def __init__(self,pool,cfg,bot):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.catalogue_messages = {}
+        self.catalogue_animations = set()
         self.work_previews = {}
         self.pending_speech = {}
         self.video = VideoPilot(pool,cfg)
@@ -71,11 +73,12 @@ class TelegramApp:
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
             markup=menu(public=True)
         return await self.bot.send_message(chat,text,reply_markup=markup)
-    async def catalogue_screen(self, chat, text, markup=None, *, after_message_id=None):
+    async def catalogue_screen(self, chat, text, markup=None, *, after_message_id=None, animation=None):
         self.pending_speech.pop(chat,None)
         await self.close_work_preview(chat)
         message_id = self.catalogue_messages.get(chat)
-        if (message_id is not None and not isinstance(markup, ReplyKeyboardMarkup)
+        if (animation is None and message_id is not None and chat not in self.catalogue_animations
+                and not isinstance(markup, ReplyKeyboardMarkup)
                 and (after_message_id is None or message_id > after_message_id)):
             try:
                 await self.bot.edit_message_text(text, chat_id=chat, message_id=message_id, reply_markup=markup)
@@ -86,7 +89,21 @@ class TelegramApp:
                     return
                 if not any(detail in reason for detail in ('message to edit not found', "message can't be edited")):
                     raise
-        message = await self.say(chat, text, markup)
+        message = None
+        if animation is not None:
+            try:
+                data=await asyncio.to_thread(animation.read_bytes)
+                message=await self.bot.send_animation(
+                    chat,BufferedInputFile(data,filename=animation.name),
+                    caption=text,reply_markup=markup,
+                )
+            except (OSError,ClientDecodeError,TelegramAPIError):
+                pass
+        if message is None:
+            message=await self.say(chat,text,markup)
+            self.catalogue_animations.discard(chat)
+        else:
+            self.catalogue_animations.add(chat)
         self.catalogue_messages[chat]=message.message_id
         if message_id is not None and message_id!=message.message_id:
             await self.remove_menu_message(chat,message_id)
@@ -210,8 +227,10 @@ class TelegramApp:
                 catalogue_callback = data=='accept' or data=='providers' or data.partition(':')[0] in SCREEN_CALLBACKS
                 bot_screen = isinstance(e.message, Message) and e.message.from_user and e.message.from_user.is_bot
                 previous_screen = self.catalogue_messages.get(ext)
-                if catalogue_callback and bot_screen:
-                    self.catalogue_messages.setdefault(ext, e.message.message_id)
+                if catalogue_callback and bot_screen and previous_screen is None:
+                    self.catalogue_messages[ext]=e.message.message_id
+                    if e.message.animation:
+                        self.catalogue_animations.add(ext)
                 await self.callback(u,ext,data,request_id=update.update_id)
                 if (data=='home' and bot_screen and e.message.message_id not in
                         (previous_screen, self.catalogue_messages.get(ext)) and previous_screen is not None):
@@ -555,6 +574,7 @@ class TelegramApp:
         self.pending_speech.pop(ext,None)
         await self.close_work_preview(ext)
         temporary=self.catalogue_messages.pop(ext,None)
+        self.catalogue_animations.discard(ext)
         if temporary is not None and temporary!=previous:
             await self.remove_menu_message(ext,temporary)
 
@@ -573,7 +593,8 @@ class TelegramApp:
         rows.append([(OPEN_CATALOGUE,'store')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         rows.append([('Главное меню','home')])
-        await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id)
+        await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id,
+                                    animation=AGGREGATORS_ANIMATION)
 
     def anymodel_snapshot(self,ext,version=None):
         if not can_view(self.cfg,ext):
