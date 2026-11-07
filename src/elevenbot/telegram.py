@@ -10,11 +10,13 @@ from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
 from .video import VideoPilot,video_modes
+from .anymodel import AnyModelProvider,AnyModelError,can_chat,can_view,model_store
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
-CATALOGUE_CALLBACKS={'provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
+ANYMODEL_ROUTES={'am','amcat','ammdl','amrun'}
+CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|{'provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -272,6 +274,8 @@ class TelegramApp:
                     await c.execute("INSERT INTO audit_events(action,target) VALUES('payment_review',$1)",u)
             if update.pre_checkout_query:
                 await self.bot.answer_pre_checkout_query(update.pre_checkout_query.id,ok=False,error_message=str(e))
+            elif str(e).startswith('AnyModel:') and can_view(self.cfg,ext):
+                await self.catalogue_screen(ext,str(e),buttons([[('← AnyModel','am')]]))
             elif catalogue_callback and data.startswith('confirm:') and isinstance(update.callback_query.message,Message):
                 await self.catalogue_screen(ext,str(e),update.callback_query.message.reply_markup)
             elif catalogue_callback:
@@ -363,6 +367,8 @@ class TelegramApp:
 
     async def callback(self,u,ext,data,*,request_id=None):
         route=data.partition(':')[0]
+        if route in ANYMODEL_ROUTES:
+            await self.anymodel_callback(u,ext,data);return
         if route in DEVELOPER_CALLBACKS and ext not in self.cfg.admin_ids:
             raise Rejected('Этот раздел доступен только разработчику.')
         if data=='store':
@@ -522,9 +528,68 @@ class TelegramApp:
         except Rejected as e:
             text=str(e)
             rows=[[('↻ Обновить экран','providers')]]
+        if can_view(self.cfg,ext):
+            rows.append([('AnyModel','am')])
         rows.append([(OPEN_CATALOGUE,'store')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id)
+
+    def anymodel_snapshot(self,ext,version=None):
+        if not can_view(self.cfg,ext):
+            raise Rejected('Раздел AnyModel доступен только тестовому администратору.')
+        data=model_store(self.cfg).read()
+        if not data:
+            raise Rejected('AnyModel: каталог пока недоступен.')
+        if version is not None and data['version']!=version:
+            raise Rejected('AnyModel: каталог обновился. Откройте раздел заново.')
+        return data
+
+    def anymodel_status(self,data):
+        if data['sources'][0]['scope']=='public_only':
+            lines=['Публичный каталог. Доступ по ключу не подтверждён.']
+            label='Обновление публичного снимка'
+        else:
+            lines=['Каталог по тестовому ключу.']
+            label='Последнее успешное обновление'
+        if data['fresh_until']<=time.time():
+            lines.append('Каталог устарел')
+        if data.get('refresh_error'):
+            lines.append('Обновление по ключу: '+data['refresh_error'])
+        updated=datetime.fromtimestamp(data['fetched_at'],timezone.utc).strftime('%d.%m.%Y %H:%M UTC')
+        return '\n'.join([f'{label}: {updated}',*lines])
+
+    async def anymodel_callback(self,u,ext,value):
+        if not can_view(self.cfg,ext):
+            raise Rejected('Раздел AnyModel доступен только тестовому администратору.')
+        route,*parts=value.split(':')
+        if route=='am':
+            await self.svc.conversation(u,'home')
+            try:
+                data=self.anymodel_snapshot(ext)
+            except Rejected as error:
+                await self.catalogue_screen(ext,str(error),buttons([[('← Агрегаторы','providers')]]));return
+            text=f"AnyModel\nМоделей: {len(data['models'])}\n"+self.anymodel_status(data)
+            await self.catalogue_screen(ext,text,buttons([[('🧩 Модели',f"amcat:{data['version']}:0")],
+                                                         [('← Агрегаторы','providers')]]));return
+        version=parts[0]
+        data=self.anymodel_snapshot(ext,version)
+        if route=='amcat':
+            await self.catalogue_page(ext,data,data['models'],'AnyModel',int(parts[1]),
+                                      f'amcat:{version}',f'ammdl:{version}','am',self.anymodel_status(data));return
+        index,page=map(int,parts[1:])
+        if not 0<=index<len(data['models']):raise Rejected('AnyModel: модель недоступна.')
+        model=data['models'][index]
+        if route=='ammdl':
+            back=f'amcat:{version}:{page}'
+            action=[('Тестовый чат',f'amrun:{version}:{index}:{page}')] if can_chat(model,data) else []
+            await self.render_model_detail(ext,model,back,action,provider='AnyModel');return
+        if not can_chat(model,data):
+            raise Rejected('AnyModel: тестовый чат недоступен. Обновите каталог.')
+        await self.svc.aggregate_context(u,{'interaction':'chat','provider':'anymodel',
+                                             'model_id':model['id'],'history':[]})
+        note='Отправьте текст.' if self.cfg.anymodel_chat_live else 'Платный вызов выключен на стенде.'
+        await self.catalogue_screen(ext,f"AnyModel · {model['id']}\n{note}",
+                                    buttons([[('← К списку моделей',f'amcat:{version}:{page}')]]))
 
     async def provider_detail(self,ext,version,index):
         if ext not in self.cfg.admin_ids:
@@ -663,46 +728,55 @@ class TelegramApp:
             await self.catalogue_screen(ext,label,buttons(rows) if rows else None);return
         index=int(group)
         if not 0<=index<len(categories) or not 0<=page<=2000:raise Rejected('Раздел недоступен.')
-        models=categories[index]['models'];rows=[]
+        version=data['version']
+        parent=f"provider:{version}:{index}" if data.get('sources') else 'providers'
+        await self.catalogue_page(ext,data,categories[index]['models'],categories[index]['title'],page,
+                                  f'cat:{version}:{index}',f'mdl:{version}',parent,group=index)
+
+    async def catalogue_page(self,ext,data,models,title,page,list_prefix,detail_prefix,parent,status='',group=None):
+        if not 0<=page<=2000:raise Rejected('Страница недоступна.')
         page_size=10
-        for m in models[page*page_size:(page+1)*page_size]:
-            rows.append([(m['title'],f"mdl:{data['version']}:{data['models'].index(m)}:{index}:{page}")])
-        back = f"cat:{data['version']}:{index}:{page-1}" if page else (
-            f"provider:{data['version']}:{index}" if data.get('sources') else 'providers'
-        )
-        nav=[('← Назад',back)]
-        if len(models)>(page+1)*page_size:nav.append(('Далее →',f"cat:{data['version']}:{index}:{page+1}"))
-        rows.append(nav)
-        rows.append([('← Агрегаторы','providers')])
-        label=f"{categories[index]['title']}\nМоделей: {len(models)} · Страница {page+1} из {max(1,(len(models)+page_size-1)//page_size)}"
-        await self.catalogue_screen(ext,label,buttons(rows))
+        indexes={(m.get('provider'),m['id']):i for i,m in enumerate(data['models'])}
+        rows=[]
+        for model in models[page*page_size:(page+1)*page_size]:
+            index=indexes[(model.get('provider'),model['id'])]
+            middle=f':{group}' if group is not None else ''
+            rows.append([(model['title'],f'{detail_prefix}:{index}{middle}:{page}')])
+        nav=[('← Назад',f'{list_prefix}:{page-1}' if page else parent)]
+        if len(models)>(page+1)*page_size:nav.append(('Далее →',f'{list_prefix}:{page+1}'))
+        rows.extend([nav,[('← Агрегаторы','providers')]])
+        label=f'{title}\nМоделей: {len(models)} · Страница {page+1} из {max(1,(len(models)+page_size-1)//page_size)}'
+        await self.catalogue_screen(ext,label+('\n'+status if status else ''),buttons(rows))
 
     async def model_detail(self,ext,version,index,origin=()):
-        from .discovery import OPERATIONS
         data=self.catalogue_snapshot(version)
         if not 0<=index<len(data['models']):raise Rejected('Модель недоступна.')
-        m=data['models'][index]
-        if is_disabled_model(m):raise Rejected('Модель недоступна.')
-        availability='Доступность для ключа не проверена (публичная витрина).'
-        if m.get('availability')=='key_available':availability='Модель возвращена API для ключа сервиса.'
-        protocols=', '.join(m.get('protocols',[])) or 'не указаны'
-        capabilities=', '.join(OPERATIONS[x][0] for x in m['operations']) or 'точные операции для модели не подтверждены'
-        price=m.get('public_pricing',{})
-        metrics={k:v for k,v in price.items() if k!='verified_for_billing'}
-        price_label=json.dumps(metrics,ensure_ascii=False)[:800] if metrics else 'нет данных'
-        rows = [[('← Агрегаторы', 'providers')]]
-        if len(origin) == 2:
-            group, page = map(int, origin)
-            rows.insert(0, [('← К списку моделей', f'cat:{version}:{group}:{page}')])
-        actions=[
-            [(label,f'runmodel:{version}:{index}:{operation}')]
-            for operation,label in MODEL_ACTIONS.items() if self.model_can_run(m,operation)
-        ]
-        if self.model_can_run(m,'images.generate') or self.model_can_run(m,'audio.speech'):
-            rows.insert(0,[('Работы этой модели',f'mwork:{version}:dev:{index}:0')])
-        launch_status='' if actions else ' Платный запуск через каталог выключен для этой модели.'
-        await self.catalogue_screen(ext,m['title']+'\n'+availability+'\nПротоколы: '+protocols+'\nВозможности: '+capabilities+
-            '\nПубличные ценовые метрики: '+price_label+'\nЭто не цена заказа.'+launch_status,buttons(actions+rows))
+        model=data['models'][index]
+        if is_disabled_model(model):raise Rejected('Модель недоступна.')
+        back=f'cat:{version}:{int(origin[0])}:{int(origin[1])}' if len(origin)==2 else None
+        actions=[(label,f'runmodel:{version}:{index}:{op}')
+                 for op,label in MODEL_ACTIONS.items() if self.model_can_run(model,op)]
+        if self.model_can_run(model,'images.generate') or self.model_can_run(model,'audio.speech'):
+            actions.append(('Работы этой модели',f'mwork:{version}:dev:{index}:0'))
+        await self.render_model_detail(ext,model,back,actions)
+
+    async def render_model_detail(self,ext,model,back,actions,provider=None):
+        from .discovery import OPERATIONS
+        availability=('Модель возвращена API для ключа сервиса.' if model.get('availability')=='key_available'
+                      else 'Доступ по ключу не подтверждён')
+        protocols=', '.join(model.get('protocols',[])) or 'не указаны'
+        capabilities=', '.join(OPERATIONS[x][0] for x in model['operations']) or 'точные операции для модели не подтверждены'
+        rows=[[(label,route)] for label,route in actions]
+        if back:rows.append([('← К списку моделей',back)])
+        rows.append([('← Агрегаторы','providers')])
+        title=(provider+' · ' if provider else '')+model['title']
+        text=f"{title}\nID: {model['id']}\n{availability}\nПротоколы: {protocols}\nВозможности: {capabilities}"
+        if not provider:
+            metrics={k:v for k,v in model.get('public_pricing',{}).items() if k!='verified_for_billing'}
+            price=json.dumps(metrics,ensure_ascii=False)[:800] if metrics else 'нет данных'
+            text+=f'\nПубличные ценовые метрики: {price}\nЭто не цена заказа.'
+        if not actions:text+='\nПлатный запуск через каталог выключен для этой модели.'
+        await self.catalogue_screen(ext,text,buttons(rows))
 
     async def show_functions(self,ext,version=None,page=0,provider_index=None):
         data=self.catalogue_snapshot(version)
@@ -786,7 +860,7 @@ class TelegramApp:
             await self.svc.conversation(u,'text')
             await self.catalogue_screen(ext,'Отправьте текст до 3000 символов. Затем выберите голос.',buttons([[('Главное меню','home')]]))
             return
-        context={'interaction':operation,'model_id':model['id'],'history':[]}
+        context={'interaction':operation,'provider':model['provider'],'model_id':model['id'],'history':[]}
         if quality is not None:
             context['quality']=quality
         await self.svc.aggregate_context(u,context)
@@ -811,8 +885,12 @@ class TelegramApp:
     async def interaction_input(self,u,ext,update,context):
         from .interaction import execute,TEXT_LIMIT
         operation=context['interaction']
+        provider=context.get('provider','clodex')
+        if provider=='anymodel':
+            await self.anymodel_input(u,ext,update,context);return
+        if provider!='clodex':raise Rejected('Агрегатор недоступен.')
         snapshot=self.catalogue_snapshot()
-        model=next((m for m in snapshot['models'] if m.get('provider')=='clodex' and m['id']==context['model_id']),None)
+        model=next((m for m in snapshot['models'] if m.get('provider')==provider and m['id']==context['model_id']),None)
         if not model or not self.model_can_run(model,operation):
             raise Rejected('Модель больше не доступна. Откройте каталог.')
         mode=self.cfg.interaction_mode
@@ -894,6 +972,35 @@ class TelegramApp:
                     trace_interaction(request_id,'result_display_failed',error_type=type(error).__name__)
                     return
                 trace_interaction(request_id,'result_notified')
+
+    async def anymodel_input(self,u,ext,update,context):
+        data=self.anymodel_snapshot(ext)
+        model=next((m for m in data['models'] if (m.get('provider'),m['id'])==('anymodel',context['model_id'])),None)
+        if not model or context['interaction']!='chat' or not can_chat(model,data):
+            raise Rejected('AnyModel: модель недоступна. Обновите каталог.')
+        if not self.cfg.anymodel_chat_live:
+            raise Rejected('AnyModel: платный вызов выключен на стенде.')
+        prompt=update.message.text
+        if not prompt or not prompt.strip() or len(prompt)>4000 or '\x00' in prompt:
+            raise Rejected('AnyModel: отправьте текст от 1 до 4000 символов.')
+        try:
+            reserved=await self.svc.reserve_interaction(u,update.update_id,operation='chat',model_id=model['id'])
+            if not reserved:
+                raise Rejected('Запрос уже был принят.')
+        except Rejected as error:
+            raise Rejected(f'AnyModel: {error}') from None
+        history=context['history']
+        try:
+            reply=await AnyModelProvider(self.cfg.anymodel_key).chat(model['id'],prompt,history)
+        except AnyModelError as error:
+            raise Rejected(f'AnyModel: {error}. Автоповтора нет.') from None
+        context['history']=[*history,{'role':'user','content':prompt[:2000]},
+                            {'role':'assistant','content':reply[:2000]}][-6:]
+        await self.svc.aggregate_context(u,context)
+        if len(reply)>3500:
+            await self.bot.send_document(ext,BufferedInputFile(reply.encode(),filename='answer.txt'),caption='AnyModel')
+        else:
+            await self.say(ext,'AnyModel\n'+reply)
 
     async def image_status_screen(self, chat, request_id, screen, text, markup=None, *, after_message_id):
         try:

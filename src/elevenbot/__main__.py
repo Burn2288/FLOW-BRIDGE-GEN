@@ -4,10 +4,18 @@ from .db import connect,migrate
 from .core import Service,uid,Rejected
 
 async def main():
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['migrate','bot','worker','health','metrics','reconcile','release-uncertain','reconcile-stars','platega-webhook','catalog-refresh','doctor','speech-pilot-credit','voice-candidates'])
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['migrate','bot','worker','health','metrics','reconcile','release-uncertain','reconcile-stars','platega-webhook','catalog-refresh','anymodel-catalog-refresh','doctor','speech-pilot-credit','voice-candidates'])
     p.add_argument('--component',default='worker');p.add_argument('--job');p.add_argument('--reason');p.add_argument('--telegram-id',type=int);p.add_argument('--credits',type=int,default=300)
     p.add_argument('--env-file',help='Explicit UTF-8 KEY=value file; exported environment takes priority')
     a=p.parse_args();cfg=Config.env(a.env_file)
+    if a.command=='anymodel-catalog-refresh':
+        from .anymodel import refresh_anymodel
+        if not cfg.anymodel_test_enabled:
+            raise ValueError('AnyModel pilot disabled')
+        data=await refresh_anymodel(cfg,once=True)
+        print(json.dumps({'models':len(data['models']),'scope':data['sources'][0]['scope'],
+                          'refresh_error':data.get('refresh_error'),'version':data['version']},ensure_ascii=False))
+        return
     if a.command=='catalog-refresh':
         from .aggregate import refresh_aggregate
         data=await refresh_aggregate(cfg,once=True)
@@ -73,6 +81,9 @@ async def main():
                 if cfg.catalogue_enabled:
                     from .discovery import refresh_loop
                     tasks.append(asyncio.create_task(refresh_loop(cfg)))
+                if cfg.anymodel_test_enabled:
+                    from .anymodel import refresh_anymodel
+                    tasks.append(asyncio.create_task(refresh_anymodel(cfg)))
                 if cfg.video_pilot:
                     from .video import VideoPilot
                     tasks.append(asyncio.create_task(VideoPilot(pool,cfg).loop(bot)))
