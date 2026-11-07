@@ -52,3 +52,4 @@
 
 - [PR №14](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/14) поверх PR №13, SHA стенда `08c2ac88cb4a8c2981625a135ca83f495f0cf5d6`. Владелец vankhu21.
 - PNG и приветствие в Telegram после согласия или повторного `/start`, рабочее меню при недоступном баннере. 269 тестов на отдельной PostgreSQL. [CI приложения](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42415168316) и [CI документации](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42415168177). PR ожидает ревью.
+- Исправление хранения приветствия в [PR №14](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/14), SHA `cf694df73c1e6ac08e28a30b7c7400cbd6c4c405`. Миграция 017 применена на стенде, ID сохранился после перезапуска. 270 тестов, [CI приложения](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42416136806) и [CI документации](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42416136903) зелёные. Полный живой проход по кнопкам ожидает подтверждения.
