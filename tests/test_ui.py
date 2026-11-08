@@ -134,6 +134,49 @@ async def test_welcome_replacement_survives_restart_and_send_failure(env):
     assert bot.deleted.count(1001)==1 and 1002 not in bot.deleted
 
 
+async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels(env):
+    pool,cfg,_,user=env
+    cfg=replace(cfg,mode='catalogue',access_mode='private',admin_ids=(100,))
+    bot=Bot()
+    app=TelegramApp(pool,cfg,bot)
+
+    def check_keyboard(markup,balance):
+        assert [[button.text for button in row] for row in markup.keyboard]==[
+            [MENU[0]],[MENU[1]],[balance],[MENU[3]],[telegram.RUBLE_MENU],
+        ]
+
+    await app.handle(event('/start'))
+    check_keyboard(bot.photos[-1][2],'💳 0 токенов')
+    await app.pricing.set_ruble_rate(user,100,'100','10')
+    await app.refresh_balance_keyboards()
+    check_keyboard(bot.sent[-1][1],'💳 0 токенов ≈ 0 ₽')
+    first_refresh=app.balance_keyboard_messages[100]
+    async with pool.acquire() as conn:
+        await app.svc.movement(conn,user,'live','fixture:wallet-top-up','pilot_grant',1250,0)
+    await app.refresh_balance_keyboards()
+    label='💳 1\u202f250 токенов ≈ 125 ₽'
+    check_keyboard(bot.sent[-1][1],label)
+    assert bot.sent[-1][0]=='Главное меню' and first_refresh in bot.deleted
+    published=len(bot.sent)
+    await app.refresh_balance_keyboards()
+    assert len(bot.sent)==published
+
+    async with pool.acquire() as conn:
+        await app.svc.movement(conn,user,'live','fixture:second-top-up','pilot_grant',500,0)
+    await app.handle(event(label))
+    assert bot.sent[-1][0]=='Кредиты: 1750\nЗарезервировано: 0'
+    check_keyboard(bot.sent[-2][1],'💳 1\u202f750 токенов ≈ 175 ₽')
+    await app.handle(event('💳 Баланс'))
+    assert bot.sent[-1][0]=='Кредиты: 1750\nЗарезервировано: 0'
+
+    await pool.execute('DELETE FROM task_ruble_equivalent')
+    await app.handle(event(MENU[0]))
+    check_keyboard(bot.sent[-2][1],'💳 1\u202f750 токенов')
+    restarted=TelegramApp(pool,cfg,bot)
+    await restarted.refresh_balance_keyboards()
+    check_keyboard(bot.sent[-1][1],'💳 1\u202f750 токенов')
+
+
 @pytest.mark.parametrize('rejected',[False,True])
 async def test_aggregators_animation_navigation(monkeypatch,rejected):
     a,b=app()

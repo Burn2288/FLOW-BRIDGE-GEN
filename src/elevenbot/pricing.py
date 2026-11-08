@@ -129,6 +129,12 @@ def decimal_text(amount):
     return whole.replace(',', '\u202f') + (dot+tail if tail else '')
 
 
+def ruble_value(total, rate):
+    with localcontext() as context:
+        context.prec = 96
+        return str((Decimal(total)*rate['rubles']/rate['bot_amount']).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP))
+
+
 def source_line(amount, unit, source):
     label = 'Ручная себестоимость' if source.startswith('manual:') else 'Себестоимость API'
     return f'{label}: {decimal_text(amount)} {UNIT_LABELS.get(unit,unit)}'
@@ -508,9 +514,7 @@ class Pricing:
     async def ruble_amount(conn,total):
         rate = await conn.fetchrow('SELECT bot_amount,rubles FROM task_ruble_equivalent WHERE id=1')
         if rate:
-            with localcontext() as context:
-                context.prec = 96
-                return str((Decimal(total)*rate['rubles']/rate['bot_amount']).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP))
+            return ruble_value(total,rate)
 
     async def reconcile(self, user, external, quote_id, debit, refund, provider_cost, reference):
         debit, refund = number(debit), number(refund)

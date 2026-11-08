@@ -17,7 +17,7 @@ from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
 from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
-from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request
+from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request,decimal_text,display,ruble_value
 from .clodex_pricing import ClodexPricing
 from .task_launch import TaskLaunch,notify_interrupted,recover_interrupted
 from .provider_execution import AnyModelExecution,ClodexExecution
@@ -27,6 +27,7 @@ from .progress import ReportedTaskError,TaskProgress,UNKNOWN,WAITING
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
+BALANCE_BUTTON=re.compile(r'💳 [0-9][0-9 \u00a0\u202f]* токенов(?: ≈ [0-9][0-9 \u00a0\u202f]*(?:[.,][0-9]{1,2})? ₽)?')
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amwork','amworkrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
@@ -73,8 +74,9 @@ def store_rows():
     rows.extend([[('📁 Мои работы','history:0')],[(STORE_SECTIONS['chat'][0],'slist:current:chat:0')]])
     return rows
 
-def menu(*,public=False,admin_rates=False):
-    labels=[OPEN_CATALOGUE] if public else [*MENU,*([RUBLE_MENU] if admin_rates else [])]
+def menu(*,public=False,admin_rates=False,balance=None):
+    labels=[OPEN_CATALOGUE] if public else [MENU[0],MENU[1],balance or MENU[2],MENU[3]]
+    if admin_rates and not public:labels.append(RUBLE_MENU)
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
 
 class TelegramApp:
@@ -83,6 +85,8 @@ class TelegramApp:
         self.catalogue_messages = {}
         self.catalogue_animations = set()
         self.aggregator_keyboard_messages = {}
+        self.balance_keyboard_labels = {}
+        self.balance_keyboard_messages = {}
         self.work_previews = {}
         self.pending_speech = {}
         self.progress = TaskProgress(bot,pool)
@@ -99,9 +103,67 @@ class TelegramApp:
         self.tariffs = TariffAdmin(self,buttons)
         self.models = ModelPolicy(self,buttons)
     async def say(self,chat,text,markup=None):
-        if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
-            markup=menu(public=True)
-        return await self.bot.send_message(chat,text,reply_markup=markup)
+        if not isinstance(markup,ReplyKeyboardMarkup):
+            return await self.bot.send_message(chat,text,reply_markup=markup)
+        markup=await self.reply_menu(chat)
+        message=await self.bot.send_message(chat,text,reply_markup=markup)
+        self.remember_balance_keyboard(chat,markup)
+        return message
+
+    async def balance_menu_rows(self,chats):
+        if self.pool is None or self.cfg.access_mode!='private' or not chats:
+            return []
+        return await self.pool.fetch("""
+            SELECT i.external_id,i.welcome_message_id,w.available,r.bot_amount,r.rubles
+            FROM identities i JOIN users u ON u.id=i.user_id JOIN wallets w ON w.user_id=u.id
+            LEFT JOIN task_ruble_equivalent r ON r.id=1
+            WHERE i.platform='telegram' AND i.external_id=ANY($1::bigint[]) AND w.mode=$2
+                AND i.terms_version='1' AND i.accepted_at IS NOT NULL AND NOT u.blocked
+            """,chats,self.cfg.wallet_mode)
+
+    @staticmethod
+    def balance_label(row):
+        label=f"💳 {display(row['available'])} токенов"
+        if row['bot_amount'] is not None:
+            label+=f" ≈ {decimal_text(ruble_value(row['available'],row))} ₽"
+        return label
+
+    async def reply_menu(self,chat):
+        if chat not in self.cfg.admin_ids:
+            return menu(public=True)
+        rows=await self.balance_menu_rows([chat])
+        return menu(admin_rates=self.pool is not None and self.cfg.access_mode=='private',
+                    balance=self.balance_label(rows[0]) if rows else None)
+
+    def remember_balance_keyboard(self,chat,markup):
+        if len(markup.keyboard)>=3:
+            label=markup.keyboard[2][0].text
+            if BALANCE_BUTTON.fullmatch(label):
+                self.balance_keyboard_labels[chat]=label
+
+    async def refresh_balance_keyboards(self,chat=None):
+        if chat is not None and chat not in self.cfg.admin_ids:
+            return
+        chats=self.cfg.admin_ids if chat is None else [chat]
+        for row in await self.balance_menu_rows(chats):
+            ext=row['external_id']
+            if row['welcome_message_id'] is None and ext not in self.balance_keyboard_labels and chat is None:
+                continue
+            label=self.balance_label(row)
+            if self.balance_keyboard_labels.get(ext)==label:
+                continue
+            try:
+                message=await self.bot.send_message(ext,'Главное меню',reply_markup=menu(admin_rates=True,balance=label))
+            except (ClientDecodeError,TelegramAPIError):
+                continue
+            self.balance_keyboard_labels[ext]=label
+            previous=self.balance_keyboard_messages.get(ext)
+            self.balance_keyboard_messages[ext]=message.message_id
+            if previous is not None:
+                try:
+                    await self.remove_menu_message(ext,previous)
+                except (ClientDecodeError,TelegramAPIError):
+                    pass
     async def catalogue_screen(self, chat, text, markup=None, *, after_message_id=None, animation=None):
         await self.close_work_preview(chat)
         message_id = self.catalogue_messages.get(chat)
@@ -245,6 +307,8 @@ class TelegramApp:
                 return
             data=(update.callback_query.data or '') if update.callback_query else ''
             text=(update.message.text or '') if update.message else ''
+            if BALANCE_BUTTON.fullmatch(text):
+                text=MENU[2]
             command=text.lstrip().split(maxsplit=1)
             command=command[0].lower() if command else ''
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
@@ -453,6 +517,7 @@ class TelegramApp:
         rows=[]
         if section==2:
             w=await self.svc.wallet(u)
+            await self.refresh_balance_keyboards(ext)
             text=f"{'Демо-кредиты' if self.cfg.mode=='mock' else 'Кредиты'}: {w['available']}\nЗарезервировано: {w['reserved']}"
             if self.cfg.payments_enabled and self.cfg.payment_backend=='stars':
                 rows.append([('Пополнить','buy')])
@@ -645,23 +710,26 @@ class TelegramApp:
     async def show_home(self,ext,*,replace_welcome=False):
         previous=await self.svc.welcome_message(ext)
         if previous is None or replace_welcome:
-            markup=menu(public=ext not in self.cfg.admin_ids,admin_rates=self.pool is not None and self.cfg.access_mode=='private')
+            markup=await self.reply_menu(ext)
             try:
                 photo=BufferedInputFile(await asyncio.to_thread(WELCOME_BANNER.read_bytes),filename='welcome.png')
                 message=await self.bot.send_photo(ext,photo,caption=WELCOME_TEXT,reply_markup=markup)
             except (OSError,ClientDecodeError,TelegramAPIError):
                 try:
-                    message=await self.say(ext,WELCOME_TEXT,markup)
+                    message=await self.bot.send_message(ext,WELCOME_TEXT,reply_markup=markup)
                 except (ClientDecodeError,TelegramAPIError):
                     if previous is None:
                         raise
                     return
             await self.svc.save_welcome_message(ext,message.message_id)
+            self.remember_balance_keyboard(ext,markup)
             keyboard_message=self.aggregator_keyboard_messages.pop(ext,None)
             if keyboard_message is not None:
                 await self.remove_menu_message(ext,keyboard_message)
             if previous is not None and previous!=message.message_id:
                 await self.remove_menu_message(ext,previous)
+        else:
+            await self.refresh_balance_keyboards(ext)
 
         await self.close_work_preview(ext)
         temporary=self.catalogue_messages.pop(ext,None)
@@ -1691,6 +1759,7 @@ async def poll(pool,cfg,bot):
             else:
                 async with pool.acquire() as c:offset=await c.fetchval('SELECT offset_id FROM poll_state WHERE id=1')
                 await app.refresh_speech_results()
+                await app.refresh_balance_keyboards()
                 try:updates=await bot.get_updates(offset=offset,timeout=2 if app.pending_speech else 20,allowed_updates=['message','callback_query','pre_checkout_query'])
                 except TelegramNetworkError:
                     print(json.dumps({'event':'telegram_network_retry'}),flush=True)
