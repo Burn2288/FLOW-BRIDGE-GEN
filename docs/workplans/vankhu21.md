@@ -92,3 +92,9 @@
 - [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `0c7152e9127e228a126a3e81448f553f45c17b3d`. Третий адаптер на заглушке проходит каталог, цену и исполнение через реестр. Индивидуальные и массовые ставки сохраняются после предпросмотра.
 - Изолированная PostgreSQL, 297 локальных тестов. Первая волна 32 задач и 20 повторов дала 32 GET цены при подтверждении и 29 POST, один повторный расчёт и два отказа цены. После трёх явных подтверждений всего 67 GET с исходными оценками и 32 POST.
 - Два перезапуска до POST сохранили согласованную цену и дали терминальный статус. Платных вызовов нет. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42497319024) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42497319021). PR ожидает ревью.
+
+## Допуски и наценки Admin Edition · S3/S5
+
+- [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `3fb74636bc11691afed54e4a97185438125b80a7`. Разделены API-каталог и рабочие допуски. «Наши модели» показывает цены и режимы наценки из общего источника.
+- На стенде сверены 4 допуска AnyModel и 5 CLODEX, переключение режимов, совпадение цены FIBO 2 и перезапуск. Миграция 024, 298 тестов. Снимки клиента ожидают доступа. Платных запусков нет.
+- [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42508887923) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42508887919). PR ожидает ревью.
