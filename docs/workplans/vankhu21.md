@@ -142,3 +142,8 @@
 
 - [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727500236), SHA `0b1ac9a8b1d2e9f22d511eced71ac2210ed199db` на `flowbridge-live-smoke`. Вход по разрешённому Telegram ID и паролю, 8-часовые сессии, выход, защита старых кнопок, ограничение попыток. Секрет перехватывается до записи в inbox.
 - 309 локальных тестов. На стенде `ADMIN_PASSWORD` передан пустым и админ-доступ закрыт, `halted=true`. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42526244516) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42526244474). PR ожидает ревью.
+
+### Пользовательский режим и Admin Edition
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727786126), SHA `77385db69f9b14c57998a01e47284b4b75657de0` на `flowbridge-live-smoke`. Один бот. По умолчанию «Агрегатор 1» и «Агрегатор 2», управление и детализация цен открываются по активной админ-сессии. Проверены неверный пароль, вход, выход, отказ старой кнопке и обычному аккаунту. Настройки БД сохранились.
+- 310 тестов на изолированной PostgreSQL. [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42528338359) · [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42528338319). Стенд `halted=true`, живых генераций 0. PR ожидает ревью.
