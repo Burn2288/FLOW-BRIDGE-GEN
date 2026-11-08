@@ -147,3 +147,8 @@
 
 - [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727786126), SHA `77385db69f9b14c57998a01e47284b4b75657de0` на `flowbridge-live-smoke`. Один бот. По умолчанию «Агрегатор 1» и «Агрегатор 2», управление и детализация цен открываются по активной админ-сессии. Проверены неверный пароль, вход, выход, отказ старой кнопке и обычному аккаунту. Настройки БД сохранились.
 - 310 тестов на изолированной PostgreSQL. [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42528338359) · [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42528338319). Стенд `halted=true`, живых генераций 0. PR ожидает ревью.
+
+### Рабочие вкладки пользовательского каталога
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727904221), SHA `a84526303e7613d953f814ad2af7eeea813a7bfb` на `flowbridge-live-smoke`. В обоих агрегаторах порядок видео → изображение → озвучка → чат → «Мои работы». Проверены рабочие списки и возврат из пустых разделов без админ-сессии. Допуски и настройки пилотов сохранены, `halted=true`.
+- 310 тестов на отдельной PostgreSQL. [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42529344578) · [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42529344568). PR ожидает ревью.
