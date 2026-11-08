@@ -14,8 +14,8 @@ from test_anymodel import routes
 from test_ui import Bot, event
 
 
-async def test_new_model_from_catalogue_and_unknown_billing(env, tmp_path, monkeypatch):
-    pool, cfg, _, user = env
+async def test_new_model_from_catalogue_and_unknown_billing(funded_env, tmp_path, monkeypatch):
+    pool, cfg, _, user = funded_env
     cfg = replace(cfg, access_mode='private', admin_ids=(100,), anymodel_test_enabled=True,
                   anymodel_chat_live=True, anymodel_key='fixture', interaction_limit=10,
                   catalogue_path=str(tmp_path/'models.json'))

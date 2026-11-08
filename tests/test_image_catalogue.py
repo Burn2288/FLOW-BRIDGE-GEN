@@ -22,8 +22,8 @@ from test_ui import Bot, event
     ("gpt-image-2.5-sunburst", None),
     ("gpt-image-2.5-sunburst", "high"),
 ])
-async def test_gpt_image_quality_reaches_provider(env, tmp_path, monkeypatch, quality, model_id, manual_tariff):
-    pool,base,_,user=env
+async def test_gpt_image_quality_reaches_provider(funded_env, tmp_path, monkeypatch, quality, model_id, manual_tariff):
+    pool,base,_,user=funded_env
     path = tmp_path / "catalogue.json"
     operation = "images.generate"
     model = {

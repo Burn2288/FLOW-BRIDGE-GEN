@@ -19,8 +19,8 @@ from test_anymodel_speech import MP3, NAME, TEXT, VOICE, VOICE_ENTRY
 from test_ui import Bot, event
 
 
-async def test_admin_edition_voice_manual_tariff_and_expiration(env, manual_tariff):
-    pool,cfg,svc,user=env
+async def test_admin_edition_voice_manual_tariff_and_expiration(funded_env, manual_tariff):
+    pool,cfg,svc,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
                 anymodel_speech_live=True,anymodel_key='fixture',interaction_limit=5)
     posts=[]
@@ -91,8 +91,8 @@ async def test_admin_edition_voice_manual_tariff_and_expiration(env, manual_tari
         assert len(app.bot.audio)==2 and app.bot.audio[-1][0][1].data==MP3
 
 
-async def test_clodex_speech_uses_shared_confirmation_and_library(env, tmp_path, manual_tariff, monkeypatch):
-    pool,cfg,_,user=env
+async def test_clodex_speech_uses_shared_confirmation_and_library(funded_env, tmp_path, manual_tariff, monkeypatch):
+    pool,cfg,_,user=funded_env
     voices=tmp_path/'elevenlabs-api-voices.json'
     voices.write_text(json.dumps([{'id':'fixture-voice','name':'Voice'}]))
     catalogue=tmp_path/'catalogue.json'

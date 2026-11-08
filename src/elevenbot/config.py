@@ -48,6 +48,10 @@ class Config:
     def wallet_mode(self): return 'demo' if self.mode == 'mock' else 'live'
 
     @property
+    def balance_wallet_mode(self):
+        return 'live' if self.access_mode=='private' else self.wallet_mode
+
+    @property
     def voice_catalogue_path(self):
         if self.speech_pilot:
             return Path(self.catalogue_path).with_name('elevenlabs-api-voices.json')

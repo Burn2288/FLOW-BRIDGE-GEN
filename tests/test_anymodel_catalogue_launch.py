@@ -27,8 +27,8 @@ from test_video import video
     ('video','video','/v1/models/video','/v1/videos/generations',738),
     ('tts','speech','/v1/models/tts','/v1/audio/speech',15),
 ])
-async def test_catalogue_new_id_launches_once(env,tmp_path,video,kind,section,list_path,endpoint,expected):
-    pool,cfg,_,user=env
+async def test_catalogue_new_id_launches_once(funded_env,tmp_path,video,kind,section,list_path,endpoint,expected):
+    pool,cfg,_,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
                 anymodel_image_live=True,anymodel_video_live=True,anymodel_speech_live=True,
                 anymodel_key='fixture',interaction_limit=5,catalogue_path=str(tmp_path/'models.json'))

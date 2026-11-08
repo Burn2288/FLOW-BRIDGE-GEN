@@ -18,8 +18,8 @@ from test_ui import Bot, event
 
 
 @pytest.mark.parametrize('price_endpoint',['models/info','audio/voices'])
-async def test_tariff_catalogue_custom_voice_and_api_priority(env,price_endpoint):
-    pool,cfg,svc,user=env
+async def test_tariff_catalogue_custom_voice_and_api_priority(funded_env,price_endpoint):
+    pool,cfg,svc,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
                 anymodel_speech_live=True,anymodel_key='fixture',interaction_limit=4)
     bot=Bot()

@@ -66,8 +66,8 @@ def app_with_fixture(pool,cfg,bot,client):
     return TelegramApp(pool,cfg,bot,providers=registry)
 
 
-async def test_third_provider_catalogue_and_tariff_preview(env):
-    pool,cfg,_,user=env
+async def test_third_provider_catalogue_and_tariff_preview(funded_env):
+    pool,cfg,_,user=funded_env
     model='fixture/chat'
     requests=Counter()
 
@@ -138,8 +138,8 @@ async def test_third_provider_catalogue_and_tariff_preview(env):
         assert 'Fixture result' in bot.sent[-1][0]
 
 
-async def test_confirmation_load_and_provider_failures(env):
-    pool,cfg,_,user=env
+async def test_confirmation_load_and_provider_failures(funded_env):
+    pool,cfg,_,user=funded_env
     prices=Counter()
     posts=Counter()
     changed=asyncio.Event()
@@ -276,8 +276,8 @@ asyncio.run(run())
 @pytest.mark.parametrize('boundary,terminal,notice',[
     ('pending','interrupted','до отправки'),('dispatching','uncertain','исход запуска'),
 ])
-async def test_process_restart_after_acceptance_before_post(env,boundary,terminal,notice):
-    pool,cfg,_,user=env
+async def test_process_restart_after_acceptance_before_post(funded_env,boundary,terminal,notice):
+    pool,cfg,_,user=funded_env
     bot=Bot()
     counts=Counter()
 
@@ -311,6 +311,10 @@ async def test_process_restart_after_acceptance_before_post(env,boundary,termina
         assert tuple(row)==('accepted','100',boundary)
         code,output,stderr=await process('recover')
         assert code==0 and output.strip()==terminal,stderr
+        wallet=await app.svc.wallet(user)
+        expected=(10**12,0) if terminal=='interrupted' else (10**12-100,100)
+        assert (wallet['available'],wallet['reserved'])==expected
+        assert await app.svc.reconcile()==0
         await notify_interrupted(pool,bot)
         assert notice in bot.sent[-1][0].lower()
         count=len(bot.sent)

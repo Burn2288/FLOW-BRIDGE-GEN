@@ -19,8 +19,8 @@ def routes(bot):
 
 
 @pytest.mark.parametrize('failure', [False, True])
-async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failure,manual_tariff):
-    pool,cfg,_,user=env
+async def test_anymodel_menu_and_provider_routing(funded_env,tmp_path,monkeypatch,failure,manual_tariff):
+    pool,cfg,_,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_chat_live=True,
                 anymodel_key='fixture-any',clodex_key='fixture-clodex',catalogue_path=str(tmp_path/'models.json'),
                 interaction_mode='live',interaction_limit=3,interaction_pairs=(f'chat:{TEST_MODEL}',))

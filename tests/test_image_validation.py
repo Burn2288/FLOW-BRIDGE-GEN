@@ -245,8 +245,8 @@ def test_rejects_dimensions_before_pixel_decode(monkeypatch, format, limit):
 
 
 @pytest.mark.parametrize("source", ["b64_json", "url"])
-async def test_corrupt_provider_image_is_not_saved_sent_or_retried(env, tmp_path, monkeypatch, provider_stub, source, manual_tariff):
-    pool, base_config, service, user = env
+async def test_corrupt_provider_image_is_not_saved_sent_or_retried(funded_env, tmp_path, monkeypatch, provider_stub, source, manual_tariff):
+    pool, base_config, service, user = funded_env
     catalogue = tmp_path / "catalogue.json"
     SnapshotStore(catalogue).write(snapshot([MODEL]))
     config = replace(

@@ -24,8 +24,8 @@ FIBO_TARIFF={'id':FIBO_MODEL,'endpoint':'/v1/images/generations',
 
 
 @pytest.mark.parametrize('variant',['base64','url','broken','timeout','connect','unsafe'])
-async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant):
-    pool,cfg,_,user=env
+async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,variant):
+    pool,cfg,_,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_image_live=True,
                 anymodel_key='fixture-any',clodex_key='fixture-clodex',catalogue_path=str(tmp_path/'models.json'),
                 interaction_limit=3)
@@ -180,8 +180,8 @@ asyncio.run(main())
 """
 
 
-async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch):
-    pool,cfg,_,user=env
+async def test_fibo_202_resumes_in_fresh_process(funded_env,tmp_path,monkeypatch):
+    pool,cfg,_,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_image_live=True,
                 anymodel_key='fixture-any',catalogue_path=str(tmp_path/'models.json'),interaction_limit=3)
     png=encoded_image('PNG')

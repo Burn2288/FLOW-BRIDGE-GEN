@@ -47,8 +47,8 @@ def video():
 
 
 @pytest.mark.parametrize('mode', ['standard', 'fast'])
-async def test_video_quote_confirmation_recovery_and_library(env, tmp_path, video, mode):
-    pool, cfg, service, user = env
+async def test_video_quote_confirmation_recovery_and_library(funded_env, tmp_path, video, mode):
+    pool, cfg, service, user = funded_env
     path = tmp_path / 'catalogue.json'
     catalogue(path, MODES)
     cfg = settings(cfg, path)
@@ -151,8 +151,8 @@ async def test_uncertain_create_never_retries(env, tmp_path):
     assert not await pilot.poll_one(Bot())
 
 
-async def test_non_veo_video_admission_launch_and_revoke(env, tmp_path, video):
-    pool,cfg,_,user=env
+async def test_non_veo_video_admission_launch_and_revoke(funded_env, tmp_path, video):
+    pool,cfg,_,user=funded_env
     path=tmp_path/'catalogue.json'
     cfg=settings(cfg,path)
     supported,unsupported='fixture-video/working','fixture-video/catalogue-only'

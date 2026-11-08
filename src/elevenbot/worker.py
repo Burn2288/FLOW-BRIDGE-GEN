@@ -1,5 +1,6 @@
 import asyncio,uuid,json,time,subprocess
 from datetime import datetime,timezone
+from .task_wallet import settle_task_tokens
 from .core import Service
 from .providers import UnknownOutcome,DefinitiveFailure
 from .storage import Storage
@@ -137,6 +138,7 @@ class Worker:
             await c.execute("DELETE FROM image_works WHERE expires_at<=now()")
             await c.execute("DELETE FROM task_speech_works WHERE expires_at<=now()")
             await c.execute("DELETE FROM task_chat_works WHERE expires_at<=now()")
+            await settle_task_tokens(c)
             await c.execute("DELETE FROM anymodel_image_jobs WHERE expires_at<=now()")
             await c.execute("DELETE FROM video_jobs WHERE expires_at<=now() OR (status='quoted' AND quote_expires_at<=now())")
             await c.execute("DELETE FROM rate_limits WHERE minute<now()-interval '1 day'")

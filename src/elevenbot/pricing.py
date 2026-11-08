@@ -10,6 +10,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from .core import Rejected, Service
+from .task_wallet import check_task_balance
 
 BOT_UNIT = 'токенов DarkFlow | Gen'
 BOT_TOKEN = 'darkflow_token'
@@ -326,16 +327,16 @@ class Pricing:
                 """, user, request.provider, request.model, request.operation)
             return await self.insert(conn, user, request, await self.calculate(conn, request, cost))
 
-    async def confirm(self, user, quote_id, update_id, prepare):
+    async def confirm(self, user, quote_id, update_id, prepare, *, live_wallet=False):
         if quote_id in self.confirming:
             raise Rejected('Подтверждение уже обрабатывается.')
         self.confirming.add(quote_id)
         try:
-            return await self.confirm_once(user,quote_id,update_id,prepare)
+            return await self.confirm_once(user,quote_id,update_id,prepare,live_wallet=live_wallet)
         finally:
             self.confirming.discard(quote_id)
 
-    async def confirm_once(self, user, quote_id, update_id, prepare):
+    async def confirm_once(self, user, quote_id, update_id, prepare, *, live_wallet):
         async with self.pool.acquire() as conn:
             await self.service.authorize(conn, user)
             raw = await conn.fetchval("""
@@ -360,6 +361,8 @@ class Pricing:
                 await conn.execute("UPDATE task_price_quotes SET state='superseded' WHERE id=$1", quote_id)
                 return await self.insert(conn, user, request, price), False
             quote = Quote(quote_id, request, price)
+            if live_wallet:
+                await check_task_balance(conn,user,int(previous['total']))
             if not await self.service.reserve_interaction_on(conn, user, update_id, unlimited=False):
                 raise Rejected('Запрос уже принят.')
             await prepare(conn, quote)

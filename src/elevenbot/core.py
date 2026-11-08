@@ -49,7 +49,7 @@ class Service:
         async with self.pool.acquire() as c,c.transaction():
             await self.authorize(c,u,False)
             await c.execute("UPDATE identities SET terms_version='1',accepted_at=now() WHERE user_id=$1",u)
-            if self.cfg.mode=='mock':
+            if self.cfg.balance_wallet_mode=='demo':
                 await self.movement(c,u,'demo',f'demo:{u}','demo_grant',10000,0)
 
     async def rate(self,u,*,navigation=False):
@@ -137,11 +137,12 @@ class Service:
             if old:return old['id']
             r=await c.fetchrow('SELECT * FROM quotes WHERE id=$1 AND user_id=$2 AND expires_at>now()',q,u)
             if not r or r['mode']!=self.cfg.wallet_mode: raise Rejected('Предложение устарело. Создайте новое.')
-            if not self.cfg.generation_enabled: raise Rejected('Генерация временно выключена.')
+            if not self.cfg.generation_enabled or self.cfg.wallet_mode!=self.cfg.balance_wallet_mode:
+                raise Rejected('Генерация временно выключена.')
             if await c.fetchval('SELECT halted FROM settings WHERE id=1 FOR SHARE'): raise Rejected('Сервис на проверке. Попробуйте позже.')
             if await c.fetchval("SELECT EXISTS(SELECT 1 FROM jobs WHERE user_id=$1 AND status IN ('queued','dispatching','uncertain'))",u): raise Rejected('Дождитесь завершения текущей работы.')
             money=await c.fetchval('SELECT available FROM wallets WHERE user_id=$1 AND mode=$2',u,r['mode'])
-            if money<r['price']: raise Rejected('Недостаточно кредитов. Откройте «Баланс».')
+            if money<r['price']: raise Rejected('Недостаточно токенов')
             day=datetime.now(timezone.utc).date()
             await c.execute('INSERT INTO budgets(day) VALUES($1) ON CONFLICT DO NOTHING',day)
             spent=await c.fetchval('SELECT used FROM budgets WHERE day=$1 FOR UPDATE',day)
@@ -289,7 +290,7 @@ class Service:
     async def wallet(self,u):
         async with self.pool.acquire() as c:
             await self.authorize(c,u)
-            return await c.fetchrow('SELECT * FROM wallets WHERE user_id=$1 AND mode=$2',u,self.cfg.wallet_mode)
+            return await c.fetchrow('SELECT * FROM wallets WHERE user_id=$1 AND mode=$2',u,self.cfg.balance_wallet_mode)
 
     async def redeliver(self,u,j):
         r=await self.owned(u,j)
@@ -358,6 +359,9 @@ class Service:
               WHERE w.available<>coalesce(l.a,0) OR w.reserved<>coalesce(l.r,0)''')
             bad+=await c.fetchval('''SELECT count(*) FROM wallets w WHERE w.reserved<>
               coalesce((SELECT sum(j.price) FROM jobs j WHERE j.user_id=w.user_id AND j.mode=w.mode AND j.settlement IS NULL),0)
-              + CASE WHEN w.mode='live' THEN coalesce((SELECT sum(p.credits) FROM payments p WHERE p.user_id=w.user_id AND p.status='refunding'),0) ELSE 0 END''')
+              + CASE WHEN w.mode='live' THEN
+                  coalesce((SELECT sum(p.credits) FROM payments p WHERE p.user_id=w.user_id AND p.status='refunding'),0)
+                  + coalesce((SELECT sum(r.dr) FROM ledger r WHERE r.user_id=w.user_id AND r.task_quote_id IS NOT NULL),0)
+                ELSE 0 END''')
             if bad: await c.execute('UPDATE settings SET halted=true WHERE id=1')
             return bad

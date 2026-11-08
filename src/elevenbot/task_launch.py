@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from .core import Rejected
+from .task_wallet import reserve_task_tokens,settle_task_tokens
 
 
 @dataclass
@@ -25,16 +26,14 @@ class TaskLaunch:
 
     async def confirm(self,user,external,quote_id,update_id,*,progress,background):
         cfg = self.pricing.config
-        # The paid pilot has a separate allowlist from Admin Edition sessions.
-        if cfg.access_mode!='private' or cfg.payments_enabled or external not in cfg.admin_ids:
-            raise Rejected('Тестовый запуск для этого аккаунта недоступен.')
         pool = self.pricing.pool
-        async with pool.acquire() as conn:
-            await self.pricing.admin(conn,user,external)
 
         adapter = prepared = None
         async def prepare(conn,quote):
             nonlocal adapter,prepared
+            # Paid pilot eligibility is independent of the Admin Edition session.
+            if cfg.access_mode!='private' or cfg.payments_enabled or external not in cfg.admin_ids:
+                raise Rejected('Тестовый запуск для этого аккаунта недоступен.')
             await self.pricing.admin(conn,user,external)
             from .model_policy import admitted
             req = quote.request
@@ -45,8 +44,9 @@ class TaskLaunch:
                 raise Rejected('Агрегатор недоступен.')
             prepared = await adapter.prepare(conn,user,external,quote,update_id)
             await conn.execute("INSERT INTO task_dispatch VALUES($1,'pending',false)",quote.id)
+            await reserve_task_tokens(conn,user,quote.id,int(quote.price['total']))
 
-        quote,accepted = await self.pricing.confirm(user,quote_id,update_id,prepare)
+        quote,accepted = await self.pricing.confirm(user,quote_id,update_id,prepare,live_wallet=True)
         if not accepted:
             return quote,False,None
         request = quote.request
@@ -62,10 +62,14 @@ class TaskLaunch:
             try:
                 result = await adapter.run(user,quote,update_id,prepared,on_accepted)
             except Exception:
-                await pool.execute("UPDATE task_dispatch SET state='uncertain' WHERE quote_id=$1",quote.id)
+                async with pool.acquire() as conn, conn.transaction():
+                    await conn.execute("UPDATE task_dispatch SET state='uncertain' WHERE quote_id=$1",quote.id)
+                    await settle_task_tokens(conn,quote.id)
                 raise
-            await pool.execute('UPDATE task_dispatch SET state=$2 WHERE quote_id=$1',
-                               quote.id,'delegated' if kind else 'completed')
+            async with pool.acquire() as conn, conn.transaction():
+                await conn.execute('UPDATE task_dispatch SET state=$2 WHERE quote_id=$1',
+                                   quote.id,'delegated' if kind else 'completed')
+                await settle_task_tokens(conn,quote.id)
             return result
 
         if kind:
@@ -91,6 +95,7 @@ async def recover_interrupted(pool):
             recovery_notice=true
         FROM task_price_quotes q WHERE q.id=d.quote_id AND d.state IN ('pending','dispatching')
         """)
+    await settle_task_tokens(pool)
 
 
 async def notify_interrupted(pool,bot):

@@ -23,6 +23,7 @@ from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
 from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request,decimal_text,display,ruble_value
 from .clodex_pricing import ClodexPricing
 from .task_launch import TaskLaunch,notify_interrupted,recover_interrupted
+from .task_wallet import settle_task_tokens
 from .provider_execution import AnyModelExecution,ClodexExecution
 from .aggregate import ProviderRegistry
 from .tariff_admin import ROUTES as TARIFF_ROUTES,RUBLE_MENU,TariffAdmin,default_params,rate_button,tariff_fields,tariff_params
@@ -134,7 +135,7 @@ class TelegramApp:
             LEFT JOIN task_ruble_equivalent r ON r.id=1
             WHERE i.platform='telegram' AND i.external_id=ANY($1::bigint[]) AND w.mode=$2
                 AND i.terms_version='1' AND i.accepted_at IS NOT NULL AND NOT u.blocked
-            """,chats,self.cfg.wallet_mode)
+            """,chats,self.cfg.balance_wallet_mode)
 
     @staticmethod
     def balance_label(row):
@@ -655,7 +656,7 @@ class TelegramApp:
         if section==2:
             w=await self.svc.wallet(u)
             await self.refresh_balance_keyboards(ext)
-            text=f"{'Демо-кредиты' if self.cfg.mode=='mock' else 'Кредиты'}: {w['available']}\nЗарезервировано: {w['reserved']}"
+            text=f"{'Демо-кредиты' if self.cfg.balance_wallet_mode=='demo' else 'Кредиты'}: {w['available']}\nЗарезервировано: {w['reserved']}"
             if self.cfg.payments_enabled and self.cfg.payment_backend=='stars':
                 rows.append([('Пополнить','buy')])
         else:
@@ -1980,6 +1981,7 @@ async def poll(pool,cfg,bot):
             await register_commands(bot,cfg.admin_ids)
         await recover_interrupted(pool)
         while True:
+            await settle_task_tokens(pool)
             await notify_interrupted(pool,bot)
             async with pool.acquire() as c:
                 pending=await c.fetch('SELECT update_id,payload FROM inbox WHERE NOT done ORDER BY update_id LIMIT 100')

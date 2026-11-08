@@ -37,8 +37,8 @@ def config(cfg, *, live=True):
     (FISH,'success'),(VOICE,'success'),(FISH,'timeout'),(FISH,'delivery_error'),
     (FISH,'changed_rate'),(FISH,'invalid_audio'),
 ])
-async def test_speech_confirmation_and_library(env,model,outcome):
-    pool,cfg,_,user=env
+async def test_speech_confirmation_and_library(funded_env,model,outcome):
+    pool,cfg,_,user=funded_env
     cfg=config(cfg)
     await pool.execute("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Voice')",VOICE)
     calls=[]
@@ -118,8 +118,8 @@ async def test_speech_confirmation_and_library(env,model,outcome):
     assert 'ИИ-озвучка' in restarted.bot.audio[0][1]['caption']
 
 
-async def test_voice_without_price_and_disabled_pilot(env):
-    pool,cfg,_,user=env
+async def test_voice_without_price_and_disabled_pilot(funded_env):
+    pool,cfg,_,user=funded_env
     cfg=config(cfg)
     await pool.execute("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Voice')",VOICE)
     await pool.executemany("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Voice')",
