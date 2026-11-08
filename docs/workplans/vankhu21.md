@@ -62,3 +62,9 @@
 
 - [PR №15](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/15) поверх PR №14, SHA `5162e8e58ba91564c7989617567e24a18aa5f3da`. Владелец vankhu21. Отдельный индикатор для видео, изображений, озвучки и чата. Привязка фонового статуса хранится в PostgreSQL.
 - 277 тестов на изолированной PostgreSQL. [CI приложения](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799411) и [CI документации](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799397) зелёные. PR ожидает ревью и запись живой приёмки Grok.
+
+## Оценка и наценки AnyModel · S3/S5
+
+- [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16) поверх PR №15, SHA `7c3337ad37582bc71412030b643f4c37a53d75db`. Владелец vankhu21. Единая карточка оценки и подтверждения, приоритет наценок по модели и отчёт по подтверждённым суммам.
+- 280 тестов на отдельной PostgreSQL. [CI приложения](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42491119773) и [CI документации](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42491119788) зелёные.
+- На стенде сверены Grok, FIBO 2 и Fish Audio, отмена, истечение, изменение тарифа и отчёт на тестовых данных. Платных запусков и списаний нет. PR ожидает ревью и принятия зависимого PR №15.
