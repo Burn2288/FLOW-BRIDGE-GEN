@@ -152,3 +152,8 @@
 
 - [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727904221), SHA `a84526303e7613d953f814ad2af7eeea813a7bfb` на `flowbridge-live-smoke`. В обоих агрегаторах порядок видео → изображение → озвучка → чат → «Мои работы». Проверены рабочие списки и возврат из пустых разделов без админ-сессии. Допуски и настройки пилотов сохранены, `halted=true`.
 - 310 тестов на отдельной PostgreSQL. [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42529344578) · [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42529344568). PR ожидает ревью.
+
+### Резерв кошелька перед запуском
+
+- [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `e2a2a0754af91a6b474f5ce15e57321e651781d8`. Владелец оценки, итоговая цена и доступный остаток проверяются на сервере. Резерв и принятие задачи фиксируются одной транзакцией перед POST. Подтверждённое пополнение учитывается один раз.
+- 311 тестов на отдельной PostgreSQL, включая нулевой и поддельный баланс, чужую оценку, повтор, два одновременных подтверждения и восстановление после перезапуска. Для отклонённых задач POST не было. [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42531054936) · [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42531055074). Миграция 026 проверена локально и в CI. Стенд остался на прежней сборке, PR ожидает ревью.
