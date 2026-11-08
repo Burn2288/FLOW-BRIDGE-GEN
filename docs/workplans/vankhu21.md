@@ -68,3 +68,9 @@
 - [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16) поверх PR №15, SHA `7c3337ad37582bc71412030b643f4c37a53d75db`. Владелец vankhu21. Единая карточка оценки и подтверждения, приоритет наценок по модели и отчёт по подтверждённым суммам.
 - 280 тестов на отдельной PostgreSQL. [CI приложения](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42491119773) и [CI документации](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42491119788) зелёные.
 - На стенде сверены Grok, FIBO 2 и Fish Audio, отмена, истечение, изменение тарифа и отчёт на тестовых данных. Платных запусков и списаний нет. PR ожидает ревью и принятия зависимого PR №15.
+
+## Admin Edition · S3/S5
+
+- В [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16) добавлены ручные тарифы с истечением, подтверждение CLODEX и сохранение ответов чата в «Моих работах». SHA `d8d36350a7e09e21878f29bb4b6416c1a6a036c8`.
+- 282 теста на изолированной PostgreSQL. Проверки обновлённого SHA: [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42493271708) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42493271162).
+- На `flowbridge-live-smoke` один бот, миграция 020 применена. Подтверждены расчёты AnyModel и Veo Fast, блокировка отсутствующего или истёкшего тарифа. Платных запусков нет. PR ожидает ревью.
