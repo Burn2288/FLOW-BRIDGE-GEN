@@ -6,8 +6,8 @@ from dataclasses import replace
 from unittest.mock import AsyncMock
 import pytest
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.methods import SendAnimation, SendPhoto
-from aiogram.types import Update
+from aiogram.methods import SendAnimation, SendPhoto, SetMyCommands
+from aiogram.types import BotCommandScopeChat, BotCommandScopeDefault, Update
 from elevenbot import telegram
 from elevenbot.telegram import TelegramApp,MENU,menu
 from elevenbot.config import Config
@@ -57,6 +57,34 @@ def event(text=None,callback=None,payment=None):
 
 def app():
     bot=Bot();a=TelegramApp(None,Config(generation_enabled=True),bot);a.svc=FakeService();return a,bot
+
+
+async def test_command_registration_scopes_and_failed_chat(capsys):
+    error=TelegramBadRequest(SetMyCommands(commands=[]),'chat not found: fixture chat ID')
+    bot=SimpleNamespace(set_my_commands=AsyncMock(side_effect=[True,error,True]))
+    await telegram.register_commands(bot,(100,100,-101,102))
+
+    calls=bot.set_my_commands.await_args_list
+    assert [call.kwargs['scope'] for call in calls]==[
+        BotCommandScopeDefault(),BotCommandScopeChat(chat_id=100),BotCommandScopeChat(chat_id=102),
+    ]
+    base=[('start','Запустить бота'),('menu','Главное меню'),('cancel','Отменить текущее действие')]
+    admin=[*base,('price_report','Отчёт по ценам и расходам')]
+    assert [[(command.command,command.description) for command in call.args[0]] for call in calls]==[base,admin,admin]
+    output=capsys.readouterr().out
+    assert output.count('telegram_commands_registered')==2
+    assert output.count('telegram_commands_failed')==1 and 'fixture chat ID' not in output
+
+
+async def test_price_report_handler_keeps_admin_check(env):
+    pool,cfg,_,user=env
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,))
+    bot=Bot()
+    app=TelegramApp(pool,cfg,bot)
+    await app.handle(event('/price_report'))
+    assert 'Отчёт' in bot.sent[-1][0] and 'Подтверждённый расход' in bot.sent[-1][0]
+    with pytest.raises(Rejected,match='Действие недоступно'):
+        await app.price_admin(user,101,'/price_report',[])
 
 
 async def test_welcome_consent_start_and_menu():

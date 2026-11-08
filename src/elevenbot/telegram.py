@@ -5,7 +5,8 @@ from pathlib import Path
 from uuid import uuid4
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
-                           KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice)
+                           KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice,BotCommand,
+                           BotCommandScopeDefault,BotCommandScopeChat)
 from .core import ConsentRequired,Service,Rejected,uid
 from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
@@ -1751,11 +1752,33 @@ class TelegramApp:
         await self.svc.conversation(u,'confirm')
         await self.catalogue_screen(ext,f"Голос: {name}\nОбъём: {len(text)} символов\nЦена: {price} {'демо-кредитов' if self.cfg.mode=='mock' else 'кредитов'}\nПредложение действует 10 минут. Сначала резерв; списание после успешной генерации.",buttons([[(f'Создать за {price}',f'confirm:{q}')],[('Главное меню','home')]]),after_message_id=after_message_id)
 
+async def register_commands(bot, admin_ids):
+    base = [BotCommand(command='start',description='Запустить бота'),
+            BotCommand(command='menu',description='Главное меню'),
+            BotCommand(command='cancel',description='Отменить текущее действие')]
+    admin = [*base,BotCommand(command='price_report',description='Отчёт по ценам и расходам')]
+    scopes = [(BotCommandScopeDefault(),base)]
+    scopes.extend((BotCommandScopeChat(chat_id=chat_id),admin)
+                  for chat_id in dict.fromkeys(admin_ids) if chat_id>0)
+    for scope, commands in scopes:
+        try:
+            async with asyncio.timeout(10):
+                registered = await bot.set_my_commands(commands,scope=scope)
+        except (ClientDecodeError,TelegramAPIError,TimeoutError) as error:
+            print(json.dumps({'event':'telegram_commands_failed','scope':scope.type,
+                              'error_type':type(error).__name__}),flush=True)
+        else:
+            print(json.dumps({'event':'telegram_commands_registered' if registered else 'telegram_commands_failed',
+                              'scope':scope.type}),flush=True)
+
+
 async def poll(pool,cfg,bot):
     app=TelegramApp(pool,cfg,bot)
     # Session-level lock prevents two polling consumers of the same deployment.
     async with pool.acquire() as lock:
         if not await lock.fetchval('SELECT pg_try_advisory_lock(921183)'):raise RuntimeError('Polling already running')
+        if cfg.access_mode=='private':
+            await register_commands(bot,cfg.admin_ids)
         await recover_interrupted(pool)
         while True:
             await notify_interrupted(pool,bot)
