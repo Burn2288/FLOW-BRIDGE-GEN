@@ -45,6 +45,21 @@ async def test_admin_aggregator_menu_routes_and_permissions(env, tmp_path):
     async def click(label):
         await app.handle(event(callback=routes(bot)[label]))
 
+    await app.handle(event('/start'))
+    welcome=await app.svc.welcome_message(100)
+    await app.handle(event('🌐 Агрегаторы'))
+    chooser=bot.sent[-1]
+    animation=bot.animations[-1].data
+    for command in ('/menu','/menu@FixtureBot'):
+        await click('AnyModel')
+        await click('🎆 Генерировать изображение')
+        await click('FIBO 2')
+        card=app.catalogue_messages[100]
+        await app.handle(event(command))
+        assert bot.sent[-1]==chooser and bot.animations[-1].data==animation
+        assert card in bot.deleted and welcome not in bot.deleted
+        assert await app.svc.welcome_message(100)==welcome
+
     expected={
         'CLODEX':['🎬 Генерировать видео','🎆 Генерировать изображение'],
         'AnyModel':['🎆 Генерировать изображение','💬 Классический чат'],

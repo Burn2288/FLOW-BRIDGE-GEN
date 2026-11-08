@@ -313,9 +313,10 @@ class TelegramApp:
                 text=MENU[2]
             command=text.lstrip().split(maxsplit=1)
             command=command[0].lower() if command else ''
+            aggregator_menu=text==MENU[0] or command.partition('@')[0]=='/menu'
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
-                        or text in CATALOGUE_COMMANDS or text in MENU or text in ('/menu','/cancel',RUBLE_MENU)
+                        or aggregator_menu or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
                         or command in RATE_COMMANDS)
             await self.svc.rate(u,navigation=navigation)
             if update.callback_query:
@@ -345,9 +346,9 @@ class TelegramApp:
             if text in ('/models','🧩 Модели'):
                 await self.svc.conversation(u,'home');await self.show_models(ext)
                 await self.remove_menu_message(ext,update.message.message_id);return
-            if text in ('/aggregators','/functions','🛠 Функции',MENU[0]):
+            if aggregator_menu or text in ('/aggregators','/functions','🛠 Функции'):
                 await self.svc.conversation(u,'home')
-                if text==MENU[0] and ext in self.cfg.admin_ids:
+                if aggregator_menu and ext in self.cfg.admin_ids:
                     message=await self.say(ext,'Выберите агрегатор ниже.',menu(admin_rates=self.pool is not None and self.cfg.access_mode=='private'))
                     previous=self.aggregator_keyboard_messages.get(ext)
                     self.aggregator_keyboard_messages[ext]=message.message_id
@@ -381,7 +382,7 @@ class TelegramApp:
                     await self.say(ext,'Исход возврата неизвестен. Резерв удержан; требуется сверка.');return
                 if ok:await self.svc.complete_refund(p['id'])
                 await self.say(ext,'Возврат завершён.' if ok else 'Возврат требует сверки.');return
-            if text in MENU or text==VOICE_ACTION or text in ('/menu','/cancel'):
+            if text in MENU or text==VOICE_ACTION or text=='/cancel':
                 await self.svc.conversation(u,'home')
                 if text==VOICE_ACTION:
                     await self.svc.conversation(u,'text');await self.catalogue_screen(ext,'Отправьте текст до 3000 символов.',buttons([[('Главное меню','home')]]))
