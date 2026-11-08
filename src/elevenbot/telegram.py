@@ -31,6 +31,7 @@ import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 MODEL_LIST_BACK='← К списку моделей'
+EMPTY_MODELS='В этом разделе пока нет доступных моделей'
 BALANCE_BUTTON=re.compile(r'💳 [0-9][0-9 \u00a0\u202f]* токенов(?: ≈ [0-9][0-9 \u00a0\u202f]*(?:[.,][0-9]{1,2})? ₽)?')
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
@@ -933,7 +934,10 @@ class TelegramApp:
             if (page+1)*10<len(models):nav.append(('Далее →',f'{prefix}:{key}:{page+1}{suffix}'))
             if nav:rows.append(nav)
             parent=f'agmanage:{key}' if full else f'agroot:{key}'
-            await self.catalogue_screen(ext,self.provider_title(ext,key),buttons(rows+[[('← К агрегатору',parent)]]))
+            title=self.provider_title(ext,key)
+            if not models and not self.has_admin_session(ext):
+                title+='\n'+EMPTY_MODELS
+            await self.catalogue_screen(ext,title,buttons(rows+[[('← К агрегатору',parent)]]))
             return
         model=next((row for row in models if voice_key(row['id'])[:20]==parts[2]),None)
         if model is None:
@@ -1054,9 +1058,21 @@ class TelegramApp:
             data=self.anymodel_snapshot(ext)
         except Rejected:
             data=None
-        rows=self.anymodel_work_rows(section,data,approved,available_only=not self.has_admin_session(ext))
+        admin=self.has_admin_session(ext)
+        if not admin:
+            if data and data['fresh_until']<=time.time():
+                data=None
+            if section=='speech' and any(row['model_id'].startswith('anyvoice/') for row in approved):
+                try:
+                    voices=await self.anymodel_speech.voices()
+                except AnyModelError:
+                    voices={}
+                approved=[row for row in approved if not row['model_id'].startswith('anyvoice/')
+                          or row['model_id'] in voices]
+        rows=self.anymodel_work_rows(section,data,approved,available_only=not admin)
         title=f"{self.provider_title(ext,'anymodel')} · {ANYMODEL_SECTIONS[section]}"
-        if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
+        if not rows:
+            title+='\n'+('В этом разделе пока нет подключённых операций.' if admin else EMPTY_MODELS)
         rows.append([('← К агрегатору','am')])
         await self.catalogue_screen(ext,title,buttons(rows))
 
@@ -1374,19 +1390,21 @@ class TelegramApp:
             await self.catalogue_screen(ext,text,buttons(rows))
             return
 
-        work={}
+        admin=self.has_admin_session(ext)
         if key=='clodex':
-            for section in STORE_SECTIONS:
-                if await self.store_models(snapshot,section,ext):
-                    work[section]=f'slist:current:{section}:0'
+            work={section:f'slist:current:{section}:0' for section in STORE_SECTIONS
+                  if not admin or await self.store_models(snapshot,section,ext)}
         elif key=='anymodel':
-            admitted=await self.models.list(key)
+            admitted=await self.models.list(key) if admin else []
             work={section:f'amsection:{section}' for section in STORE_SECTIONS
-                  if self.anymodel_work_rows(section,snapshot,admitted,available_only=not self.has_admin_session(ext))}
+                  if not admin or self.anymodel_work_rows(section,snapshot,admitted)}
         else:
-            admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
-            available={op for model in snapshot['models'] for op in self.registered_operations(model,admitted)}
-            work={section:f'pcat:{key}:0:{op}' for section,(_,op) in STORE_SECTIONS.items() if op in available}
+            available=set()
+            if admin:
+                admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
+                available={op for model in snapshot['models'] for op in self.registered_operations(model,admitted)}
+            work={section:f'pcat:{key}:0:{op}' for section,(_,op) in STORE_SECTIONS.items()
+                  if not admin or op in available}
         rows=[[('🎆 Генерировать изображение' if section=='image' else label,work[section])]
               for section,(label,_) in STORE_SECTIONS.items() if section in work]
         rows.append([('📁 Мои работы','history:0')])
@@ -1412,11 +1430,14 @@ class TelegramApp:
             raise Rejected('Раздел недоступен.')
         from .model_policy import canonical
         operation=STORE_SECTIONS[section][1]
+        admin=self.has_admin_session(ext)
+        if not admin and self.cfg.interaction_mode=='live' and snapshot['fresh_until']<=time.time():
+            return []
         approved={row['model_id'] for row in await self.models.list('clodex',operation,snapshot=snapshot)} if self.pool else set()
         return [index for index,model in enumerate(snapshot['models'])
                 if model.get('provider')=='clodex' and model.get('availability')=='key_available'
                 and not is_disabled_model(model) and canonical('clodex',model['id'],operation) in approved
-                and (self.has_admin_session(ext) or operation=='video' or self.model_can_run(model,operation))]
+                and (admin or operation=='video' or self.model_can_run(model,operation))]
 
     async def admitted_veo_modes(self,snapshot):
         if self.pool is None:return {}
@@ -1453,9 +1474,10 @@ class TelegramApp:
             rows.append([('← К агрегатору','agroot:clodex')])
         else:
             rows.append([('← Каталог','store')])
+        admin=self.has_admin_session(ext)
         if not models and not veo:
-            title+='\nВ этом разделе пока нет опубликованных моделей.'
-        elif self.has_admin_session(ext):
+            title+='\n'+('В этом разделе пока нет опубликованных моделей.' if admin else EMPTY_MODELS)
+        elif admin:
             title+=f'\nМоделей: {len(models)+int(veo)} · Страница {page+1} из {page_count}'
         await self.catalogue_screen(ext,title,buttons(rows))
 

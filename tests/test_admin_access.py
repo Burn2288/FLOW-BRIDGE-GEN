@@ -111,7 +111,7 @@ async def test_user_and_admin_editions_share_catalogue_and_settings(env,tmp_path
     from elevenbot.aggregate import make_snapshot
     from elevenbot.anymodel import FIBO_MODEL, IMAGE_OP, model_store
     from elevenbot.discovery import SnapshotStore
-    from elevenbot.telegram import MENU
+    from elevenbot.telegram import EMPTY_MODELS, MENU
     from elevenbot.tariff_admin import RUBLE_MENU
     from test_aggregator_menu import NoPrice, model
     from test_anymodel import routes
@@ -119,8 +119,10 @@ async def test_user_and_admin_editions_share_catalogue_and_settings(env,tmp_path
     pool,cfg,_,user=env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),video_pilot=True,interaction_mode='live',
                 anymodel_test_enabled=True,catalogue_path=str(tmp_path/'catalogue.json'))
-    clodex=[model('clodex','clodex-video/veo-3.1','video','openai-video')]
-    anymodel=[model('anymodel',FIBO_MODEL,IMAGE_OP,'image-generation')]
+    clodex=[model('clodex','clodex-video/veo-3.1','video','openai-video'),
+            model('clodex','fixture/not-admitted','chat','openai')]
+    anymodel=[model('anymodel',FIBO_MODEL,IMAGE_OP,'image-generation'),
+              model('anymodel','fixture/not-admitted',IMAGE_OP,'image-generation')]
     for name,store,models in [('clodex',SnapshotStore(cfg.catalogue_path),clodex),
                               ('anymodel',model_store(cfg),anymodel)]:
         store.write(make_snapshot(models,[],[{'provider':name,'scope':'key_available'}]))
@@ -138,6 +140,8 @@ async def test_user_and_admin_editions_share_catalogue_and_settings(env,tmp_path
         number+=1
         await app.handle(event(number,text,callback=callback,chat=chat))
 
+    user_tabs=['🎬 Генерировать видео','🎆 Генерировать изображение','🎙 Озвучить текст','💬 Классический чат']
+
     async def screens(*,admin=False,chat=100):
         await send('/menu',chat=chat)
         chooser=routes(bot)
@@ -150,6 +154,19 @@ async def test_user_and_admin_editions_share_catalogue_and_settings(env,tmp_path
             assert bot.sent[-1][0]==title+'\nВыберите, что хотите сделать.'
             assert section in routes(bot) and '📁 Мои работы' in routes(bot)
             assert ('⚙️ Управление агрегатором' in routes(bot))==admin
+            if not admin:
+                root=routes(bot)
+                assert list(root)==user_tabs+['📁 Мои работы','← Агрегаторы']
+                await send(callback=root[section],chat=chat)
+                expected='Veo 3.1' if title==titles[0] else 'FIBO 2'
+                assert list(routes(bot))==[expected,'← К агрегатору']
+                await send(callback=routes(bot)['← К агрегатору'],chat=chat)
+                empty='💬 Классический чат' if title==titles[0] else '🎬 Генерировать видео'
+                await send(callback=root[empty],chat=chat)
+                assert bot.sent[-1][0].endswith(EMPTY_MODELS)
+                assert list(routes(bot))==['← К агрегатору']
+                await send(callback=routes(bot)['← К агрегатору'],chat=chat)
+                assert routes(bot)==root
         return routes(bot)
 
     await send('/admin')
