@@ -18,16 +18,19 @@ from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
 from .pricing import BOT_UNIT,PriceUnavailable,Pricing,Request
 from .clodex_pricing import ClodexPricing
-from .task_launch import TaskLaunch
+from .task_launch import TaskLaunch,notify_interrupted,recover_interrupted
+from .provider_execution import AnyModelExecution,ClodexExecution
+from .aggregate import ProviderRegistry
 from .tariff_admin import ROUTES as TARIFF_ROUTES,TariffAdmin,default_params,tariff_fields,tariff_params
-from .progress import ReportedTaskError,TaskProgress,UNKNOWN
+from .progress import ReportedTaskError,TaskProgress,UNKNOWN,WAITING
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
-CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|TARIFF_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
+REGISTERED_ROUTES={'pcat','pcard','prun'}
+CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -71,7 +74,7 @@ def menu(*,public=False):
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
 
 class TelegramApp:
-    def __init__(self,pool,cfg,bot):
+    def __init__(self,pool,cfg,bot,*,providers=None):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.catalogue_messages = {}
         self.catalogue_animations = set()
@@ -83,8 +86,12 @@ class TelegramApp:
         self.anymodel_video = AnyModelVideoPilot(pool,cfg)
         self.anymodel_speech = SpeechPilot(pool,cfg)
         self.anymodel_images = AnyModelImageJobs(pool,cfg)
-        self.pricing = Pricing(pool,cfg,{'anymodel':AnyModelPricing(cfg.anymodel_key),
-                                         'clodex':ClodexPricing(self.video.api)})
+        self.providers = providers if providers is not None else ProviderRegistry()
+        self.providers.register('anymodel',price=AnyModelPricing(cfg.anymodel_key),
+            launch=AnyModelExecution(self,lambda:AnyModelProvider(self.cfg.anymodel_key)))
+        self.providers.register('clodex',price=ClodexPricing(self.video.api),launch=ClodexExecution(self))
+        self.pricing = Pricing(pool,cfg,self.providers.prices)
+        self.launch = TaskLaunch(self.pricing,self.providers.launches)
         self.tariffs = TariffAdmin(self,buttons)
     async def say(self,chat,text,markup=None):
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
@@ -311,8 +318,12 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
-                if context and ('tariff_admin' in context or 'anyvoice_tariff_selection' in context):
+                if context and ('tariff_admin' in context or 'tariff_preview' in context or 'anyvoice_tariff_selection' in context):
                     raise Rejected('Используйте команду с экрана настройки тарифа.')
+                if context and context.get('provider') in self.providers.interactive:
+                    request=Request(context['provider'],context['model_id'],context['interaction'],
+                                    context['title'],text,context.get('params',{}),context.get('history',[]))
+                    await self.show_price(ext,await self.pricing.quote(u,request));return
                 if context and context.get('provider')=='anymodel':
                     await self.anymodel_input(u,ext,text,context);return
                 if context and 'video_mode' in context:
@@ -439,6 +450,8 @@ class TelegramApp:
 
     async def callback(self,u,ext,data,*,request_id=None):
         route=data.partition(':')[0]
+        if route in REGISTERED_ROUTES:
+            await self.registered_callback(u,ext,route,data.split(':')[1:]);return
         if route in TARIFF_ROUTES:
             await self.tariffs.callback(u,ext,route,data.partition(':')[2]);return
         if route in ('amconfirm','amcancel'):
@@ -645,11 +658,53 @@ class TelegramApp:
         if can_view(self.cfg,ext):
             rows.append([('AnyModel','am')])
         if self.cfg.access_mode=='private':
+            rows.extend([(title,f'pcat:{key}:0')] for key,title in self.providers.interactive.items())
+        if self.cfg.access_mode=='private':
             rows.append([('Тарифы моделей','tariffs')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id,
                                     animation=AGGREGATORS_ANIMATION)
+
+    async def registered_callback(self,u,ext,route,parts):
+        key=parts[0]
+        if key not in self.providers.interactive:
+            raise Rejected('Агрегатор недоступен.')
+        await self.tariffs.authorize(u,ext)
+        snapshot=await self.providers.collect(key)
+        models=[row for row in snapshot['models'] if row.get('availability')=='key_available'
+                and any(op in WAITING for op in row['operations'])]
+        page=max(0,int(parts[1]))
+        if route=='pcat':
+            rows=[[(m['title'],f"pcard:{key}:{page}:{voice_key(m['id'])[:20]}")]
+                  for m in models[page*10:(page+1)*10]]
+            nav=[]
+            if page:
+                nav.append(('← Назад',f'pcat:{key}:{page-1}'))
+            if (page+1)*10<len(models):
+                nav.append(('Далее →',f'pcat:{key}:{page+1}'))
+            if nav:
+                rows.append(nav)
+            await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows+[[('← Агрегаторы','providers')]]))
+            return
+        model=next((row for row in models if voice_key(row['id'])[:20]==parts[2]),None)
+        if model is None:
+            raise Rejected('Модель недоступна.')
+        operations=[op for op in model['operations'] if op in WAITING]
+        back=[('← Модели',f'pcat:{key}:{page}')]
+        if route=='pcard':
+            from .discovery import OPERATIONS
+            rows=[[(f'Рассчитать стоимость · {OPERATIONS[op][0]}',f"prun:{key}:{page}:{parts[2]}:{op}")]
+                  for op in operations]
+            await self.catalogue_screen(ext,f"{model['title']}\nID: {model['id']}",buttons(rows+[back]))
+            return
+        operation=parts[3]
+        if operation not in operations:
+            raise Rejected('Операция недоступна.')
+        params=model.get('defaults',{}).get(operation,{})
+        await self.svc.aggregate_context(u,{'provider':key,'model_id':model['id'],'title':model['title'],
+                                            'interaction':operation,'params':params})
+        await self.catalogue_screen(ext,f"{model['title']}\nОтправьте промпт для расчёта.",buttons([back]))
 
     def anymodel_snapshot(self,ext,version=None):
         if not can_view(self.cfg,ext):
@@ -889,7 +944,10 @@ class TelegramApp:
             if not spec or spec[0] not in ('request','utf16'):
                 raise Rejected('Для AnyVoice выберите request или utf16.')
             fields=tariff_fields(spec,temporary=temporary)
-        await self.pricing.set_tariffs(u,ext,'anymodel',ids,'audio.speech',{},**fields)
+        if fields:
+            await self.tariffs.preview(u,ext,'anymodel',ids,'audio.speech',{},fields)
+            return
+        await self.pricing.set_tariffs(u,ext,'anymodel',ids,'audio.speech',{})
         await self.svc.conversation(u,'home')
         await self.say(ext,f'Тарифы обновлены. Голосов: {len(ids)}.')
 
@@ -943,7 +1001,10 @@ class TelegramApp:
             else:
                 temporary=spec[0]=='test'
                 fields=tariff_fields(spec[1:] if temporary else spec,temporary=temporary)
-            await self.pricing.set_tariff(u,ext,provider,model,operation,params,**fields)
+            if fields:
+                await self.tariffs.preview(u,ext,provider,[model],operation,params,fields)
+                return
+            await self.pricing.set_tariff(u,ext,provider,model,operation,params)
         elif command=='/price_rate' and len(args)==2:
             await self.pricing.set_rate(u,ext,*args)
         elif command=='/price_account' and len(args)==5:
@@ -1367,21 +1428,7 @@ class TelegramApp:
         return None
 
     async def confirm_price(self,u,ext,quote_id,update_id):
-        from .interaction import execute
-        from .providers import ClodexProvider
-        async def clodex_speech(req):
-            provider=ClodexProvider(self.cfg)
-            try:
-                return await provider.synthesize(req.prompt,req.params['voice'],1.0)
-            finally:
-                await provider.close()
-
-        launch=TaskLaunch(self.pricing,any_video=self.anymodel_video,images=self.anymodel_images,
-                          speech=self.anymodel_speech,video=self.video,
-                          any_chat=lambda:AnyModelProvider(self.cfg.anymodel_key),
-                          clodex_run=execute,clodex_speech=clodex_speech)
-        quote,accepted,result=await launch.confirm(u,ext,quote_id,update_id,
-            clodex_model=lambda req:self.clodex_launch_model(ext,req),
+        quote,accepted,result=await self.launch.confirm(u,ext,quote_id,update_id,
             progress=lambda req:self.progress.track(ext,req.title,req.operation),
             background=lambda req,kind,job:self.progress.start(ext,req.title,req.operation,**{kind+'_id':job}))
         if not accepted:
@@ -1404,7 +1451,7 @@ class TelegramApp:
                 context['history']=[*req.history,{'role':'user','content':req.prompt[:2000]},
                                     {'role':'assistant','content':reply[:2000]}][-6:]
                 await self.svc.aggregate_context(u,context)
-            await self.send_chat_answer(ext,('AnyModel\n' if req.provider=='anymodel' else '')+reply)
+            await self.send_chat_answer(ext,(result.label+'\n' if result.label else '')+reply)
 
     async def send_chat_answer(self,ext,reply):
         if len(reply)>3500:
@@ -1472,7 +1519,9 @@ async def poll(pool,cfg,bot):
     # Session-level lock prevents two polling consumers of the same deployment.
     async with pool.acquire() as lock:
         if not await lock.fetchval('SELECT pg_try_advisory_lock(921183)'):raise RuntimeError('Polling already running')
+        await recover_interrupted(pool)
         while True:
+            await notify_interrupted(pool,bot)
             async with pool.acquire() as c:
                 pending=await c.fetch('SELECT update_id,payload FROM inbox WHERE NOT done ORDER BY update_id LIMIT 100')
             for r in pending:

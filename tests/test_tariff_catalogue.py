@@ -76,6 +76,8 @@ async def test_tariff_catalogue_custom_voice_and_api_priority(env,price_endpoint
         assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
         expiry=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()
         await app.price_admin(user,100,'/tariff_set',[code,'utf16','anymodel_balance_token','10',expiry,'fixture'])
+        assert 'Предпросмотр' in bot.sent[-1][0]
+        await app.callback(user,100,routes(bot)['Сохранить ставки'])
         row=await pool.fetchrow('SELECT * FROM task_manual_tariffs')
         assert row['temporary'] and row['expires_at'] and row['verified_at'] and row['admin_id']==user
         await pool.execute("UPDATE task_manual_tariffs SET expires_at=now()-interval '1 second'")
@@ -87,6 +89,8 @@ async def test_tariff_catalogue_custom_voice_and_api_priority(env,price_endpoint
         with pytest.raises(Rejected,match='Studio'):
             await app.price_admin(user,100,'/tariff_set',[code,'utf16','anymodel_balance_token','20','fixture'])
         await app.price_admin(user,100,'/tariff_set',[code,'utf16','anymodel_balance_token','20','studio:fixture'])
+        assert 'Предпросмотр' in bot.sent[-1][0]
+        await app.callback(user,100,routes(bot)['Сохранить ставки'])
         row=await pool.fetchrow('SELECT * FROM task_manual_tariffs')
         assert row['expires_at'] is None and row['enabled'] and not row['temporary']
         assert 'без срока' in bot.sent[-1][0] and 'Действующий источник: Ручная ставка' in bot.sent[-1][0]
@@ -95,6 +99,8 @@ async def test_tariff_catalogue_custom_voice_and_api_priority(env,price_endpoint
         await app.callback(user,100,routes(bot)['Задать ручную ставку'])
         code=(await svc.aggregate_context(user))['tariff_admin']['code']
         await app.price_admin(user,100,'/tariff_set',[code,'utf16','anymodel_balance_token','20','support:fixture'])
+        assert 'Предпросмотр' in bot.sent[-1][0]
+        await app.callback(user,100,routes(bot)['Сохранить ставки'])
 
         await app.callback(user,100,'amvoices:5')
         await app.callback(user,100,routes(bot)['Custom'])
@@ -133,11 +139,18 @@ async def test_tariff_catalogue_exact_mode_and_disable(env,tmp_path):
     await app.callback(user,100,routes(app.bot)['Fixture image'])
     assert {'Изображение','Чат'}.issubset(routes(app.bot))
     await app.callback(user,100,routes(app.bot)['Изображение'])
-    code=(await svc.aggregate_context(user))['tariff_admin']['code']
-    await app.price_admin(user,100,'/tariff_scope',[code,'{"n": 1, "quality": "high"}'])
+    await app.callback(user,100,routes(app.bot)['quality · high'])
     await app.callback(user,100,routes(app.bot)['Задать ручную ставку'])
     code=(await svc.aggregate_context(user))['tariff_admin']['code']
     await app.price_admin(user,100,'/tariff_set',[code,'image','anymodel_balance_token','21','fixture-source'])
+    assert '21 токенов баланса' in app.bot.sent[-1][0]
+    assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
+    await app.callback(user,100,routes(app.bot)['Отмена'])
+    assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
+    await app.callback(user,100,routes(app.bot)['Задать ручную ставку'])
+    code=(await svc.aggregate_context(user))['tariff_admin']['code']
+    await app.price_admin(user,100,'/tariff_set',[code,'image','anymodel_balance_token','21','fixture-source'])
+    await app.callback(user,100,routes(app.bot)['Сохранить ставки'])
     req=Request('clodex',model,'images.generate','Fixture image','Prompt',{'n':1,'quality':'high'})
     assert (await app.pricing.quote(user,req)).price['total']=='21'
     with pytest.raises(PriceUnavailable):

@@ -76,6 +76,33 @@ def manual_amount(request,basis,amount,output_amount):
     raise PriceUnavailable()
 
 
+def validate_manual_tariff(provider,models,operation,*,basis,unit,amount,expires,evidence,temporary=False):
+    if basis not in MANUAL_BASES or MANUAL_BASES[basis] not in (None,operation):
+        raise Rejected('Основание тарифа недоступно для этой операции.')
+    output_amount = None
+    if basis=='token':
+        rates = str(amount).split(':')
+        if len(rates)!=2:
+            raise Rejected('Укажите две ставки за токен в формате вход:выход.')
+        amount,output_amount = map(number,rates)
+    else:
+        amount = number(amount)
+    try:
+        expiry = datetime.fromisoformat(expires) if expires not in (None,'-') else None
+    except (ValueError,TypeError):
+        raise Rejected('Укажите срок ISO 8601 с часовым поясом.') from None
+    if temporary and expiry is None:
+        raise Rejected('Для тестовой ставки нужен срок действия.')
+    if expiry and (expiry.tzinfo is None or expiry <= datetime.now(timezone.utc)):
+        raise Rejected('Укажите будущий срок с часовым поясом.')
+    if not isinstance(evidence,str) or not 1 <= len(evidence.strip()) <= 200:
+        raise Rejected('Укажите источник подтверждения ставки.')
+    if (not temporary and provider=='anymodel' and any(model.startswith('anyvoice/') for model in models)
+            and not (evidence.startswith(('studio:','support:')) and evidence.partition(':')[2].strip())):
+        raise Rejected('Для AnyVoice укажите подтверждение Studio (studio:…) или поддержки (support:…).')
+    return amount,output_amount,expiry
+
+
 def display(amount):
     return f'{int(Decimal(amount)):,}'.replace(',', '\u202f')
 
@@ -128,6 +155,7 @@ class Pricing:
     def __init__(self, pool, config, adapters):
         self.pool, self.config, self.adapters = pool, config, adapters
         self.service = Service(pool, config)
+        self.confirming = set()
 
     async def cost(self, request):
         adapter = self.adapters.get(request.provider)
@@ -212,6 +240,15 @@ class Pricing:
             return await self.insert(conn, user, request, await self.calculate(conn, request, cost))
 
     async def confirm(self, user, quote_id, update_id, prepare):
+        if quote_id in self.confirming:
+            raise Rejected('Подтверждение уже обрабатывается.')
+        self.confirming.add(quote_id)
+        try:
+            return await self.confirm_once(user,quote_id,update_id,prepare)
+        finally:
+            self.confirming.discard(quote_id)
+
+    async def confirm_once(self, user, quote_id, update_id, prepare):
         async with self.pool.acquire() as conn:
             await self.service.authorize(conn, user)
             raw = await conn.fetchval("""
@@ -268,6 +305,18 @@ class Pricing:
             """, user, external):
             raise Rejected('Действие доступно только администратору.')
 
+    async def preview_manual(self,user,external,provider,models,operation,params,fields):
+        async with self.pool.acquire() as conn:
+            await self.admin(conn,user,external)
+            amount,output,expiry = validate_manual_tariff(provider,models,operation,**fields)
+            examples = []
+            for model in models:
+                request = Request(provider,model,operation,model,'Пример тарифа',params)
+                cost,details = manual_amount(request,fields['basis'],amount,output)
+                price = await self.calculate(conn,request,ProviderCost(cost,fields['unit'],True,'preview',details))
+                examples.append((model,price['total'],details))
+            return examples
+
     async def set_tariff(self, user, external, provider, model, operation, params, *,
                          basis=None, unit=None, amount=None, expires=None, evidence=None, temporary=False):
         await self.set_tariffs(user,external,provider,[model],operation,params,
@@ -298,29 +347,8 @@ class Pricing:
                     WHERE provider=$1 AND model_id=$2 AND operation=$3 AND params=$4::jsonb AND enabled
                     """, scopes)
                 return
-            if basis not in MANUAL_BASES or MANUAL_BASES[basis] not in (None,operation):
-                raise Rejected('Основание тарифа недоступно для этой операции.')
-            output_amount = None
-            if basis=='token':
-                rates = str(amount).split(':')
-                if len(rates)!=2:
-                    raise Rejected('Укажите две ставки за токен в формате вход:выход.')
-                amount,output_amount = map(number,rates)
-            else:
-                amount = number(amount)
-            try:
-                expiry = datetime.fromisoformat(expires) if expires not in (None,'-') else None
-            except (ValueError,TypeError):
-                raise Rejected('Укажите срок ISO 8601 с часовым поясом.') from None
-            if temporary and expiry is None:
-                raise Rejected('Для тестовой ставки нужен срок действия.')
-            if expiry and (expiry.tzinfo is None or expiry <= datetime.now(timezone.utc)):
-                raise Rejected('Укажите будущий срок с часовым поясом.')
-            if not isinstance(evidence,str) or not 1 <= len(evidence.strip()) <= 200:
-                raise Rejected('Укажите источник подтверждения ставки.')
-            if (not temporary and provider=='anymodel' and any(model.startswith('anyvoice/') for model in models)
-                    and not (evidence.startswith(('studio:','support:')) and evidence.partition(':')[2].strip())):
-                raise Rejected('Для AnyVoice укажите подтверждение Studio (studio:…) или поддержки (support:…).')
+            amount,output_amount,expiry = validate_manual_tariff(provider,models,operation,basis=basis,
+                unit=unit,amount=amount,expires=expires,evidence=evidence,temporary=temporary)
             if not await conn.fetchval('SELECT 1 FROM task_price_rates WHERE source_unit=$1', unit):
                 raise Rejected('Курс для этой единицы цены не задан.')
             await conn.executemany("""

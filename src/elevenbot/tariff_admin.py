@@ -8,7 +8,8 @@ from .anymodel_speech import voice_key
 from .core import Rejected
 from .pricing import MANUAL_BASES, Request
 
-ROUTES = {'tariffs','tariffmodel','tariffop','tariffedit','tariffdisable','tariffinspect'}
+ROUTES = {'tariffs','tariffmodel','tariffop','tariffedit','tariffdisable','tariffinspect',
+          'tariffpreset','tariffapply','tariffdiscard'}
 OPERATIONS = {'chat':'Чат','images.generate':'Изображение','video':'Видео','audio.speech':'Озвучка'}
 PROVIDERS = {'anymodel':'AnyModel','anyvoice':'AnyVoice','clodex':'CLODEX'}
 
@@ -44,6 +45,14 @@ def default_params(provider,operation):
     return {'n':1} if provider=='clodex' and operation=='images.generate' else {}
 
 
+TYPICAL_PARAMS = {
+    'images.generate': [('n',1),('quality','auto'),('quality','high')],
+    'video': [('duration',4),('duration',6),('resolution','480p'),('resolution','720p'),
+              ('aspect_ratio','16:9'),('aspect_ratio','9:16')],
+    'chat': [('max_tokens',128),('max_tokens',256),('max_tokens',512)],
+}
+
+
 class TariffAdmin:
     def __init__(self, app, keyboard):
         self.app, self.keyboard = app, keyboard
@@ -58,7 +67,7 @@ class TariffAdmin:
             await self.app.pricing.admin(conn,user,ext)
 
     async def models(self,ext,provider):
-        if provider not in PROVIDERS:
+        if provider not in PROVIDERS and provider not in self.app.providers.interactive:
             raise Rejected('Агрегатор недоступен.')
         if provider=='anyvoice':
             if not can_view(self.app.cfg,ext):
@@ -68,7 +77,10 @@ class TariffAdmin:
             except AnyModelError:
                 raise Rejected('Каталог AnyVoice временно недоступен.') from None
             return [(model,voice['name'],['audio.speech']) for model,voice in voices.items()]
-        snapshot = self.app.anymodel_snapshot(ext) if provider=='anymodel' else self.app.catalogue_snapshot()
+        if provider in self.app.providers.interactive:
+            snapshot = await self.app.providers.collect(provider)
+        else:
+            snapshot = self.app.anymodel_snapshot(ext) if provider=='anymodel' else self.app.catalogue_snapshot()
         models = []
         for row in snapshot['models']:
             if row.get('provider')!=provider or row.get('availability')!='key_available':
@@ -82,6 +94,9 @@ class TariffAdmin:
 
     async def callback(self,user,ext,route,arg):
         await self.authorize(user,ext)
+        if route in ('tariffapply','tariffdiscard'):
+            await self.finish_preview(user,ext,arg,save=route=='tariffapply')
+            return
         svc = self.app.svc
         if route=='tariffs':
             await svc.conversation(user,'home')
@@ -90,6 +105,7 @@ class TariffAdmin:
                 if can_view(self.app.cfg,ext):
                     options += ['anymodel','anyvoice']
                 rows = [[(PROVIDERS[key],f'tariffs:{key}:0')] for key in options]
+                rows.extend([(title,f'tariffs:{key}:0')] for key,title in self.app.providers.interactive.items())
                 await self.screen(ext,'Тарифы моделей\nВыберите агрегатор.',rows+[[('← Агрегаторы','providers')]])
                 return
             provider,page_arg = arg.split(':',1)
@@ -107,7 +123,7 @@ class TariffAdmin:
             if provider=='anyvoice':
                 rows.append([('Назначить тариф голосам','amvprices:0')])
             rows += [[('↻ Обновить каталог',f'tariffs:{provider}:{page}')],[('← Тарифы моделей','tariffs')]]
-            await self.screen(ext,f'Тарифы моделей · {PROVIDERS[provider]} ({len(models)})',rows)
+            await self.screen(ext,f'Тарифы моделей · {(PROVIDERS|self.app.providers.interactive)[provider]} ({len(models)})',rows)
             return
         if route=='tariffmodel':
             provider,key,page = arg.split(':',2)
@@ -130,6 +146,19 @@ class TariffAdmin:
                 raise Rejected('Операция недоступна.')
             state = state|{'operation':value,'params':default_params(state['provider'],value),
                            'code':uuid4().hex[:12]}
+            await svc.aggregate_context(user,{'tariff_admin':state})
+        elif route=='tariffpreset':
+            req = self.request(state)
+            options = TYPICAL_PARAMS.get(req.operation,[])
+            if value=='defaults':
+                params = default_params(req.provider,req.operation)
+            else:
+                index = int(value)
+                if not 0<=index<len(options):
+                    raise Rejected('Параметр недоступен.')
+                field,selected = options[index]
+                params = req.params|{field:selected}
+            state = state|{'params':params,'code':uuid4().hex[:12]}
             await svc.aggregate_context(user,{'tariff_admin':state})
         elif route=='tariffedit' and value in ('confirmed','test'):
             state = state|{'edit':value,'code':uuid4().hex[:12]}
@@ -180,11 +209,57 @@ class TariffAdmin:
             if state['origin']=='anyvoice' and req.model not in {m[0] for m in await self.models(ext,'anyvoice')}:
                 raise Rejected('Голос отсутствует в актуальном каталоге.')
             fields = tariff_fields(args[1:],temporary=state['edit']=='test')
-            await self.app.pricing.set_tariff(user,ext,req.provider,req.model,req.operation,req.params,**fields)
+            await self.preview(user,ext,req.provider,[req.model],req.operation,req.params,fields,state=state)
+            return
         state.pop('edit',None)
         state['code']=uuid4().hex[:12]
         await self.app.svc.aggregate_context(user,{'tariff_admin':state})
         await self.inspect(user,ext,state)
+
+    async def preview(self,user,ext,provider,models,operation,params,fields,*,state=None):
+        examples = await self.app.pricing.preview_manual(user,ext,provider,models,operation,params,fields)
+        code = uuid4().hex[:12]
+        draft = dict(code=code,provider=provider,models=models,operation=operation,params=params,
+                     fields=fields,state=state)
+        await self.app.svc.aggregate_context(user,{'tariff_preview':draft})
+        expiry = fields.get('expires')
+        term = expiry if expiry and expiry!='-' else 'без срока'
+        lines = [f'{model} → {total} токенов баланса ({details})' for model,total,details in examples]
+        listing = '\n'.join(lines)
+        text = (f"Предпросмотр · {len(models)} поз.\nСтавка: {fields['amount']} {fields['unit']} / {fields['basis']}"
+                f"\nСрок: {term}\nИсточник: {fields['evidence']}\n"
+                'Пример итоговой цены с наценкой при применении ручной ставки:\n')
+        if len(text)+len(listing)>3800:
+            from aiogram.types import BufferedInputFile
+            await self.app.bot.send_document(ext,BufferedInputFile(listing.encode(),filename='tariff-preview.txt'),
+                                             caption='Все выбранные ID и итоговые цены')
+            listing = 'Список всех ID приложен файлом.'
+        await self.screen(ext,text+listing,[[('Сохранить ставки',f'tariffapply:{code}'),
+                                             ('Отмена',f'tariffdiscard:{code}')]])
+
+    async def finish_preview(self,user,ext,code,*,save):
+        context = await self.app.svc.aggregate_context(user) or {}
+        draft = context.get('tariff_preview')
+        if not draft or draft['code']!=code:
+            raise Rejected('Предпросмотр устарел.')
+        if save:
+            voice_ids = {model for model in draft['models'] if model.startswith('anyvoice/')}
+            if draft['provider']=='anymodel' and voice_ids:
+                current = {row[0] for row in await self.models(ext,'anyvoice')}
+                if not voice_ids.issubset(current):
+                    raise Rejected('AnyVoice: список изменился. Ставки не изменены.')
+            await self.app.pricing.set_tariffs(user,ext,draft['provider'],draft['models'],
+                draft['operation'],draft['params'],**draft['fields'])
+        state = draft['state']
+        if state:
+            state.pop('edit',None)
+            state['code']=uuid4().hex[:12]
+            await self.app.svc.aggregate_context(user,{'tariff_admin':state})
+            await self.inspect(user,ext,state)
+        else:
+            await self.app.svc.conversation(user,'home')
+            text = f"Тарифы обновлены. Позиций: {len(draft['models'])}." if save else 'Изменение отменено.'
+            await self.screen(ext,text,[[('← Тарифы моделей','tariffs')]])
 
     async def inspect(self,user,ext,state):
         req = self.request(state)
@@ -210,6 +285,11 @@ class TariffAdmin:
         text += f'\nПараметры другого режима: /tariff_scope {code} JSON'
         rows = [[('Задать ручную ставку',f'tariffedit:{code}:confirmed')],
                 [('Временная тестовая ставка',f'tariffedit:{code}:test')]]
+        presets = TYPICAL_PARAMS.get(req.operation,[])
+        if presets:
+            rows += [[(f'{field} · {value}',f'tariffpreset:{code}:{i}')]
+                     for i,(field,value) in enumerate(presets)]
+            rows.append([('Параметры по умолчанию',f'tariffpreset:{code}:defaults')])
         if manual and manual['enabled']:
             rows.append([('Отключить ручную ставку',f'tariffdisable:{code}')])
         rows += [[('↻ Проверить источник',f'tariffinspect:{code}')],

@@ -54,7 +54,10 @@ async def test_admin_edition_voice_manual_tariff_and_expiration(env, manual_tari
 
         expiry=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()
         await app.handle(event(f'/tariff anymodel {VOICE} audio.speech {{}} test utf16 anymodel_balance_token 20 {expiry} fixture'))
-        assert 'Настройки учёта обновлены' in app.bot.sent[-1][0]
+        assert 'Предпросмотр' in app.bot.sent[-1][0]
+        await app.callback(user,100,routes(app.bot)['Сохранить ставки'])
+        await app.callback(user,100,'amvoices:0')
+        await app.callback(user,100,routes(app.bot)[NAME])
         await app.pricing.set_rule(user,100,'anymodel',VOICE,'percent','25')
         await app.handle(event(TEXT))
         rendered=app.bot.sent[-1][0]

@@ -1,118 +1,107 @@
-"""Apply launch policy, consume a quote once, and dispatch using the accepted request."""
+"""One durable dispatch boundary shared by registered execution adapters."""
 
-import asyncio
-from decimal import Decimal
 from dataclasses import dataclass
+from typing import Protocol
 
-from .anymodel import AnyModelError, IMAGE_OP, can_view
-from .anymodel_speech import validate_mp3
 from .core import Rejected
-from .providers import DefinitiveFailure, UnknownOutcome, catalog
 
 
 @dataclass
 class Outcome:
     kind: str
     value: object
+    label: str = ''
+
+
+class ExecutionAdapter(Protocol):
+    def background(self, operation): ...
+    async def prepare(self,conn,user,external,quote,update_id): ...
+    async def run(self,user,quote,update_id,prepared,on_accepted): ...
 
 
 class TaskLaunch:
-    def __init__(self, pricing, *, any_video, images, speech, video, any_chat,
-                 clodex_run, clodex_speech):
-        self.pricing, self.cfg, self.svc = pricing, pricing.config, pricing.service
-        self.any_video, self.images, self.speech, self.video = any_video, images, speech, video
-        self.any_chat, self.clodex_run, self.clodex_speech = any_chat, clodex_run, clodex_speech
+    def __init__(self,pricing,adapters):
+        self.pricing,self.adapters = pricing,adapters
 
-    async def confirm(self, user, external, quote_id, update_id, *, clodex_model, progress, background):
-        cfg = self.cfg
-        if cfg.access_mode != 'private' or cfg.payments_enabled or external not in cfg.admin_ids:
+    async def confirm(self,user,external,quote_id,update_id,*,progress,background):
+        cfg = self.pricing.config
+        if cfg.access_mode!='private' or cfg.payments_enabled or external not in cfg.admin_ids:
             raise Rejected('Действие доступно только администратору.')
-
-        async with self.pricing.pool.acquire() as conn:
+        pool = self.pricing.pool
+        async with pool.acquire() as conn:
             await self.pricing.admin(conn,user,external)
-        selected = None
 
-        async def prepare(conn, quote):
-            nonlocal selected
+        adapter = prepared = None
+        async def prepare(conn,quote):
+            nonlocal adapter,prepared
             await self.pricing.admin(conn,user,external)
-            req = quote.request
-            if req.provider == 'anymodel':
-                allowed = {
-                    'video':self.any_video.enabled(),
-                    'audio.speech':self.speech.enabled(external),
-                    IMAGE_OP:cfg.anymodel_image_live and req.params.get('n',1)==1,
-                    'chat':cfg.anymodel_chat_live,
-                }
-                if not can_view(cfg,external) or not allowed.get(req.operation):
-                    raise Rejected('AnyModel: тестовый запуск выключен.')
-                if req.operation == 'video':
-                    await self.any_video.prepare(conn,user,quote)
-                elif req.operation == IMAGE_OP:
-                    await self.images.prepare(conn,user,update_id,req.prompt,req.model)
-                elif req.operation == 'audio.speech':
-                    await self.speech.prepare(conn,user,quote)
-            elif req.provider == 'clodex':
-                selected = clodex_model(req)
-                if not selected:
-                    raise Rejected('CLODEX: тестовый запуск недоступен.')
-                if req.operation == 'video':
-                    await self.video.prepare_price(conn,user,quote)
-                elif req.operation == 'audio.speech':
-                    await conn.execute("""
-                        INSERT INTO task_speech_works(id,user_id,model_id,title,input,cost_tokens,claimed,expires_at,provider)
-                        VALUES($1,$2,$3,$4,$5,$6,true,now()+interval '7 days','clodex')
-                        """,quote.id,user,req.model,req.title,req.prompt,Decimal(quote.price['base']))
-            else:
+            adapter = self.adapters.get(quote.request.provider)
+            if adapter is None:
                 raise Rejected('Агрегатор недоступен.')
+            prepared = await adapter.prepare(conn,user,external,quote,update_id)
+            await conn.execute("INSERT INTO task_dispatch VALUES($1,'pending',false)",quote.id)
 
-        quote, accepted = await self.pricing.confirm(user,quote_id,update_id,prepare)
+        quote,accepted = await self.pricing.confirm(user,quote_id,update_id,prepare)
         if not accepted:
-            return quote, accepted, None
-        req = quote.request
-        if req.operation == 'video':
-            start = lambda job:background(req,'video',job)
-            if req.provider == 'anymodel':
-                await self.any_video.dispatch(quote,on_accepted=start)
-            else:
-                await self.video.submit_task(quote.id,req.model,req.prompt,None,on_accepted=start)
-            return quote, accepted, None
-        if req.operation == IMAGE_OP and req.provider == 'anymodel':
-            await self.images.dispatch(user,update_id,req.prompt,req.model,params=req.params,
-                on_accepted=lambda job:background(req,'image',job))
-            return quote, accepted, None
-        async with progress(req):
-            outcome = await self.execute(user,quote,update_id,selected)
-        return quote,accepted,outcome
+            return quote,False,None
+        request = quote.request
+        kind = adapter.background(request.operation)
 
-    async def execute(self,user,quote,update_id,model):
-        req = quote.request
-        if req.operation == 'audio.speech':
-            if req.provider == 'anymodel':
-                await self.speech.synthesize(quote.id,req.model,req.prompt,req.title)
-            else:
-                try:
-                    audio = await self.clodex_speech(req)
-                    await asyncio.to_thread(validate_mp3,audio)
-                except UnknownOutcome:
-                    raise Rejected('Исход запроса неизвестен. Автоповтора нет.') from None
-                except (DefinitiveFailure,AnyModelError):
-                    raise Rejected('Не удалось получить озвучку.') from None
-                await self.pricing.pool.execute('UPDATE task_speech_works SET audio=$2 WHERE id=$1',quote.id,audio)
-            return Outcome('audio',quote.id)
-        if req.provider == 'anymodel':
+        async def dispatch(on_accepted=None):
+            claimed = await pool.fetchval("""
+                UPDATE task_dispatch SET state='dispatching' WHERE quote_id=$1 AND state='pending'
+                RETURNING quote_id
+                """,quote.id)
+            if not claimed:
+                raise Rejected('Задача уже принята. Повтора не будет.')
             try:
-                text = await self.any_chat().chat(req.model,req.prompt,req.history,max_tokens=req.params['max_tokens'])
-            except AnyModelError as error:
-                detail = ('Исход запроса неизвестен. Автоповтора нет.' if error.code in
-                          ('response_timeout','transport_error','connect_timeout','connect_error') else str(error))
-                raise Rejected(f'AnyModel: {detail}') from None
-        else:
-            result = await self.clodex_run(req.operation,model,req.prompt,req.history,mode='live',
-                                          key=self.cfg.clodex_key,request_id=update_id,
-                                          quality=req.params.get('quality'))
-            if req.operation == IMAGE_OP:
-                work = await self.svc.save_image_work(user,update_id,req.model,req.prompt,result)
-                return Outcome('image',work)
-            text = result.text
-        await self.pricing.pool.execute('INSERT INTO task_chat_works(quote_id,answer) VALUES($1,$2)',quote.id,text)
-        return Outcome('chat',text)
+                result = await adapter.run(user,quote,update_id,prepared,on_accepted)
+            except Exception:
+                await pool.execute("UPDATE task_dispatch SET state='uncertain' WHERE quote_id=$1",quote.id)
+                raise
+            await pool.execute('UPDATE task_dispatch SET state=$2 WHERE quote_id=$1',
+                               quote.id,'delegated' if kind else 'completed')
+            return result
+
+        if kind:
+            return quote,True,await dispatch(lambda job:background(request,kind,job))
+        async with progress(request):
+            result = await dispatch()
+        return quote,True,result
+
+
+async def recover_interrupted(pool):
+    # Called once after acquiring the Telegram polling lock. Never replays a POST.
+    await pool.execute("""
+        UPDATE task_dispatch d SET state=CASE
+            WHEN d.state='pending' THEN 'interrupted'
+            WHEN EXISTS(SELECT 1 FROM video_jobs v WHERE v.id=d.quote_id AND v.provider_id IS NOT NULL)
+              OR EXISTS(SELECT 1 FROM anymodel_image_jobs i WHERE i.update_id=q.update_id
+                        AND (i.provider_id IS NOT NULL OR i.status IN ('ready','delivered')))
+              THEN 'delegated'
+            WHEN EXISTS(SELECT 1 FROM task_chat_works w WHERE w.quote_id=d.quote_id)
+              OR EXISTS(SELECT 1 FROM task_speech_works s WHERE s.id=d.quote_id AND s.audio IS NOT NULL)
+              OR EXISTS(SELECT 1 FROM image_works i WHERE i.update_id=q.update_id) THEN 'completed'
+            ELSE 'uncertain' END,
+            recovery_notice=true
+        FROM task_price_quotes q WHERE q.id=d.quote_id AND d.state IN ('pending','dispatching')
+        """)
+
+
+async def notify_interrupted(pool,bot):
+    from aiogram.exceptions import TelegramAPIError
+    rows = await pool.fetch("""
+        SELECT d.quote_id,d.state,i.external_id,q.request->>'title' AS title
+        FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id
+        JOIN users u ON u.id=q.user_id AND NOT u.blocked
+        JOIN identities i ON i.user_id=u.id AND i.platform='telegram' AND i.accepted_at IS NOT NULL
+        WHERE d.recovery_notice AND d.state IN ('interrupted','uncertain') LIMIT 20
+        """)
+    for row in rows:
+        detail = ('Задача остановлена до отправки после перезапуска.' if row['state']=='interrupted'
+                  else 'Исход запуска после перезапуска неизвестен.')
+        try:
+            await bot.send_message(row['external_id'],f"⚠️ {row['title']} · {detail} Автоповтора нет.")
+        except TelegramAPIError:
+            continue
+        await pool.execute("UPDATE task_dispatch SET recovery_notice=false WHERE quote_id=$1",row['quote_id'])

@@ -46,18 +46,37 @@ class Adapter(Protocol):
     async def collect(self)->dict: ...
 
 class ProviderRegistry:
-    def __init__(self):self.adapters={}
-    def register(self,provider,adapter):
-        if not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}',provider) or provider in self.adapters:raise DiscoveryError('Invalid/duplicate provider')
-        self.adapters[provider]=adapter
-    async def collect(self):
+    def __init__(self):
+        self.adapters = {}
+        self.prices = {}
+        self.launches = {}
+        self.interactive = {}
+
+    def register(self,provider,adapter=None,*,price=None,launch=None,title=None):
+        if not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}',provider) or provider in self.adapters:
+            raise DiscoveryError('Invalid/duplicate provider')
+        if title is not None and (len(provider)>15 or adapter is None or price is None or launch is None):
+            raise DiscoveryError('Interactive provider requires catalogue, price and execution')
+        self.adapters[provider] = adapter
+        if price is not None:
+            self.prices[provider] = price
+        if launch is not None:
+            self.launches[provider] = launch
+        if title is not None:
+            self.interactive[provider] = title
+
+    async def collect(self,provider=None):
         models=[];functions=[];sources=[]
-        for provider,adapter in self.adapters.items():
+        adapters = self.adapters.items() if provider is None else [(provider,self.adapters[provider])]
+        for key,adapter in adapters:
+            if adapter is None:
+                continue
             data=await adapter.collect()
             for model in data['models']:
-                models.append(dict(model,provider=provider,key=provider+':'+model['id']))
-            for fn in data['functions']:functions.append(dict(fn,provider=provider))
-            sources.append({'provider':provider,'scope':data['scope'],'evidence':data.get('evidence',{})})
+                models.append(dict(model,provider=key,key=key+':'+model['id']))
+            for fn in data['functions']:
+                functions.append(dict(fn,provider=key))
+            sources.append({'provider':key,'scope':data['scope'],'evidence':data.get('evidence',{})})
         return make_snapshot(models,functions,sources)
 
 def safe_string(value,limit=256):

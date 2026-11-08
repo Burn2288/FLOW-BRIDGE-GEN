@@ -160,6 +160,15 @@ async def test_anyvoice_all_pages_refresh_and_atomic_bulk_tariff(env):
         assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
         ids.append(new)
         await app.anyvoice_save_tariff(user,100,args)
+        assert all(model in bot.sent[-1][0] for model in (russian[0],new))
+        assert 'Предпросмотр' in bot.sent[-1][0] and not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
+        save=routes(bot)['Сохранить ставки']
+        ids.remove(new)
+        with pytest.raises(Rejected):
+            await app.callback(user,100,save)
+        assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
+        ids.append(new)
+        await app.callback(user,100,save)
         rows=await pool.fetch('SELECT model_id,basis,amount,evidence FROM task_manual_tariffs ORDER BY model_id')
         assert {row['model_id'] for row in rows}=={russian[0],new}
         assert all((row['basis'],row['amount'],row['evidence'])==('utf16',10,'fixture-source') for row in rows)
