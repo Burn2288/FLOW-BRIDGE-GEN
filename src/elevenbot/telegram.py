@@ -33,6 +33,7 @@ import httpx
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 MODEL_LIST_BACK='← К списку моделей'
 EMPTY_MODELS='В этом разделе пока нет доступных моделей'
+CATALOGUE_UNAVAILABLE='Каталог временно недоступен'
 BALANCE_BUTTON=re.compile(r'💳 [0-9][0-9 \u00a0\u202f]* токенов(?: ≈ [0-9][0-9 \u00a0\u202f]*(?:[.,][0-9]{1,2})? ₽)?')
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
@@ -1060,21 +1061,30 @@ class TelegramApp:
         except Rejected:
             data=None
         admin=self.has_admin_session(ext)
-        if not admin:
-            if data and data['fresh_until']<=time.time():
-                data=None
-            if section=='speech' and any(row['model_id'].startswith('anyvoice/') for row in approved):
-                try:
-                    voices=await self.anymodel_speech.voices()
-                except AnyModelError:
-                    voices={}
-                approved=[row for row in approved if not row['model_id'].startswith('anyvoice/')
-                          or row['model_id'] in voices]
-        rows=self.anymodel_work_rows(section,data,approved,available_only=not admin)
         title=f"{self.provider_title(ext,'anymodel')} · {ANYMODEL_SECTIONS[section]}"
+        back=[('← К агрегатору','am')]
+        if not admin and (
+            not data or data['fresh_until']<=time.time() or data.get('refresh_error')
+            or not any(source.get('scope')=='key_available' for source in data.get('sources',[]))
+        ):
+            await self.catalogue_screen(ext,title+'\n'+CATALOGUE_UNAVAILABLE,buttons([back]))
+            return
+        voices_unavailable=False
+        if not admin and section=='speech' and any(row['model_id'].startswith('anyvoice/') for row in approved):
+            try:
+                voices=await self.anymodel_speech.voices()
+            except AnyModelError:
+                voices={}
+                voices_unavailable=True
+            approved=[row for row in approved if not row['model_id'].startswith('anyvoice/')
+                      or row['model_id'] in voices]
+        rows=self.anymodel_work_rows(section,data,approved,available_only=not admin)
         if not rows:
-            title+='\n'+('В этом разделе пока нет подключённых операций.' if admin else EMPTY_MODELS)
-        rows.append([('← К агрегатору','am')])
+            if admin:
+                title+='\nВ этом разделе пока нет подключённых операций.'
+            else:
+                title+='\n'+(CATALOGUE_UNAVAILABLE if voices_unavailable else EMPTY_MODELS)
+        rows.append(back)
         await self.catalogue_screen(ext,title,buttons(rows))
 
     @staticmethod

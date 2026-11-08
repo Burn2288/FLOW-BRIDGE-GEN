@@ -30,9 +30,10 @@ MODEL_ID = re.compile(r'[A-Za-z0-9_.:@-]+(?:/[A-Za-z0-9_.:@-]+)+')
 
 
 class AnyModelError(Exception):
-    def __init__(self,message,*,code='protocol',status=None,retry_after=5):
+    def __init__(self,message,*,code='protocol',status=None,retry_after=5,endpoint=None):
         super().__init__(message)
         self.code,self.status,self.retry_after=code,status,retry_after
+        self.endpoint=endpoint
 
 
 @dataclass(frozen=True)
@@ -178,9 +179,12 @@ class AnyModelProvider:
 
     async def collect(self):
         async def fetch(path, kind=None):
-            payload = self.decode(await self.request('GET',BASE+path,authenticated=True))
-            catalogue = self.catalogue(payload,'key_available',kind=kind)
-            return catalogue['models']
+            try:
+                payload = self.decode(await self.request('GET',BASE+path,authenticated=True))
+                return self.catalogue(payload,'key_available',kind=kind)['models']
+            except AnyModelError as error:
+                raise AnyModelError(str(error),code=error.code,status=error.status,
+                                    retry_after=error.retry_after,endpoint='/v1'+path) from None
 
         primary = await fetch('/models')
         typed = await asyncio.gather(fetch('/models/video','video'),fetch('/models/tts','tts'))
@@ -245,6 +249,8 @@ class AnyModelProvider:
                         raise error
                     data['fresh_until'] = 0
             data['refresh_error'] = str(error)
+            data['refresh_error_code'] = error.code
+            data['refresh_error_endpoint'] = error.endpoint
         await asyncio.to_thread(store.write,data)
         return data
 
@@ -306,8 +312,17 @@ async def refresh_anymodel(cfg, *, once=False):
             data = await provider.refresh(model_store(cfg))
             if once:
                 return data
-        except (AnyModelError,OSError):
+            code=data.get('refresh_error_code')
+            endpoint=data.get('refresh_error_endpoint')
+        except AnyModelError as error:
             if once:
                 raise
-            print('anymodel_catalogue_refresh_failed',flush=True)
+            code,endpoint=error.code,error.endpoint
+        except OSError:
+            if once:
+                raise
+            code,endpoint='snapshot_io',None
+        if code:
+            print(json.dumps({'event':'anymodel_catalogue_refresh_failed','code':code,'endpoint':endpoint}),
+                  flush=True)
         await asyncio.sleep(300)

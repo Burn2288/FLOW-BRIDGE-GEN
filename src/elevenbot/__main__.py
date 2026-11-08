@@ -14,7 +14,10 @@ async def main():
             raise ValueError('AnyModel pilot disabled')
         data=await refresh_anymodel(cfg,once=True)
         print(json.dumps({'models':len(data['models']),'scope':data['sources'][0]['scope'],
-                          'refresh_error':data.get('refresh_error'),'version':data['version']},ensure_ascii=False))
+                          'refresh_error':data.get('refresh_error'),
+                          'refresh_error_code':data.get('refresh_error_code'),
+                          'refresh_error_endpoint':data.get('refresh_error_endpoint'),
+                          'version':data['version']},ensure_ascii=False))
         return
     if a.command=='catalog-refresh':
         from .aggregate import refresh_aggregate

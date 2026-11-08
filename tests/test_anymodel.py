@@ -163,3 +163,65 @@ async def test_public_fallback_is_unverified_and_does_not_use_key(tmp_path):
     assert result['refresh_error']=='HTTP 401'
     assert result['models'][0]['availability']=='public_only'
     assert not can_chat(result['models'][0],result)
+
+
+async def test_user_anymodel_distinguishes_outage_empty_and_recovery(env,tmp_path):
+    from elevenbot.anymodel import FIBO_MODEL,model_store
+    from elevenbot.anymodel_speech import FISH
+    from elevenbot.anymodel_video import MODEL as GROK
+    from elevenbot.telegram import CATALOGUE_UNAVAILABLE,EMPTY_MODELS
+
+    pool,cfg,_,_=env
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
+                catalogue_path=str(tmp_path/'catalogue.json'))
+    bot=Bot()
+    app=telegram.TelegramApp(pool,cfg,bot)
+    guest=await app.svc.identity(101)
+    await app.svc.accept(guest)
+    sections={'video':'Grok Imagine Video 1.5','image':'FIBO 2','speech':'Fish Audio S2.1 Pro Free',
+              'chat':TEST_MODEL}
+    state='empty'
+
+    def respond(req):
+        path=req.url.path
+        if state=='public' and path=='/v1/models':
+            return httpx.Response(401)
+        if path=='/en/pricing':
+            return httpx.Response(200,text=f'<option value="{TEST_MODEL}">Flash Vision · $0.025</option>')
+        if state=='outage' and path=='/v1/models/tts':
+            return httpx.Response(503)
+        models={'/v1/models':[{'id':TEST_MODEL},{'id':FIBO_MODEL,'kind':'image'}],
+                '/v1/models/video':[{'id':GROK}],'/v1/models/tts':[{'id':FISH}]}
+        return httpx.Response(200,json={'data':[] if state=='empty' else models[path]})
+
+    async def show_expected(message):
+        for section in sections:
+            await app.callback(guest,101,f'amsection:{section}')
+            assert bot.sent[-1][0].endswith(message)
+            assert routes(bot)=={'← К агрегатору':'am'}
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+        provider=AnyModelProvider('fixture',client=http)
+        store=model_store(cfg)
+        await show_expected(CATALOGUE_UNAVAILABLE)
+        state='public'
+        public=await provider.refresh(store)
+        assert public['sources'][0]['scope']=='public_only'
+        await show_expected(CATALOGUE_UNAVAILABLE)
+        state='empty'
+        await provider.refresh(store)
+        await show_expected(EMPTY_MODELS)
+        state='fresh'
+        fresh=await provider.refresh(store)
+        state='outage'
+        stale=await provider.refresh(store)
+        assert stale['fetched_at']==fresh['fetched_at']
+        assert stale['refresh_error_code']=='http_503'
+        assert stale['refresh_error_endpoint']=='/v1/models/tts'
+        await show_expected(CATALOGUE_UNAVAILABLE)
+        state='fresh'
+        recovered=await provider.refresh(store)
+        assert 'refresh_error_code' not in recovered
+        for section,title in sections.items():
+            await app.callback(guest,101,f'amsection:{section}')
+            assert list(routes(bot))==[title,'← К агрегатору']
