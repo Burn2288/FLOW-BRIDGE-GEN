@@ -20,6 +20,12 @@ from .interaction import decode_result, download_image, image_url, trace_interac
 
 BASE = 'https://anymodel.org/v1'
 PUBLIC_PRICING = 'https://anymodel.org/en/pricing'
+CATALOGUE_REFRESH_SECONDS=300
+CATALOGUE_RETRY_SECONDS=30
+TRANSIENT_CATALOGUE_ERRORS={
+    'connect_error','connect_timeout','response_timeout','transport_error',
+    'http_500','http_502','http_503','http_504','snapshot_io',
+}
 TEST_MODEL = 'ds/deepseek-v4-flash-vision'
 FIBO_MODEL = 'anymedia/fibo-2'
 IMAGE_OP = 'images.generate'
@@ -325,4 +331,5 @@ async def refresh_anymodel(cfg, *, once=False):
         if code:
             print(json.dumps({'event':'anymodel_catalogue_refresh_failed','code':code,'endpoint':endpoint}),
                   flush=True)
-        await asyncio.sleep(300)
+        delay=CATALOGUE_RETRY_SECONDS if code in TRANSIENT_CATALOGUE_ERRORS else CATALOGUE_REFRESH_SECONDS
+        await asyncio.sleep(delay)

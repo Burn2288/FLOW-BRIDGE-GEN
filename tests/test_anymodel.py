@@ -225,3 +225,34 @@ async def test_user_anymodel_distinguishes_outage_empty_and_recovery(env,tmp_pat
         for section,title in sections.items():
             await app.callback(guest,101,f'amsection:{section}')
             assert list(routes(bot))==[title,'← К агрегатору']
+
+
+async def test_anymodel_background_retries_transient_error(tmp_path,monkeypatch):
+    from types import SimpleNamespace
+
+    from elevenbot import anymodel
+    from elevenbot.config import Config
+
+    class StopLoop(Exception):
+        pass
+
+    results=iter([{'refresh_error_code':'connect_error','refresh_error_endpoint':'/v1/models/tts'},{}])
+
+    class Provider:
+        def __init__(self,key):
+            pass
+
+        async def refresh(self,store):
+            return next(results)
+
+    delays=[]
+    async def sleep(delay):
+        delays.append(delay)
+        if len(delays)==2:
+            raise StopLoop
+
+    monkeypatch.setattr(anymodel,'AnyModelProvider',Provider)
+    monkeypatch.setattr(anymodel,'asyncio',SimpleNamespace(sleep=sleep))
+    with pytest.raises(StopLoop):
+        await anymodel.refresh_anymodel(Config(catalogue_path=str(tmp_path/'models.json')))
+    assert delays==[30,300]
