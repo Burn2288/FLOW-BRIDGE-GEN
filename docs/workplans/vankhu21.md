@@ -80,3 +80,9 @@
 - [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `743ab5c13d8781bedc958bd3723cbe9cfa2e5b04`. Выбор и массовая настройка голосов AnyVoice, новые единицы ручного тарифа, динамический каталог видео и озвучки.
 - На стенде подтверждены 54 русских и 10 английских голосов на обоих экранах. Заглушки подтвердили появление нового пресета и по одному запуску нового ID для изображения, видео и озвучки. Миграция 021 применена. Платных запусков нет, подтверждённых ручных ставок в БД нет.
 - 290 тестов на отдельной PostgreSQL. Проверки этого SHA: [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42494548897) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42494548780). PR ожидает ревью.
+
+## Каталог и срок тарифа · S3/S5
+
+- [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `a2525859d7a1d79e20c3c268389bfbc3ae8ed4a5`. Админ-каталог, бессрочная подтверждённая ставка, обязательный срок тестовой ставки, приоритет API при повторном подтверждении.
+- На стенде миграция 022 и 64 голоса AnyVoice, подтверждены свежие цены FIBO 2, Fish Audio, Grok и Veo Fast. Ручные ставки проверены на заглушках. Платных запусков и списаний нет.
+- 293 теста на отдельной PostgreSQL. [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42495605709) · [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42495605643). PR ожидает ревью.
