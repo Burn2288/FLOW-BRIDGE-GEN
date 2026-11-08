@@ -3,7 +3,7 @@
 import httpx
 
 from .pricing import NoProviderPrice, PriceUnavailable, ProviderCost, number
-from .video import MODES, VideoProtocolError, payload
+from .video import VIDEO_PARAMS, VideoProtocolError
 
 USD = 'USD'
 
@@ -17,12 +17,11 @@ class ClodexPricing:
             # /api/pricing does not establish the account's group or a unit for
             # images, chat, or TTS. Use an approved manual tariff for these routes.
             raise NoProviderPrice()
-        if (request.model not in {mode[0] for mode in MODES.values()}
+        if (not self.video_api.supports_model(request.model)
                 or not 1 <= len(request.prompt) <= 4000 or '\x00' in request.prompt):
             raise PriceUnavailable()
-        expected = payload(request.model,request.prompt)
-        params = {key:expected[key] for key in ('duration','resolution','aspect_ratio')}
-        if request.params != params:
+        params = request.params
+        if params != VIDEO_PARAMS:
             raise PriceUnavailable()
         try:
             amount = number(await self.video_api.estimate(request.model,request.prompt))

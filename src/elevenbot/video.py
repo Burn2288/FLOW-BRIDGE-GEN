@@ -1,4 +1,4 @@
-"""Private Veo pilot. A confirmed quote can dispatch at most one create request."""
+"""Private CLODEX video pilot. A confirmed quote can dispatch at most one create request."""
 
 import asyncio
 from decimal import Decimal, InvalidOperation
@@ -16,6 +16,8 @@ MODES = {
     'standard': ('clodex-video/veo-3.1', 'Обычный', '🎬 Генерировать видео'),
     'fast': ('clodex-video/veo-3.1-fast', 'Fast', '⚡ Режим: Fast'),
 }
+DEFAULT_VIDEO_MODELS = frozenset(mode[0] for mode in MODES.values())
+VIDEO_PARAMS = {'duration':4,'resolution':'720p','aspect_ratio':'16:9'}
 ROOT = 'https://clodex.xyz'
 VIDEOS = '/v1/videos'
 MAX_VIDEO_BYTES = 49_000_000
@@ -40,23 +42,32 @@ class InvalidVideoError(VideoProtocolError):
 def video_modes(cfg, snapshot, external_id):
     if not cfg.video_pilot or external_id not in cfg.admin_ids or cfg.access_mode != 'private':
         return {}
+    ids = catalogue_video_ids(snapshot)
+    return {mode: details for mode, details in MODES.items() if details[0] in ids}
+
+
+def catalogue_video_ids(snapshot):
     if snapshot['fresh_until'] <= time.time():
-        return {}
-    ids = {
+        return set()
+    return {
         m['id'] for m in snapshot['models']
         if m.get('provider') == 'clodex' and m.get('availability') == 'key_available'
         and 'openai-video' in m.get('protocols', [])
     }
-    return {mode: details for mode, details in MODES.items() if details[0] in ids}
 
 
 def payload(model, prompt):
-    return {'model': model, 'prompt': prompt, 'duration': 4, 'resolution': '720p', 'aspect_ratio': '16:9'}
+    return {'model': model, 'prompt': prompt, **VIDEO_PARAMS}
 
 
 class VideoAPI:
-    def __init__(self, key, *, transport=None):
+    def __init__(self, key, *, transport=None, supported_models=DEFAULT_VIDEO_MODELS):
         self.key, self.transport = key, transport
+        # Each entry must implement the estimate/create/status/content contract below.
+        self.supported_models = frozenset(supported_models)
+
+    def supports_model(self, model):
+        return model in self.supported_models
 
     def client(self):
         return httpx.AsyncClient(base_url=ROOT, headers={'Authorization': 'Bearer '+self.key},
@@ -80,6 +91,8 @@ class VideoAPI:
         return result
 
     async def estimate(self, model, prompt):
+        if not self.supports_model(model):
+            raise VideoProtocolError('video_model')
         body = await self.json('POST', VIDEOS+'/estimate', json=payload(model, prompt))
         data = body.get('data')
         if body.get('success') is not True or not isinstance(data, dict) or data.get('model') != model:
@@ -93,6 +106,8 @@ class VideoAPI:
         return price
 
     async def create(self, model, prompt):
+        if not self.supports_model(model):
+            raise VideoProtocolError('video_model')
         body = await self.json('POST', VIDEOS, json=payload(model, prompt))
         task = body.get('id') or body.get('request_id')
         if not isinstance(task, str) or not ID_PATTERN.fullmatch(task):

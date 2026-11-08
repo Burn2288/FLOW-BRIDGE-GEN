@@ -34,12 +34,20 @@ class ModelPolicy:
     def __init__(self,app,keyboard):
         self.app,self.keyboard = app,keyboard
 
-    async def list(self,provider,operation=None):
-        return await self.app.pool.fetch("""
+    async def list(self,provider,operation=None,*,snapshot=None):
+        rows = await self.app.pool.fetch("""
             SELECT model_id,operation,title FROM approved_models
             WHERE provider=$1 AND ($2::text IS NULL OR operation=$2)
             ORDER BY title,model_id,operation
             """,provider,operation)
+
+        if provider!='clodex' or not any(row['operation']=='video' for row in rows):
+            return rows
+        try:
+            active=self.app.clodex_video_ids(snapshot if snapshot is not None else self.app.catalogue_snapshot())
+        except Rejected:
+            active=set()
+        return [row for row in rows if row['operation']!='video' or row['model_id'] in active]
 
     async def allowed(self,provider,model,operation):
         # Transport-only fakes have no production execution path.
@@ -60,6 +68,12 @@ class ModelPolicy:
         if command in ('/admit','/revoke'):
             provider,model,operation=await self.change_admission(user,ext,args)
             if command=='/admit':
+                if provider=='clodex' and operation=='video':
+                    from .video import catalogue_video_ids
+                    if not self.app.video.api.supports_model(model):
+                        raise Rejected('Для этой модели CLODEX ещё не подключён маршрут запуска видео.')
+                    if model not in catalogue_video_ids(self.app.catalogue_snapshot()):
+                        raise Rejected('Для модели нет доступного видеопротокола CLODEX в актуальном каталоге.')
                 origin='anyvoice' if provider=='anymodel' and model.startswith('anyvoice/') else provider
                 models=await self.app.tariffs.models(ext,origin)
                 match=next((title for ident,title,ops in models if canonical(provider,ident,operation)==model

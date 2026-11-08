@@ -10,7 +10,7 @@ from .core import ConsentRequired,Service,Rejected,uid
 from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
-from .video import VideoPilot,video_modes
+from .video import DEFAULT_VIDEO_MODELS,VIDEO_PARAMS,VideoPilot,catalogue_video_ids,video_modes
 from .anymodel_video import AnyModelVideoPilot,MODEL as ANYMODEL_VIDEO_MODEL,TITLE as ANYMODEL_VIDEO_TITLE
 from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_image,can_view,model_store
 from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
@@ -331,7 +331,7 @@ class TelegramApp:
                     await self.show_price(ext,await self.pricing.quote(u,request));return
                 if context and context.get('provider')=='anymodel':
                     await self.anymodel_input(u,ext,text,context);return
-                if context and 'video_mode' in context:
+                if context and ('video_mode' in context or 'clodex_video_model' in context):
                     await self.video_prompt(u,ext,text,context);return
                 if context and 'interaction' in context:
                     await self.interaction_input(u,ext,update,context);return
@@ -514,6 +514,13 @@ class TelegramApp:
             index=int(index)
             if index not in await self.store_models(snapshot,section,ext):
                 raise Rejected('Модель больше не доступна в этом разделе.')
+            if route=='srun' and section=='video':
+                if options:
+                    raise Rejected('Этот режим недоступен.')
+                model=snapshot['models'][index]
+                await self.svc.aggregate_context(u,{'clodex_video_model':model['id'],'version':version})
+                await self.catalogue_screen(ext,f"{model['title']}\nОпишите, какое видео хотите создать.",
+                                            buttons([[('Отмена','home')]]));return
             if route=='srun':
                 await self.begin_interaction(u,ext,version,index,STORE_SECTIONS[section][1],
                                              request_id=request_id,quality=options[0] if options else None);return
@@ -1066,31 +1073,36 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,'Каталог моделей. Выберите, что хотите сделать.',buttons(rows))
 
+    def clodex_video_ids(self,snapshot):
+        if not self.video.enabled():
+            return set()
+        return {model for model in catalogue_video_ids(snapshot) if self.video.api.supports_model(model)}
+
     async def store_models(self,snapshot,section,ext):
         if section not in STORE_SECTIONS:
             raise Rejected('Раздел недоступен.')
         from .model_policy import canonical
         operation=STORE_SECTIONS[section][1]
-        approved={row['model_id'] for row in await self.models.list('clodex',operation)} if self.pool else set()
+        if section=='video' and ext not in self.cfg.admin_ids:
+            return []
+        approved={row['model_id'] for row in await self.models.list('clodex',operation,snapshot=snapshot)} if self.pool else set()
         return [index for index,model in enumerate(snapshot['models'])
                 if model.get('provider')=='clodex' and model.get('availability')=='key_available'
                 and not is_disabled_model(model) and canonical('clodex',model['id'],operation) in approved]
 
     async def admitted_veo_modes(self,ext,snapshot):
         if self.pool is None:return {}
-        approved={row['model_id'] for row in await self.models.list('clodex','video')}
-        return {key:value for key,value in video_modes(self.cfg,snapshot,ext).items() if value[0] in approved}
+        approved={row['model_id'] for row in await self.models.list('clodex','video',snapshot=snapshot)}
+        return {key:value for key,value in video_modes(self.cfg,snapshot,ext).items()
+                if value[0] in approved}
 
     async def show_store_models(self,ext,version,section,page):
         snapshot=self.catalogue_snapshot(None if version=='current' else version)
-        if section=='video':
-            if page!=0:raise Rejected('Страница недоступна.')
-            rows=[]
-            if await self.admitted_veo_modes(ext,snapshot):
-                rows.append([('Veo 3.1',f"veo:{snapshot['version']}")])
-            rows.append([('← Каталог','store')])
-            await self.catalogue_screen(ext,STORE_SECTIONS['video'][0],buttons(rows));return
         models=await self.store_models(snapshot,section,ext)
+        veo = False
+        if section=='video':
+            veo=bool(await self.admitted_veo_modes(ext,snapshot))
+            models=[i for i in models if snapshot['models'][i]['id'] not in DEFAULT_VIDEO_MODELS]
         page_count=max(1,(len(models)+9)//10)
         if not 0<=page<page_count:
             raise Rejected('Страница недоступна.')
@@ -1098,6 +1110,8 @@ class TelegramApp:
         title=STORE_SECTIONS[section][0]
         rows=[[(snapshot['models'][i]['title'],f'smodel:{version}:{section}:{page}:{i}')]
               for i in models[page*10:page*10+10]]
+        if veo and page==0:
+            rows.insert(0,[('Veo 3.1',f'veo:{version}')])
         nav=[]
         if page:
             nav.append(('← Назад',f'slist:{version}:{section}:{page-1}'))
@@ -1106,7 +1120,7 @@ class TelegramApp:
         if nav:
             rows.append(nav)
         rows.append([('← Каталог','store')])
-        status=f'Моделей: {len(models)} · Страница {page+1} из {page_count}' if models else 'В этом разделе пока нет опубликованных моделей.'
+        status=f'Моделей: {len(models)+int(veo)} · Страница {page+1} из {page_count}' if models or veo else 'В этом разделе пока нет опубликованных моделей.'
         await self.catalogue_screen(ext,title+'\n'+status,buttons(rows))
 
     async def veo_mode(self,ext,version,mode):
@@ -1123,9 +1137,18 @@ class TelegramApp:
         await self.catalogue_screen(ext,'Veo 3.1 · Текст → видео',buttons(rows))
 
     async def video_prompt(self,u,ext,text,context):
-        model,label,_=await self.veo_mode(ext,context['version'],context['video_mode'])
-        request=Request('clodex',model,'video',f'Veo 3.1 · {label}',text.strip(),
-                        {'duration':4,'resolution':'720p','aspect_ratio':'16:9'})
+        if 'video_mode' in context:
+            model,label,_=await self.veo_mode(ext,context['version'],context['video_mode'])
+            title=f'Veo 3.1 · {label}'
+        else:
+            snapshot=self.catalogue_snapshot(context['version'])
+            indexes=await self.store_models(snapshot,'video',ext)
+            model=context['clodex_video_model']
+            selected=next((snapshot['models'][i] for i in indexes if snapshot['models'][i]['id']==model),None)
+            if selected is None:
+                raise Rejected('Модель не допущена к видео или недоступна.')
+            title=selected['title']
+        request=Request('clodex',model,'video',title,text.strip(),VIDEO_PARAMS.copy())
         await self.show_price(ext,await self.pricing.quote(u,request))
 
     async def show_store_model(self,ext,snapshot,section,page,index):
@@ -1134,7 +1157,7 @@ class TelegramApp:
         version=snapshot['version']
         rows=[]
         status='Запуск этой модели пока недоступен.'
-        if self.model_can_run(model,operation):
+        if operation=='video' or self.model_can_run(model,operation):
             rows.append([(('Выбрать голос' if operation=='audio.speech' and self.cfg.speech_pilot else title),f'srun:{version}:{section}:{page}:{index}')])
             if operation=='images.generate' and model['id'] in HIGH_QUALITY_IMAGE_MODELS:
                 rows.append([('Качество: high',f'srun:{version}:{section}:{page}:{index}:high')])
@@ -1430,8 +1453,7 @@ class TelegramApp:
         if req.operation!='audio.speech' and self.cfg.interaction_mode!='live':
             return None
         if req.operation=='video':
-            allowed=video_modes(self.cfg,snapshot,ext)
-            return {'id':req.model} if self.video.enabled() and any(m[0]==req.model for m in allowed.values()) else None
+            return {'id':req.model} if req.model in self.clodex_video_ids(snapshot) else None
         if req.operation=='audio.speech' and (
             req.model!=self.cfg.clodex_model or not self.cfg.speech_pilot or req.params.get('voice') not in {v['id'] for v in catalog(self.cfg)}
         ):
