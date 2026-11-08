@@ -77,7 +77,7 @@ async def test_gpt_image_quality_reaches_provider(env, tmp_path, monkeypatch, qu
         monkeypatch.setattr(interaction, "execute", execute_against_stub)
         await app.interaction_input(user, 100, event("Баннер"), context)
         assert not requests
-    assert 'Ручная себестоимость: 100 токенов DarkFlow | Gen' in bot.sent[-1][0]
+        assert 'Ручная себестоимость: 100 токенов DarkFlow | Gen' in bot.sent[-1][0]
         assert "Наценка: 25" in bot.sent[-1][0]
         assert "Оценка: 125" in bot.sent[-1][0]
         confirm=bot.sent[-1][1].inline_keyboard[0][0].callback_data
