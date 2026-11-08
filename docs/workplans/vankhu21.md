@@ -105,3 +105,8 @@
 - Заглушка и отдельная PostgreSQL: проверены допуск и отзыв ID вне Veo, один запуск по подтверждению, повторная выдача сохранённого MP4 и отказ без записи при отсутствии маршрута. 299 тестов, платных запусков нет. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42510043576) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42510043547). PR ожидает ревью.
 
 - Стенд `flowbridge-live-smoke` обновлён на `bb81345bcda71f73d1b3092f302bdfc00769696f`. Штатные Telegram-обработчики с тестовым транспортом показали одну карточку Veo с двумя доступными режимами. Оба ID совпали с «Нашими моделями», где показаны оценки с общей наценкой 0%. `halted=true`, генераций 0. [Приёмка и команды в PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6725454506).
+
+### Исходные единицы и курс Admin Edition
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6725969327), SHA `4669f3fe35fa7f5ad26be00872263d2e86d75b7b`, стенд `flowbridge-live-smoke`, миграция 025. Исходные суммы, курсы и итоговые цены показаны отдельно. Курсы AnyModel и CLODEX USD перенесены. Ручная себестоимость в токенах бота, рублёвый эквивалент и повторное подтверждение проверены на заглушках.
+- Локально 302 теста, [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42514398735) и [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42514398564) зелёные. `halted=true`, генераций и списаний 0. PR ожидает ревью.
