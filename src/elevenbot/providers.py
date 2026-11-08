@@ -6,6 +6,7 @@ import tempfile
 import time
 import httpx
 
+from .submission import ProviderRefused,check_submission_refusal
 from .interaction import provider_request_id, trace_interaction
 
 class UnknownOutcome(Exception): pass
@@ -53,7 +54,6 @@ class ClodexProvider:
             async with self.client.stream('POST',endpoint,headers={
                 'Authorization':'Bearer '+self.cfg.clodex_key,'Content-Type':'application/json'},
                 json={'model':self.cfg.clodex_model,'voice':voice,'input':text}) as r:
-                # All HTTP errors conservatively unknown until actual billing semantics verified.
                 content_type=r.headers.get('content-type','').split(';')[0]
                 audio=content_type in ('audio/mpeg','audio/mp3')
                 trace_interaction(request_id,'http_headers',status=r.status_code,
@@ -61,6 +61,7 @@ class ClodexProvider:
                                   elapsed_ms=round((time.monotonic()-started)*1000))
                 if r.status_code!=200 or not audio:
                     trace_interaction(request_id,'provider_response_rejected')
+                    await check_submission_refusal(r)
                     raise UnknownOutcome('PROVIDER_RESPONSE')
                 self.metadata={'request_id':(r.headers.get('x-clodex-request-id') or '')[:512],
                                'usage_characters':None}
@@ -74,6 +75,8 @@ class ClodexProvider:
                 trace_interaction(request_id,'http_body_received',bytes=len(out),
                                   elapsed_ms=round((time.monotonic()-started)*1000))
                 return bytes(out)
+        except ProviderRefused as error:
+            raise DefinitiveFailure(str(error)) from None
         except httpx.HTTPError as error:
             trace_interaction(request_id,'network_error',error_type=type(error).__name__)
             raise UnknownOutcome('PROVIDER_TRANSPORT') from None

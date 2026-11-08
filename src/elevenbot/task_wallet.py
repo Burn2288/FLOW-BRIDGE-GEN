@@ -28,7 +28,7 @@ async def settle_task_tokens(conn, quote_id=None):
                 CASE
                     WHEN d.state='completed' OR v.status='succeeded' OR i.status IN ('ready','delivered')
                         THEN 'task_capture'
-                    WHEN d.state='interrupted' OR v.status='failed' OR i.status='failed'
+                    WHEN d.state IN ('interrupted','rejected') OR v.status='failed' OR i.status='failed'
                         THEN 'task_release'
                 END AS kind
             FROM ledger r
@@ -38,7 +38,7 @@ async def settle_task_tokens(conn, quote_id=None):
             LEFT JOIN anymodel_image_jobs i ON i.update_id=q.update_id AND i.user_id=q.user_id
             WHERE r.kind='task_reserve'
               AND ($1::uuid IS NULL OR d.quote_id=$1)
-              AND d.state IN ('completed','delegated','interrupted','uncertain')
+              AND d.state IN ('completed','delegated','interrupted','uncertain','rejected')
               AND NOT EXISTS (
                   SELECT 1 FROM ledger s WHERE s.task_quote_id=r.task_quote_id
                       AND s.kind IN ('task_capture','task_release')

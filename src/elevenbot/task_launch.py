@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from .core import Rejected
+from .submission import ProviderRefused
 from .task_wallet import reserve_task_tokens,settle_task_tokens
 
 
@@ -21,20 +22,24 @@ class ExecutionAdapter(Protocol):
 
 
 class TaskLaunch:
-    def __init__(self,pricing,adapters):
+    def __init__(self,pricing,adapters,*,authorize=None):
         self.pricing,self.adapters = pricing,adapters
+        self.authorize = authorize or self.authorize_pilot
+
+    async def authorize_pilot(self,conn,user,external):
+        # Paid pilot eligibility is independent of the Admin Edition session.
+        cfg = self.pricing.config
+        if cfg.access_mode!='private' or cfg.payments_enabled or external not in cfg.admin_ids:
+            raise Rejected('Тестовый запуск для этого аккаунта недоступен.')
+        await self.pricing.admin(conn,user,external)
 
     async def confirm(self,user,external,quote_id,update_id,*,progress,background):
-        cfg = self.pricing.config
         pool = self.pricing.pool
 
         adapter = prepared = None
         async def prepare(conn,quote):
             nonlocal adapter,prepared
-            # Paid pilot eligibility is independent of the Admin Edition session.
-            if cfg.access_mode!='private' or cfg.payments_enabled or external not in cfg.admin_ids:
-                raise Rejected('Тестовый запуск для этого аккаунта недоступен.')
-            await self.pricing.admin(conn,user,external)
+            await self.authorize(conn,user,external)
             from .model_policy import admitted
             req = quote.request
             if not await admitted(conn,req.provider,req.model,req.operation):
@@ -61,9 +66,10 @@ class TaskLaunch:
                 raise Rejected('Задача уже принята. Повтора не будет.')
             try:
                 result = await adapter.run(user,quote,update_id,prepared,on_accepted)
-            except Exception:
+            except Exception as error:
+                state='rejected' if isinstance(error,ProviderRefused) else 'uncertain'
                 async with pool.acquire() as conn, conn.transaction():
-                    await conn.execute("UPDATE task_dispatch SET state='uncertain' WHERE quote_id=$1",quote.id)
+                    await conn.execute('UPDATE task_dispatch SET state=$2 WHERE quote_id=$1',quote.id,state)
                     await settle_task_tokens(conn,quote.id)
                 raise
             async with pool.acquire() as conn, conn.transaction():
@@ -84,6 +90,8 @@ async def recover_interrupted(pool):
     await pool.execute("""
         UPDATE task_dispatch d SET state=CASE
             WHEN d.state='pending' THEN 'interrupted'
+            WHEN EXISTS(SELECT 1 FROM video_jobs v WHERE v.id=d.quote_id AND v.status='failed' AND v.provider_id IS NULL)
+              THEN 'rejected'
             WHEN EXISTS(SELECT 1 FROM video_jobs v WHERE v.id=d.quote_id AND v.provider_id IS NOT NULL)
               OR EXISTS(SELECT 1 FROM anymodel_image_jobs i WHERE i.update_id=q.update_id
                         AND (i.provider_id IS NOT NULL OR i.status IN ('ready','delivered')))

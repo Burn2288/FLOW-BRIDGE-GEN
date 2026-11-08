@@ -11,6 +11,7 @@ import httpx
 
 from .core import Rejected, Service, uid
 from .interaction import trace_interaction
+from .submission import ProviderRefused,check_submission_refusal
 
 MODES = {
     'standard': ('clodex-video/veo-3.1', 'Обычный', '🎬 Генерировать видео'),
@@ -76,6 +77,8 @@ class VideoAPI:
     async def json(self, method, path, **kwargs):
         async with asyncio.timeout(25), self.client() as client:
             async with client.stream(method, path, **kwargs) as response:
+                if method=='POST' and path==VIDEOS and not response.is_success:
+                    await check_submission_refusal(response)
                 response.raise_for_status()
                 raw = bytearray()
                 async for chunk in response.aiter_bytes(chunk_size=8192):
@@ -249,6 +252,9 @@ class VideoPilot:
                 UPDATE video_jobs SET status='polling',provider_id=$2,connection_id=$3,next_poll_at=now()
                 WHERE id=$1 AND status='submitting'
                 """, job, provider_id,connection)
+        except ProviderRefused:
+            await self.pool.execute("UPDATE video_jobs SET status='failed',expires_at=now()+interval '7 days' WHERE id=$1 AND status='submitting'", job)
+            raise
         except (httpx.HTTPError, TimeoutError, VideoProtocolError) as error:
             await self.pool.execute("UPDATE video_jobs SET status='uncertain',expires_at=now()+interval '7 days' WHERE id=$1 AND status='submitting'", job)
             video_failure(job, 'video_create_uncertain', error)

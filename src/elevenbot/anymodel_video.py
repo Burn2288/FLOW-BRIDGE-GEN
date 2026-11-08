@@ -55,7 +55,7 @@ class AnyModelVideoProvider(AnyModelProvider):
 
     async def create_video(self,model,prompt,idempotency_key,*,params=None):
         parameters=params or {'duration':DURATION,'resolution':RESOLUTION,'aspect_ratio':ASPECT_RATIO}
-        data,reply=await self.video_json('POST','/videos/generations',accepted=(200,201,202),
+        data,reply=await self.video_json('POST','/videos/generations',accepted=(200,201,202),submission=True,
             request_headers={'Idempotency-Key':str(idempotency_key)},
             json={'model':model,'prompt':prompt,**parameters})
         task=data.get('request_id')

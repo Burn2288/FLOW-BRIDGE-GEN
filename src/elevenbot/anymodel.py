@@ -12,6 +12,7 @@ import time
 
 import httpx
 
+from .submission import check_submission_refusal
 from .aggregate import ProviderRegistry
 from .discovery import DiscoveryError, SnapshotStore, normalize
 from .core import Rejected
@@ -116,7 +117,7 @@ class AnyModelProvider:
         return (await self.read_response(method,url,authenticated=authenticated,**kwargs)).body
 
     async def read_response(self,method,url,*,authenticated,max_body=MAX_BODY,accepted=(200,),
-                            request_headers=None,deadline=25,**kwargs):
+                            request_headers=None,deadline=25,submission=False,**kwargs):
         if authenticated and not self.key:
             raise AnyModelError('тестовый ключ отсутствует')
         headers=dict(request_headers or {})
@@ -127,6 +128,8 @@ class AnyModelProvider:
             ) as response:
                 delay=retry_after(response.headers.get('Retry-After'))
                 if response.status_code not in accepted:
+                    if submission:
+                        await check_submission_refusal(response)
                     raise AnyModelError(f'HTTP {response.status_code}',code=f'http_{response.status_code}',
                                         status=response.status_code,retry_after=delay)
                 raw = bytearray()
@@ -286,7 +289,7 @@ class AnyModelProvider:
     async def chat(self, model, prompt, history, *, max_tokens=256):
         payload = {'model': model, 'messages': [*history, {'role':'user','content':prompt}],
                    'max_tokens': max_tokens, 'stream': False}
-        body = self.decode(await self.request('POST', BASE+'/chat/completions', authenticated=True, json=payload))
+        body = self.decode(await self.request('POST', BASE+'/chat/completions', authenticated=True, submission=True, json=payload))
         try:
             reply = body['choices'][0]['message']['content']
         except (KeyError, IndexError, TypeError):

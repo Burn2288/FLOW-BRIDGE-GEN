@@ -87,7 +87,7 @@ class SpeechPilot:
         async with track(title) if track else nullcontext():
             try:
                 reply = await self.api.read_response('POST',BASE+SPEECH_PATH,authenticated=True,
-                    max_body=MAX_AUDIO,deadline=120,timeout=httpx.Timeout(90,connect=5),
+                    max_body=MAX_AUDIO,deadline=120,submission=True,timeout=httpx.Timeout(90,connect=5),
                     json={'model':model,'input':prompt})
                 if reply.content_type not in ('audio/mpeg','audio/mp3'):
                     raise AnyModelError('неизвестный формат ответа', code='speech_content_type')

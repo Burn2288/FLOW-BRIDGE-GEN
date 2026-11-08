@@ -6,6 +6,7 @@ from decimal import Decimal
 from .anymodel import AnyModelError, IMAGE_OP, can_view
 from .anymodel_speech import validate_mp3
 from .core import Rejected
+from .submission import ProviderRefused
 from .task_launch import Outcome
 
 
@@ -91,7 +92,9 @@ class ClodexExecution:
                 await asyncio.to_thread(validate_mp3,audio)
             except UnknownOutcome:
                 raise Rejected('Исход запроса неизвестен. Автоповтора нет.') from None
-            except (DefinitiveFailure,AnyModelError):
+            except DefinitiveFailure:
+                raise ProviderRefused('Провайдер отклонил запрос. Резерв возвращён.') from None
+            except AnyModelError:
                 raise Rejected('Не удалось получить озвучку.') from None
             finally:
                 await provider.close()
