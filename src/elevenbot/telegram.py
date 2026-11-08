@@ -1761,15 +1761,20 @@ async def register_commands(bot, admin_ids):
     scopes.extend((BotCommandScopeChat(chat_id=chat_id),admin)
                   for chat_id in dict.fromkeys(admin_ids) if chat_id>0)
     for scope, commands in scopes:
-        try:
-            async with asyncio.timeout(10):
-                registered = await bot.set_my_commands(commands,scope=scope)
-        except (ClientDecodeError,TelegramAPIError,TimeoutError) as error:
-            print(json.dumps({'event':'telegram_commands_failed','scope':scope.type,
-                              'error_type':type(error).__name__}),flush=True)
-        else:
-            print(json.dumps({'event':'telegram_commands_registered' if registered else 'telegram_commands_failed',
-                              'scope':scope.type}),flush=True)
+        for attempt in range(2):
+            try:
+                async with asyncio.timeout(10):
+                    registered = await bot.set_my_commands(commands,scope=scope)
+            except (ClientDecodeError,TelegramAPIError,TimeoutError) as error:
+                if attempt==0 and isinstance(error,(TelegramNetworkError,TimeoutError)):
+                    await asyncio.sleep(1)
+                    continue
+                print(json.dumps({'event':'telegram_commands_failed','scope':scope.type,
+                                  'error_type':type(error).__name__}),flush=True)
+            else:
+                print(json.dumps({'event':'telegram_commands_registered' if registered else 'telegram_commands_failed',
+                                  'scope':scope.type}),flush=True)
+            break
 
 
 async def poll(pool,cfg,bot):
