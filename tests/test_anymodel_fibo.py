@@ -192,7 +192,7 @@ async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch):
         await app.callback(user,100,routes(before)['FIBO 2'])
         await app.callback(user,100,routes(before)['🖼 Генерировать изображение'])
         await app.handle(event('Blue square'))
-        assert 'запрос принят' in before.sent[-1][0]
+        assert 'FIBO 2 · Генерирую изображение' in before.sent[-1][0]
     assert requests==[('GET','/v1/models'),('POST','/v1/images/generations')]
     assert await pool.fetchval("""
         SELECT status='pending' AND provider_id='fixture-job' AND next_at>now()+interval '110 seconds'
