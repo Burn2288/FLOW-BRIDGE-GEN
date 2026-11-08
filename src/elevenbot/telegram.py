@@ -27,6 +27,7 @@ from .progress import ReportedTaskError,TaskProgress,UNKNOWN,WAITING
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
+MODEL_LIST_BACK='← К списку моделей'
 BALANCE_BUTTON=re.compile(r'💳 [0-9][0-9 \u00a0\u202f]* токенов(?: ≈ [0-9][0-9 \u00a0\u202f]*(?:[.,][0-9]{1,2})? ₽)?')
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
@@ -76,7 +77,7 @@ def store_rows():
 
 def menu(*,public=False,admin_rates=False,balance=None):
     labels=[OPEN_CATALOGUE] if public else [MENU[0],MENU[1],balance or MENU[2],MENU[3]]
-    if admin_rates and not public:labels.append(RUBLE_MENU)
+    if admin_rates and not public:labels.insert(3,RUBLE_MENU)
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
 
 class TelegramApp:
@@ -791,7 +792,7 @@ class TelegramApp:
         if model is None:
             raise Rejected('Модель недоступна.')
         operations=self.registered_operations(model,admitted,selected)
-        back=[('← Модели',f'{prefix}:{key}:{page}{suffix}')]
+        back=[(MODEL_LIST_BACK,f'{prefix}:{key}:{page}{suffix}')]
         if full:
             await self.render_model_detail(ext,model,f'pall:{key}:{page}',[]);return
         if route=='pcard':
@@ -885,10 +886,11 @@ class TelegramApp:
             raise Rejected('AnyModel: модель не допущена к этой операции.')
         if route=='amwork':
             action=f'amworkrun:{version}:{index}:{page}:{operation}'
-            await self.render_model_detail(ext,model,'am',[('Рассчитать стоимость',action)],provider='AnyModel');return
+            section=next(section for section,(_,op) in STORE_SECTIONS.items() if op==operation)
+            await self.render_model_detail(ext,model,f'amsection:{section}',[('Рассчитать стоимость',action)],provider='AnyModel');return
         await self.svc.aggregate_context(u,{'interaction':operation,'provider':'anymodel',
                                              'model_id':model['id'],'title':model['title'],'history':[]})
-        rows=[[('← К списку моделей',back)]]
+        rows=[[(MODEL_LIST_BACK,back)]]
         if operation!='audio.speech':rows.insert(0,[('Параметры','amparams')])
         await self.catalogue_screen(ext,f"{model['title']} · AnyModel\nОтправьте текст для расчёта стоимости.",buttons(rows))
 
@@ -927,7 +929,7 @@ class TelegramApp:
 
     async def anymodel_speech_callback(self,u,ext,route,arg,request_id):
         pilot=self.anymodel_speech
-        back=[('← Озвучить текст','amsection:speech')]
+        back=[(MODEL_LIST_BACK,'amsection:speech')]
         try:
             if route in ('amvoices','amvprices','amvpick','amvready'):
                 await self.anyvoice_picker(u,ext,route,arg)
@@ -941,8 +943,12 @@ class TelegramApp:
             if route!='amvoice' and arg!='fish':
                 raise Rejected('AnyModel: карточка недоступна.')
             if route=='amvoice':
+                page,_,key=arg.partition(':')
+                if not page.isdecimal() or not key:
+                    key,page=arg,'0'
+                back=[(MODEL_LIST_BACK,f'amvoices:{page}')]
                 voices=await pilot.voices()
-                model=self.anyvoice_id(voices,arg)
+                model=self.anyvoice_id(voices,key)
                 title=pilot.voice_title(voices[model])
             else:
                 model=FISH
@@ -958,8 +964,7 @@ class TelegramApp:
         await self.svc.aggregate_context(u,{'provider':'anymodel','interaction':'audio.speech',
                                             'model_id':model,'title':title})
         text=f'{title} · AnyModel\nID: {model}\nПришлите текст для расчёта стоимости.'
-        rows=[[('← Выбрать голос','amvoices:0')],back] if route=='amvoice' else [back]
-        await self.catalogue_screen(ext,text,buttons(rows))
+        await self.catalogue_screen(ext,text,buttons([back]))
 
     @staticmethod
     def anyvoice_id(voices,key):
@@ -1016,7 +1021,7 @@ class TelegramApp:
             if batch and model in selection:
                 name='✓ '+name
             key=voice_key(model)
-            rows.append([(name,f'amvpick:{page}:{key}' if batch else 'amvoice:'+key)])
+            rows.append([(name,f'amvpick:{page}:{key}' if batch else f'amvoice:{page}:{key}')])
         nav=[]
         prefix='amvprices' if batch else 'amvoices'
         if page>0:
@@ -1064,7 +1069,7 @@ class TelegramApp:
     async def anymodel_video_card(self,u,ext,*,start):
         if not await self.models.allowed('anymodel',ANYMODEL_VIDEO_MODEL,'video'):
             raise Rejected('AnyModel: модель не допущена к видео.')
-        rows=[[('← Назад','amsection:video')]]
+        rows=[[(MODEL_LIST_BACK,'amsection:video')]]
         text=f'{ANYMODEL_VIDEO_TITLE} · AnyModel\n4 с · 480p · 16:9'
         if start:
             await self.svc.aggregate_context(u,{'provider':'anymodel','interaction':'video',
@@ -1298,7 +1303,7 @@ class TelegramApp:
         modes=await self.admitted_veo_modes(ext,self.catalogue_snapshot(version))
         if not modes:raise Rejected('Veo 3.1 недоступна. Обновите каталог.')
         rows=[[(label,f'veoprompt:{version}:{mode}')] for mode,(_,_,label) in modes.items()]
-        rows.append([('← Назад','slist:current:video:0')])
+        rows.append([(MODEL_LIST_BACK,f'slist:{version}:video:0')])
         await self.catalogue_screen(ext,'Veo 3.1 · Текст → видео',buttons(rows))
 
     async def video_prompt(self,u,ext,text,context):
@@ -1329,20 +1334,23 @@ class TelegramApp:
             status='Выберите действие, чтобы продолжить.'
         if section in ('image','speech'):
             rows.append([('Работы этой модели',f'mwork:{version}:{section}:{index}:0')])
-        rows.extend([[('← К списку моделей',f'slist:{version}:{section}:{page}')],[('← Каталог','store')]])
+        rows.append([(MODEL_LIST_BACK,f'slist:{version}:{section}:{page}')])
         await self.catalogue_screen(ext,model['title']+'\n'+status,buttons(rows))
 
-    async def show_models(self,ext,version=None,group=None,page=0):
+    @staticmethod
+    def catalogue_groups(data):
         from .discovery import groups
-        import time
+        if data.get('sources'):
+            return [{'title':s['provider']+' · '+('публичный каталог' if s['scope']=='public_only' else 'доступно ключу'),
+                     'models':[m for m in data['models'] if m.get('provider')==s['provider']]} for s in data['sources']]
+        return groups(data)
+
+    async def show_models(self,ext,version=None,group=None,page=0):
         try:data=self.catalogue_snapshot(version)
         except Rejected as e:
             if version:raise
             await self.catalogue_screen(ext,str(e));return
-        if data.get('sources'):
-            categories=[{'title':s['provider']+' · '+('публичный каталог' if s['scope']=='public_only' else 'доступно ключу'),
-                         'models':[m for m in data['models'] if m.get('provider')==s['provider']]} for s in data['sources']]
-        else:categories=groups(data)
+        categories=self.catalogue_groups(data)
         if group is None:
             rows=[[(g['title']+f" ({len(g['models'])})",f"cat:{data['version']}:{i}:0")] for i,g in enumerate(categories)]
             label='Каталог провайдеров и моделей:'
@@ -1377,7 +1385,14 @@ class TelegramApp:
         data=self.catalogue_snapshot(version)
         if not 0<=index<len(data['models']):raise Rejected('Модель недоступна.')
         model=data['models'][index]
-        back=f'cat:{version}:{int(origin[0])}:{int(origin[1])}' if len(origin)==2 else None
+        if len(origin)==2:
+            group,page=map(int,origin)
+        else:
+            location=next(((i,category['models'].index(model)//10)
+                           for i,category in enumerate(self.catalogue_groups(data)) if model in category['models']),None)
+            if location is None:raise Rejected('Список моделей недоступен.')
+            group,page=location
+        back=f'cat:{version}:{group}:{page}'
         await self.render_model_detail(ext,model,back,[])
 
     async def render_model_detail(self,ext,model,back,actions,provider=None):
@@ -1387,8 +1402,7 @@ class TelegramApp:
         protocols=', '.join(model.get('protocols',[])) or 'не указаны'
         capabilities=', '.join(OPERATIONS[x][0] for x in model['operations']) or 'точные операции для модели не подтверждены'
         rows=[[(label,route)] for label,route in actions]
-        if back:rows.append([('← К списку моделей',back)])
-        rows.append([('← Агрегаторы','providers')])
+        rows.append([(MODEL_LIST_BACK,back)])
         title=(provider+' · ' if provider else '')+model['title']
         text=f"{title}\nID: {model['id']}\n{availability}\nПротоколы: {protocols}\nВозможности: {capabilities}"
         if not provider:

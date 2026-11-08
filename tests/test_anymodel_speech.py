@@ -141,8 +141,13 @@ async def test_voice_without_price_and_disabled_pilot(env):
             await app.callback(user,101,'amvoices:0')
         await app.callback(user,100,'amvoices:0')
         await app.callback(user,100,routes(bot)['Далее →'])
+        origin=dict(routes(bot))
         await app.callback(user,100,routes(bot)[NAME])
         assert NAME in bot.sent[-1][0]
+        assert routes(bot)=={'← К списку моделей':'amvoices:1'}
+        await app.callback(user,100,routes(bot)['← К списку моделей'])
+        assert routes(bot)==origin
+        await app.callback(user,100,routes(bot)[NAME])
         await app.handle(event(TEXT))
         assert 'Цена недоступна' in bot.sent[-1][0]
         assert await pool.fetchval('SELECT count(*) FROM anymodel_speech')==0

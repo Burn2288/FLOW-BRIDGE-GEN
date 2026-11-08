@@ -118,6 +118,11 @@ async def test_third_provider_catalogue_and_tariff_preview(env):
         await app.callback(user,100,routes(bot)['← К управлению'])
         await app.callback(user,100,routes(bot)['← К агрегатору'])
         await app.callback(user,100,routes(bot)['💬 Классический чат'])
+        origin=dict(routes(bot))
+        await app.callback(user,100,routes(bot)['Fixture chat'])
+        assert [label for label in routes(bot) if label.startswith('←')]==['← К списку моделей']
+        await app.callback(user,100,routes(bot)['← К списку моделей'])
+        assert routes(bot)==origin
         await app.callback(user,100,routes(bot)['Fixture chat'])
         await app.callback(user,100,routes(bot)['Рассчитать стоимость · Диалог'])
         await app.handle(event('Hello'))

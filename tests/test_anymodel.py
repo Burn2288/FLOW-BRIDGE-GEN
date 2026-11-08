@@ -73,6 +73,12 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         for page in range(3):
             buttons=routes(bot)
             listed.update(v for v in buttons if v.startswith('fixture/'))
+            if page==1:
+                card=next(route for label,route in buttons.items() if label.startswith('fixture/'))
+                await app.callback(user,100,card)
+                assert list(routes(bot))==['← К списку моделей']
+                await app.callback(user,100,routes(bot)['← К списку моделей'])
+                assert routes(bot)==buttons
             if page<2:
                 await app.callback(user,100,buttons['Далее →'])
         assert listed==set(ids)

@@ -60,6 +60,14 @@ async def test_admin_aggregator_menu_routes_and_permissions(env, tmp_path):
         for action in working:
             await app.handle(event(callback=home[action]))
             assert 'пока нет' not in bot.sent[-1][0] and 'fixture/unapproved' not in routes(bot)
+            origin=dict(routes(bot))
+            for model_label in ('Veo 3.1','FIBO 2','ds/deepseek-v4-flash-vision','flux-schnell'):
+                if model_label not in origin:
+                    continue
+                await click(model_label)
+                assert [label for label in routes(bot) if label.startswith('←')]==['← К списку моделей']
+                await click('← К списку моделей')
+                assert routes(bot)==origin
         await app.handle(event(callback=home['⚙️ Управление агрегатором']))
         management=dict(routes(bot))
         options=['Наши модели','Курс и калькулятор','Все модели']

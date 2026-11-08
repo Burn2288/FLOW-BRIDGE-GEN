@@ -132,7 +132,7 @@ async def test_veo_shows_only_available_mode(env, tmp_path, available):
     await app.callback(user, 100, 'slist:current:video:0')
     await app.callback(user, 100, button(bot, 'Veo 3.1'))
     labels = [key.text for row in bot.sent[-1][1].inline_keyboard for key in row]
-    assert labels == [MODES[available][2], '← Назад']
+    assert labels == [MODES[available][2], '← К списку моделей']
 
 
 async def test_uncertain_create_never_retries(env, tmp_path):

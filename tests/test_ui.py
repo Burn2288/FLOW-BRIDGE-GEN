@@ -142,7 +142,7 @@ async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels
 
     def check_keyboard(markup,balance):
         assert [[button.text for button in row] for row in markup.keyboard]==[
-            [MENU[0]],[MENU[1]],[balance],[MENU[3]],[telegram.RUBLE_MENU],
+            [MENU[0]],[MENU[1]],[balance],[telegram.RUBLE_MENU],[MENU[3]],
         ]
 
     await app.handle(event('/start'))
