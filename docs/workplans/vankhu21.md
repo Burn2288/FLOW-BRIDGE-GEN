@@ -122,3 +122,8 @@
 - На отдельной PostgreSQL с тестовым транспортом проверены порядок кнопок, нулевой и ненулевой остаток, отсутствие курса, обновление после начисления и перезапуска. Локально 304 теста. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42521048883) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42521048898). PR ожидает ревью.
 
 - На `flowbridge-live-smoke` развёрнут `e3cc8ee639103b72d2a84f885449a84286d21c22`. Через штатный обработчик и тестовый транспорт подтверждены третья широкая кнопка, курс стенда и открытие актуального баланса по старой подписи. Контейнеры здоровы, `halted=true`, генераций 0. [Вывод клавиатуры и SHA в PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6726890969).
+
+### Возврат из карточек и порядок клавиатуры
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727060177), SHA `eff7bdce9a03246be244d10040c17f97d221213d` на `flowbridge-live-smoke`. FIBO 2 и Veo 3.1 возвращаются в исходные списки одной кнопкой, действия сохранены. Настройка стоимости токенов стоит перед «Помощью» при старте и автообновлении баланса.
+- Локально 304 теста, [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42522795792) и [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42522795763) зелёные. `halted=true`, генераций 0. PR ожидает ревью.
