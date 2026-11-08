@@ -31,7 +31,8 @@ DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amwork','amworkrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
 REGISTERED_ROUTES={'pentry','pall','pview','pcat','pcard','prun'}
-CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
+AGGREGATOR_ROUTES={'agroot','agmanage','agfunctions','agfunction'}
+CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|AGGREGATOR_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -462,6 +463,8 @@ class TelegramApp:
 
     async def callback(self,u,ext,data,*,request_id=None):
         route=data.partition(':')[0]
+        if route in AGGREGATOR_ROUTES:
+            await self.aggregator_callback(u,ext,route,data.split(':')[1:]);return
         if route in MODEL_POLICY_ROUTES:
             await self.models.callback(u,ext,route,data.split(':')[1:]);return
         if route in REGISTERED_ROUTES:
@@ -541,7 +544,7 @@ class TelegramApp:
         if data=='providers':
             await self.svc.conversation(u,'home');await self.show_providers(ext);return
         if data.startswith('provider:'):
-            _,version,index=data.split(':');await self.svc.conversation(u,'home');await self.provider_detail(ext,version,int(index));return
+            _,version,index=data.split(':');await self.provider_detail(u,ext,version,int(index));return
         if data.startswith('pf:'):
             _,version,index,page=data.split(':');await self.show_functions(ext,version,int(page),int(index));return
         if data=='buy':
@@ -671,7 +674,9 @@ class TelegramApp:
             await self.catalogue_screen(ext,self.cfg.brand,buttons([[(OPEN_CATALOGUE,'store')]]));return
         try:
             data=self.catalogue_snapshot()
-            rows=[[(('Clodex' if s['provider']=='clodex' else s['provider']),f"provider:{data['version']}:{i}")] for i,s in enumerate(data.get('sources',[]))]
+            clodex_title='CLODEX' if self.pool is not None and self.cfg.access_mode=='private' else 'Clodex'
+            rows=[[(clodex_title if s['provider']=='clodex' else s['provider'],f"provider:{data['version']}:{i}")]
+                  for i,s in enumerate(data.get('sources',[]))]
             text=self.cfg.brand+'\nВыберите агрегатор. Здесь показаны подключённые сервисы; модели и функции внутри каждого обновляются через его API.'
         except Rejected as e:
             text=str(e)
@@ -691,34 +696,34 @@ class TelegramApp:
         key=parts[0]
         if key not in self.providers.interactive:
             raise Rejected('Агрегатор недоступен.')
-        await self.tariffs.authorize(u,ext)
         if route=='pentry':
-            rows=[[('Наши модели',f'ours:{key}:0')],[('Курс и калькулятор',f'rates:{key}')],[('Рабочие модели',f'pcat:{key}:0')],
-                  [('Все модели',f'pall:{key}:0')],[('← Агрегаторы','providers')]]
-            await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows))
+            await self.aggregator_callback(u,ext,'agroot',[key])
             return
+        await self.tariffs.authorize(u,ext)
         snapshot=await self.providers.collect(key)
         full=route in ('pall','pview')
         admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
-        models=[row for row in snapshot['models'] if full or (row.get('availability')=='key_available'
-                and any((row['id'],op) in admitted for op in row['operations']))]
+        selected=parts[2] if route=='pcat' and len(parts)>2 else parts[3] if len(parts)>3 else None
+        models=[row for row in snapshot['models'] if full or self.registered_operations(row,admitted,selected)]
         page=max(0,min(int(parts[1]),max(0,(len(models)-1)//10)))
         prefix='pall' if full else 'pcat'
+        suffix=f':{selected}' if selected else ''
         if route in ('pcat','pall'):
             card='pview' if full else 'pcard'
-            rows=[[(m['title'],f"{card}:{key}:{page}:{voice_key(m['id'])[:20]}")]
+            rows=[[(m['title'],f"{card}:{key}:{page}:{voice_key(m['id'])[:20]}{suffix}")]
                   for m in models[page*10:(page+1)*10]]
             nav=[]
-            if page:nav.append(('← Назад',f'{prefix}:{key}:{page-1}'))
-            if (page+1)*10<len(models):nav.append(('Далее →',f'{prefix}:{key}:{page+1}'))
+            if page:nav.append(('← Назад',f'{prefix}:{key}:{page-1}{suffix}'))
+            if (page+1)*10<len(models):nav.append(('Далее →',f'{prefix}:{key}:{page+1}{suffix}'))
             if nav:rows.append(nav)
-            await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows+[[('← Агрегатор',f'pentry:{key}:0')]]))
+            parent=f'agmanage:{key}' if full else f'agroot:{key}'
+            await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows+[[('← К агрегатору',parent)]]))
             return
         model=next((row for row in models if voice_key(row['id'])[:20]==parts[2]),None)
         if model is None:
             raise Rejected('Модель недоступна.')
-        operations=[op for op in model['operations'] if op in WAITING and (model['id'],op) in admitted]
-        back=[('← Модели',f'{prefix}:{key}:{page}')]
+        operations=self.registered_operations(model,admitted,selected)
+        back=[('← Модели',f'{prefix}:{key}:{page}{suffix}')]
         if full:
             await self.render_model_detail(ext,model,f'pall:{key}:{page}',[]);return
         if route=='pcard':
@@ -734,6 +739,11 @@ class TelegramApp:
         await self.svc.aggregate_context(u,{'provider':key,'model_id':model['id'],'title':model['title'],
                                             'interaction':operation,'params':params})
         await self.catalogue_screen(ext,f"{model['title']}\nОтправьте промпт для расчёта.",buttons([back]))
+
+    @staticmethod
+    def registered_operations(model,admitted,selected=None):
+        return [op for op in model['operations'] if model.get('availability')=='key_available'
+                and op in WAITING and (model['id'],op) in admitted and (selected is None or selected==op)]
 
     def anymodel_snapshot(self,ext,version=None):
         if not can_view(self.cfg,ext):
@@ -766,16 +776,7 @@ class TelegramApp:
         if route in SPEECH_ROUTES and route!='amsconfirm':
             await self.anymodel_speech_callback(u,ext,route,value.partition(':')[2],request_id);return
         if route=='am':
-            await self.svc.conversation(u,'home')
-            rows=[[(title,f'amsection:{key}')] for key,title in ANYMODEL_SECTIONS.items()]
-            rows.extend([[('Наши модели','ours:anymodel:0')],[('Курс и калькулятор','rates:anymodel')],
-                         [('Все модели','amcat:current:0')],[('← Агрегаторы','providers')]])
-            try:
-                data=self.anymodel_snapshot(ext)
-                text=f"AnyModel\nМоделей: {len(data['models'])}\n"+self.anymodel_status(data)
-            except Rejected as error:
-                text=str(error)
-            await self.catalogue_screen(ext,text,buttons(rows));return
+            await self.aggregator_callback(u,ext,'agroot',['anymodel']);return
         if route=='amsection':
             await self.anymodel_section(ext,parts[0]);return
         if route=='amvideo':
@@ -802,7 +803,7 @@ class TelegramApp:
         version=data['version']
         if route=='amcat':
             await self.catalogue_page(ext,data,data['models'],'AnyModel',int(parts[1]),
-                                      f'amcat:{version}',f'ammdl:{version}','am',self.anymodel_status(data));return
+                                      f'amcat:{version}',f'ammdl:{version}','agmanage:anymodel',self.anymodel_status(data));return
         index,page=map(int,parts[1:3])
         if not 0<=index<len(data['models']):raise Rejected('AnyModel: модель недоступна.')
         model=data['models'][index]
@@ -825,19 +826,28 @@ class TelegramApp:
 
     async def anymodel_section(self,ext,section):
         if section not in ANYMODEL_SECTIONS:raise Rejected('AnyModel: раздел недоступен.')
+        approved=await self.models.list('anymodel')
+        try:
+            data=self.anymodel_snapshot(ext)
+        except Rejected:
+            data=None
+        rows=self.anymodel_work_rows(section,data,approved)
+        title=f'AnyModel · {ANYMODEL_SECTIONS[section]}'
+        if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
+        rows.append([('← К агрегатору','am')])
+        await self.catalogue_screen(ext,title,buttons(rows))
+
+    @staticmethod
+    def anymodel_work_rows(section,data,approvals):
         rows=[]
         operation=STORE_SECTIONS.get(section,('',section))[1]
-        approved={item['model_id']:item for item in await self.models.list('anymodel',operation)}
+        approved={item['model_id'] for item in approvals if item['operation']==operation}
         if section=='video' and ANYMODEL_VIDEO_MODEL in approved:
             rows.append([(ANYMODEL_VIDEO_TITLE,'amvideo:detail')])
         if section=='speech':
             if FISH in approved:rows.append([(FISH_TITLE,'amspeech:fish')])
             if any(model.startswith('anyvoice/') for model in approved):
                 rows.append([('AnyVoice','amspeech:anyvoice')])
-        try:
-            data=self.anymodel_snapshot(ext)
-        except Rejected:
-            data=None
         if data:
             if section=='image' and FIBO_MODEL in approved and any(m['id']==FIBO_MODEL for m in data['models']):
                 rows.append([('FIBO 2','amimage:detail')])
@@ -845,10 +855,7 @@ class TelegramApp:
                 if (model['id'] in approved and operation in model['operations'] and model['availability']=='key_available'
                         and model['id'] not in (FIBO_MODEL,ANYMODEL_VIDEO_MODEL,FISH)):
                     rows.append([(model['title'],f"amwork:{data['version']}:{index}:{index//10}:{operation}")])
-        title=f'AnyModel · {ANYMODEL_SECTIONS[section]}'
-        if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
-        rows.append([('← AnyModel','am')])
-        await self.catalogue_screen(ext,title,buttons(rows))
+        return rows
 
     async def anymodel_speech_callback(self,u,ext,route,arg,request_id):
         pilot=self.anymodel_speech
@@ -1057,27 +1064,99 @@ class TelegramApp:
                            '/price_report; /tariff агрегатор модель операция JSON [test] основание единица ставка [срок] источник или disable. Основания: request, utf16, image, second, started_minute, token (вход:выход)')
         await self.say(ext,'Настройки учёта обновлены.')
 
-    async def provider_detail(self,ext,version,index):
+    async def provider_detail(self,u,ext,version,index):
         if ext not in self.cfg.admin_ids:
+            await self.svc.conversation(u,'home')
             await self.catalogue_screen(ext,self.cfg.brand,buttons([[(OPEN_CATALOGUE,'store')]]));return
         data=self.catalogue_snapshot(version);sources=data.get('sources',[])
         if not 0<=index<len(sources):raise Rejected('Агрегатор недоступен.')
-        source=sources[index];provider=source['provider']
-        models=[m for m in data['models'] if m.get('provider')==provider and not is_disabled_model(m)]
-        functions=[f for f in data.get('functions',[]) if f.get('provider')==provider and not f.get('documentation_only')]
-        docs=[f for f in data.get('functions',[]) if f.get('provider')==provider and f.get('documentation_only')]
+        provider=sources[index]['provider']
+        if self.pool is not None and self.cfg.access_mode=='private':
+            await self.aggregator_callback(u,ext,'agroot',[provider],snapshot=data)
+            return
+        await self.svc.conversation(u,'home')
+        full=f'cat:{version}:{index}:0'
+        rows=(store_rows()+[[('Наши модели','ours:clodex:0')],[('Курс и калькулятор','rates:clodex')],[('Все модели',full)]]
+              if provider=='clodex' else [[(OPEN_CATALOGUE,full)]])
+        rows += [[('🛠 Функции и возможности',f'pf:{version}:{index}:0')],[('← Агрегаторы','providers')]]
+        title='Clodex' if provider=='clodex' else provider
+        models=sum(m.get('provider')==provider and not is_disabled_model(m) for m in data['models'])
+        functions=[f for f in data.get('functions',[]) if f.get('provider')==provider]
+        docs=sum(bool(f.get('documentation_only')) for f in functions)
+        source=sources[index]
         scope='Публичный каталог. Доступность по ключу ещё не проверена.' if source['scope']=='public_only' else 'Список получен через /v1/models для ключа сервиса.'
         if data['fresh_until']<time.time():scope+=' Данные устарели.'
         if source.get('evidence',{}).get('unavailable_metadata'):scope+=' Часть метаданных временно недоступна.'
-        models_route=f'cat:{version}:{index}:0'
-        if provider=='clodex':
-            rows=store_rows()+[[('Наши модели','ours:clodex:0')],[('Курс и калькулятор','rates:clodex')],[('Все модели',models_route)]]
+        guidance='Откройте модель, чтобы увидеть доступные действия.' if self.cfg.interaction_mode!='off' else 'Генерация через каталог пока выключена.'
+        await self.catalogue_screen(ext,f'{title}\nМоделей: {models} · операций API: {len(functions)-docs} · разделов документации: {docs}\n{scope}\n{guidance}',buttons(rows))
+
+    async def aggregator_callback(self,u,ext,route,parts,*,snapshot=None):
+        await self.tariffs.authorize(u,ext)
+        key=parts[0]
+        if key=='anymodel':
+            if not can_view(self.cfg,ext):raise Rejected('Агрегатор недоступен.')
+            title='AnyModel'
+            try:snapshot=self.anymodel_snapshot(ext)
+            except Rejected:snapshot=None
+            full='amcat:current:0'
+        elif key=='clodex':
+            title='CLODEX'
+            snapshot=snapshot or self.catalogue_snapshot()
+            source_index=next((i for i,s in enumerate(snapshot.get('sources',[])) if s['provider']==key),None)
+            if source_index is None:raise Rejected('Агрегатор недоступен.')
+            full=f"cat:{snapshot['version']}:{source_index}:0"
+        elif key in self.providers.interactive:
+            title=self.providers.interactive[key]
+            snapshot=await self.providers.collect(key)
+            full=f'pall:{key}:0'
         else:
-            rows=[[(OPEN_CATALOGUE,models_route)]]
-        rows.extend([
-            [('🛠 Функции и возможности',f'pf:{version}:{index}:0')],
-            [('← Агрегаторы','providers')]])
-        await self.catalogue_screen(ext,('Clodex' if provider=='clodex' else provider)+f"\nМоделей: {len(models)} · операций API: {len(functions)} · разделов документации: {len(docs)}\n"+scope+( '\nОткройте модель, чтобы увидеть доступные действия.' if self.cfg.interaction_mode!='off' else '\nГенерация через каталог пока выключена.'),buttons(rows))
+            raise Rejected('Агрегатор недоступен.')
+
+        if route=='agfunctions':
+            if not snapshot:raise Rejected('Каталог недоступен.')
+            await self.show_functions(ext,page=int(parts[1]),snapshot=snapshot,provider=key)
+            return
+        if route=='agfunction':
+            if not snapshot or snapshot['version']!=parts[1]:
+                raise Rejected('Каталог обновился. Откройте раздел заново.')
+            await self.function_detail(ext,parts[1],int(parts[2]),snapshot=snapshot,provider=key)
+            return
+
+        await self.svc.conversation(u,'home')
+        if route=='agmanage':
+            data=snapshot or {}
+            models=sum(m.get('provider')==key for m in data.get('models',[]))
+            functions=[f for f in data.get('functions',[]) if f.get('provider')==key]
+            docs=sum(bool(f.get('documentation_only')) for f in functions)
+            rows=[[('Наши модели',f'ours:{key}:0')],[('Курс и калькулятор',f'rates:{key}')],[('Все модели',full)]]
+            if functions:
+                target=f"pf:{snapshot['version']}:{source_index}:0" if key=='clodex' else f'agfunctions:{key}:0'
+                rows.append([('Функции и возможности',target)])
+            rows.append([('← К агрегатору',f'agroot:{key}')])
+            text=f'{title} · Управление агрегатором\nМоделей: {models} · операций API: {len(functions)-docs} · разделов документации: {docs}'
+            if key=='anymodel' and snapshot:
+                text+='\n'+self.anymodel_status(snapshot)
+            await self.catalogue_screen(ext,text,buttons(rows))
+            return
+
+        work={}
+        if key=='clodex':
+            for section in STORE_SECTIONS:
+                if await self.store_models(snapshot,section,ext):
+                    work[section]=f'slist:current:{section}:0'
+        elif key=='anymodel':
+            admitted=await self.models.list(key)
+            work={section:f'amsection:{section}' for section in STORE_SECTIONS
+                  if self.anymodel_work_rows(section,snapshot,admitted)}
+        else:
+            admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
+            available={op for model in snapshot['models'] for op in self.registered_operations(model,admitted)}
+            work={section:f'pcat:{key}:0:{op}' for section,(_,op) in STORE_SECTIONS.items() if op in available}
+        rows=[[('🎆 Генерировать изображение' if section=='image' else label,work[section])]
+              for section,(label,_) in STORE_SECTIONS.items() if section in work]
+        rows += [[('📁 Мои работы','history:0')],[('⚙️ Управление агрегатором',f'agmanage:{key}')],
+                 [('← Агрегаторы','providers')]]
+        await self.catalogue_screen(ext,title+'\nВыберите, что хотите сделать.',buttons(rows))
 
     async def show_store(self,ext):
         rows=store_rows()
@@ -1132,7 +1211,12 @@ class TelegramApp:
             nav.append(('Далее →',f'slist:{version}:{section}:{page+1}'))
         if nav:
             rows.append(nav)
-        rows.append([('← Каталог','store')])
+        if self.cfg.access_mode=='private' and ext in self.cfg.admin_ids and any(
+            source['provider']=='clodex' for source in snapshot.get('sources',[])
+        ):
+            rows.append([('← К агрегатору','agroot:clodex')])
+        else:
+            rows.append([('← Каталог','store')])
         status=f'Моделей: {len(models)+int(veo)} · Страница {page+1} из {page_count}' if models or veo else 'В этом разделе пока нет опубликованных моделей.'
         await self.catalogue_screen(ext,title+'\n'+status,buttons(rows))
 
@@ -1199,7 +1283,10 @@ class TelegramApp:
         index=int(group)
         if not 0<=index<len(categories) or not 0<=page<=2000:raise Rejected('Раздел недоступен.')
         version=data['version']
-        parent=f"provider:{version}:{index}" if data.get('sources') else 'providers'
+        parent='providers'
+        if data.get('sources'):
+            parent=(f"agmanage:{data['sources'][index]['provider']}" if self.pool is not None and self.cfg.access_mode=='private'
+                    else f'provider:{version}:{index}')
         await self.catalogue_page(ext,data,categories[index]['models'],categories[index]['title'],page,
                                   f'cat:{version}:{index}',f'mdl:{version}',parent,group=index)
 
@@ -1243,35 +1330,50 @@ class TelegramApp:
         if not actions:text+='\nПлатный запуск через каталог выключен для этой модели.'
         await self.catalogue_screen(ext,text,buttons(rows))
 
-    async def show_functions(self,ext,version=None,page=0,provider_index=None):
-        data=self.catalogue_snapshot(version)
+    async def show_functions(self,ext,version=None,page=0,provider_index=None,*,snapshot=None,provider=None):
+        data=snapshot if snapshot is not None else self.catalogue_snapshot(version)
         if not 0<=page<=1000:raise Rejected('Страница недоступна.')
         functions=list(enumerate(data.get('functions',[])));rows=[]
+        detail=f"fn:{data['version']}"
+        route=f"funcs:{data['version']}"
         if provider_index is not None:
             sources=data.get('sources',[])
             if not 0<=provider_index<len(sources):raise Rejected('Агрегатор недоступен.')
-            functions=[(i,f) for i,f in functions if f.get('provider')==sources[provider_index]['provider']]
-        route=f'pf:{data["version"]}:{provider_index}' if provider_index is not None else f'funcs:{data["version"]}'
+            provider=sources[provider_index]['provider']
+            route=f"pf:{data['version']}:{provider_index}"
+        elif provider is not None:
+            route=f'agfunctions:{provider}'
+            detail=f"agfunction:{provider}:{data['version']}"
+        if provider is not None:
+            functions=[(i,f) for i,f in functions if f.get('provider')==provider]
         for i,f in functions[page*7:page*7+7]:
-            rows.append([(f['title'],f"fn:{data['version']}:{i}")])
+            rows.append([(f['title'],f'{detail}:{i}')])
         nav=[]
         if page:nav.append(('Назад',f"{route}:{page-1}"))
         if len(functions)>(page+1)*7:nav.append(('Далее',f"{route}:{page+1}"))
         if nav:rows.append(nav)
-        if self.cfg.mode=='mock':rows.append([('🧪 Тест отправки аудио','voice-demo')])
-        if provider_index is not None:rows.append([('← К агрегатору',f"provider:{data['version']}:{provider_index}")])
+        if self.cfg.mode=='mock' and snapshot is None:rows.append([('🧪 Тест отправки аудио','voice-demo')])
+        if provider is not None:
+            if snapshot is not None or (self.pool is not None and self.cfg.access_mode=='private'):
+                rows.append([('← К управлению',f'agmanage:{provider}')])
+            else:
+                rows.append([('← К агрегатору',f"provider:{data['version']}:{provider_index}")])
         rows.append([('← Агрегаторы','providers')])
         await self.catalogue_screen(ext,'Функции, опубликованные API. Наличие в документации не подтверждает совместимость каждой модели.\nПодготовка запроса бесплатна и не запускает генерацию.',buttons(rows))
 
-    async def function_detail(self,ext,version,index):
-        data=self.catalogue_snapshot(version);functions=data.get('functions',[])
+    async def function_detail(self,ext,version,index,*,snapshot=None,provider=None):
+        data=snapshot if snapshot is not None else self.catalogue_snapshot(version)
+        functions=data.get('functions',[])
         if not 0<=index<len(functions):raise Rejected('Функция недоступна.')
         f=functions[index];rows=[]
-        if f['request_preview_supported']:rows.append([('Подготовить запрос без отправки',f"choosefn:{version}:{index}:0")])
+        if provider is not None and f['provider']!=provider:raise Rejected('Функция недоступна.')
+        preview=snapshot is None and f.get('request_preview_supported')
+        if preview:rows.append([('Подготовить запрос без отправки',f"choosefn:{version}:{index}:0")])
         pi=next((i for i,s in enumerate(data.get('sources',[])) if s['provider']==f['provider']),None)
-        rows.append([('Все функции',f'pf:{version}:{pi}:0' if pi is not None else f'funcs:{version}:0')])
+        back=f'agfunctions:{provider}:0' if provider else f'pf:{version}:{pi}:0' if pi is not None else f'funcs:{version}:0'
+        rows.append([('Все функции',back)])
         await self.catalogue_screen(ext,f['title']+'\nПровайдер: '+f['provider']+('\n'+f.get('summary','')[:1000]+'\nЭто описание из документации, контракт исполнения не подтверждён.' if f.get('documentation_only') else '\nМетод: '+f['method']+' '+f['path'])+
-                       ('\nМожно проверить заполнение запроса. Реальный вызов выключен.' if f['request_preview_supported'] else '\nВозможность опубликована. Исполнитель ещё не подключён.'),buttons(rows))
+                       ('\nМожно проверить заполнение запроса. Реальный вызов выключен.' if preview else '\nВозможность опубликована. Исполнитель ещё не подключён.'),buttons(rows))
 
     async def choose_function_model(self,ext,version,index,page=0):
         data=self.catalogue_snapshot(version);functions=data.get('functions',[])

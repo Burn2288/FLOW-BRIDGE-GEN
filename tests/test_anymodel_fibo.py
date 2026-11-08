@@ -74,14 +74,13 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
         app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=app.anymodel_images.adapter)
         await app.callback(user,100,'am')
         home=routes(bot)
-        assert set(home.values())=={
-            'amsection:video','amsection:image','amsection:speech','amsection:chat','amsection:tools',
-            'amcat:current:0','ours:anymodel:0','rates:anymodel','providers',
-        }
+        assert list(home.values())==['amsection:video','amsection:image','amsection:speech',
+                                     'history:0','agmanage:anymodel','providers']
         for section in ('chat','tools'):
             await app.callback(user,100,f'amsection:{section}')
             assert 'пока нет подключённых операций' in bot.sent[-1][0]
-        await app.callback(user,100,home['Все модели'])
+        await app.callback(user,100,home['⚙️ Управление агрегатором'])
+        await app.callback(user,100,routes(bot)['Все модели'])
         assert 'anymedia/fibo-lite' in routes(bot)
         await app.callback(user,100,'amsection:image')
         assert 'FIBO 2' in routes(bot)
@@ -209,7 +208,7 @@ async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch):
         app.anymodel_images.adapter=adapter
         app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=adapter)
         await app.callback(user,100,'am')
-        await app.callback(user,100,routes(before)['🖼 Генерировать изображение'])
+        await app.callback(user,100,routes(before)['🎆 Генерировать изображение'])
         await app.callback(user,100,routes(before)['FIBO 2'])
         await app.callback(user,100,routes(before)['🖼 Генерировать изображение'])
         await app.handle(event('Blue square'))

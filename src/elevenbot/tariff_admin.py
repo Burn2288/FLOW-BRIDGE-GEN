@@ -357,7 +357,7 @@ class TariffAdmin:
                                   + [row['source_unit'] for row in stored])
             rows = [[(UNIT_LABELS.get(unit,unit),f'rateunit:{arg}:{unit}')] for unit in units]
             await self.app.svc.conversation(user,'home')
-            await self.screen(ext,'Курс и калькулятор · '+provider_title(self.app,arg),rows+[[('← Агрегаторы','providers')]])
+            await self.screen(ext,'Курс и калькулятор · '+provider_title(self.app,arg),rows+[[('← К управлению',f'agmanage:{arg}')]])
             return
         code = uuid4().hex[:12]
         if route=='rublerate':
@@ -378,7 +378,7 @@ class TariffAdmin:
         await self.app.svc.aggregate_context(user,{'price_rate':{'code':code,'provider':provider,'unit':unit}})
         await self.screen(ext,f'Курс и калькулятор · {provider_title(self.app,provider)} · {label}\n{value}\n'
                           f'/rate_set {code} СУММА_ПРОВАЙДЕРА ТОКЕНЫ_БОТА\n/rate_calc {code} СУММА_ПРОВАЙДЕРА',
-                          [[('← Курс и калькулятор',f'rates:{provider}')],[('← Агрегаторы','providers')]])
+                          [[('← Курс и калькулятор',f'rates:{provider}')],[('← К управлению',f'agmanage:{provider}')]])
 
     async def rate_command(self,user,ext,command,args):
         await self.authorize(user,ext)

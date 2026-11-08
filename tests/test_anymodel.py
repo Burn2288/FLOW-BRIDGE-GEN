@@ -64,6 +64,8 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=anymodel)
         await app.show_providers(100)
         await app.callback(user,100,routes(bot)['AnyModel'])
+        assert bot.sent[-1][0]=='AnyModel\nВыберите, что хотите сделать.'
+        await app.callback(user,100,routes(bot)['⚙️ Управление агрегатором'])
         assert 'Моделей: 23' in bot.sent[-1][0]
         assert 'Последнее успешное обновление' in bot.sent[-1][0]
         await app.callback(user,100,routes(bot)['Все модели'])

@@ -202,5 +202,5 @@ class ModelPolicy:
         if page:nav.append(('← Назад',f'ours:{provider}:{page-1}'))
         if (page+1)*4<len(grouped):nav.append(('Далее →',f'ours:{provider}:{page+1}'))
         if nav:rows.append(nav)
-        rows += [[('Источники и ручные тарифы','tariffs')],[('← Агрегаторы','providers')]]
+        rows += [[('Источники и ручные тарифы','tariffs')],[('← К управлению',f'agmanage:{provider}')]]
         await self.app.catalogue_screen(ext,'\n'.join(lines),self.keyboard(rows))

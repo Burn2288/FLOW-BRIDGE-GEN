@@ -142,6 +142,8 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
     monkeypatch.setattr(a,'catalogue_snapshot',lambda: {'sources':[]})
     monkeypatch.setattr(a,'anymodel_snapshot',lambda *args: {'models':[],'sources':[{'scope':'public_only'}]})
     monkeypatch.setattr(a,'anymodel_status',lambda data: 'Тестовый каталог')
+    monkeypatch.setattr(a.tariffs,'authorize',AsyncMock())
+    monkeypatch.setattr(a.models,'list',AsyncMock(return_value=[]))
     if rejected:
         error=TelegramBadRequest(SendAnimation(chat_id=100,animation='fixture'),'fixture')
         b.send_animation=AsyncMock(side_effect=error)
@@ -155,6 +157,8 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
     options={button.text:button.callback_data for row in markup.inline_keyboard for button in row}
     assert options['AnyModel']=='am' and telegram.OPEN_CATALOGUE not in options
     await a.handle(event(callback='am'))
+    assert b.sent[-1][0]=='AnyModel\nВыберите, что хотите сделать.'
+    await a.handle(event(callback='agmanage:anymodel'))
     _,markup=b.sent[-1]
     assert any(button.text=='Все модели' and button.callback_data=='amcat:current:0'
                for row in markup.inline_keyboard for button in row)

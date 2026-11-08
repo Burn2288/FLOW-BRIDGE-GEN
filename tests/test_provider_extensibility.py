@@ -75,7 +75,9 @@ async def test_third_provider_catalogue_and_tariff_preview(env):
         path=req.url.path
         requests[path]+=1
         if path=='/catalogue':
-            return httpx.Response(200,json={'scope':'key_available','functions':[],'models':[
+            return httpx.Response(200,json={'scope':'key_available','functions':[
+                {'title':'Fixture function','method':'GET','path':'/price'},
+            ],'models':[
                 {'id':model,'title':'Fixture chat','availability':'key_available','operations':['chat'],
                  'capabilities_known':True,'defaults':{'chat':{'max_tokens':128}}},
             ]})
@@ -106,7 +108,16 @@ async def test_third_provider_catalogue_and_tariff_preview(env):
         assert await pool.fetchval('SELECT amount FROM task_manual_tariffs')==80
         await app.show_providers(100)
         await app.callback(user,100,routes(bot)['Fixture provider'])
-        await app.callback(user,100,routes(bot)['Рабочие модели'])
+        assert list(routes(bot))==['💬 Классический чат','📁 Мои работы','⚙️ Управление агрегатором','← Агрегаторы']
+        await app.callback(user,100,routes(bot)['⚙️ Управление агрегатором'])
+        assert list(routes(bot))==['Наши модели','Курс и калькулятор','Все модели','Функции и возможности','← К агрегатору']
+        await app.callback(user,100,routes(bot)['Функции и возможности'])
+        await app.callback(user,100,routes(bot)['Fixture function'])
+        assert 'Метод: GET /price' in bot.sent[-1][0]
+        await app.callback(user,100,routes(bot)['Все функции'])
+        await app.callback(user,100,routes(bot)['← К управлению'])
+        await app.callback(user,100,routes(bot)['← К агрегатору'])
+        await app.callback(user,100,routes(bot)['💬 Классический чат'])
         await app.callback(user,100,routes(bot)['Fixture chat'])
         await app.callback(user,100,routes(bot)['Рассчитать стоимость · Диалог'])
         await app.handle(event('Hello'))
