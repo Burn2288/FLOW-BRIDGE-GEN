@@ -98,3 +98,8 @@
 - [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `3fb74636bc11691afed54e4a97185438125b80a7`. Разделены API-каталог и рабочие допуски. «Наши модели» показывает цены и режимы наценки из общего источника.
 - На стенде сверены 4 допуска AnyModel и 5 CLODEX, переключение режимов, совпадение цены FIBO 2 и перезапуск. Миграция 024, 298 тестов. Снимки клиента ожидают доступа. Платных запусков нет.
 - [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42508887923) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42508887919). PR ожидает ревью.
+
+### Допуск видео CLODEX в обоих разделах
+
+- [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `bb81345bcda71f73d1b3092f302bdfc00769696f`. Видеодопуск проверяет подключённый маршрут. Карточка Veo 3.1 сохраняет оба режима.
+- Заглушка и отдельная PostgreSQL: проверены допуск и отзыв ID вне Veo, один запуск по подтверждению, повторная выдача сохранённого MP4 и отказ без записи при отсутствии маршрута. 299 тестов, платных запусков нет. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42510043576) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42510043547). PR ожидает ревью.
