@@ -208,6 +208,13 @@ class VideoPilot:
                 raise Rejected('Запрос уже был принят. Автоматический повтор отключён.')
         await self.submit_task(job,model,reserved['prompt'],reserved['idempotency_key'],on_accepted=on_accepted)
 
+    async def prepare_price(self,conn,user,quote):
+        request = quote.request
+        await conn.execute("""
+            INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,status,next_poll_at)
+            VALUES($1,$2,$3,$4,$5,'submitting',now()+interval '1 minute')
+            """, quote.id,user,request.model,request.prompt,Decimal(quote.price['provider_amount']))
+
     async def submit_task(self,job,model,prompt,idempotency_key,*,on_accepted=None,create=None):
         # Claim is durable before the only POST. A lost response never triggers a retry.
         if on_accepted:

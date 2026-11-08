@@ -77,7 +77,7 @@ class SpeechPilot:
     async def prepare(self, conn, user, quote):
         req = quote.request
         await conn.execute("""
-            INSERT INTO anymodel_speech(id,user_id,model_id,title,input,cost_tokens,claimed,expires_at)
+            INSERT INTO task_speech_works(id,user_id,model_id,title,input,cost_tokens,claimed,expires_at)
             VALUES($1,$2,$3,$4,$5,$6,true,now()+interval '7 days')
             """, quote.id,user,req.model,req.title,req.prompt,Decimal(quote.price['provider_amount']))
 
@@ -96,5 +96,5 @@ class SpeechPilot:
                     'response_timeout','transport_error','connect_timeout','connect_error',
                 ) else 'Не удалось получить озвучку.'
                 raise Rejected(f'{detail} Запрос автоматически не повторяется.') from None
-            await self.pool.execute('UPDATE anymodel_speech SET audio=$2 WHERE id=$1', quote, reply.body)
+            await self.pool.execute('UPDATE task_speech_works SET audio=$2 WHERE id=$1', quote, reply.body)
         return quote

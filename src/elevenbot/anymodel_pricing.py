@@ -5,7 +5,7 @@ import hashlib
 import json
 
 from .anymodel import AnyModelError, AnyModelProvider, BASE, MODEL_ID
-from .pricing import PriceUnavailable, ProviderCost, number
+from .pricing import NoProviderPrice, PriceUnavailable, ProviderCost, number
 
 UNIT = 'anymodel_balance_token'
 OPERATIONS = {
@@ -96,7 +96,9 @@ class AnyModelPricing:
             response = await self.api.request('GET', BASE+'/models/info', authenticated=True,
                                               params={'id': model})
             metadata = self.api.decode(response)
-        except AnyModelError:
+        except AnyModelError as error:
+            if error.status == 404:
+                raise NoProviderPrice() from None
             raise PriceUnavailable() from None
         if isinstance(metadata, dict):
             metadata = metadata.get('data', metadata)
@@ -108,7 +110,10 @@ class AnyModelPricing:
     async def cost(self, request):
         if not request.prompt.strip() or len(request.prompt) > 4000 or '\x00' in request.prompt:
             raise PriceUnavailable()
-        return tariff(await self.metadata(request.model, request.operation), request)
+        data = await self.metadata(request.model, request.operation)
+        if data.get('billing') is None or data['billing'] == {}:
+            raise NoProviderPrice()
+        return tariff(data, request)
 
     async def options(self, model, operation):
         data = await self.metadata(model, operation)

@@ -21,3 +21,15 @@ async def env(tmp_path):
     try:yield pool,cfg,svc,u
     finally:
         await pool.close();await admin.execute(f'DROP SCHEMA {schema} CASCADE');await admin.close()
+
+
+@pytest.fixture
+def manual_tariff():
+    from datetime import datetime, timedelta, timezone
+
+    async def save(app, user, model, operation, params, *, provider='clodex',
+                   basis='request', amount='100', external=100):
+        expires=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()
+        await app.pricing.set_tariff(user,external,provider,model,operation,params,
+            basis=basis,unit='anymodel_balance_token',amount=amount,expires=expires,evidence='fixture-evidence')
+    return save

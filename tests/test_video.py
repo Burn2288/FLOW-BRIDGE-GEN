@@ -12,6 +12,7 @@ import httpx
 import pytest
 
 from elevenbot.core import Rejected
+from elevenbot.clodex_pricing import ClodexPricing
 from elevenbot.discovery import SnapshotStore, snapshot
 from elevenbot.telegram import TelegramApp
 from elevenbot.video import MODES, VideoAPI, VideoPilot
@@ -72,6 +73,9 @@ async def test_video_quote_confirmation_recovery_and_library(env, tmp_path, vide
     api = VideoAPI(cfg.clodex_key, transport=httpx.MockTransport(respond))
     app = TelegramApp(pool, cfg, bot)
     app.video = VideoPilot(pool, cfg, api=api)
+    app.pricing.adapters['clodex']=ClodexPricing(api)
+    await app.pricing.set_rate(user,100,'USD','1000')
+    await app.pricing.set_rule(user,100,'clodex',model,'fixed','50')
     await app.handle(event(callback='store'))
     await app.handle(event(callback=button(bot, '🎬 Генерировать видео')))
     assert sum(key.text == 'Veo 3.1' for row in bot.sent[-1][1].inline_keyboard for key in row) == 1
@@ -83,14 +87,14 @@ async def test_video_quote_confirmation_recovery_and_library(env, tmp_path, vide
     assert label in bot.sent[-1][0]
     await app.handle(event('A blue square'))
     assert f'Veo 3.1 · {label}' in bot.sent[-1][0]
-    assert '0.45 USD' in bot.sent[-1][0]
-    confirmation = button(bot, 'Подтвердить')
+    assert '0.45 USD' in bot.sent[-1][0] and 'Оценка: 500' in bot.sent[-1][0]
+    confirmation = button(bot, 'Генерировать')
     expected = {'model': model, 'prompt': 'A blue square', 'duration': 4, 'resolution': '720p', 'aspect_ratio': '16:9'}
     assert requests == [('POST', '/v1/videos/estimate', expected)]
 
     await asyncio.gather(*(app.callback(user, 100, confirmation, request_id=i) for i in (2, 3)),
                          return_exceptions=True)
-    assert requests == [('POST', '/v1/videos/estimate', expected), ('POST', '/v1/videos', expected)]
+    assert [r for r in requests if not r[1].endswith('/estimate')]==[('POST','/v1/videos',expected)]
     assert await pool.fetchval('SELECT count(*) FROM interaction_attempts') == 1
     row = await pool.fetchrow('SELECT provider_id,status FROM video_jobs')
     assert (row['provider_id'], row['status']) == (task, 'polling')
@@ -101,7 +105,7 @@ async def test_video_quote_confirmation_recovery_and_library(env, tmp_path, vide
     restarted = TelegramApp(pool, cfg, bot)
     restarted.video = VideoPilot(pool, cfg, api=api)
     assert await restarted.video.poll_one(bot)
-    assert requests[2:] == [
+    assert [r for r in requests if r[0]=='GET'] == [
         ('GET', f'/v1/videos/{task}', None), ('GET', f'/v1/videos/{task}', None),
         ('GET', f'/v1/videos/{task}/content', None),
     ]

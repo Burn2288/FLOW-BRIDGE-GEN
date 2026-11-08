@@ -245,7 +245,7 @@ def test_rejects_dimensions_before_pixel_decode(monkeypatch, format, limit):
 
 
 @pytest.mark.parametrize("source", ["b64_json", "url"])
-async def test_corrupt_provider_image_is_not_saved_sent_or_retried(env, tmp_path, monkeypatch, provider_stub, source):
+async def test_corrupt_provider_image_is_not_saved_sent_or_retried(env, tmp_path, monkeypatch, provider_stub, source, manual_tariff):
     pool, base_config, service, user = env
     catalogue = tmp_path / "catalogue.json"
     SnapshotStore(catalogue).write(snapshot([MODEL]))
@@ -263,6 +263,7 @@ async def test_corrupt_provider_image_is_not_saved_sent_or_retried(env, tmp_path
     bot.send_photo = AsyncMock()
     bot.send_document = AsyncMock()
     app = TelegramApp(pool, config, bot)
+    await manual_tariff(app,user,MODEL["id"],OPERATION,{"n":1})
     await service.aggregate_context(user, {"interaction": OPERATION, "model_id": MODEL["id"], "history": []})
     execute = interaction.execute
     client, requests = provider_stub(PNG_SIGNATURE_ONLY if source == "b64_json" else JPEG_MARKERS_ONLY, source)
@@ -274,9 +275,12 @@ async def test_corrupt_provider_image_is_not_saved_sent_or_retried(env, tmp_path
     async with client:
         prompt = event("Draw a fixture")
         await app.handle(prompt)
+        assert not requests
+        confirm=bot.sent[-1][1].inline_keyboard[0][0].callback_data
+        await app.handle(event(callback=confirm).model_copy(update={"update_id": 2}))
         assert bot.sent[-1][0].startswith("⚠️ Image fixture ·")
-        await app.handle(prompt)
-        await app.handle(event(MENU[1]).model_copy(update={"update_id": 2}))
+        await app.handle(event(callback=confirm).model_copy(update={"update_id": 3}))
+        await app.handle(event(MENU[1]).model_copy(update={"update_id": 4}))
 
     assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
     assert await pool.fetchval("SELECT count(*) FROM interaction_attempts") == 1

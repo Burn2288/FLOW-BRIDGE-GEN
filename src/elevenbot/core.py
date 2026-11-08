@@ -208,8 +208,12 @@ class Service:
                     AND ($3::text IS NULL OR model_id=$3)
                     UNION ALL
                     SELECT id,'succeeded',NULL,created_at,'audio',model_id,true
-                    FROM anymodel_speech WHERE user_id=$1 AND audio IS NOT NULL AND expires_at>now()
+                    FROM task_speech_works WHERE user_id=$1 AND audio IS NOT NULL AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
+                    UNION ALL
+                    SELECT q.id,'succeeded',NULL,w.created_at,'chat',q.model_id,true
+                    FROM task_chat_works w JOIN task_price_quotes q ON q.id=w.quote_id
+                    WHERE q.user_id=$1 AND w.expires_at>now() AND ($3::text IS NULL OR q.model_id=$3)
                 ) works ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $2
                 """,u,max(0,offset),model_id)
 
@@ -254,8 +258,8 @@ class Service:
         async with self.pool.acquire() as c:
             await self.authorize(c,u)
             speech=await c.fetchrow("""
-                SELECT input AS prompt,audio,'anymodel.mp3' AS filename,title || ' · ИИ-озвучка' AS caption
-                FROM anymodel_speech WHERE id=$1 AND user_id=$2 AND audio IS NOT NULL AND expires_at>now()
+                SELECT input AS prompt,audio,provider || '.mp3' AS filename,title || ' · ИИ-озвучка' AS caption
+                FROM task_speech_works WHERE id=$1 AND user_id=$2 AND audio IS NOT NULL AND expires_at>now()
                 """,uid(j),u)
         if speech:
             return dict(speech)
@@ -270,6 +274,16 @@ class Service:
         except FileNotFoundError:
             raise Rejected('Файл недоступен или срок хранения истёк.') from None
         return {'prompt':prompt,'audio':audio,'filename':'ozvuchka.mp3'}
+
+    async def chat_work(self,u,j):
+        async with self.pool.acquire() as c:
+            await self.authorize(c,u)
+            row=await c.fetchrow("""
+                SELECT w.answer FROM task_chat_works w JOIN task_price_quotes q ON q.id=w.quote_id
+                WHERE q.id=$1 AND q.user_id=$2 AND w.expires_at>now()
+                """,uid(j),u)
+            if not row:raise Rejected('Ответ недоступен или срок хранения истёк.')
+            return row['answer']
 
     async def wallet(self,u):
         async with self.pool.acquire() as c:

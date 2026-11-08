@@ -1,6 +1,7 @@
 """Provider-neutral quote, conversion, markup and confirmation lifecycle."""
 
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import json
 from typing import Protocol
@@ -16,6 +17,10 @@ POLICY_LOCK = 921189
 class PriceUnavailable(Rejected):
     def __init__(self):
         super().__init__(UNKNOWN_PRICE)
+
+
+class NoProviderPrice(PriceUnavailable):
+    """A successful lookup published no usable price for this operation."""
 
 
 def number(value):
@@ -64,10 +69,18 @@ class Quote:
     request: Request
     price: dict
 
-    def card(self):
+    def card(self, *, admin=False):
         label = 'Оценка' if self.price['estimate'] else 'Стоимость'
+        detail = ''
+        if admin:
+            price = self.price
+            source = 'ручной тариф' if price['source'].startswith('manual:') else 'API'
+            detail = (f"Себестоимость: {Decimal(price['provider_amount']).normalize():f} "
+                      f"{price['provider_unit']} ({source})\n"
+                      f"После пересчёта: {Decimal(price['base']).normalize():f} {BOT_UNIT}\n"
+                      f"Наценка: {Decimal(price['markup']).normalize():f} {BOT_UNIT}\n")
         return (f"{self.request.title}\n{self.price['details']}\n"
-                f"{label}: {display(self.price['total'])} {BOT_UNIT}\nЗапустить генерацию?")
+                f"{detail}{label}: {display(self.price['total'])} {BOT_UNIT}\nЗапустить генерацию?")
 
 
 class Pricing:
@@ -79,9 +92,30 @@ class Pricing:
         adapter = self.adapters.get(request.provider)
         if adapter is None:
             raise PriceUnavailable()
-        return await adapter.cost(request)
+        try:
+            return await adapter.cost(request)
+        except NoProviderPrice:
+            return None
+
+    async def manual_cost(self, conn, request):
+        row = await conn.fetchrow("""
+            SELECT amount,source_unit,basis,revision,evidence,expires_at
+            FROM task_manual_tariffs
+            WHERE provider=$1 AND model_id=$2 AND operation=$3 AND params=$4::jsonb
+            AND expires_at>clock_timestamp()
+            """, request.provider, request.model, request.operation, json.dumps(request.params))
+        if not row:
+            raise PriceUnavailable()
+        units = len(request.prompt.encode('utf-16-le')) // 2 if row['basis']=='utf16' else 1
+        details = f'{units} ед. UTF-16' if row['basis']=='utf16' else '1 запрос'
+        if request.params:
+            details += ' · ' + ' · '.join(f'{key}={value}' for key,value in request.params.items())
+        return ProviderCost(row['amount']*units, row['source_unit'], True,
+                            f"manual:{row['revision']}:{row['expires_at'].isoformat()}:{row['evidence']}", details)
 
     async def calculate(self, conn, request, cost):
+        if cost is None:
+            cost = await self.manual_cost(conn, request)
         rate = await conn.fetchrow('SELECT multiplier,revision FROM task_price_rates WHERE source_unit=$1', cost.unit)
         if rate is None:
             raise PriceUnavailable()
@@ -179,6 +213,49 @@ class Pricing:
             SELECT EXISTS(SELECT 1 FROM identities WHERE user_id=$1 AND platform='telegram' AND external_id=$2)
             """, user, external):
             raise Rejected('Действие доступно только администратору.')
+
+    async def set_tariff(self, user, external, provider, model, operation, params, *,
+                         basis=None, unit=None, amount=None, expires=None, evidence=None):
+        if (not isinstance(params,dict) or len(params)>12 or not 1<=len(provider)<=40
+                or not 1<=len(model)<=256 or not 1<=len(operation)<=40):
+            raise Rejected('Укажите агрегатор, точный ID, операцию и JSON параметров.')
+        if any(type(value) not in (str,int,float,bool) for value in params.values()):
+            raise Rejected('Параметры тарифа должны быть простыми JSON-значениями.')
+        try:
+            params_json = json.dumps(params,allow_nan=False)
+        except ValueError:
+            raise Rejected('Недопустимые параметры тарифа.') from None
+        if len(params_json)>1024:
+            raise Rejected('Слишком длинные параметры тарифа.')
+        async with self.pool.acquire() as conn, conn.transaction():
+            await self.admin(conn, user, external)
+            await conn.execute('SELECT pg_advisory_xact_lock($1::bigint)', POLICY_LOCK)
+            scope = (provider,model,operation,params_json)
+            if basis is None:
+                await conn.execute("""
+                    DELETE FROM task_manual_tariffs
+                    WHERE provider=$1 AND model_id=$2 AND operation=$3 AND params=$4::jsonb
+                    """, *scope)
+                return
+            if basis not in ('request','utf16') or (basis=='utf16' and operation!='audio.speech'):
+                raise Rejected('Основание тарифа: request или utf16 для озвучки.')
+            try:
+                expiry = datetime.fromisoformat(expires)
+            except (ValueError,TypeError):
+                raise Rejected('Укажите срок ISO 8601 с часовым поясом.') from None
+            if expiry.tzinfo is None or expiry <= datetime.now(timezone.utc) or not 1 <= len(evidence or '') <= 200:
+                raise Rejected('Укажите будущий срок с часовым поясом и ссылку на подтверждение.')
+            if not await conn.fetchval('SELECT 1 FROM task_price_rates WHERE source_unit=$1', unit):
+                raise Rejected('Курс для этой единицы цены не задан.')
+            await conn.execute("""
+                INSERT INTO task_manual_tariffs(provider,model_id,operation,params,basis,source_unit,
+                    amount,expires_at,evidence,admin_id)
+                VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)
+                ON CONFLICT(provider,model_id,operation,params) DO UPDATE
+                SET basis=excluded.basis,source_unit=excluded.source_unit,amount=excluded.amount,
+                    expires_at=excluded.expires_at,evidence=excluded.evidence,admin_id=excluded.admin_id,
+                    revision=excluded.revision
+                """, *scope,basis,unit,number(amount),expiry,evidence,user)
 
     async def set_rule(self, user, external, provider, model, kind, amount=None):
         async with self.pool.acquire() as conn, conn.transaction():

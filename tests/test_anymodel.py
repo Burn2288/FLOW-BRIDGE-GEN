@@ -19,7 +19,7 @@ def routes(bot):
 
 
 @pytest.mark.parametrize('failure', [False, True])
-async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failure):
+async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failure,manual_tariff):
     pool,cfg,_,user=env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_chat_live=True,
                 anymodel_key='fixture-any',clodex_key='fixture-clodex',catalogue_path=str(tmp_path/'models.json'),
@@ -96,13 +96,21 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
 
         version=app.catalogue_snapshot()['version']
         await app.callback(user,100,f'runmodel:{version}:0:chat')
+        await manual_tariff(app,user,TEST_MODEL,'chat',{'max_tokens':512})
         await app.handle(event('hello CLODEX').model_copy(update={'update_id':4}))
+        assert 'ручной тариф' in bot.sent[-1][0]
+        await app.handle(event(callback=routes(bot)['Генерировать']).model_copy(update={'update_id':5}))
         assert 'Reply from clodex.xyz' in bot.sent[-1][0]
         assert [call[:4] for call in calls if call[0]=='POST']==[
             ('POST','anymodel.org','/v1/chat/completions','Bearer fixture-any'),
             ('POST','clodex.xyz','/v1/chat/completions','Bearer fixture-clodex'),
         ]
         assert all(call[4]['model']==TEST_MODEL for call in calls if call[0]=='POST')
+        await app.callback(user,100,'history:0')
+        works=[callback for name,callback in routes(bot).items() if name.startswith('Открыть работу')]
+        assert len(works)==(1 if failure else 2)
+        await app.callback(user,100,works[0])
+        assert bot.sent[-1][0]=='Reply from clodex.xyz'
 
 
 async def test_failed_refresh_keeps_last_authenticated_snapshot(tmp_path):
