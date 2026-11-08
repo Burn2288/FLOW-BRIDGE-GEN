@@ -154,16 +154,31 @@ class AnyModelProvider:
             raise AnyModelError('некорректный JSON',code='invalid_json') from None
 
     async def collect(self):
-        payload = self.decode(await self.request('GET', BASE+'/models', authenticated=True))
-        return self.catalogue(payload, 'key_available')
+        async def fetch(path, kind=None):
+            payload = self.decode(await self.request('GET',BASE+path,authenticated=True))
+            catalogue = self.catalogue(payload,'key_available',kind=kind)
+            return catalogue['models']
+
+        primary = await fetch('/models')
+        typed = await asyncio.gather(fetch('/models/video','video'),fetch('/models/tts','tts'))
+        models = {model['id']:model for model in primary}
+        for rows in typed:
+            for model in rows:
+                existing = models.get(model['id'])
+                if existing:
+                    existing['operations'] = sorted(set(existing['operations']) | set(model['operations']))
+                    existing['capabilities_known'] = True
+                else:
+                    models[model['id']] = model
+        return {'models':list(models.values()),'functions':[],'scope':'key_available'}
 
     @staticmethod
-    def catalogue(payload, scope):
+    def catalogue(payload, scope, *, kind=None):
         try:
             models = normalize(payload)
         except DiscoveryError:
             raise AnyModelError('неизвестный формат каталога') from None
-        kinds = {record['id']: record.get('kind') for record in payload['data']}
+        kinds = {record['id']: kind or record.get('kind') for record in payload['data']}
         for model in models:
             if kinds.get(model['id']) == 'image':
                 model.update(operations=[IMAGE_OP],capabilities_known=True,protocols=['openai-images'])
@@ -174,7 +189,7 @@ class AnyModelProvider:
                 operation = 'video' if kinds[model['id']] == 'video' else 'audio.speech'
                 model.update(operations=[operation], capabilities_known=True)
             # Exact route documented for this ID. Do not infer other models' capabilities from their names.
-            if model['id'] == TEST_MODEL or kinds.get(model['id']) in ('chat','llm'):
+            if kinds.get(model['id']) in ('chat','llm') or kind is None and model['id'] == TEST_MODEL:
                 model.update(operations=['chat'], capabilities_known=True, protocols=['openai-chat'])
             model['availability'] = scope
         return {'models': models, 'functions': [], 'scope': scope}

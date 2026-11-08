@@ -35,6 +35,8 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
             assert req.url.params['id']==TEST_MODEL
             return httpx.Response(200,json={'id':TEST_MODEL,'endpoint':'/v1/chat/completions',
                 'billing':{'unit':'token','coefficient':{'input':1,'output':2}}})
+        if req.url.path in ('/v1/models/video','/v1/models/tts'):
+            return httpx.Response(200,json={'data':[]})
         if req.method=='GET':
             return httpx.Response(200,json={'data':records})
         if req.url.host=='anymodel.org' and failure:
@@ -117,6 +119,7 @@ async def test_failed_refresh_keeps_last_authenticated_snapshot(tmp_path):
     fail=False
     def respond(req):
         if fail:return httpx.Response(503)
+        if req.url.path!='/v1/models':return httpx.Response(200,json={'data':[]})
         return httpx.Response(200,json={'data':[{'id':TEST_MODEL}]})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:

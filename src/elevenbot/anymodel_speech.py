@@ -3,6 +3,7 @@
 import asyncio
 from contextlib import nullcontext
 from decimal import Decimal
+from hashlib import sha256
 import json
 import subprocess
 
@@ -33,6 +34,10 @@ def validate_mp3(audio):
     raise AnyModelError('некорректный MP3', code='speech_mp3')
 
 
+def voice_key(model):
+    return sha256(model.encode()).hexdigest()[:24]
+
+
 class SpeechPilot:
     def __init__(self, pool, cfg, *, api=None):
         self.pool, self.cfg = pool, cfg
@@ -54,11 +59,15 @@ class SpeechPilot:
         return [row for row in rows if isinstance(row, dict)]
 
     async def voices(self):
-        rows = await self.catalogue('/audio/voices', {'provider':'anyvoice', 'lang':'ru'})
+        rows = await self.catalogue('/audio/voices', {'provider':'anyvoice'})
         return {row['model']: row for row in rows
                 if isinstance(row.get('model'), str) and row['model'].startswith('anyvoice/')
-                and MODEL_ID.fullmatch(row['model']) and len('amvoice:'+row['model']) <= 64
-                and row.get('lang') == 'ru' and isinstance(row.get('name'), str) and row['name'].strip()}
+                and len(row['model'])<=256 and MODEL_ID.fullmatch(row['model'])
+                and isinstance(row.get('name'), str) and row['name'].strip()}
+
+    @staticmethod
+    def voice_title(voice):
+        return voice['name'][:80]+' · AnyVoice'+(' (ИИ-имитация)' if voice.get('imitation') is True else '')
 
     async def title(self, model):
         if model == FISH:
@@ -69,17 +78,14 @@ class SpeechPilot:
         voice = (await self.voices()).get(model)
         if voice is None:
             raise AnyModelError('голос недоступен', code='speech_voice')
-        title = voice['name'][:80]+' · AnyVoice'
-        if voice.get('imitation') is True:
-            title += ' (ИИ-имитация)'
-        return title
+        return self.voice_title(voice)
 
     async def prepare(self, conn, user, quote):
         req = quote.request
         await conn.execute("""
             INSERT INTO task_speech_works(id,user_id,model_id,title,input,cost_tokens,claimed,expires_at)
             VALUES($1,$2,$3,$4,$5,$6,true,now()+interval '7 days')
-            """, quote.id,user,req.model,req.title,req.prompt,Decimal(quote.price['provider_amount']))
+            """, quote.id,user,req.model,req.title,req.prompt,Decimal(quote.price['base']))
 
     async def synthesize(self, quote, model, prompt, title, *, track=None):
         async with track(title) if track else nullcontext():

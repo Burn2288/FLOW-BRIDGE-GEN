@@ -61,7 +61,7 @@ class TaskLaunch:
                     await conn.execute("""
                         INSERT INTO task_speech_works(id,user_id,model_id,title,input,cost_tokens,claimed,expires_at,provider)
                         VALUES($1,$2,$3,$4,$5,$6,true,now()+interval '7 days','clodex')
-                        """,quote.id,user,req.model,req.title,req.prompt,Decimal(quote.price['provider_amount']))
+                        """,quote.id,user,req.model,req.title,req.prompt,Decimal(quote.price['base']))
             else:
                 raise Rejected('Агрегатор недоступен.')
 

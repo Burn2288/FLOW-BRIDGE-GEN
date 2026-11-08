@@ -2,6 +2,7 @@
 import asyncio,hashlib,json,re,time
 from datetime import datetime,timezone
 from pathlib import Path
+from uuid import uuid4
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice)
@@ -14,7 +15,7 @@ from .anymodel_video import AnyModelVideoPilot,MODEL as ANYMODEL_VIDEO_MODEL,TIT
 from .anymodel_video import DURATION as ANYMODEL_VIDEO_SECONDS,RESOLUTION as ANYMODEL_VIDEO_RESOLUTION
 from .anymodel_video import ASPECT_RATIO as ANYMODEL_VIDEO_RATIO
 from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_image,can_view,model_store
-from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot
+from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
 from .pricing import BOT_UNIT,PriceUnavailable,Pricing,Request
@@ -25,7 +26,7 @@ import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
-SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm'}
+SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
 CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
@@ -285,7 +286,7 @@ class TelegramApp:
                 await self.remove_menu_message(ext,update.message.message_id);return
             if text in ('/terms','/privacy','/support','/paysupport'):
                 await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
-            if command in ('/markup','/price_rate','/price_report','/price_account','/tariff'):
+            if command in ('/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff'):
                 await self.price_admin(u,ext,command,text.split()[1:]);return
             if text.startswith('/refund '):
                 if ext not in self.cfg.admin_ids:raise Rejected('Действие недоступно.')
@@ -761,28 +762,24 @@ class TelegramApp:
         pilot=self.anymodel_speech
         back=[('← Озвучить текст','amsection:speech')]
         try:
-            if route=='amvoices':
-                await self.svc.conversation(u,'home')
-                voices=list((await pilot.voices()).values())
-                page=min(max(int(arg),0),max(0,(len(voices)-1)//10))
-                rows=[[(voice['name'][:80]+(' · ИИ-имитация' if voice.get('imitation') is True else ''),
-                        'amvoice:'+voice['model'])] for voice in voices[page*10:(page+1)*10]]
-                nav=[]
-                if page>0:nav.append(('← Назад',f'amvoices:{page-1}'))
-                if (page+1)*10<len(voices):nav.append(('Далее →',f'amvoices:{page+1}'))
-                if nav:rows.append(nav)
-                rows.append([('← AnyVoice','amspeech:anyvoice')])
-                await self.catalogue_screen(ext,f'AnyVoice · Русские голоса ({len(voices)})',buttons(rows))
+            if route in ('amvoices','amvprices','amvpick','amvready'):
+                await self.anyvoice_picker(u,ext,route,arg)
                 return
             if route=='amspeech' and arg=='anyvoice':
                 await self.svc.conversation(u,'home')
-                await self.catalogue_screen(ext,'AnyVoice · AnyModel\nВыберите русский голос для ИИ-озвучки.',
-                                            buttons([[('Выбрать голос','amvoices:0')],back]))
+                await self.catalogue_screen(ext,'AnyVoice · AnyModel\nВыберите голос для ИИ-озвучки.',
+                                            buttons([[('Выбрать голос','amvoices:0')],
+                                                     [('Назначить тариф голосам','amvprices:0')],back]))
                 return
             if route!='amvoice' and arg!='fish':
                 raise Rejected('AnyModel: карточка недоступна.')
-            model=arg if route=='amvoice' else FISH
-            title=await pilot.title(model)
+            if route=='amvoice':
+                voices=await pilot.voices()
+                model=self.anyvoice_id(voices,arg)
+                title=pilot.voice_title(voices[model])
+            else:
+                model=FISH
+                title=await pilot.title(model)
         except AnyModelError as error:
             trace_interaction(request_id,'anymodel_speech_metadata_failed',reason=error.code)
             await self.svc.conversation(u,'home')
@@ -794,6 +791,97 @@ class TelegramApp:
         text=f'{title} · AnyModel\nID: {model}\nПришлите текст для расчёта стоимости.'
         rows=[[('← Выбрать голос','amvoices:0')],back] if route=='amvoice' else [back]
         await self.catalogue_screen(ext,text,buttons(rows))
+
+    @staticmethod
+    def anyvoice_id(voices,key):
+        matches=[model for model in voices if key in (model,voice_key(model))]
+        if len(matches)!=1:
+            raise Rejected('AnyVoice: голос отсутствует в актуальном каталоге.')
+        return matches[0]
+
+    async def anyvoice_picker(self,u,ext,route,arg):
+        voices=await self.anymodel_speech.voices()
+        batch=route!='amvoices'
+        context={}
+        selection=set()
+        page=0
+        if not batch:
+            await self.svc.conversation(u,'home')
+        else:
+            context=await self.svc.aggregate_context(u) or {}
+            selection=set(context.get('anyvoice_tariff_selection',[]))
+        if route=='amvpick':
+            page_arg,key=arg.split(':',1)
+            page=int(page_arg)
+            if 'anyvoice_tariff_selection' not in context:
+                raise Rejected('AnyVoice: откройте выбор голосов для тарифа заново.')
+            selection.symmetric_difference_update([self.anyvoice_id(voices,key)])
+        elif route=='amvready':
+            if not selection or not selection.issubset(voices):
+                raise Rejected('AnyVoice: проверьте выбор по актуальному каталогу.')
+            code=uuid4().hex[:12]
+            await self.svc.aggregate_context(u,{'anyvoice_tariff_selection':sorted(selection),'tariff_code':code})
+            selected='\n'.join(sorted(selection))
+            if len(selected)>2800:
+                selected=selected[:2800]+'…'
+            await self.catalogue_screen(ext,f'Выбрано голосов: {len(selection)}\n{selected}\n\n'
+                f'/voice_tariff {code} utf16 ЕДИНИЦА СТАВКА СРОК ИСТОЧНИК\n'
+                'Используйте только подтверждённую ставку. Срок укажите в ISO 8601 с часовым поясом.',
+                buttons([[('← Изменить выбор','amvprices:0')],[('← AnyVoice','amspeech:anyvoice')]]))
+            return
+        else:
+            page=int(arg)
+        if batch:
+            selection.intersection_update(voices)
+            await self.svc.aggregate_context(u,{'anyvoice_tariff_selection':sorted(selection)})
+        entries=list(voices.items())
+        page=min(max(page,0),max(0,(len(entries)-1)//10))
+        rows=[]
+        for model,voice in entries[page*10:(page+1)*10]:
+            name=voice['name'][:80]+(' · ИИ-имитация' if voice.get('imitation') is True else '')
+            if voice.get('lang')=='en':
+                name+=' · EN'
+            if batch and model in selection:
+                name='✓ '+name
+            key=voice_key(model)
+            rows.append([(name,f'amvpick:{page}:{key}' if batch else 'amvoice:'+key)])
+        nav=[]
+        prefix='amvprices' if batch else 'amvoices'
+        if page>0:
+            nav.append(('← Назад',f'{prefix}:{page-1}'))
+        if (page+1)*10<len(entries):
+            nav.append(('Далее →',f'{prefix}:{page+1}'))
+        if nav:
+            rows.append(nav)
+        if batch and selection:
+            rows.append([(f'Продолжить · {len(selection)}','amvready')])
+        rows.append([('↻ Обновить каталог',f'{prefix}:{page}')])
+        rows.append([('← AnyVoice','amspeech:anyvoice')])
+        text=f'AnyVoice · Голоса ({len(entries)})'
+        if batch:
+            text+=f'\nВыберите голоса для одной ставки. Выбрано: {len(selection)}.'
+        await self.catalogue_screen(ext,text,buttons(rows))
+
+    async def anyvoice_save_tariff(self,u,ext,args):
+        if not can_view(self.cfg,ext):
+            raise Rejected('Действие доступно только администратору.')
+        context=await self.svc.aggregate_context(u) or {}
+        ids=context.get('anyvoice_tariff_selection',[])
+        if not ids or not args or args[0]!=context.get('tariff_code'):
+            raise Rejected('AnyVoice: сначала выберите голоса и нажмите «Продолжить».')
+        voices=await self.anymodel_speech.voices()
+        if not set(ids).issubset(voices):
+            raise Rejected('AnyVoice: список изменился. Проверьте выбор голосов.')
+        if args[1:]==['remove']:
+            fields={}
+        elif len(args)==6 and args[1] in ('request','utf16'):
+            basis,unit,rate,expiry,evidence=args[1:]
+            fields=dict(basis=basis,unit=unit,amount=rate,expires=expiry,evidence=evidence)
+        else:
+            raise Rejected('Формат: /voice_tariff код request|utf16 единица ставка срок источник или код remove.')
+        await self.pricing.set_tariffs(u,ext,'anymodel',ids,'audio.speech',{},**fields)
+        await self.svc.conversation(u,'home')
+        await self.say(ext,f'Тарифы обновлены. Голосов: {len(ids)}.')
 
     async def anymodel_video_card(self,u,ext,*,start):
         rows=[[('← Назад','amsection:video')]]
@@ -810,6 +898,12 @@ class TelegramApp:
     async def price_admin(self,u,ext,command,args):
         if ext not in self.cfg.admin_ids:
             raise Rejected('Действие доступно только администратору.')
+        if command=='/voice_tariff':
+            try:
+                await self.anyvoice_save_tariff(u,ext,args)
+            except AnyModelError:
+                raise Rejected('AnyVoice: не удалось сверить каталог. Тарифы не изменены.') from None
+            return
         if command=='/price_report' and not args:
             row=await self.pricing.report(u,ext)
             def amount(value):
@@ -848,7 +942,7 @@ class TelegramApp:
         else:
             raise Rejected('Формат: /markup агрегатор|* модель|* percent|fixed сумма или remove; '
                            '/price_rate единица курс; /price_account оценка списано возвращено расход|- ссылка; '
-                           '/price_report; /tariff агрегатор модель операция JSON request|utf16 единица ставка срок подтверждение или remove')
+                           '/price_report; /tariff агрегатор модель операция JSON основание единица ставка срок источник или remove. Основания: request, utf16, image, second, started_minute, token (вход:выход)')
         await self.say(ext,'Настройки учёта обновлены.')
 
     async def provider_detail(self,ext,version,index):

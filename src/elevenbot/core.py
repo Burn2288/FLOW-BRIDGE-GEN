@@ -245,11 +245,12 @@ class Service:
         async with self.pool.acquire() as c:
             await self.authorize(c,u)
             row=await c.fetchrow("""
-                SELECT prompt,video,
-                       CASE WHEN provider='anymodel' THEN 'grok.mp4' ELSE 'veo.mp4' END AS filename,
-                       CASE WHEN provider='anymodel' THEN 'Grok Imagine Video 1.5' ELSE 'Veo 3.1' END AS caption
-                FROM video_jobs
-                WHERE id=$1 AND user_id=$2 AND status='succeeded' AND expires_at>now()
+                SELECT v.prompt,v.video,
+                       CASE WHEN v.provider='anymodel' THEN 'video.mp4' ELSE 'veo.mp4' END AS filename,
+                       COALESCE(q.request->>'title',CASE WHEN v.provider='anymodel' THEN 'Grok Imagine Video 1.5'
+                            ELSE 'Veo 3.1' END) AS caption
+                FROM video_jobs v LEFT JOIN task_price_quotes q ON q.id=v.id
+                WHERE v.id=$1 AND v.user_id=$2 AND v.status='succeeded' AND v.expires_at>now()
                 """,uid(j),u)
             if not row:raise Rejected('Файл недоступен или срок хранения истёк.')
             return row

@@ -35,6 +35,47 @@ def number(value):
     return amount
 
 
+MANUAL_BASES = {
+    'request': None, 'utf16': 'audio.speech', 'image': 'images.generate',
+    'second': 'video', 'started_minute': 'video', 'token': 'chat',
+}
+
+
+def chat_token_estimate(request):
+    output = request.params.get('max_tokens')
+    if type(output) is not int or not 1<=output<=4096:
+        raise PriceUnavailable()
+    messages = [*request.history, {'role':'user','content':request.prompt}]
+    inputs = sum(len(message['content'].encode('utf-8'))+8 for message in messages)+3
+    return inputs,output
+
+
+def manual_amount(request,basis,amount,output_amount):
+    if basis=='request':
+        return amount,'1 запрос'
+    if basis=='utf16':
+        units=len(request.prompt.encode('utf-16-le'))//2
+        return amount*units,f'{units} ед. UTF-16'
+    if basis=='image':
+        count=request.params.get('n',1)
+        if type(count) is not int or not 1<=count<=10:
+            raise PriceUnavailable()
+        return amount*count,f'Изображений: {count}'
+    if basis in ('second','started_minute'):
+        duration=request.params.get('duration')
+        if type(duration) is not int or duration<1:
+            raise PriceUnavailable()
+        if basis=='second':
+            return amount*duration,f'{duration} с'
+        minutes=(duration+59)//60
+        return amount*minutes,f'{minutes} нач. мин. ({duration} с)'
+    if basis=='token':
+        inputs,output=chat_token_estimate(request)
+        return (amount*inputs+output_amount*output,
+                f'Вход ≈ {inputs} токенов (по байтам UTF-8) · ответ до {output} токенов')
+    raise PriceUnavailable()
+
+
 def display(amount):
     return f'{int(Decimal(amount)):,}'.replace(',', '\u202f')
 
@@ -99,18 +140,17 @@ class Pricing:
 
     async def manual_cost(self, conn, request):
         row = await conn.fetchrow("""
-            SELECT amount,source_unit,basis,revision,evidence,expires_at
+            SELECT amount,output_amount,source_unit,basis,revision,evidence,expires_at
             FROM task_manual_tariffs
             WHERE provider=$1 AND model_id=$2 AND operation=$3 AND params=$4::jsonb
             AND expires_at>clock_timestamp()
             """, request.provider, request.model, request.operation, json.dumps(request.params))
         if not row:
             raise PriceUnavailable()
-        units = len(request.prompt.encode('utf-16-le')) // 2 if row['basis']=='utf16' else 1
-        details = f'{units} ед. UTF-16' if row['basis']=='utf16' else '1 запрос'
+        amount,details = manual_amount(request,row['basis'],row['amount'],row['output_amount'])
         if request.params:
             details += ' · ' + ' · '.join(f'{key}={value}' for key,value in request.params.items())
-        return ProviderCost(row['amount']*units, row['source_unit'], True,
+        return ProviderCost(amount, row['source_unit'], True,
                             f"manual:{row['revision']}:{row['expires_at'].isoformat()}:{row['evidence']}", details)
 
     async def calculate(self, conn, request, cost):
@@ -216,8 +256,15 @@ class Pricing:
 
     async def set_tariff(self, user, external, provider, model, operation, params, *,
                          basis=None, unit=None, amount=None, expires=None, evidence=None):
+        await self.set_tariffs(user,external,provider,[model],operation,params,
+                               basis=basis,unit=unit,amount=amount,expires=expires,evidence=evidence)
+
+    async def set_tariffs(self, user, external, provider, models, operation, params, *,
+                          basis=None, unit=None, amount=None, expires=None, evidence=None):
         if (not isinstance(params,dict) or len(params)>12 or not 1<=len(provider)<=40
-                or not 1<=len(model)<=256 or not 1<=len(operation)<=40):
+                or not 1<=len(operation)<=40 or not 1<=len(models)<=500
+                or any(not isinstance(model,str) or not 1<=len(model)<=256 for model in models)
+                or len(set(models))!=len(models)):
             raise Rejected('Укажите агрегатор, точный ID, операцию и JSON параметров.')
         if any(type(value) not in (str,int,float,bool) for value in params.values()):
             raise Rejected('Параметры тарифа должны быть простыми JSON-значениями.')
@@ -230,15 +277,23 @@ class Pricing:
         async with self.pool.acquire() as conn, conn.transaction():
             await self.admin(conn, user, external)
             await conn.execute('SELECT pg_advisory_xact_lock($1::bigint)', POLICY_LOCK)
-            scope = (provider,model,operation,params_json)
+            scopes = [(provider,model,operation,params_json) for model in models]
             if basis is None:
-                await conn.execute("""
+                await conn.executemany("""
                     DELETE FROM task_manual_tariffs
                     WHERE provider=$1 AND model_id=$2 AND operation=$3 AND params=$4::jsonb
-                    """, *scope)
+                    """, scopes)
                 return
-            if basis not in ('request','utf16') or (basis=='utf16' and operation!='audio.speech'):
-                raise Rejected('Основание тарифа: request или utf16 для озвучки.')
+            if basis not in MANUAL_BASES or MANUAL_BASES[basis] not in (None,operation):
+                raise Rejected('Основание тарифа недоступно для этой операции.')
+            output_amount = None
+            if basis=='token':
+                rates = str(amount).split(':')
+                if len(rates)!=2:
+                    raise Rejected('Укажите две ставки за токен в формате вход:выход.')
+                amount,output_amount = map(number,rates)
+            else:
+                amount = number(amount)
             try:
                 expiry = datetime.fromisoformat(expires)
             except (ValueError,TypeError):
@@ -247,15 +302,16 @@ class Pricing:
                 raise Rejected('Укажите будущий срок с часовым поясом и ссылку на подтверждение.')
             if not await conn.fetchval('SELECT 1 FROM task_price_rates WHERE source_unit=$1', unit):
                 raise Rejected('Курс для этой единицы цены не задан.')
-            await conn.execute("""
+            await conn.executemany("""
                 INSERT INTO task_manual_tariffs(provider,model_id,operation,params,basis,source_unit,
-                    amount,expires_at,evidence,admin_id)
-                VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10)
+                    amount,expires_at,evidence,admin_id,output_amount)
+                VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11)
                 ON CONFLICT(provider,model_id,operation,params) DO UPDATE
                 SET basis=excluded.basis,source_unit=excluded.source_unit,amount=excluded.amount,
                     expires_at=excluded.expires_at,evidence=excluded.evidence,admin_id=excluded.admin_id,
+                    output_amount=excluded.output_amount,
                     revision=excluded.revision
-                """, *scope,basis,unit,number(amount),expiry,evidence,user)
+                """, [(*scope,basis,unit,amount,expiry,evidence,user,output_amount) for scope in scopes])
 
     async def set_rule(self, user, external, provider, model, kind, amount=None):
         async with self.pool.acquire() as conn, conn.transaction():

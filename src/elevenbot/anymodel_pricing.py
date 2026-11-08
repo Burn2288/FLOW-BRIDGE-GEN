@@ -5,7 +5,7 @@ import hashlib
 import json
 
 from .anymodel import AnyModelError, AnyModelProvider, BASE, MODEL_ID
-from .pricing import NoProviderPrice, PriceUnavailable, ProviderCost, number
+from .pricing import NoProviderPrice, PriceUnavailable, ProviderCost, chat_token_estimate, number
 
 UNIT = 'anymodel_balance_token'
 OPERATIONS = {
@@ -30,11 +30,7 @@ def tariff(metadata, request):
     try:
         output = number(billing['coefficient']['output'])
         if unit == 'token':
-            max_tokens = parameters['max_tokens']
-            if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
-                raise PriceUnavailable()
-            messages = [*request.history, {'role': 'user', 'content': request.prompt}]
-            input_tokens = sum(len(message['content'].encode('utf-8')) + 8 for message in messages) + 3
+            input_tokens,max_tokens = chat_token_estimate(request)
             raw = input_tokens * number(billing['coefficient']['input']) + max_tokens * output
             details = f'Вход ≈ {input_tokens} токенов (по байтам UTF-8) · ответ до {max_tokens} токенов'
         elif unit == 'image':

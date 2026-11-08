@@ -23,6 +23,8 @@ async def test_new_model_from_catalogue_and_unknown_billing(env, tmp_path, monke
     posts = []
 
     def respond(http_request):
+        if http_request.url.path in ('/v1/models/video','/v1/models/tts'):
+            return httpx.Response(200,json={'data':[]})
         if http_request.url.path == '/v1/models':
             return httpx.Response(200, json={'data': [
                 {'id': known, 'name': 'New model', 'kind': 'chat'},

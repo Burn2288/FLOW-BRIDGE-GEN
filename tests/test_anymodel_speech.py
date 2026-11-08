@@ -50,7 +50,7 @@ async def test_speech_confirmation_and_library(env,model,outcome):
             if req.url.path=='/v1/models/tts':
                 return httpx.Response(200,json={'data':[{'id':FISH}]})
             if req.url.path=='/v1/audio/voices':
-                assert dict(req.url.params)=={'provider':'anyvoice','lang':'ru'}
+                assert dict(req.url.params)=={'provider':'anyvoice'}
                 return httpx.Response(200,json={'data':[VOICE_ENTRY]})
             assert req.url.path=='/v1/models/info' and req.url.params['id']==model
             return httpx.Response(200,json={'id':model,'endpoint':'/v1/audio/speech','billing':billing(output)})

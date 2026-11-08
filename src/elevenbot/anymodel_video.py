@@ -1,4 +1,4 @@
-"""The single text-to-video route approved for the AnyModel pilot."""
+"""AnyModel text-to-video transport and durable polling."""
 
 import asyncio
 from decimal import Decimal
@@ -111,7 +111,13 @@ class AnyModelVideoPilot(VideoPilot):
 
     async def prepare(self,conn,user,quote):
         req=quote.request
-        usd=Decimal(quote.price['provider_amount'])*USD_PER_TOKEN
+        amount=Decimal(quote.price['provider_amount'])
+        unit=quote.price['provider_unit']
+        usd=None
+        if unit=='USD':
+            usd=amount
+        elif unit=='anymodel_balance_token':
+            usd=amount*USD_PER_TOKEN
         await conn.execute("""
             INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,provider,key_fingerprint,
                 status,next_poll_at,idempotency_key)

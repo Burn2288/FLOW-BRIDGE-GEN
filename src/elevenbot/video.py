@@ -283,11 +283,12 @@ class VideoPilot:
                 ORDER BY notify_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) due
             WHERE j.id=due.id
-            RETURNING j.id,j.user_id,j.video,j.notify_at
+            RETURNING j.id,j.user_id,j.video,j.notify_at,
+                      (SELECT request->>'title' FROM task_price_quotes WHERE id=j.id) AS title
             """,self.provider)
         if not row:
             return False
-        job, user, video, lease = row
+        job, user, video, lease, title = row
         external = await self.pool.fetchval("""
             SELECT i.external_id FROM identities i JOIN users u ON u.id=i.user_id
             WHERE i.user_id=$1 AND i.platform='telegram' AND i.accepted_at IS NOT NULL AND NOT u.blocked
@@ -298,8 +299,8 @@ class VideoPilot:
                     if video is None:
                         await bot.send_message(external, f'{self.label}: не удалось завершить обработку видео.')
                     else:
-                        await bot.send_video(external, BufferedInputFile(video, filename='grok.mp4' if self.provider=='anymodel' else 'veo.mp4'),
-                                             caption=f'{self.title} · Видео также доступно в «Моих работах».')
+                        await bot.send_video(external, BufferedInputFile(video, filename='video.mp4' if self.provider=='anymodel' else 'veo.mp4'),
+                                             caption=f'{title or self.title} · Видео также доступно в «Моих работах».')
             except (TelegramAPIError, TimeoutError) as error:
                 video_failure(job, 'video_delivery_failed', error)
                 return True

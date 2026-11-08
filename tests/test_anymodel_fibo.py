@@ -39,6 +39,8 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
 
     def respond(req):
         calls.append((req.method,req.url.path))
+        if req.url.path in ('/v1/models/video','/v1/models/tts'):
+            return httpx.Response(200,json={'data':[]})
         if req.url.path=='/v1/models/info':
             return httpx.Response(200,json=FIBO_TARIFF)
         if req.url.path=='/v1/models':
@@ -120,7 +122,7 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
             assert await pool.fetchval('SELECT count(*) FROM image_works')==0
             bot.send_photo.assert_not_awaited()
 
-    assert calls==[('GET','/v1/models'),('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations')]+(
+    assert calls==[('GET','/v1/models'),('GET','/v1/models/video'),('GET','/v1/models/tts'),('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations')]+(
         [('GET','/fixture.png')] if variant=='url' else []
     )
 
@@ -188,6 +190,8 @@ async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch):
 
     def respond(req):
         requests.append((req.method,req.url.path))
+        if req.url.path in ('/v1/models/video','/v1/models/tts'):
+            return httpx.Response(200,json={'data':[]})
         if req.url.path=='/v1/models/info':
             return httpx.Response(200,json=FIBO_TARIFF)
         if req.method=='GET':
@@ -211,7 +215,7 @@ async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch):
         await app.handle(event('Blue square'))
         await app.callback(user,100,routes(before)['Генерировать'],request_id=2)
         assert 'FIBO 2 · Генерирую изображение' in before.sent[-1][0]
-    assert requests==[('GET','/v1/models'),('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations')]
+    assert requests==[('GET','/v1/models'),('GET','/v1/models/video'),('GET','/v1/models/tts'),('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations')]
     assert await pool.fetchval("""
         SELECT status='pending' AND provider_id='fixture-job' AND next_at>now()+interval '110 seconds'
         FROM anymodel_image_jobs
