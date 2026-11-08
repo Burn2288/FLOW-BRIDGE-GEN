@@ -12,8 +12,6 @@ from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
 from .video import VideoPilot,video_modes
 from .anymodel_video import AnyModelVideoPilot,MODEL as ANYMODEL_VIDEO_MODEL,TITLE as ANYMODEL_VIDEO_TITLE
-from .anymodel_video import DURATION as ANYMODEL_VIDEO_SECONDS,RESOLUTION as ANYMODEL_VIDEO_RESOLUTION
-from .anymodel_video import ASPECT_RATIO as ANYMODEL_VIDEO_RATIO
 from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_image,can_view,model_store
 from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
@@ -21,6 +19,7 @@ from .anymodel_pricing import AnyModelPricing
 from .pricing import BOT_UNIT,PriceUnavailable,Pricing,Request
 from .clodex_pricing import ClodexPricing
 from .task_launch import TaskLaunch
+from .tariff_admin import ROUTES as TARIFF_ROUTES,TariffAdmin,default_params,tariff_fields,tariff_params
 from .progress import ReportedTaskError,TaskProgress,UNKNOWN
 import httpx
 
@@ -28,7 +27,7 @@ MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс'
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
-CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
+CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|TARIFF_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -86,6 +85,7 @@ class TelegramApp:
         self.anymodel_images = AnyModelImageJobs(pool,cfg)
         self.pricing = Pricing(pool,cfg,{'anymodel':AnyModelPricing(cfg.anymodel_key),
                                          'clodex':ClodexPricing(self.video.api)})
+        self.tariffs = TariffAdmin(self,buttons)
     async def say(self,chat,text,markup=None):
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
             markup=menu(public=True)
@@ -286,7 +286,7 @@ class TelegramApp:
                 await self.remove_menu_message(ext,update.message.message_id);return
             if text in ('/terms','/privacy','/support','/paysupport'):
                 await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
-            if command in ('/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff'):
+            if command in ('/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'):
                 await self.price_admin(u,ext,command,text.split()[1:]);return
             if text.startswith('/refund '):
                 if ext not in self.cfg.admin_ids:raise Rejected('Действие недоступно.')
@@ -311,6 +311,8 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
+                if context and ('tariff_admin' in context or 'anyvoice_tariff_selection' in context):
+                    raise Rejected('Используйте команду с экрана настройки тарифа.')
                 if context and context.get('provider')=='anymodel':
                     await self.anymodel_input(u,ext,text,context);return
                 if context and 'video_mode' in context:
@@ -437,6 +439,8 @@ class TelegramApp:
 
     async def callback(self,u,ext,data,*,request_id=None):
         route=data.partition(':')[0]
+        if route in TARIFF_ROUTES:
+            await self.tariffs.callback(u,ext,route,data.partition(':')[2]);return
         if route in ('amconfirm','amcancel'):
             if ext not in self.cfg.admin_ids or self.cfg.access_mode!='private':
                 raise Rejected('Действие доступно только администратору.')
@@ -640,6 +644,8 @@ class TelegramApp:
             rows=[[('↻ Обновить экран','providers')]]
         if can_view(self.cfg,ext):
             rows.append([('AnyModel','am')])
+        if self.cfg.access_mode=='private':
+            rows.append([('Тарифы моделей','tariffs')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id,
@@ -825,8 +831,9 @@ class TelegramApp:
             if len(selected)>2800:
                 selected=selected[:2800]+'…'
             await self.catalogue_screen(ext,f'Выбрано голосов: {len(selection)}\n{selected}\n\n'
-                f'/voice_tariff {code} utf16 ЕДИНИЦА СТАВКА СРОК ИСТОЧНИК\n'
-                'Используйте только подтверждённую ставку. Срок укажите в ISO 8601 с часовым поясом.',
+                f'/voice_tariff {code} utf16 ЕДИНИЦА СТАВКА [СРОК] studio:ИСТОЧНИК\n'
+                f'/voice_tariff {code} test utf16 ЕДИНИЦА СТАВКА СРОК ИСТОЧНИК\n'
+                'Подтверждение поддержки можно указать как support:ИСТОЧНИК. Срок в ISO 8601 с часовым поясом.' ,
                 buttons([[('← Изменить выбор','amvprices:0')],[('← AnyVoice','amspeech:anyvoice')]]))
             return
         else:
@@ -872,13 +879,16 @@ class TelegramApp:
         voices=await self.anymodel_speech.voices()
         if not set(ids).issubset(voices):
             raise Rejected('AnyVoice: список изменился. Проверьте выбор голосов.')
-        if args[1:]==['remove']:
+        spec=args[1:]
+        if spec in (['remove'],['disable']):
             fields={}
-        elif len(args)==6 and args[1] in ('request','utf16'):
-            basis,unit,rate,expiry,evidence=args[1:]
-            fields=dict(basis=basis,unit=unit,amount=rate,expires=expiry,evidence=evidence)
         else:
-            raise Rejected('Формат: /voice_tariff код request|utf16 единица ставка срок источник или код remove.')
+            temporary=bool(spec and spec[0]=='test')
+            if temporary:
+                spec=spec[1:]
+            if not spec or spec[0] not in ('request','utf16'):
+                raise Rejected('Для AnyVoice выберите request или utf16.')
+            fields=tariff_fields(spec,temporary=temporary)
         await self.pricing.set_tariffs(u,ext,'anymodel',ids,'audio.speech',{},**fields)
         await self.svc.conversation(u,'home')
         await self.say(ext,f'Тарифы обновлены. Голосов: {len(ids)}.')
@@ -898,6 +908,9 @@ class TelegramApp:
     async def price_admin(self,u,ext,command,args):
         if ext not in self.cfg.admin_ids:
             raise Rejected('Действие доступно только администратору.')
+        if command in ('/tariff_set','/tariff_scope'):
+            await self.tariffs.command(u,ext,command,args)
+            return
         if command=='/voice_tariff':
             try:
                 await self.anyvoice_save_tariff(u,ext,args)
@@ -921,20 +934,16 @@ class TelegramApp:
                 raise Rejected('У правила модели должен быть указан агрегатор.')
             await self.pricing.set_rule(u,ext,'' if provider=='*' else provider,'' if model=='*' else model,
                                         kind,args[3] if len(args)==4 else None)
-        elif command=='/tariff' and len(args) in (5,9):
+        elif command=='/tariff' and len(args)>=5:
             provider,model,operation,raw=args[:4]
-            try:
-                params=json.loads(raw)
-            except ValueError:
-                raise Rejected('Укажите JSON параметров без пробелов, например {}.') from None
-            if len(args)==5 and args[4]=='remove':
-                await self.pricing.set_tariff(u,ext,provider,model,operation,params)
-            elif len(args)==9:
-                basis,unit,rate,expiry,evidence=args[4:]
-                await self.pricing.set_tariff(u,ext,provider,model,operation,params,
-                    basis=basis,unit=unit,amount=rate,expires=expiry,evidence=evidence)
+            params=tariff_params(raw)
+            spec=args[4:]
+            if spec in (['remove'],['disable']):
+                fields={}
             else:
-                raise Rejected('Укажите параметры тарифа или remove.')
+                temporary=spec[0]=='test'
+                fields=tariff_fields(spec[1:] if temporary else spec,temporary=temporary)
+            await self.pricing.set_tariff(u,ext,provider,model,operation,params,**fields)
         elif command=='/price_rate' and len(args)==2:
             await self.pricing.set_rate(u,ext,*args)
         elif command=='/price_account' and len(args)==5:
@@ -942,7 +951,7 @@ class TelegramApp:
         else:
             raise Rejected('Формат: /markup агрегатор|* модель|* percent|fixed сумма или remove; '
                            '/price_rate единица курс; /price_account оценка списано возвращено расход|- ссылка; '
-                           '/price_report; /tariff агрегатор модель операция JSON основание единица ставка срок источник или remove. Основания: request, utf16, image, second, started_minute, token (вход:выход)')
+                           '/price_report; /tariff агрегатор модель операция JSON [test] основание единица ставка [срок] источник или disable. Основания: request, utf16, image, second, started_minute, token (вход:выход)')
         await self.say(ext,'Настройки учёта обновлены.')
 
     async def provider_detail(self,ext,version,index):
@@ -1259,7 +1268,7 @@ class TelegramApp:
         request_id=update.update_id
         trace_interaction(request_id,'input_validated',model=model['id'],operation=operation,mode=mode)
         if mode=='live':
-            params={'max_tokens':512} if operation=='chat' else {'n':1}
+            params=default_params('clodex',operation)
             if context.get('quality'):
                 params['quality']=context['quality']
             request=Request('clodex',model['id'],operation,model['title'],prompt,params,context['history'])
@@ -1325,13 +1334,9 @@ class TelegramApp:
         if not can_view(self.cfg,ext):
             raise Rejected('Раздел AnyModel недоступен.')
         operation=context['interaction']
-        parameters={
-            'video':{'duration':ANYMODEL_VIDEO_SECONDS,'resolution':ANYMODEL_VIDEO_RESOLUTION,
-                     'aspect_ratio':ANYMODEL_VIDEO_RATIO},
-            'chat':{'max_tokens':256},
-        }
+        parameters=default_params('anymodel',operation)
         req=Request('anymodel',context['model_id'],operation,context.get('title') or context['model_id'],
-                    prompt or '',parameters.get(operation,{})|context.get('params',{}),context.get('history',[]))
+                    prompt or '',parameters|context.get('params',{}),context.get('history',[]))
         await self.show_price(ext,await self.pricing.quote(u,req))
 
     async def show_price(self,ext,quote):

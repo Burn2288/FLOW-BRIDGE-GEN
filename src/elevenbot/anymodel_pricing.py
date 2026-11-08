@@ -16,7 +16,7 @@ OPERATIONS = {
 }
 
 
-def tariff(metadata, request):
+def tariff(metadata, request, *, source='/v1/models/info'):
     path, unit = OPERATIONS[request.operation]
     billing = metadata.get('billing')
     if (metadata.get('id') != request.model or metadata.get('endpoint') != path
@@ -78,7 +78,7 @@ def tariff(metadata, request):
         raise PriceUnavailable() from None
     digest = hashlib.sha256(json.dumps(billing, sort_keys=True).encode()).hexdigest()
     return ProviderCost(raw.to_integral_value(rounding=ROUND_CEILING), UNIT, estimate,
-                        f'/v1/models/info · billing · {digest}', details)
+                        f'{source} · billing · {digest}', details)
 
 
 class AnyModelPricing:
@@ -106,10 +106,23 @@ class AnyModelPricing:
     async def cost(self, request):
         if not request.prompt.strip() or len(request.prompt) > 4000 or '\x00' in request.prompt:
             raise PriceUnavailable()
-        data = await self.metadata(request.model, request.operation)
+        source = '/v1/models/info'
+        try:
+            data = await self.metadata(request.model, request.operation)
+        except NoProviderPrice:
+            data = {}
+        if not data.get('billing') and request.operation=='audio.speech' and request.model.startswith('anyvoice/'):
+            try:
+                voice = (await self.api.anyvoice_voices()).get(request.model)
+            except AnyModelError:
+                raise PriceUnavailable() from None
+            if voice is None:
+                raise PriceUnavailable()
+            data = {'id':request.model,'endpoint':OPERATIONS[request.operation][0],'billing':voice.get('billing')}
+            source = '/v1/audio/voices'
         if data.get('billing') is None or data['billing'] == {}:
             raise NoProviderPrice()
-        return tariff(data, request)
+        return tariff(data, request,source=source)
 
     async def options(self, model, operation):
         data = await self.metadata(model, operation)

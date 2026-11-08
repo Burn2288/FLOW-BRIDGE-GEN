@@ -9,7 +9,7 @@ import subprocess
 
 import httpx
 
-from .anymodel import AnyModelError, AnyModelProvider, BASE, MODEL_ID, can_view
+from .anymodel import AnyModelError, AnyModelProvider, BASE, can_view
 from .core import Rejected
 from .interaction import trace_interaction
 
@@ -59,11 +59,7 @@ class SpeechPilot:
         return [row for row in rows if isinstance(row, dict)]
 
     async def voices(self):
-        rows = await self.catalogue('/audio/voices', {'provider':'anyvoice'})
-        return {row['model']: row for row in rows
-                if isinstance(row.get('model'), str) and row['model'].startswith('anyvoice/')
-                and len(row['model'])<=256 and MODEL_ID.fullmatch(row['model'])
-                and isinstance(row.get('name'), str) and row['name'].strip()}
+        return await self.api.anyvoice_voices()
 
     @staticmethod
     def voice_title(voice):

@@ -31,5 +31,5 @@ def manual_tariff():
                    basis='request', amount='100', external=100):
         expires=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()
         await app.pricing.set_tariff(user,external,provider,model,operation,params,
-            basis=basis,unit='anymodel_balance_token',amount=amount,expires=expires,evidence='fixture-evidence')
+            basis=basis,unit='anymodel_balance_token',amount=amount,expires=expires,evidence='fixture-evidence',temporary=True)
     return save

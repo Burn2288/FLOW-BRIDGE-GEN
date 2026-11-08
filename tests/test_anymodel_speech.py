@@ -140,7 +140,7 @@ async def test_voice_without_price_and_disabled_pilot(env):
         await app.callback(user,100,routes(bot)[NAME])
         assert NAME in bot.sent[-1][0]
         await app.handle(event(TEXT))
-        assert 'Не удалось рассчитать стоимость' in bot.sent[-1][0]
+        assert 'Цена недоступна' in bot.sent[-1][0]
         assert await pool.fetchval('SELECT count(*) FROM anymodel_speech')==0
         closed=telegram.TelegramApp(pool,replace(cfg,anymodel_speech_live=False),Bot())
         assert not closed.anymodel_speech.enabled(100)

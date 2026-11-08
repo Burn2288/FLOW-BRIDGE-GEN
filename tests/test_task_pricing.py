@@ -74,7 +74,7 @@ async def test_new_model_from_catalogue_and_unknown_billing(env, tmp_path, monke
         await app.callback(user,100,routes(app.bot)['Unknown model'])
         await app.callback(user,100,routes(app.bot)['Рассчитать стоимость'])
         await app.handle(event('another prompt'))
-        assert 'Не удалось рассчитать стоимость' in app.bot.sent[-1][0]
+        assert 'Цена недоступна' in app.bot.sent[-1][0]
         assert 'Генерировать' not in routes(app.bot)
         assert len(posts) == 1
 

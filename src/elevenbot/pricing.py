@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 from .core import Rejected, Service
 
 BOT_UNIT = 'токенов баланса'
-UNKNOWN_PRICE = 'Не удалось рассчитать стоимость. Запуск закрыт.'
+UNKNOWN_PRICE = 'Цена недоступна. Запуск закрыт.'
 POLICY_LOCK = 921189
 
 
@@ -138,20 +138,34 @@ class Pricing:
         except NoProviderPrice:
             return None
 
-    async def manual_cost(self, conn, request):
-        row = await conn.fetchrow("""
-            SELECT amount,output_amount,source_unit,basis,revision,evidence,expires_at
-            FROM task_manual_tariffs
+    async def manual_row(self, conn, request):
+        return await conn.fetchrow("""
+            SELECT t.*, (enabled AND (expires_at IS NULL OR expires_at>clock_timestamp())) AS active
+            FROM task_manual_tariffs t
             WHERE provider=$1 AND model_id=$2 AND operation=$3 AND params=$4::jsonb
-            AND expires_at>clock_timestamp()
             """, request.provider, request.model, request.operation, json.dumps(request.params))
-        if not row:
+
+    async def inspect_tariff(self, user, external, request):
+        async with self.pool.acquire() as conn:
+            await self.admin(conn,user,external)
+            manual = await self.manual_row(conn,request)
+        try:
+            cost = await self.cost(request)
+        except PriceUnavailable:
+            return 'unavailable',None,manual
+        if cost is not None:
+            return 'api',cost,manual
+        return 'manual' if manual and manual['active'] else 'missing',None,manual
+
+    async def manual_cost(self, conn, request):
+        row = await self.manual_row(conn,request)
+        if not row or not row['active']:
             raise PriceUnavailable()
         amount,details = manual_amount(request,row['basis'],row['amount'],row['output_amount'])
         if request.params:
             details += ' · ' + ' · '.join(f'{key}={value}' for key,value in request.params.items())
         return ProviderCost(amount, row['source_unit'], True,
-                            f"manual:{row['revision']}:{row['expires_at'].isoformat()}:{row['evidence']}", details)
+                            f"manual:{row['revision']}:{row['evidence']}", details)
 
     async def calculate(self, conn, request, cost):
         if cost is None:
@@ -255,12 +269,12 @@ class Pricing:
             raise Rejected('Действие доступно только администратору.')
 
     async def set_tariff(self, user, external, provider, model, operation, params, *,
-                         basis=None, unit=None, amount=None, expires=None, evidence=None):
+                         basis=None, unit=None, amount=None, expires=None, evidence=None, temporary=False):
         await self.set_tariffs(user,external,provider,[model],operation,params,
-                               basis=basis,unit=unit,amount=amount,expires=expires,evidence=evidence)
+                               basis=basis,unit=unit,amount=amount,expires=expires,evidence=evidence,temporary=temporary)
 
     async def set_tariffs(self, user, external, provider, models, operation, params, *,
-                          basis=None, unit=None, amount=None, expires=None, evidence=None):
+                          basis=None, unit=None, amount=None, expires=None, evidence=None, temporary=False):
         if (not isinstance(params,dict) or len(params)>12 or not 1<=len(provider)<=40
                 or not 1<=len(operation)<=40 or not 1<=len(models)<=500
                 or any(not isinstance(model,str) or not 1<=len(model)<=256 for model in models)
@@ -280,8 +294,8 @@ class Pricing:
             scopes = [(provider,model,operation,params_json) for model in models]
             if basis is None:
                 await conn.executemany("""
-                    DELETE FROM task_manual_tariffs
-                    WHERE provider=$1 AND model_id=$2 AND operation=$3 AND params=$4::jsonb
+                    UPDATE task_manual_tariffs SET enabled=false, revision=nextval('task_price_rule_revision')
+                    WHERE provider=$1 AND model_id=$2 AND operation=$3 AND params=$4::jsonb AND enabled
                     """, scopes)
                 return
             if basis not in MANUAL_BASES or MANUAL_BASES[basis] not in (None,operation):
@@ -295,23 +309,31 @@ class Pricing:
             else:
                 amount = number(amount)
             try:
-                expiry = datetime.fromisoformat(expires)
+                expiry = datetime.fromisoformat(expires) if expires not in (None,'-') else None
             except (ValueError,TypeError):
                 raise Rejected('Укажите срок ISO 8601 с часовым поясом.') from None
-            if expiry.tzinfo is None or expiry <= datetime.now(timezone.utc) or not 1 <= len(evidence or '') <= 200:
-                raise Rejected('Укажите будущий срок с часовым поясом и ссылку на подтверждение.')
+            if temporary and expiry is None:
+                raise Rejected('Для тестовой ставки нужен срок действия.')
+            if expiry and (expiry.tzinfo is None or expiry <= datetime.now(timezone.utc)):
+                raise Rejected('Укажите будущий срок с часовым поясом.')
+            if not isinstance(evidence,str) or not 1 <= len(evidence.strip()) <= 200:
+                raise Rejected('Укажите источник подтверждения ставки.')
+            if (not temporary and provider=='anymodel' and any(model.startswith('anyvoice/') for model in models)
+                    and not (evidence.startswith(('studio:','support:')) and evidence.partition(':')[2].strip())):
+                raise Rejected('Для AnyVoice укажите подтверждение Studio (studio:…) или поддержки (support:…).')
             if not await conn.fetchval('SELECT 1 FROM task_price_rates WHERE source_unit=$1', unit):
                 raise Rejected('Курс для этой единицы цены не задан.')
             await conn.executemany("""
                 INSERT INTO task_manual_tariffs(provider,model_id,operation,params,basis,source_unit,
-                    amount,expires_at,evidence,admin_id,output_amount)
-                VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11)
+                    amount,expires_at,evidence,admin_id,output_amount,temporary)
+                VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11,$12)
                 ON CONFLICT(provider,model_id,operation,params) DO UPDATE
                 SET basis=excluded.basis,source_unit=excluded.source_unit,amount=excluded.amount,
                     expires_at=excluded.expires_at,evidence=excluded.evidence,admin_id=excluded.admin_id,
-                    output_amount=excluded.output_amount,
+                    output_amount=excluded.output_amount,temporary=excluded.temporary,
+                    verified_at=excluded.verified_at,enabled=true,
                     revision=excluded.revision
-                """, [(*scope,basis,unit,amount,expiry,evidence,user,output_amount) for scope in scopes])
+                """, [(*scope,basis,unit,amount,expiry,evidence,user,output_amount,temporary) for scope in scopes])
 
     async def set_rule(self, user, external, provider, model, kind, amount=None):
         async with self.pool.acquire() as conn, conn.transaction():

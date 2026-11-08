@@ -153,6 +153,22 @@ class AnyModelProvider:
         except (ValueError, UnicodeError):
             raise AnyModelError('некорректный JSON',code='invalid_json') from None
 
+    async def anyvoice_voices(self):
+        raw = await self.request('GET',BASE+'/audio/voices',authenticated=True,params={'provider':'anyvoice'})
+        payload = self.decode(raw)
+        rows = payload.get('data') if isinstance(payload,dict) else None
+        if not isinstance(rows,list):
+            raise AnyModelError('неизвестный формат каталога голосов',code='speech_catalogue')
+        voices = {}
+        for row in rows:
+            if not isinstance(row,dict):
+                continue
+            model,name = row.get('model'),row.get('name')
+            if (isinstance(model,str) and model.startswith('anyvoice/') and len(model)<=256
+                    and MODEL_ID.fullmatch(model) and isinstance(name,str) and name.strip()):
+                voices[model] = row
+        return voices
+
     async def collect(self):
         async def fetch(path, kind=None):
             payload = self.decode(await self.request('GET',BASE+path,authenticated=True))

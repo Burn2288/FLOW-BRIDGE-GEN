@@ -153,7 +153,7 @@ async def test_anyvoice_all_pages_refresh_and_atomic_bulk_tariff(env):
         await app.callback(user,100,routes(bot)['Продолжить · 2'])
         code=(await app.svc.aggregate_context(user))['tariff_code']
         expiry=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()
-        args=[code,'utf16','anymodel_balance_token','10',expiry,'fixture-source']
+        args=[code,'test','utf16','anymodel_balance_token','10',expiry,'fixture-source']
         ids.remove(new)
         with pytest.raises(Rejected):
             await app.anyvoice_save_tariff(user,100,args)
