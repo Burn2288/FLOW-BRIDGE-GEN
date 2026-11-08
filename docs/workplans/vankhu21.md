@@ -137,3 +137,8 @@
 
 - [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727313874), SHA `c3bc7b8a2eada6bddb1697b0c29ea4123f88f3e1` на `flowbridge-live-smoke`. Кнопка «Агрегаторы», `/menu` и `/menu@имя_бота` из карточки FIBO 2 открыли одинаковый экран с GIF. Приветствие сохранено, в подсказках «Главное меню». `halted=true`, генераций 0.
 - Локально 306 тестов. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42524859479) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42524859473). PR ожидает ревью.
+
+### Пароль и сессии Admin Edition
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727500236), SHA `0b1ac9a8b1d2e9f22d511eced71ac2210ed199db` на `flowbridge-live-smoke`. Вход по разрешённому Telegram ID и паролю, 8-часовые сессии, выход, защита старых кнопок, ограничение попыток. Секрет перехватывается до записи в inbox.
+- 309 локальных тестов. На стенде `ADMIN_PASSWORD` передан пустым и админ-доступ закрыт, `halted=true`. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42526244516) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42526244474). PR ожидает ревью.
