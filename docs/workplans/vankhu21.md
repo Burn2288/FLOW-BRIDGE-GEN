@@ -86,3 +86,9 @@
 - [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `a2525859d7a1d79e20c3c268389bfbc3ae8ed4a5`. Админ-каталог, бессрочная подтверждённая ставка, обязательный срок тестовой ставки, приоритет API при повторном подтверждении.
 - На стенде миграция 022 и 64 голоса AnyVoice, подтверждены свежие цены FIBO 2, Fish Audio, Grok и Veo Fast. Ручные ставки проверены на заглушках. Платных запусков и списаний нет.
 - 293 теста на отдельной PostgreSQL. [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42495605709) · [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42495605643). PR ожидает ревью.
+
+## Расширяемость и отказоустойчивость · S2/S3/S5
+
+- [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `0c7152e9127e228a126a3e81448f553f45c17b3d`. Третий адаптер на заглушке проходит каталог, цену и исполнение через реестр. Индивидуальные и массовые ставки сохраняются после предпросмотра.
+- Изолированная PostgreSQL, 297 локальных тестов. Первая волна 32 задач и 20 повторов дала 32 GET цены при подтверждении и 29 POST, один повторный расчёт и два отказа цены. После трёх явных подтверждений всего 67 GET с исходными оценками и 32 POST.
+- Два перезапуска до POST сохранили согласованную цену и дали терминальный статус. Платных вызовов нет. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42497319024) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42497319021). PR ожидает ревью.
