@@ -103,3 +103,5 @@
 
 - [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `bb81345bcda71f73d1b3092f302bdfc00769696f`. Видеодопуск проверяет подключённый маршрут. Карточка Veo 3.1 сохраняет оба режима.
 - Заглушка и отдельная PostgreSQL: проверены допуск и отзыв ID вне Veo, один запуск по подтверждению, повторная выдача сохранённого MP4 и отказ без записи при отсутствии маршрута. 299 тестов, платных запусков нет. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42510043576) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42510043547). PR ожидает ревью.
+
+- Стенд `flowbridge-live-smoke` обновлён на `bb81345bcda71f73d1b3092f302bdfc00769696f`. Штатные Telegram-обработчики с тестовым транспортом показали одну карточку Veo с двумя доступными режимами. Оба ID совпали с «Нашими моделями», где показаны оценки с общей наценкой 0%. `halted=true`, генераций 0. [Приёмка и команды в PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6725454506).
