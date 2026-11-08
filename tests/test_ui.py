@@ -156,7 +156,7 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
     assert options['AnyModel']=='am' and telegram.OPEN_CATALOGUE not in options
     await a.handle(event(callback='am'))
     _,markup=b.sent[-1]
-    assert any(button.text==telegram.OPEN_CATALOGUE and button.callback_data=='amcat:current:0'
+    assert any(button.text=='Все модели' and button.callback_data=='amcat:current:0'
                for row in markup.inline_keyboard for button in row)
     if not rejected:
         assert b.animations[0].data==telegram.AGGREGATORS_ANIMATION.read_bytes()

@@ -40,6 +40,7 @@ def config(cfg, *, live=True):
 async def test_speech_confirmation_and_library(env,model,outcome):
     pool,cfg,_,user=env
     cfg=config(cfg)
+    await pool.execute("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Voice')",VOICE)
     calls=[]
     output=1 if model==FISH else 2
 
@@ -120,6 +121,9 @@ async def test_speech_confirmation_and_library(env,model,outcome):
 async def test_voice_without_price_and_disabled_pilot(env):
     pool,cfg,_,user=env
     cfg=config(cfg)
+    await pool.execute("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Voice')",VOICE)
+    await pool.executemany("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Voice')",
+                           [(f'anyvoice/test-{i}',) for i in range(10)])
     voices=[{'model':f'anyvoice/test-{i}','name':f'Голос {i}','lang':'ru'} for i in range(10)]+[VOICE_ENTRY]
 
     def respond(req):

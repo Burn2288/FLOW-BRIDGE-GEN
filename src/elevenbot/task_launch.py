@@ -35,6 +35,10 @@ class TaskLaunch:
         async def prepare(conn,quote):
             nonlocal adapter,prepared
             await self.pricing.admin(conn,user,external)
+            from .model_policy import admitted
+            req = quote.request
+            if not await admitted(conn,req.provider,req.model,req.operation):
+                raise Rejected('Модель не допущена к этой операции.')
             adapter = self.adapters.get(quote.request.provider)
             if adapter is None:
                 raise Rejected('Агрегатор недоступен.')

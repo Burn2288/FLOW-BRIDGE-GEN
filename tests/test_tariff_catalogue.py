@@ -102,7 +102,8 @@ async def test_tariff_catalogue_custom_voice_and_api_priority(env,price_endpoint
         assert 'Предпросмотр' in bot.sent[-1][0]
         await app.callback(user,100,routes(bot)['Сохранить ставки'])
 
-        await app.callback(user,100,'amvoices:5')
+        await pool.execute("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Custom')",custom)
+        await app.callback(user,100,'amvoices:0')
         await app.callback(user,100,routes(bot)['Custom'])
         await app.pricing.set_rule(user,100,'anymodel',custom,'percent','25')
         await app.handle(event(TEXT))

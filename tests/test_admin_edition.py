@@ -24,6 +24,7 @@ async def test_admin_edition_voice_manual_tariff_and_expiration(env, manual_tari
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
                 anymodel_speech_live=True,anymodel_key='fixture',interaction_limit=5)
     posts=[]
+    await pool.execute("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Voice')",VOICE)
     def respond(request):
         if request.url.path=='/v1/audio/voices':
             return httpx.Response(200,json={'data':[VOICE_ENTRY]})

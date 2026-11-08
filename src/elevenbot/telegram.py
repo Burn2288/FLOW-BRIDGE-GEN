@@ -16,6 +16,7 @@ from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_ima
 from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
+from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
 from .pricing import BOT_UNIT,PriceUnavailable,Pricing,Request
 from .clodex_pricing import ClodexPricing
 from .task_launch import TaskLaunch,notify_interrupted,recover_interrupted
@@ -28,13 +29,14 @@ import httpx
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
-ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
-REGISTERED_ROUTES={'pcat','pcard','prun'}
-CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
+ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amwork','amworkrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
+REGISTERED_ROUTES={'pentry','pall','pview','pcat','pcard','prun'}
+CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
     'speech':('🎙 Озвучить текст','audio.speech'),
+    'chat':('💬 Классический чат','chat'),
 }
 OPEN_CATALOGUE='Открыть каталог'
 WELCOME_BANNER=Path(__file__).with_name('welcome.png')
@@ -65,8 +67,8 @@ def buttons(rows):
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t,callback_data=d) for t,d in row] for row in rows])
 
 def store_rows():
-    rows=[[(title,f'slist:current:{section}:0')] for section,(title,_) in STORE_SECTIONS.items()]
-    rows.append([('📁 Мои работы','history:0')])
+    rows=[[(title,f'slist:current:{section}:0')] for section,(title,_) in STORE_SECTIONS.items() if section!='chat']
+    rows.extend([[('📁 Мои работы','history:0')],[(STORE_SECTIONS['chat'][0],'slist:current:chat:0')]])
     return rows
 
 def menu(*,public=False):
@@ -93,6 +95,7 @@ class TelegramApp:
         self.pricing = Pricing(pool,cfg,self.providers.prices)
         self.launch = TaskLaunch(self.pricing,self.providers.launches)
         self.tariffs = TariffAdmin(self,buttons)
+        self.models = ModelPolicy(self,buttons)
     async def say(self,chat,text,markup=None):
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
             markup=menu(public=True)
@@ -161,7 +164,7 @@ class TelegramApp:
                                caption=caption,reply_markup=markup)
         self.work_previews[ext]=message.message_id
 
-    def work_rows(self,ext,section,model_id,snapshot=None):
+    async def work_rows(self,ext,section,model_id,snapshot=None):
         rows=[]
         if snapshot is None:
             try:
@@ -169,7 +172,7 @@ class TelegramApp:
             except Rejected:
                 snapshot=None
         if snapshot:
-            published=self.store_models(snapshot,section,ext)
+            published=await self.store_models(snapshot,section,ext)
             for index,model in enumerate(snapshot['models']):
                 if model.get('provider')!='clodex' or model['id']!=model_id:
                     continue
@@ -293,6 +296,8 @@ class TelegramApp:
                 await self.remove_menu_message(ext,update.message.message_id);return
             if text in ('/terms','/privacy','/support','/paysupport'):
                 await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
+            if command in ('/admit','/revoke','/markup_value'):
+                await self.models.command(u,ext,command,text.split()[1:]);return
             if command in ('/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'):
                 await self.price_admin(u,ext,command,text.split()[1:]);return
             if text.startswith('/refund '):
@@ -318,7 +323,7 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
-                if context and ('tariff_admin' in context or 'tariff_preview' in context or 'anyvoice_tariff_selection' in context):
+                if context and ('tariff_admin' in context or 'tariff_preview' in context or 'our_markup' in context or 'anyvoice_tariff_selection' in context):
                     raise Rejected('Используйте команду с экрана настройки тарифа.')
                 if context and context.get('provider') in self.providers.interactive:
                     request=Request(context['provider'],context['model_id'],context['interaction'],
@@ -450,6 +455,8 @@ class TelegramApp:
 
     async def callback(self,u,ext,data,*,request_id=None):
         route=data.partition(':')[0]
+        if route in MODEL_POLICY_ROUTES:
+            await self.models.callback(u,ext,route,data.split(':')[1:]);return
         if route in REGISTERED_ROUTES:
             await self.registered_callback(u,ext,route,data.split(':')[1:]);return
         if route in TARIFF_ROUTES:
@@ -475,7 +482,7 @@ class TelegramApp:
             await self.show_veo(ext,data.split(':')[1]);return
         if route=='veoprompt':
             _,version,mode=data.split(':')
-            selected=self.veo_mode(ext,version,mode)
+            selected=await self.veo_mode(ext,version,mode)
             await self.svc.aggregate_context(u,{'video_mode':mode,'version':version})
             await self.catalogue_screen(ext,f'Veo 3.1 · {selected[1]}\nОпишите, какое видео хотите создать.',
                                         buttons([[('Отмена','home')]]));return
@@ -488,7 +495,7 @@ class TelegramApp:
             if section=='dev':
                 allowed=ext in self.cfg.admin_ids and 0<=index<len(snapshot['models'])
             else:
-                allowed=index in self.store_models(snapshot,section,ext)
+                allowed=index in await self.store_models(snapshot,section,ext)
             if not allowed:
                 raise Rejected('Модель больше не доступна в этом разделе.')
             model_id=snapshot['models'][index]['id']
@@ -505,7 +512,7 @@ class TelegramApp:
                 raise Rejected('Этот режим недоступен.')
             snapshot=self.catalogue_snapshot(version)
             index=int(index)
-            if index not in self.store_models(snapshot,section,ext):
+            if index not in await self.store_models(snapshot,section,ext):
                 raise Rejected('Модель больше не доступна в этом разделе.')
             if route=='srun':
                 await self.begin_interaction(u,ext,version,index,STORE_SECTIONS[section][1],
@@ -658,7 +665,7 @@ class TelegramApp:
         if can_view(self.cfg,ext):
             rows.append([('AnyModel','am')])
         if self.cfg.access_mode=='private':
-            rows.extend([(title,f'pcat:{key}:0')] for key,title in self.providers.interactive.items())
+            rows.extend([(title,f'pentry:{key}:0')] for key,title in self.providers.interactive.items())
         if self.cfg.access_mode=='private':
             rows.append([('Тарифы моделей','tariffs')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
@@ -671,27 +678,35 @@ class TelegramApp:
         if key not in self.providers.interactive:
             raise Rejected('Агрегатор недоступен.')
         await self.tariffs.authorize(u,ext)
+        if route=='pentry':
+            rows=[[('Наши модели',f'ours:{key}:0')],[('Рабочие модели',f'pcat:{key}:0')],
+                  [('Все модели',f'pall:{key}:0')],[('← Агрегаторы','providers')]]
+            await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows))
+            return
         snapshot=await self.providers.collect(key)
-        models=[row for row in snapshot['models'] if row.get('availability')=='key_available'
-                and any(op in WAITING for op in row['operations'])]
-        page=max(0,int(parts[1]))
-        if route=='pcat':
-            rows=[[(m['title'],f"pcard:{key}:{page}:{voice_key(m['id'])[:20]}")]
+        full=route in ('pall','pview')
+        admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
+        models=[row for row in snapshot['models'] if full or (row.get('availability')=='key_available'
+                and any((row['id'],op) in admitted for op in row['operations']))]
+        page=max(0,min(int(parts[1]),max(0,(len(models)-1)//10)))
+        prefix='pall' if full else 'pcat'
+        if route in ('pcat','pall'):
+            card='pview' if full else 'pcard'
+            rows=[[(m['title'],f"{card}:{key}:{page}:{voice_key(m['id'])[:20]}")]
                   for m in models[page*10:(page+1)*10]]
             nav=[]
-            if page:
-                nav.append(('← Назад',f'pcat:{key}:{page-1}'))
-            if (page+1)*10<len(models):
-                nav.append(('Далее →',f'pcat:{key}:{page+1}'))
-            if nav:
-                rows.append(nav)
-            await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows+[[('← Агрегаторы','providers')]]))
+            if page:nav.append(('← Назад',f'{prefix}:{key}:{page-1}'))
+            if (page+1)*10<len(models):nav.append(('Далее →',f'{prefix}:{key}:{page+1}'))
+            if nav:rows.append(nav)
+            await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows+[[('← Агрегатор',f'pentry:{key}:0')]]))
             return
         model=next((row for row in models if voice_key(row['id'])[:20]==parts[2]),None)
         if model is None:
             raise Rejected('Модель недоступна.')
-        operations=[op for op in model['operations'] if op in WAITING]
-        back=[('← Модели',f'pcat:{key}:{page}')]
+        operations=[op for op in model['operations'] if op in WAITING and (model['id'],op) in admitted]
+        back=[('← Модели',f'{prefix}:{key}:{page}')]
+        if full:
+            await self.render_model_detail(ext,model,f'pall:{key}:{page}',[]);return
         if route=='pcard':
             from .discovery import OPERATIONS
             rows=[[(f'Рассчитать стоимость · {OPERATIONS[op][0]}',f"prun:{key}:{page}:{parts[2]}:{op}")]
@@ -739,7 +754,7 @@ class TelegramApp:
         if route=='am':
             await self.svc.conversation(u,'home')
             rows=[[(title,f'amsection:{key}')] for key,title in ANYMODEL_SECTIONS.items()]
-            rows.extend([[(OPEN_CATALOGUE,'amcat:current:0')],[('← Агрегаторы','providers')]])
+            rows.extend([[('Наши модели','ours:anymodel:0')],[('Все модели','amcat:current:0')],[('← Агрегаторы','providers')]])
             try:
                 data=self.anymodel_snapshot(ext)
                 text=f"AnyModel\nМоделей: {len(data['models'])}\n"+self.anymodel_status(data)
@@ -758,13 +773,14 @@ class TelegramApp:
             data=self.anymodel_snapshot(ext)
             model=next((m for m in data['models'] if m['id']==FIBO_MODEL),None)
             if not model:raise Rejected('AnyModel: FIBO 2 недоступна в каталоге.')
+            allowed=await self.models.allowed('anymodel',FIBO_MODEL,IMAGE_OP)
             if parts==['run']:
-                if not can_image(model,data):
+                if not allowed or not can_image(model,data):
                     raise Rejected('AnyModel: тестовый запуск FIBO 2 недоступен.')
                 await self.svc.aggregate_context(u,{'interaction':IMAGE_OP,'provider':'anymodel','model_id':FIBO_MODEL,'title':model['title']})
                 await self.catalogue_screen(ext,'FIBO 2 · AnyModel\nПришлите описание изображения.',
                                             buttons([[('Параметры','amparams')],[('← FIBO 2','amimage:detail')]]));return
-            actions=[('🖼 Генерировать изображение','amimage:run')] if can_image(model,data) else []
+            actions=[('🖼 Генерировать изображение','amimage:run')] if allowed and can_image(model,data) else []
             await self.render_model_detail(ext,model,'amsection:image',actions,provider='AnyModel');return
         version=None if parts[0]=='current' else parts[0]
         data=self.anymodel_snapshot(ext,version)
@@ -772,19 +788,20 @@ class TelegramApp:
         if route=='amcat':
             await self.catalogue_page(ext,data,data['models'],'AnyModel',int(parts[1]),
                                       f'amcat:{version}',f'ammdl:{version}','am',self.anymodel_status(data));return
-        index,page=map(int,parts[1:])
+        index,page=map(int,parts[1:3])
         if not 0<=index<len(data['models']):raise Rejected('AnyModel: модель недоступна.')
         model=data['models'][index]
         back=f'amcat:{version}:{page}'
-        operation=next((op for op in ('chat',IMAGE_OP,'video','audio.speech')
-                        if op in model['operations']),None)
-        available=(operation and model['availability']=='key_available'
-                   and data['fresh_until']>time.time())
         if route=='ammdl':
-            action=[('Рассчитать стоимость',f'amrun:{version}:{index}:{page}')] if available else []
-            await self.render_model_detail(ext,model,back,action,provider='AnyModel');return
-        if not available:
-            raise Rejected('AnyModel: модель недоступна. Обновите каталог.')
+            await self.render_model_detail(ext,model,back,[],provider='AnyModel');return
+        operation=parts[3] if len(parts)>3 else next((op for op in ('chat',IMAGE_OP,'video','audio.speech')
+                                                       if op in model['operations']),None)
+        if (operation not in model['operations'] or model['availability']!='key_available'
+                or data['fresh_until']<=time.time() or not await self.models.allowed('anymodel',model['id'],operation)):
+            raise Rejected('AnyModel: модель не допущена к этой операции.')
+        if route=='amwork':
+            action=f'amworkrun:{version}:{index}:{page}:{operation}'
+            await self.render_model_detail(ext,model,'am',[('Рассчитать стоимость',action)],provider='AnyModel');return
         await self.svc.aggregate_context(u,{'interaction':operation,'provider':'anymodel',
                                              'model_id':model['id'],'title':model['title'],'history':[]})
         rows=[[('← К списку моделей',back)]]
@@ -794,26 +811,25 @@ class TelegramApp:
     async def anymodel_section(self,ext,section):
         if section not in ANYMODEL_SECTIONS:raise Rejected('AnyModel: раздел недоступен.')
         rows=[]
-        if section=='video':
+        operation=STORE_SECTIONS.get(section,('',section))[1]
+        approved={item['model_id']:item for item in await self.models.list('anymodel',operation)}
+        if section=='video' and ANYMODEL_VIDEO_MODEL in approved:
             rows.append([(ANYMODEL_VIDEO_TITLE,'amvideo:detail')])
         if section=='speech':
-            rows.extend([[(FISH_TITLE,'amspeech:fish')],[('AnyVoice','amspeech:anyvoice')]])
+            if FISH in approved:rows.append([(FISH_TITLE,'amspeech:fish')])
+            if any(model.startswith('anyvoice/') for model in approved):
+                rows.append([('AnyVoice','amspeech:anyvoice')])
         try:
             data=self.anymodel_snapshot(ext)
         except Rejected:
             data=None
         if data:
-            operation=STORE_SECTIONS.get(section,('',section))[1]
-            if section=='image' and any(m['id']==FIBO_MODEL for m in data['models']):
+            if section=='image' and FIBO_MODEL in approved and any(m['id']==FIBO_MODEL for m in data['models']):
                 rows.append([('FIBO 2','amimage:detail')])
             for index,model in enumerate(data['models']):
-                if (operation in model['operations'] and model['availability']=='key_available'
+                if (model['id'] in approved and operation in model['operations'] and model['availability']=='key_available'
                         and model['id'] not in (FIBO_MODEL,ANYMODEL_VIDEO_MODEL,FISH)):
-                    rows.append([(model['title'],f"ammdl:{data['version']}:{index}:{index//10}")])
-                    if len(rows)>=10:
-                        break
-            if rows:
-                rows.append([('Все модели','amcat:current:0')])
+                    rows.append([(model['title'],f"amwork:{data['version']}:{index}:{index//10}:{operation}")])
         title=f'AnyModel · {ANYMODEL_SECTIONS[section]}'
         if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
         rows.append([('← AnyModel','am')])
@@ -847,6 +863,8 @@ class TelegramApp:
             await self.catalogue_screen(ext,'AnyModel: не удалось проверить каталог или тариф. Запуск закрыт.',
                                         buttons([back]))
             return
+        if not await self.models.allowed('anymodel',model,'audio.speech'):
+            raise Rejected('AnyModel: голос или модель не допущены к озвучке.')
         await self.svc.aggregate_context(u,{'provider':'anymodel','interaction':'audio.speech',
                                             'model_id':model,'title':title})
         text=f'{title} · AnyModel\nID: {model}\nПришлите текст для расчёта стоимости.'
@@ -867,6 +885,8 @@ class TelegramApp:
         selection=set()
         page=0
         if not batch:
+            allowed={row['model_id'] for row in await self.models.list('anymodel','audio.speech')}
+            voices={key:voice for key,voice in voices.items() if key in allowed}
             await self.svc.conversation(u,'home')
         else:
             context=await self.svc.aggregate_context(u) or {}
@@ -952,6 +972,8 @@ class TelegramApp:
         await self.say(ext,f'Тарифы обновлены. Голосов: {len(ids)}.')
 
     async def anymodel_video_card(self,u,ext,*,start):
+        if not await self.models.allowed('anymodel',ANYMODEL_VIDEO_MODEL,'video'):
+            raise Rejected('AnyModel: модель не допущена к видео.')
         rows=[[('← Назад','amsection:video')]]
         text=f'{ANYMODEL_VIDEO_TITLE} · AnyModel\n4 с · 480p · 16:9'
         if start:
@@ -1029,7 +1051,7 @@ class TelegramApp:
         if source.get('evidence',{}).get('unavailable_metadata'):scope+=' Часть метаданных временно недоступна.'
         models_route=f'cat:{version}:{index}:0'
         if provider=='clodex':
-            rows=store_rows()+[[('🧩 Модели',models_route)]]
+            rows=store_rows()+[[('Наши модели','ours:clodex:0')],[('Все модели',models_route)]]
         else:
             rows=[[(OPEN_CATALOGUE,models_route)]]
         rows.extend([
@@ -1044,32 +1066,31 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,'Каталог моделей. Выберите, что хотите сделать.',buttons(rows))
 
-    def store_models(self,snapshot,section,ext):
+    async def store_models(self,snapshot,section,ext):
         if section not in STORE_SECTIONS:
             raise Rejected('Раздел недоступен.')
-        published=set(self.cfg.public_catalogue_models)
-        return [
-            index for index,model in enumerate(snapshot['models'])
-            if model.get('provider')=='clodex'
-            and model.get('availability')=='key_available'
-            and not is_disabled_model(model)
-            and (
-                f"{section}:{model['id']}" in published
-                or (section=='speech' and self.cfg.speech_pilot and ext in self.cfg.admin_ids
-                    and model['id'].replace('-','_')=='eleven_v4')
-            )
-        ]
+        from .model_policy import canonical
+        operation=STORE_SECTIONS[section][1]
+        approved={row['model_id'] for row in await self.models.list('clodex',operation)} if self.pool else set()
+        return [index for index,model in enumerate(snapshot['models'])
+                if model.get('provider')=='clodex' and model.get('availability')=='key_available'
+                and not is_disabled_model(model) and canonical('clodex',model['id'],operation) in approved]
+
+    async def admitted_veo_modes(self,ext,snapshot):
+        if self.pool is None:return {}
+        approved={row['model_id'] for row in await self.models.list('clodex','video')}
+        return {key:value for key,value in video_modes(self.cfg,snapshot,ext).items() if value[0] in approved}
 
     async def show_store_models(self,ext,version,section,page):
         snapshot=self.catalogue_snapshot(None if version=='current' else version)
         if section=='video':
             if page!=0:raise Rejected('Страница недоступна.')
             rows=[]
-            if video_modes(self.cfg,snapshot,ext):
+            if await self.admitted_veo_modes(ext,snapshot):
                 rows.append([('Veo 3.1',f"veo:{snapshot['version']}")])
             rows.append([('← Каталог','store')])
             await self.catalogue_screen(ext,STORE_SECTIONS['video'][0],buttons(rows));return
-        models=self.store_models(snapshot,section,ext)
+        models=await self.store_models(snapshot,section,ext)
         page_count=max(1,(len(models)+9)//10)
         if not 0<=page<page_count:
             raise Rejected('Страница недоступна.')
@@ -1088,21 +1109,21 @@ class TelegramApp:
         status=f'Моделей: {len(models)} · Страница {page+1} из {page_count}' if models else 'В этом разделе пока нет опубликованных моделей.'
         await self.catalogue_screen(ext,title+'\n'+status,buttons(rows))
 
-    def veo_mode(self,ext,version,mode):
-        selected=video_modes(self.cfg,self.catalogue_snapshot(version),ext).get(mode)
+    async def veo_mode(self,ext,version,mode):
+        selected=(await self.admitted_veo_modes(ext,self.catalogue_snapshot(version))).get(mode)
         if selected is None:
             raise Rejected('Этот режим Veo недоступен. Обновите каталог.')
         return selected
 
     async def show_veo(self,ext,version):
-        modes=video_modes(self.cfg,self.catalogue_snapshot(version),ext)
+        modes=await self.admitted_veo_modes(ext,self.catalogue_snapshot(version))
         if not modes:raise Rejected('Veo 3.1 недоступна. Обновите каталог.')
         rows=[[(label,f'veoprompt:{version}:{mode}')] for mode,(_,_,label) in modes.items()]
         rows.append([('← Назад','slist:current:video:0')])
         await self.catalogue_screen(ext,'Veo 3.1 · Текст → видео',buttons(rows))
 
     async def video_prompt(self,u,ext,text,context):
-        model,label,_=self.veo_mode(ext,context['version'],context['video_mode'])
+        model,label,_=await self.veo_mode(ext,context['version'],context['video_mode'])
         request=Request('clodex',model,'video',f'Veo 3.1 · {label}',text.strip(),
                         {'duration':4,'resolution':'720p','aspect_ratio':'16:9'})
         await self.show_price(ext,await self.pricing.quote(u,request))
@@ -1132,8 +1153,8 @@ class TelegramApp:
             await self.catalogue_screen(ext,str(e));return
         if data.get('sources'):
             categories=[{'title':s['provider']+' · '+('публичный каталог' if s['scope']=='public_only' else 'доступно ключу'),
-                         'models':[m for m in data['models'] if m.get('provider')==s['provider'] and not is_disabled_model(m)]} for s in data['sources']]
-        else:categories=groups({**data,'models':[m for m in data['models'] if not is_disabled_model(m)]})
+                         'models':[m for m in data['models'] if m.get('provider')==s['provider']]} for s in data['sources']]
+        else:categories=groups(data)
         if group is None:
             rows=[[(g['title']+f" ({len(g['models'])})",f"cat:{data['version']}:{i}:0")] for i,g in enumerate(categories)]
             label='Каталог провайдеров и моделей:'
@@ -1165,13 +1186,8 @@ class TelegramApp:
         data=self.catalogue_snapshot(version)
         if not 0<=index<len(data['models']):raise Rejected('Модель недоступна.')
         model=data['models'][index]
-        if is_disabled_model(model):raise Rejected('Модель недоступна.')
         back=f'cat:{version}:{int(origin[0])}:{int(origin[1])}' if len(origin)==2 else None
-        actions=[(label,f'runmodel:{version}:{index}:{op}')
-                 for op,label in MODEL_ACTIONS.items() if self.model_can_run(model,op)]
-        if self.model_can_run(model,'images.generate') or self.model_can_run(model,'audio.speech'):
-            actions.append(('Работы этой модели',f'mwork:{version}:dev:{index}:0'))
-        await self.render_model_detail(ext,model,back,actions)
+        await self.render_model_detail(ext,model,back,[])
 
     async def render_model_detail(self,ext,model,back,actions,provider=None):
         from .discovery import OPERATIONS
@@ -1247,9 +1263,7 @@ class TelegramApp:
             )
         from .interaction import supports
         mode=self.cfg.interaction_mode
-        return mode in ('mock','live') and supports(model,operation,live=mode=='live') and (
-            mode=='mock' or f'{operation}:{model["id"]}' in self.cfg.interaction_pairs
-        )
+        return mode in ('mock','live') and supports(model,operation,live=mode=='live')
 
     async def begin_interaction(self,u,ext,version,index,operation,*,request_id=None,quality=None):
         models=self.catalogue_snapshot(version)['models']
@@ -1258,7 +1272,8 @@ class TelegramApp:
         ):
             raise Rejected('Запуск доступен только администратору.')
         model=models[index] if 0<=index<len(models) else None
-        if not model or not self.model_can_run(model,operation):
+        if (not model or not self.model_can_run(model,operation)
+                or not await self.models.allowed('clodex',model['id'],operation)):
             trace_interaction(request_id,'operation_unavailable',operation=operation,model=model['id'] if model else None)
             raise Rejected('Для этой модели запуск пока недоступен.')
         if quality is not None and (quality!='high' or operation!='images.generate'
@@ -1291,7 +1306,7 @@ class TelegramApp:
             )
             if self.cfg.interaction_mode=='mock':
                 text += '\n\nСейчас включён тестовый режим. Бот сохранит пример изображения.'
-            await self.catalogue_screen(ext,text,buttons(self.work_rows(ext,'image',model['id'])))
+            await self.catalogue_screen(ext,text,buttons(await self.work_rows(ext,'image',model['id'])))
         else:
             await self.say(ext,model['title']+'\n'+mode+'Пришлите текст или UTF-8 файл .txt. Для выхода отправьте /menu.')
 
@@ -1304,7 +1319,8 @@ class TelegramApp:
         if provider!='clodex':raise Rejected('Агрегатор недоступен.')
         snapshot=self.catalogue_snapshot()
         model=next((m for m in snapshot['models'] if m.get('provider')==provider and m['id']==context['model_id']),None)
-        if not model or not self.model_can_run(model,operation):
+        if (not model or not self.model_can_run(model,operation)
+                or not await self.models.allowed('clodex',model['id'],operation)):
             raise Rejected('Модель больше не доступна. Откройте каталог.')
         mode=self.cfg.interaction_mode
         if mode=='live' and (self.cfg.access_mode!='private' or ext not in self.cfg.admin_ids or snapshot['fresh_until']<time.time()):
@@ -1395,6 +1411,8 @@ class TelegramApp:
         if not can_view(self.cfg,ext):
             raise Rejected('Раздел AnyModel недоступен.')
         operation=context['interaction']
+        if not await self.models.allowed('anymodel',context['model_id'],operation):
+            raise Rejected('AnyModel: модель не допущена к этой операции.')
         parameters=default_params('anymodel',operation)
         req=Request('anymodel',context['model_id'],operation,context.get('title') or context['model_id'],
                     prompt or '',parameters|context.get('params',{}),context.get('history',[]))

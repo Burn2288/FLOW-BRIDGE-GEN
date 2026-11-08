@@ -49,7 +49,7 @@ async def test_catalogue_new_id_launches_once(env,tmp_path,video,kind,section,li
             rows=[{'id':model,'name':title,**({'kind':'image'} if kind=='image' else {})}]
             return httpx.Response(200,json={'data':rows if listed and path==list_path else []})
         if path=='/v1/models/info':
-            assert req.url.params['id']==model
+            if req.url.params['id']!=model:return httpx.Response(404)
             return httpx.Response(200,json={'id':model,'endpoint':endpoint,'params':params,
                                            'billing':billing,'durations':[6]})
         if req.method=='POST':
@@ -84,6 +84,11 @@ async def test_catalogue_new_id_launches_once(env,tmp_path,video,kind,section,li
         assert title not in routes(bot)
         listed=True
         await api.refresh(model_store(cfg))
+        await app.callback(user,100,f'amsection:{section}')
+        assert title not in routes(bot)
+        operation={'image':'images.generate','video':'video','tts':'audio.speech'}[kind]
+        await app.models.command(user,100,'/admit',['anymodel',model,operation])
+        assert title in bot.sent[-1][0]
         await app.callback(user,100,f'amsection:{section}')
         await app.callback(user,100,routes(bot)[title])
         await app.callback(user,100,routes(bot)['Рассчитать стоимость'])
@@ -143,7 +148,8 @@ async def test_anyvoice_all_pages_refresh_and_atomic_bulk_tariff(env):
                 await app.callback(user,100,current['Далее →'])
         assert seen=={voice_key(model) for model in ids}
         ids.append(new)
-        await app.callback(user,100,'amvoices:6')
+        await pool.execute("INSERT INTO approved_models VALUES('anymodel',$1,'audio.speech','Custom')",new)
+        await app.callback(user,100,'amvoices:0')
         await app.callback(user,100,routes(bot)['Voice 64'])
         assert new in bot.sent[-1][0]
         await app.callback(user,100,'amvprices:0')

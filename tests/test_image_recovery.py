@@ -98,6 +98,7 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()
     port = runner.addresses[0][1]
+    await pool.execute("INSERT INTO approved_models VALUES('clodex','image-fixture','images.generate','Image fixture')")
     config = os.environ | {
         "DATABASE_URL": dsn,
         "PROVIDER_MODE": "mock",

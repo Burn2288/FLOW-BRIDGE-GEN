@@ -66,7 +66,7 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         await app.callback(user,100,routes(bot)['AnyModel'])
         assert 'Моделей: 23' in bot.sent[-1][0]
         assert 'Последнее успешное обновление' in bot.sent[-1][0]
-        await app.callback(user,100,routes(bot)[telegram.OPEN_CATALOGUE])
+        await app.callback(user,100,routes(bot)['Все модели'])
         listed=set()
         for page in range(3):
             buttons=routes(bot)
@@ -78,6 +78,9 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         await app.callback(user,100,routes(bot)['← Назад'])
         await app.callback(user,100,routes(bot)['DeepSeek V4 Flash Vision'])
         assert f'ID: {TEST_MODEL}' in bot.sent[-1][0]
+        assert 'Рассчитать стоимость' not in routes(bot)
+        await app.callback(user,100,'amsection:chat')
+        await app.callback(user,100,routes(bot)['DeepSeek V4 Flash Vision'])
         action=routes(bot)['Рассчитать стоимость']
         for restricted,external_id in ((cfg,101),(replace(cfg,anymodel_test_enabled=False),100)):
             hidden=telegram.TelegramApp(pool,restricted,Bot())
@@ -96,6 +99,7 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
             await app.callback(user,100,action,request_id=3)
         assert sum(call[0]=='POST' for call in calls)==1
 
+        await pool.execute("INSERT INTO approved_models VALUES('clodex',$1,'chat','CLODEX fixture')",TEST_MODEL)
         version=app.catalogue_snapshot()['version']
         await app.callback(user,100,f'runmodel:{version}:0:chat')
         await manual_tariff(app,user,TEST_MODEL,'chat',{'max_tokens':512})

@@ -76,12 +76,12 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
         home=routes(bot)
         assert set(home.values())=={
             'amsection:video','amsection:image','amsection:speech','amsection:chat','amsection:tools',
-            'amcat:current:0','providers',
+            'amcat:current:0','ours:anymodel:0','providers',
         }
         for section in ('chat','tools'):
             await app.callback(user,100,f'amsection:{section}')
             assert 'пока нет подключённых операций' in bot.sent[-1][0]
-        await app.callback(user,100,home[telegram.OPEN_CATALOGUE])
+        await app.callback(user,100,home['Все модели'])
         assert 'anymedia/fibo-lite' in routes(bot)
         await app.callback(user,100,'amsection:image')
         assert 'FIBO 2' in routes(bot)

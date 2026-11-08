@@ -87,6 +87,7 @@ async def test_third_provider_catalogue_and_tariff_preview(env):
     async with httpx.AsyncClient(base_url='https://fixture.invalid',transport=httpx.MockTransport(respond)) as http:
         bot=Bot()
         app=app_with_fixture(pool,cfg,bot,http)
+        await pool.execute("INSERT INTO approved_models VALUES('fixture',$1,'chat','Fixture chat')",model)
         await app.show_providers(100)
         await app.callback(user,100,routes(bot)['Тарифы моделей'])
         await app.callback(user,100,routes(bot)['Fixture provider'])
@@ -104,6 +105,7 @@ async def test_third_provider_catalogue_and_tariff_preview(env):
         assert await pool.fetchval('SELECT amount FROM task_manual_tariffs')==80
         await app.show_providers(100)
         await app.callback(user,100,routes(bot)['Fixture provider'])
+        await app.callback(user,100,routes(bot)['Рабочие модели'])
         await app.callback(user,100,routes(bot)['Fixture chat'])
         await app.callback(user,100,routes(bot)['Рассчитать стоимость · Диалог'])
         await app.handle(event('Hello'))
@@ -151,6 +153,8 @@ async def test_confirmation_load_and_provider_failures(env):
 
     async with httpx.AsyncClient(base_url='https://fixture.invalid',transport=httpx.MockTransport(respond)) as http:
         app=app_with_fixture(pool,cfg,Bot(),http)
+        await pool.executemany("INSERT INTO approved_models VALUES('fixture',$1,'chat','Model')",
+                               [(f'fixture/{i}',) for i in range(32)])
         quotes=[await app.pricing.quote(user,Request('fixture',f'fixture/{i}','chat','Model','Prompt'))
                 for i in range(32)]
         assert sum(prices.values())==32 and not posts
@@ -266,6 +270,7 @@ async def test_process_restart_after_acceptance_before_post(env,boundary,termina
 
     async with httpx.AsyncClient(base_url='https://fixture.invalid',transport=httpx.MockTransport(respond)) as http:
         app=app_with_fixture(pool,cfg,bot,http)
+        await pool.execute("INSERT INTO approved_models VALUES('fixture','fixture/restart','chat','Restart model')")
         q=await app.pricing.quote(user,Request('fixture','fixture/restart','chat','Restart model','Prompt'))
         schema=await pool.fetchval('SELECT current_schema()')
         root=Path(__file__).resolve().parents[1]

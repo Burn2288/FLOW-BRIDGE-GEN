@@ -44,8 +44,10 @@ async def test_new_model_from_catalogue_and_unknown_billing(env, tmp_path, monke
         app = TelegramApp(pool, cfg, Bot())
         monkeypatch.setattr('elevenbot.telegram.AnyModelProvider', lambda key: api)
         app.pricing.adapters['anymodel'] = AnyModelPricing(cfg.anymodel_key, api=api)
+        await pool.executemany("INSERT INTO approved_models VALUES('anymodel',$1,'chat',$2)",
+                               [(known,'New model'),(unknown,'Unknown model')])
         await app.pricing.set_rule(user,100,'','','percent','25')
-        await app.callback(user,100,f'amcat:{data["version"]}:0')
+        await app.callback(user,100,'amsection:chat')
         await app.callback(user,100,routes(app.bot)['New model'])
         await app.callback(user,100,routes(app.bot)['Рассчитать стоимость'])
         await app.handle(event('hello'))
@@ -70,7 +72,7 @@ async def test_new_model_from_catalogue_and_unknown_billing(env, tmp_path, monke
                                        return_exceptions=True)
         assert len(posts) == 1 and sum(isinstance(r,Rejected) for r in results) == 1
         assert known.encode() in posts[0].content and b'"max_tokens":128' in posts[0].content
-        await app.callback(user,100,f'amcat:{data["version"]}:0')
+        await app.callback(user,100,'amsection:chat')
         await app.callback(user,100,routes(app.bot)['Unknown model'])
         await app.callback(user,100,routes(app.bot)['Рассчитать стоимость'])
         await app.handle(event('another prompt'))

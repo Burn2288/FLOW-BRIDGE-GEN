@@ -195,17 +195,42 @@ class Pricing:
         return ProviderCost(amount, row['source_unit'], True,
                             f"manual:{row['revision']}:{row['evidence']}", details)
 
+    async def markup_rule(self,conn,provider,model):
+        return await conn.fetchrow("""
+            SELECT provider,model_id,kind,amount,revision FROM task_price_rules
+            WHERE (provider,model_id) IN (('',''),($1,''),($1,$2))
+                AND (model_id='' OR COALESCE((SELECT mode FROM task_markup_modes
+                    WHERE provider=$1 AND model_id=$2),'manual')='manual')
+            ORDER BY (model_id<>'') DESC,(provider<>'') DESC LIMIT 1
+            """, provider,model)
+
+    async def preview_price(self,request):
+        cost = await self.cost(request)
+        async with self.pool.acquire() as conn:
+            return await self.calculate(conn,request,cost)
+
+    async def set_markup_mode(self,user,external,provider,model,mode):
+        if mode not in ('general','manual'):
+            raise Rejected('Режим недоступен.')
+        async with self.pool.acquire() as conn, conn.transaction():
+            await self.admin(conn,user,external)
+            await conn.execute('SELECT pg_advisory_xact_lock($1::bigint)',POLICY_LOCK)
+            if mode=='manual' and not await conn.fetchval(
+                'SELECT 1 FROM task_price_rules WHERE provider=$1 AND model_id=$2',provider,model,
+            ):
+                raise Rejected('Сначала задайте ручную наценку.')
+            await conn.execute("""
+                INSERT INTO task_markup_modes VALUES($1,$2,$3)
+                ON CONFLICT(provider,model_id) DO UPDATE SET mode=excluded.mode
+                """,provider,model,mode)
+
     async def calculate(self, conn, request, cost):
         if cost is None:
             cost = await self.manual_cost(conn, request)
         rate = await conn.fetchrow('SELECT multiplier,revision FROM task_price_rates WHERE source_unit=$1', cost.unit)
         if rate is None:
             raise PriceUnavailable()
-        rule = await conn.fetchrow("""
-            SELECT provider,model_id,kind,amount,revision FROM task_price_rules
-            WHERE (provider,model_id) IN (('',''),($1,''),($1,$2))
-            ORDER BY (model_id<>'') DESC,(provider<>'') DESC LIMIT 1
-            """, request.provider, request.model)
+        rule = await self.markup_rule(conn,request.provider,request.model)
         base = cost.amount * rate['multiplier']
         markup = Decimal(0)
         if rule:
@@ -216,6 +241,8 @@ class Pricing:
             'rate': str(rate['multiplier']), 'rate_revision': rate['revision'], 'rounding': 'ceiling',
             'base': str(base), 'markup': str(markup), 'total': str((base+markup).to_integral_value(rounding=ROUND_CEILING)),
             'rule_revision': rule['revision'] if rule else None,
+            'rule_kind': rule['kind'] if rule else 'percent',
+            'rule_amount': str(rule['amount']) if rule else '0',
             'rule_scope': [rule['provider'], rule['model_id']] if rule else None,
         }
 
@@ -375,6 +402,11 @@ class Pricing:
                     ON CONFLICT(provider,model_id) DO UPDATE SET kind=excluded.kind,amount=excluded.amount,
                         revision=excluded.revision
                     """, provider, model, kind, number(amount))
+                if model:
+                    await conn.execute("""
+                        INSERT INTO task_markup_modes VALUES($1,$2,'manual')
+                        ON CONFLICT(provider,model_id) DO UPDATE SET mode='manual'
+                        """,provider,model)
             else:
                 raise Rejected('Доступные правила: percent, fixed, remove.')
 
