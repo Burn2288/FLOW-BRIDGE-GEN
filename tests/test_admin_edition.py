@@ -62,7 +62,7 @@ async def test_admin_edition_voice_manual_tariff_and_expiration(env, manual_tari
         await app.pricing.set_rule(user,100,'anymodel',VOICE,'percent','25')
         await app.handle(event(TEXT))
         rendered=app.bot.sent[-1][0]
-        assert all(part in rendered for part in ('5 ед. UTF-16','Себестоимость: 100','ручной тариф',
+        assert all(part in rendered for part in ('5 ед. UTF-16','Ручная себестоимость: 100 токенов AnyModel',
                                                   'Наценка: 25','Оценка: 125'))
         cancel=routes(app.bot)['Отмена']
         stale=routes(app.bot)['Генерировать']

@@ -5,9 +5,6 @@ import httpx
 from .pricing import NoProviderPrice, PriceUnavailable, ProviderCost, number
 from .video import VIDEO_PARAMS, VideoProtocolError
 
-USD = 'USD'
-
-
 class ClodexPricing:
     def __init__(self, video_api):
         self.video_api = video_api
@@ -24,8 +21,9 @@ class ClodexPricing:
         if params != VIDEO_PARAMS:
             raise PriceUnavailable()
         try:
-            amount = number(await self.video_api.estimate(request.model,request.prompt))
+            raw,unit,field = await self.video_api.estimate_cost(request.model,request.prompt)
+            amount = number(raw)
         except (httpx.HTTPError, TimeoutError, VideoProtocolError):
             raise PriceUnavailable() from None
-        return ProviderCost(amount, USD, True, 'CLODEX /v1/videos/estimate · cost_usd',
+        return ProviderCost(amount, unit, True, f'CLODEX /v1/videos/estimate · {field}',
                             f"{params['duration']} с · {params['resolution']} · {params['aspect_ratio']}")

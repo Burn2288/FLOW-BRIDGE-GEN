@@ -91,19 +91,27 @@ class VideoAPI:
         return result
 
     async def estimate(self, model, prompt):
+        price,unit,_ = await self.estimate_cost(model,prompt)
+        if unit!='USD':
+            raise VideoProtocolError('quote_unit')
+        return price
+
+    async def estimate_cost(self, model, prompt):
         if not self.supports_model(model):
             raise VideoProtocolError('video_model')
         body = await self.json('POST', VIDEOS+'/estimate', json=payload(model, prompt))
         data = body.get('data')
         if body.get('success') is not True or not isinstance(data, dict) or data.get('model') != model:
             raise VideoProtocolError('quote_shape')
+        field,unit,limit = ('cost_usd','USD',10000) if 'cost_usd' in data else (
+            'cost_tokens','clodex_balance_token',10**12)
         try:
-            price = Decimal(str(data.get('cost_usd')))
+            price = Decimal(str(data.get(field)))
         except InvalidOperation:
             raise VideoProtocolError('quote_amount') from None
-        if not price.is_finite() or not 0 <= price <= 10000:
+        if not price.is_finite() or not 0 <= price <= limit:
             raise VideoProtocolError('quote_amount')
-        return price
+        return price,unit,field
 
     async def create(self, model, prompt):
         if not self.supports_model(model):
@@ -225,10 +233,11 @@ class VideoPilot:
 
     async def prepare_price(self,conn,user,quote):
         request = quote.request
+        usd = Decimal(quote.price['provider_amount']) if quote.price['provider_unit']=='USD' else None
         await conn.execute("""
             INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,status,next_poll_at)
             VALUES($1,$2,$3,$4,$5,'submitting',now()+interval '1 minute')
-            """, quote.id,user,request.model,request.prompt,Decimal(quote.price['provider_amount']))
+            """, quote.id,user,request.model,request.prompt,usd)
 
     async def submit_task(self,job,model,prompt,idempotency_key,*,on_accepted=None,create=None):
         # Claim is durable before the only POST. A lost response never triggers a retry.

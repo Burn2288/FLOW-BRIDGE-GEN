@@ -4,10 +4,10 @@ import asyncio
 from uuid import uuid4
 
 from .core import Rejected
-from .pricing import BOT_UNIT, PriceUnavailable, Request, display
-from .tariff_admin import OPERATIONS, default_params
+from .pricing import BOT_UNIT, MissingRate, MissingTariff, PriceUnavailable, Request, cost_lines, decimal_text, total_text
+from .tariff_admin import OPERATIONS, default_params, rate_button
 
-ROUTES = {'ours','ourmode','ourmarkup'}
+ROUTES = {'ours','ourmode','ourmarkup','ourcost'}
 SAMPLE = 'Проверка тарифа'
 
 
@@ -110,10 +110,18 @@ class ModelPolicy:
             return
         from .anymodel_speech import voice_key
         key=parts[2]
-        candidates={row['model_id'] for row in await self.list(provider) if voice_key(row['model_id'])[:16]==key}
+        entries=[row for row in await self.list(provider) if voice_key(row['model_id'])[:16]==key]
+        candidates={row['model_id'] for row in entries}
         if key!='general' and len(candidates)!=1:
             raise Rejected('Модель больше не допущена.')
         model=next(iter(candidates),'')
+        if route=='ourcost':
+            if not model:
+                raise Rejected('Модель больше не допущена.')
+            origin='anyvoice' if provider=='anymodel' and model.startswith('anyvoice/') else provider
+            await self.app.tariffs.open_model(user,ext,origin,page,model,entries[0]['title'],
+                                              [row['operation'] for row in entries],our_provider=provider)
+            return
         if route=='ourmode':
             async with self.app.pool.acquire() as conn:
                 rule=await self.app.pricing.markup_rule(conn,provider,model)
@@ -145,12 +153,15 @@ class ModelPolicy:
         lines=[f'Наши модели · {self.app.providers.interactive.get(provider,provider.upper())}',
                f'Общая наценка агрегатора: {rate}',
                f'Пример для чата и озвучки: «{SAMPLE}».']
-        rows=[[('Изменить общую наценку',f'ourmarkup:{provider}:{page}:general')]]
+        rows=[[('Изменить общую наценку',f'ourmarkup:{provider}:{page}:general')],
+              [('Курс и калькулятор',f'rates:{provider}')]]
 
         async def estimate(model,operation,title):
             params=default_params(provider,operation)
             try:
                 return await self.app.pricing.preview_price(Request(provider,model,operation,title,SAMPLE,params))
+            except (MissingRate,MissingTariff) as error:
+                return error
             except PriceUnavailable:
                 return None
 
@@ -162,19 +173,28 @@ class ModelPolicy:
             mode='Ручная' if rule and rule['model_id'] else 'Общая'
             applied=rule_label(rule['kind'],rule['amount']) if rule else '0%'
             estimates=await asyncio.gather(*(estimate(model,item['operation'],title) for item in entries))
+            missing_cost=False
+            missing_units=set()
             for entry,price in zip(entries,estimates):
                 op=OPERATIONS[entry['operation']]
-                if price:
-                    from decimal import Decimal
-                    base=f"{Decimal(price['base']).normalize():f}"
-                    lines.append(f"{op} · {price['details']}\nСебестоимость {base} · {mode} наценка {applied} · "
-                                 f"{'Итоговая оценка' if price['estimate'] else 'Итог'} {display(price['total'])} {BOT_UNIT}")
+                if isinstance(price,MissingRate):
+                    lines.append(f'{op} · {price.cost.details}\n{price}\n{mode} наценка {applied}')
+                    missing_units.add(price.cost.unit)
+                elif isinstance(price,dict):
+                    label='Итоговая оценка' if price['estimate'] else 'Итог'
+                    lines.append(f"{op} · {price['details']}\n{cost_lines(price)}\n"
+                                 f"{mode} наценка {applied} · {decimal_text(price['markup'])} {BOT_UNIT}\n"
+                                 f"{label}: {total_text(price)}")
                 else:
                     lines.append(f'{op} · Цена недоступна · {mode} наценка {applied}')
+                    missing_cost |= isinstance(price,MissingTariff)
             key=voice_key(model)[:16]
             rows.append([(f'{title[:28]} · {mode}',f'ourmode:{provider}:{page}:{key}'),
                          ('Ручная наценка',f'ourmarkup:{provider}:{page}:{key}')])
             origin='anyvoice' if provider=='anymodel' and model.startswith('anyvoice/') else provider
+            if missing_cost:
+                rows.append([('Задать себестоимость',f'ourcost:{provider}:{page}:{key}')])
+            rows.extend([[rate_button(provider,unit)] for unit in sorted(missing_units)])
             rows.append([('Источник · '+title[:35],f'tariffmodel:{origin}:{voice_key(model)}:0')])
         if not grouped:
             lines.append('Допущенных моделей пока нет.')

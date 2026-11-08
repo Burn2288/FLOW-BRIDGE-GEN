@@ -17,12 +17,12 @@ from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
 from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
-from .pricing import BOT_UNIT,PriceUnavailable,Pricing,Request
+from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request
 from .clodex_pricing import ClodexPricing
 from .task_launch import TaskLaunch,notify_interrupted,recover_interrupted
 from .provider_execution import AnyModelExecution,ClodexExecution
 from .aggregate import ProviderRegistry
-from .tariff_admin import ROUTES as TARIFF_ROUTES,TariffAdmin,default_params,tariff_fields,tariff_params
+from .tariff_admin import ROUTES as TARIFF_ROUTES,RUBLE_MENU,TariffAdmin,default_params,rate_button,tariff_fields,tariff_params
 from .progress import ReportedTaskError,TaskProgress,UNKNOWN,WAITING
 import httpx
 
@@ -55,6 +55,7 @@ ANYMODEL_SECTIONS={key:title for key,(title,_) in STORE_SECTIONS.items()}
 ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠 Инструменты')
 SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
 CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','🛠 Функции',MENU[0],OPEN_CATALOGUE)
+RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 MODEL_ACTIONS={
     'chat':'💬 Начать диалог',
     'images.generate':'🖼 Создать изображение',
@@ -71,8 +72,8 @@ def store_rows():
     rows.extend([[('📁 Мои работы','history:0')],[(STORE_SECTIONS['chat'][0],'slist:current:chat:0')]])
     return rows
 
-def menu(*,public=False):
-    labels=[OPEN_CATALOGUE] if public else MENU
+def menu(*,public=False,admin_rates=False):
+    labels=[OPEN_CATALOGUE] if public else [*MENU,*([RUBLE_MENU] if admin_rates else [])]
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
 
 class TelegramApp:
@@ -247,7 +248,8 @@ class TelegramApp:
             command=command[0].lower() if command else ''
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
-                        or text in CATALOGUE_COMMANDS or text in MENU or text in ('/menu','/cancel'))
+                        or text in CATALOGUE_COMMANDS or text in MENU or text in ('/menu','/cancel',RUBLE_MENU)
+                        or command in RATE_COMMANDS)
             await self.svc.rate(u,navigation=navigation)
             if update.callback_query:
                 e=update.callback_query
@@ -279,7 +281,7 @@ class TelegramApp:
             if text in ('/aggregators','/functions','🛠 Функции',MENU[0]):
                 await self.svc.conversation(u,'home')
                 if text==MENU[0] and ext in self.cfg.admin_ids:
-                    message=await self.say(ext,'Выберите агрегатор ниже.',menu())
+                    message=await self.say(ext,'Выберите агрегатор ниже.',menu(admin_rates=self.pool is not None and self.cfg.access_mode=='private'))
                     previous=self.aggregator_keyboard_messages.get(ext)
                     self.aggregator_keyboard_messages[ext]=message.message_id
                     if previous is not None:
@@ -298,6 +300,10 @@ class TelegramApp:
                 await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
             if command in ('/admit','/revoke','/markup_value'):
                 await self.models.command(u,ext,command,text.split()[1:]);return
+            if command in RATE_COMMANDS:
+                await self.tariffs.rate_command(u,ext,command,text.split()[1:]);return
+            if text==RUBLE_MENU:
+                await self.tariffs.callback(u,ext,'rublerate','');return
             if command in ('/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'):
                 await self.price_admin(u,ext,command,text.split()[1:]);return
             if text.startswith('/refund '):
@@ -323,7 +329,7 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
-                if context and ('tariff_admin' in context or 'tariff_preview' in context or 'our_markup' in context or 'anyvoice_tariff_selection' in context):
+                if context and any(key in context for key in ('tariff_admin','tariff_preview','our_markup','anyvoice_tariff_selection','price_rate')):
                     raise Rejected('Используйте команду с экрана настройки тарифа.')
                 if context and context.get('provider') in self.providers.interactive:
                     request=Request(context['provider'],context['model_id'],context['interaction'],
@@ -361,7 +367,8 @@ class TelegramApp:
             if update.pre_checkout_query:
                 await self.bot.answer_pre_checkout_query(update.pre_checkout_query.id,ok=False,error_message=str(e))
             elif isinstance(e,PriceUnavailable):
-                await self.catalogue_screen(ext,str(e),buttons([[('← Агрегаторы','providers')]]))
+                rows=[[rate_button(e.provider,e.cost.unit)]] if isinstance(e,MissingRate) and ext in self.cfg.admin_ids else []
+                await self.catalogue_screen(ext,str(e),buttons(rows+[[('← Агрегаторы','providers')]]))
             elif str(e).startswith('AnyModel:') and can_view(self.cfg,ext):
                 await self.catalogue_screen(ext,str(e),buttons([[('← AnyModel','am')]]))
             elif catalogue_callback and data.startswith('confirm:') and isinstance(update.callback_query.message,Message):
@@ -635,7 +642,7 @@ class TelegramApp:
     async def show_home(self,ext,*,replace_welcome=False):
         previous=await self.svc.welcome_message(ext)
         if previous is None or replace_welcome:
-            markup=menu(public=ext not in self.cfg.admin_ids)
+            markup=menu(public=ext not in self.cfg.admin_ids,admin_rates=self.pool is not None and self.cfg.access_mode=='private')
             try:
                 photo=BufferedInputFile(await asyncio.to_thread(WELCOME_BANNER.read_bytes),filename='welcome.png')
                 message=await self.bot.send_photo(ext,photo,caption=WELCOME_TEXT,reply_markup=markup)
@@ -686,7 +693,7 @@ class TelegramApp:
             raise Rejected('Агрегатор недоступен.')
         await self.tariffs.authorize(u,ext)
         if route=='pentry':
-            rows=[[('Наши модели',f'ours:{key}:0')],[('Рабочие модели',f'pcat:{key}:0')],
+            rows=[[('Наши модели',f'ours:{key}:0')],[('Курс и калькулятор',f'rates:{key}')],[('Рабочие модели',f'pcat:{key}:0')],
                   [('Все модели',f'pall:{key}:0')],[('← Агрегаторы','providers')]]
             await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows))
             return
@@ -761,7 +768,8 @@ class TelegramApp:
         if route=='am':
             await self.svc.conversation(u,'home')
             rows=[[(title,f'amsection:{key}')] for key,title in ANYMODEL_SECTIONS.items()]
-            rows.extend([[('Наши модели','ours:anymodel:0')],[('Все модели','amcat:current:0')],[('← Агрегаторы','providers')]])
+            rows.extend([[('Наши модели','ours:anymodel:0')],[('Курс и калькулятор','rates:anymodel')],
+                         [('Все модели','amcat:current:0')],[('← Агрегаторы','providers')]])
             try:
                 data=self.anymodel_snapshot(ext)
                 text=f"AnyModel\nМоделей: {len(data['models'])}\n"+self.anymodel_status(data)
@@ -913,8 +921,8 @@ class TelegramApp:
             if len(selected)>2800:
                 selected=selected[:2800]+'…'
             await self.catalogue_screen(ext,f'Выбрано голосов: {len(selection)}\n{selected}\n\n'
-                f'/voice_tariff {code} utf16 ЕДИНИЦА СТАВКА [СРОК] studio:ИСТОЧНИК\n'
-                f'/voice_tariff {code} test utf16 ЕДИНИЦА СТАВКА СРОК ИСТОЧНИК\n'
+                f'/voice_tariff {code} utf16 darkflow_token СТАВКА [СРОК] studio:ИСТОЧНИК\n'
+                f'/voice_tariff {code} test utf16 darkflow_token СТАВКА СРОК ИСТОЧНИК\n'
                 'Подтверждение поддержки можно указать как support:ИСТОЧНИК. Срок в ISO 8601 с часовым поясом.' ,
                 buttons([[('← Изменить выбор','amvprices:0')],[('← AnyVoice','amspeech:anyvoice')]]))
             return
@@ -1036,6 +1044,11 @@ class TelegramApp:
             await self.pricing.set_tariff(u,ext,provider,model,operation,params)
         elif command=='/price_rate' and len(args)==2:
             await self.pricing.set_rate(u,ext,*args)
+        elif command=='/price_rate' and len(args)==4:
+            provider,unit,source,target=args
+            if provider not in self.pricing.adapters:
+                raise Rejected('Агрегатор недоступен.')
+            await self.pricing.set_rate(u,ext,unit,target,provider=provider,source_amount=source)
         elif command=='/price_account' and len(args)==5:
             await self.pricing.reconcile(u,ext,uid(args[0]),*args[1:])
         else:
@@ -1058,7 +1071,7 @@ class TelegramApp:
         if source.get('evidence',{}).get('unavailable_metadata'):scope+=' Часть метаданных временно недоступна.'
         models_route=f'cat:{version}:{index}:0'
         if provider=='clodex':
-            rows=store_rows()+[[('Наши модели','ours:clodex:0')],[('Все модели',models_route)]]
+            rows=store_rows()+[[('Наши модели','ours:clodex:0')],[('Курс и калькулятор','rates:clodex')],[('Все модели',models_route)]]
         else:
             rows=[[(OPEN_CATALOGUE,models_route)]]
         rows.extend([

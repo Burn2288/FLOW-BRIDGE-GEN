@@ -41,7 +41,7 @@ class FixtureAggregator:
         except httpx.HTTPError:
             raise PriceUnavailable() from None
         amount=Decimal(response.json()['amount'])
-        return ProviderCost(amount,'anymodel_balance_token',True,'fixture /price','1 запрос')
+        return ProviderCost(amount,'fixture_token',True,'fixture /price','1 запрос')
 
     def background(self,operation):
         return None
@@ -87,6 +87,7 @@ async def test_third_provider_catalogue_and_tariff_preview(env):
     async with httpx.AsyncClient(base_url='https://fixture.invalid',transport=httpx.MockTransport(respond)) as http:
         bot=Bot()
         app=app_with_fixture(pool,cfg,bot,http)
+        await app.pricing.set_rate(user,100,'fixture_token','1',provider='fixture')
         await pool.execute("INSERT INTO approved_models VALUES('fixture',$1,'chat','Fixture chat')",model)
         await app.show_providers(100)
         await app.callback(user,100,routes(bot)['Тарифы моделей'])
@@ -98,7 +99,7 @@ async def test_third_provider_catalogue_and_tariff_preview(env):
         await app.callback(user,100,routes(bot)['Задать ручную ставку'])
         code=(await app.svc.aggregate_context(user))['tariff_admin']['code']
         await app.pricing.set_rule(user,100,'fixture',model,'percent','25')
-        await app.price_admin(user,100,'/tariff_set',[code,'request','anymodel_balance_token','80','fixture-source'])
+        await app.price_admin(user,100,'/tariff_set',[code,'request','darkflow_token','80','fixture-source'])
         assert all(s in bot.sent[-1][0] for s in ('Предпросмотр',model,'80','без срока','100 токенов'))
         assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
         await app.callback(user,100,routes(bot)['Сохранить ставки'])
@@ -153,6 +154,7 @@ async def test_confirmation_load_and_provider_failures(env):
 
     async with httpx.AsyncClient(base_url='https://fixture.invalid',transport=httpx.MockTransport(respond)) as http:
         app=app_with_fixture(pool,cfg,Bot(),http)
+        await app.pricing.set_rate(user,100,'fixture_token','1',provider='fixture')
         await pool.executemany("INSERT INTO approved_models VALUES('fixture',$1,'chat','Model')",
                                [(f'fixture/{i}',) for i in range(32)])
         quotes=[await app.pricing.quote(user,Request('fixture',f'fixture/{i}','chat','Model','Prompt'))
@@ -270,6 +272,7 @@ async def test_process_restart_after_acceptance_before_post(env,boundary,termina
 
     async with httpx.AsyncClient(base_url='https://fixture.invalid',transport=httpx.MockTransport(respond)) as http:
         app=app_with_fixture(pool,cfg,bot,http)
+        await app.pricing.set_rate(user,100,'fixture_token','1',provider='fixture')
         await pool.execute("INSERT INTO approved_models VALUES('fixture','fixture/restart','chat','Restart model')")
         q=await app.pricing.quote(user,Request('fixture','fixture/restart','chat','Restart model','Prompt'))
         schema=await pool.fetchval('SELECT current_schema()')

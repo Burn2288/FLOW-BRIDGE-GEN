@@ -2,14 +2,20 @@
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation, ROUND_CEILING
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
+from fractions import Fraction
 import json
+from math import ceil
 from typing import Protocol
 from uuid import UUID, uuid4
 
 from .core import Rejected, Service
 
-BOT_UNIT = 'токенов баланса'
+BOT_UNIT = 'токенов DarkFlow | Gen'
+BOT_TOKEN = 'darkflow_token'
+RATE_UNITS = {'anymodel_balance_token': 'anymodel', 'clodex_balance_token': 'clodex', 'USD': 'clodex'}
+UNIT_LABELS = {'anymodel_balance_token':'токенов AnyModel','clodex_balance_token':'токенов CLODEX',
+               BOT_TOKEN:BOT_UNIT}
 UNKNOWN_PRICE = 'Цена недоступна. Запуск закрыт.'
 POLICY_LOCK = 921189
 
@@ -21,6 +27,16 @@ class PriceUnavailable(Rejected):
 
 class NoProviderPrice(PriceUnavailable):
     """A successful lookup published no usable price for this operation."""
+
+
+class MissingTariff(PriceUnavailable):
+    """Neither the provider nor an active manual tariff supplied a price."""
+
+
+class MissingRate(PriceUnavailable):
+    def __init__(self, provider, cost):
+        self.provider, self.cost = provider, cost
+        Rejected.__init__(self, source_line(cost.amount,cost.unit,cost.source)+'\nКурс не настроен. Запуск закрыт.')
 
 
 def number(value):
@@ -107,6 +123,29 @@ def display(amount):
     return f'{int(Decimal(amount)):,}'.replace(',', '\u202f')
 
 
+def decimal_text(amount):
+    whole, dot, tail = format(Decimal(amount), ',f').partition('.')
+    tail = tail.rstrip('0')
+    return whole.replace(',', '\u202f') + (dot+tail if tail else '')
+
+
+def source_line(amount, unit, source):
+    label = 'Ручная себестоимость' if source.startswith('manual:') else 'Себестоимость API'
+    return f'{label}: {decimal_text(amount)} {UNIT_LABELS.get(unit,unit)}'
+
+
+def cost_lines(price):
+    lines = [source_line(price['provider_amount'],price['provider_unit'],price['source'])]
+    if price['provider_unit'] != BOT_TOKEN:
+        lines.append(f"После пересчёта: {decimal_text(price['base'])} {BOT_UNIT}")
+    return '\n'.join(lines)
+
+
+def total_text(price):
+    rubles = price.get('rubles')
+    return f"{display(price['total'])} {BOT_UNIT}" + (f' ≈ {decimal_text(rubles)} ₽' if rubles is not None else '')
+
+
 @dataclass(frozen=True)
 class Request:
     provider: str
@@ -142,13 +181,9 @@ class Quote:
         detail = ''
         if admin:
             price = self.price
-            source = 'ручной тариф' if price['source'].startswith('manual:') else 'API'
-            detail = (f"Себестоимость: {Decimal(price['provider_amount']).normalize():f} "
-                      f"{price['provider_unit']} ({source})\n"
-                      f"После пересчёта: {Decimal(price['base']).normalize():f} {BOT_UNIT}\n"
-                      f"Наценка: {Decimal(price['markup']).normalize():f} {BOT_UNIT}\n")
+            detail = cost_lines(price)+f"\nНаценка: {decimal_text(price['markup'])} {BOT_UNIT}\n"
         return (f"{self.request.title}\n{self.price['details']}\n"
-                f"{detail}{label}: {display(self.price['total'])} {BOT_UNIT}\nЗапустить генерацию?")
+                f"{detail}{label}: {total_text(self.price)}\nЗапустить генерацию?")
 
 
 class Pricing:
@@ -183,12 +218,18 @@ class Pricing:
             return 'unavailable',None,manual
         if cost is not None:
             return 'api',cost,manual
-        return 'manual' if manual and manual['active'] else 'missing',None,manual
+        if manual and manual['active']:
+            return 'manual',self.manual_price(request,manual),manual
+        return 'missing',None,manual
 
     async def manual_cost(self, conn, request):
         row = await self.manual_row(conn,request)
         if not row or not row['active']:
-            raise PriceUnavailable()
+            raise MissingTariff()
+        return self.manual_price(request,row)
+
+    @staticmethod
+    def manual_price(request,row):
         amount,details = manual_amount(request,row['basis'],row['amount'],row['output_amount'])
         if request.params:
             details += ' · ' + ' · '.join(f'{key}={value}' for key,value in request.params.items())
@@ -227,19 +268,32 @@ class Pricing:
     async def calculate(self, conn, request, cost):
         if cost is None:
             cost = await self.manual_cost(conn, request)
-        rate = await conn.fetchrow('SELECT multiplier,revision FROM task_price_rates WHERE source_unit=$1', cost.unit)
+        rate = await self.rate(conn,request.provider,cost.unit)
+        if rate is None and cost.source.startswith('manual:'):
+            # Existing manual tariffs explicitly chose a legacy unit.
+            rate = await conn.fetchrow('SELECT 1 AS source_amount,multiplier AS target_amount,revision '
+                                       'FROM task_price_rates WHERE source_unit=$1',cost.unit)
         if rate is None:
-            raise PriceUnavailable()
+            raise MissingRate(request.provider,cost)
         rule = await self.markup_rule(conn,request.provider,request.model)
-        base = cost.amount * rate['multiplier']
-        markup = Decimal(0)
+        ratio = Fraction(rate['target_amount']) / Fraction(rate['source_amount'])
+        base_exact = Fraction(cost.amount) * ratio
+        markup_exact = Fraction(0)
         if rule:
-            markup = base * rule['amount'] / 100 if rule['kind'] == 'percent' else rule['amount']
+            markup_exact = base_exact * Fraction(rule['amount']) / 100 if rule['kind']=='percent' else Fraction(rule['amount'])
+        total = ceil(base_exact+markup_exact)
+        with localcontext() as context:
+            context.prec = 48
+            multiplier = Decimal(rate['target_amount']) / Decimal(rate['source_amount'])
+            base = cost.amount * Decimal(rate['target_amount']) / Decimal(rate['source_amount'])
+            markup = Decimal(markup_exact.numerator) / Decimal(markup_exact.denominator)
+            rubles = await self.ruble_amount(conn,total)
         return {
             'provider_amount': str(cost.amount), 'provider_unit': cost.unit, 'source': cost.source,
             'estimate': cost.estimate, 'details': cost.details, 'bot_unit': BOT_UNIT,
-            'rate': str(rate['multiplier']), 'rate_revision': rate['revision'], 'rounding': 'ceiling',
-            'base': str(base), 'markup': str(markup), 'total': str((base+markup).to_integral_value(rounding=ROUND_CEILING)),
+            'rate': str(multiplier), 'rate_revision': rate['revision'], 'rounding': 'ceiling',
+            'rate_source_amount':str(rate['source_amount']), 'rate_target_amount':str(rate['target_amount']),
+            'base': str(base), 'markup': str(markup), 'total': str(total), 'rubles':rubles,
             'rule_revision': rule['revision'] if rule else None,
             'rule_kind': rule['kind'] if rule else 'percent',
             'rule_amount': str(rule['amount']) if rule else '0',
@@ -295,7 +349,8 @@ class Pricing:
             if not row:
                 raise Rejected('Оценка отменена или запрос уже принят.')
             price = await self.calculate(conn, request, cost)
-            if row['expired'] or price != json.loads(row['price']):
+            previous = json.loads(row['price'])
+            if row['expired'] or price['total'] != previous['total']:
                 await conn.execute("UPDATE task_price_quotes SET state='superseded' WHERE id=$1", quote_id)
                 return await self.insert(conn, user, request, price), False
             quote = Quote(quote_id, request, price)
@@ -303,8 +358,8 @@ class Pricing:
                 raise Rejected('Запрос уже принят.')
             await prepare(conn, quote)
             await conn.execute("""
-                UPDATE task_price_quotes SET state='accepted',accepted_at=now(),update_id=$2 WHERE id=$1
-                """, quote_id, update_id)
+                UPDATE task_price_quotes SET state='accepted',accepted_at=now(),update_id=$2,price=$3::jsonb WHERE id=$1
+                """, quote_id, update_id, json.dumps(price))
             return quote, True
 
     async def invalidate(self, user, provider, model, operation):
@@ -340,8 +395,8 @@ class Pricing:
             for model in models:
                 request = Request(provider,model,operation,model,'Пример тарифа',params)
                 cost,details = manual_amount(request,fields['basis'],amount,output)
-                price = await self.calculate(conn,request,ProviderCost(cost,fields['unit'],True,'preview',details))
-                examples.append((model,price['total'],details))
+                price = await self.calculate(conn,request,ProviderCost(cost,fields['unit'],True,'manual:preview',details))
+                examples.append((model,price,details))
             return examples
 
     async def set_tariff(self, user, external, provider, model, operation, params, *,
@@ -376,7 +431,9 @@ class Pricing:
                 return
             amount,output_amount,expiry = validate_manual_tariff(provider,models,operation,basis=basis,
                 unit=unit,amount=amount,expires=expires,evidence=evidence,temporary=temporary)
-            if not await conn.fetchval('SELECT 1 FROM task_price_rates WHERE source_unit=$1', unit):
+            if not await self.rate(conn,provider,unit) and not await conn.fetchval(
+                'SELECT 1 FROM task_price_rates WHERE source_unit=$1',unit,
+            ):
                 raise Rejected('Курс для этой единицы цены не задан.')
             await conn.executemany("""
                 INSERT INTO task_manual_tariffs(provider,model_id,operation,params,basis,source_unit,
@@ -410,17 +467,50 @@ class Pricing:
             else:
                 raise Rejected('Доступные правила: percent, fixed, remove.')
 
-    async def set_rate(self, user, external, unit, amount):
-        rate = number(amount)
-        if not rate:
-            raise PriceUnavailable()
+    async def rate(self, conn, provider, unit):
+        if unit==BOT_TOKEN:
+            return {'source_amount':1,'target_amount':1,'revision':None}
+        return await conn.fetchrow('SELECT source_amount,target_amount,revision FROM task_price_conversions '
+                                   'WHERE provider=$1 AND source_unit=$2',provider,unit)
+
+    @staticmethod
+    def convert(amount,rate):
+        with localcontext() as context:
+            context.prec = 48
+            return amount*Decimal(rate['target_amount'])/Decimal(rate['source_amount'])
+
+    async def set_rate(self, user, external, unit, amount, *, provider=None, source_amount='1'):
+        provider = provider or RATE_UNITS.get(unit)
+        if provider is None and len(self.adapters)==1:
+            provider = next(iter(self.adapters))
+        source,target = number(source_amount),number(amount)
+        if not source or not target or not provider or unit==BOT_TOKEN:
+            raise Rejected('Укажите агрегатор, единицу и две положительные суммы.')
         async with self.pool.acquire() as conn, conn.transaction():
             await self.admin(conn, user, external)
             await conn.execute('SELECT pg_advisory_xact_lock($1::bigint)', POLICY_LOCK)
             await conn.execute("""
-                INSERT INTO task_price_rates(source_unit,multiplier) VALUES($1,$2)
-                ON CONFLICT(source_unit) DO UPDATE SET multiplier=excluded.multiplier,revision=excluded.revision
-                """, unit, rate)
+                INSERT INTO task_price_conversions(provider,source_unit,source_amount,target_amount) VALUES($1,$2,$3,$4)
+                ON CONFLICT(provider,source_unit) DO UPDATE SET source_amount=excluded.source_amount,
+                    target_amount=excluded.target_amount,revision=excluded.revision
+                """, provider,unit,source,target)
+
+    async def set_ruble_rate(self,user,external,bot_amount,rubles):
+        bot_amount,rubles = number(bot_amount),number(rubles)
+        if not bot_amount or not rubles:
+            raise Rejected('Обе суммы должны быть положительными.')
+        async with self.pool.acquire() as conn, conn.transaction():
+            await self.admin(conn,user,external)
+            await conn.execute('INSERT INTO task_ruble_equivalent VALUES(1,$1,$2) ON CONFLICT(id) '
+                               'DO UPDATE SET bot_amount=excluded.bot_amount,rubles=excluded.rubles',bot_amount,rubles)
+
+    @staticmethod
+    async def ruble_amount(conn,total):
+        rate = await conn.fetchrow('SELECT bot_amount,rubles FROM task_ruble_equivalent WHERE id=1')
+        if rate:
+            with localcontext() as context:
+                context.prec = 96
+                return str((Decimal(total)*rate['rubles']/rate['bot_amount']).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP))
 
     async def reconcile(self, user, external, quote_id, debit, refund, provider_cost, reference):
         debit, refund = number(debit), number(refund)

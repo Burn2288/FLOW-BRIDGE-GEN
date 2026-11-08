@@ -143,14 +143,14 @@ async def test_tariff_catalogue_exact_mode_and_disable(env,tmp_path):
     await app.callback(user,100,routes(app.bot)['quality · high'])
     await app.callback(user,100,routes(app.bot)['Задать ручную ставку'])
     code=(await svc.aggregate_context(user))['tariff_admin']['code']
-    await app.price_admin(user,100,'/tariff_set',[code,'image','anymodel_balance_token','21','fixture-source'])
-    assert '21 токенов баланса' in app.bot.sent[-1][0]
+    await app.price_admin(user,100,'/tariff_set',[code,'image','darkflow_token','21','fixture-source'])
+    assert '21 токенов DarkFlow | Gen' in app.bot.sent[-1][0]
     assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
     await app.callback(user,100,routes(app.bot)['Отмена'])
     assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
     await app.callback(user,100,routes(app.bot)['Задать ручную ставку'])
     code=(await svc.aggregate_context(user))['tariff_admin']['code']
-    await app.price_admin(user,100,'/tariff_set',[code,'image','anymodel_balance_token','21','fixture-source'])
+    await app.price_admin(user,100,'/tariff_set',[code,'image','darkflow_token','21','fixture-source'])
     await app.callback(user,100,routes(app.bot)['Сохранить ставки'])
     req=Request('clodex',model,'images.generate','Fixture image','Prompt',{'n':1,'quality':'high'})
     assert (await app.pricing.quote(user,req)).price['total']=='21'

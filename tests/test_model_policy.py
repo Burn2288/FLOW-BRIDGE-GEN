@@ -14,7 +14,8 @@ from test_ui import Bot
 class Prices:
     async def cost(self,req):
         return ProviderCost(Decimal(100 if req.model=='anymedia/fibo-2' else 200),
-                            'anymodel_balance_token',True,'fixture','1 единица')
+                            'anymodel_balance_token' if req.provider=='anymodel' else 'clodex_balance_token',
+                            True,'fixture','1 единица')
 
 
 async def test_modes_and_legacy_migration(env):
@@ -22,6 +23,7 @@ async def test_modes_and_legacy_migration(env):
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True)
     app=TelegramApp(pool,cfg,Bot())
     app.pricing.adapters.update(anymodel=Prices(),clodex=Prices())
+    await app.pricing.set_rate(user,100,'clodex_balance_token','1')
     fibo=Request('anymodel','anymedia/fibo-2','images.generate','FIBO 2','Проверка тарифа')
     fish=Request('anymodel','fish-farm/s2.1-pro-free','audio.speech','Fish','Проверка тарифа')
     flux=Request('clodex','flux-schnell','images.generate','FLUX','Проверка тарифа',{'n':1})
