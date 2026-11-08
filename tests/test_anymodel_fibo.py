@@ -76,7 +76,7 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
         home=routes(bot)
         assert set(home.values())=={
             'amsection:video','amsection:image','amsection:speech','amsection:chat','amsection:tools',
-            'amcat:current:0','ours:anymodel:0','providers',
+            'amcat:current:0','ours:anymodel:0','rates:anymodel','providers',
         }
         for section in ('chat','tools'):
             await app.callback(user,100,f'amsection:{section}')

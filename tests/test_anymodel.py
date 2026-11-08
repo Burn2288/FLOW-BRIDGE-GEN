@@ -104,7 +104,7 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         await app.callback(user,100,f'runmodel:{version}:0:chat')
         await manual_tariff(app,user,TEST_MODEL,'chat',{'max_tokens':512})
         await app.handle(event('hello CLODEX').model_copy(update={'update_id':4}))
-        assert 'ручной тариф' in bot.sent[-1][0]
+        assert 'Ручная себестоимость: 100 токенов DarkFlow | Gen' in bot.sent[-1][0]
         await app.handle(event(callback=routes(bot)['Генерировать']).model_copy(update={'update_id':5}))
         assert 'Reply from clodex.xyz' in bot.sent[-1][0]
         assert [call[:4] for call in calls if call[0]=='POST']==[
