@@ -1,12 +1,14 @@
 """Telegram transport. Durable inbox polling; business rules live in core."""
 import asyncio,hashlib,json,re,time
 from datetime import datetime,timezone
+from hmac import compare_digest
 from pathlib import Path
 from uuid import uuid4
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice,BotCommand,
-                           BotCommandScopeDefault,BotCommandScopeChat)
+                           BotCommandScopeDefault,BotCommandScopeChat,ForceReply,ReplyKeyboardRemove)
+from .admin_access import AdminAccess, PASSWORD_PROMPT, digest
 from .core import ConsentRequired,Service,Rejected,uid
 from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
@@ -84,6 +86,7 @@ def menu(*,public=False,admin_rates=False,balance=None):
 class TelegramApp:
     def __init__(self,pool,cfg,bot,*,providers=None):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
+        self.admin_access=AdminAccess()
         self.catalogue_messages = {}
         self.catalogue_animations = set()
         self.aggregator_keyboard_messages = {}
@@ -131,7 +134,7 @@ class TelegramApp:
         return label
 
     async def reply_menu(self,chat):
-        if chat not in self.cfg.admin_ids:
+        if not self.has_admin_session(chat):
             return menu(public=True)
         rows=await self.balance_menu_rows([chat])
         return menu(admin_rates=self.pool is not None and self.cfg.access_mode=='private',
@@ -144,9 +147,8 @@ class TelegramApp:
                 self.balance_keyboard_labels[chat]=label
 
     async def refresh_balance_keyboards(self,chat=None):
-        if chat is not None and chat not in self.cfg.admin_ids:
-            return
-        chats=self.cfg.admin_ids if chat is None else [chat]
+        candidates=self.cfg.admin_ids if chat is None else (chat,)
+        chats=[ext for ext in candidates if self.has_admin_session(ext)]
         for row in await self.balance_menu_rows(chats):
             ext=row['external_id']
             if row['welcome_message_id'] is None and ext not in self.balance_keyboard_labels and chat is None:
@@ -271,7 +273,116 @@ class TelegramApp:
                 await self.progress.finish(ext,message,model,'Не удалось получить озвучку.')
                 trace_interaction(str(job),'result_display_failed',error_type=type(error).__name__)
 
-    async def handle(self,update):
+    def has_admin_session(self,ext):
+        return ext in self.cfg.admin_ids and self.admin_access.active(ext,self.cfg.admin_password)
+
+    async def delete_auth_message(self,message):
+        try:
+            await self.bot.delete_message(message.chat.id,message.message_id)
+        except (ClientDecodeError,TelegramAPIError):
+            pass
+
+    async def intercept_admin_update(self,update,*,allow_login=True):
+        event=update.pre_checkout_query or update.callback_query or update.message
+        if not event or not event.from_user or event.from_user.is_bot:
+            return False
+        ext=event.from_user.id
+        message=update.message
+        text=(message.text or '') if message else ''
+        words=text.lstrip().split(maxsplit=1)
+        command=words[0].lower().partition('@')[0] if words else ''
+        login_command=command in ('/admin','/admin_logout')
+        reply=message.reply_to_message if message else None
+        password_reply=bool(reply and reply.from_user and reply.from_user.is_bot and reply.text==PASSWORD_PROMPT)
+        password=self.cfg.admin_password
+        content=(message.text or message.caption or '') if message else ''
+        literal_secret=bool(password and content and compare_digest(digest(content),digest(password)))
+        waiting=ext in self.admin_access.prompts
+        if message and (message.chat.type!='private' or message.chat.id!=ext):
+            return login_command or password_reply or literal_secret
+        if message and (message.successful_payment or message.refunded_payment):
+            return False
+
+        eligible=ext in self.cfg.admin_ids
+        if message and (password_reply or (waiting and not login_command) or (literal_secret and not login_command)):
+            if not allow_login:return True
+            try:
+                status=(self.admin_access.verify(ext,password,text,reply.message_id if password_reply else None)
+                        if eligible and message.text is not None else 'expired')
+            finally:
+                await self.delete_auth_message(message)
+            if status=='ok':
+                u=await self.svc.identity(ext)
+                try:
+                    await self.svc.conversation(u,'home')
+                except Rejected as error:
+                    await self.say(ext,str(error))
+                else:
+                    await self.say(ext,'Вход выполнен на 8 часов.',menu())
+                    await self.show_providers(ext)
+            else:
+                feedback={'incorrect':'Неверный пароль. Попробуйте ещё раз.',
+                          'locked':'Слишком много попыток. Попробуйте позже.',
+                          'expired':'Откройте новый запрос на вход через /admin.'}
+                await self.say(ext,feedback[status] if eligible and password else 'Админ-доступ закрыт.')
+            return True
+
+        if message and login_command:
+            if not allow_login:return True
+            await self.delete_auth_message(message)
+            if not eligible:
+                await self.say(ext,'Админ-доступ закрыт.')
+            elif command=='/admin_logout':
+                self.admin_access.logout(ext)
+                self.balance_keyboard_labels.pop(ext,None)
+                await self.bot.send_message(ext,'Вы вышли из админки.',reply_markup=ReplyKeyboardRemove())
+            elif not password:
+                await self.say(ext,'Админ-доступ закрыт.')
+            elif len(words)>1:
+                await self.say(ext,'Отправьте /admin без пароля и ответьте на запрос бота.')
+            elif self.has_admin_session(ext):
+                await self.show_providers(ext)
+            elif self.admin_access.locked(ext):
+                await self.say(ext,'Слишком много попыток. Попробуйте позже.')
+            else:
+                prompt=await self.bot.send_message(ext,PASSWORD_PROMPT,reply_markup=ForceReply(selective=True))
+                self.admin_access.challenge(ext,prompt.message_id)
+            return True
+
+        if not eligible or self.has_admin_session(ext):
+            return False
+        if text=='/start' or (update.callback_query and update.callback_query.data=='accept'):
+            return False
+        notice='Войдите через /admin.' if password else 'Админ-доступ закрыт.'
+        if update.callback_query:
+            await self.bot.answer_callback_query(event.id,text=notice)
+        elif update.pre_checkout_query:
+            await self.bot.answer_pre_checkout_query(event.id,ok=False,error_message=notice)
+        elif message:
+            await self.say(ext,notice)
+        return True
+
+    async def enqueue_updates(self,updates):
+        pending=[]
+        for update in sorted(updates,key=lambda item:item.update_id):
+            try:
+                handled=await self.intercept_admin_update(update)
+            except (ClientDecodeError,TelegramAPIError):
+                # Auth events never enter the inbox, including when the response fails.
+                handled=True
+            if not handled:
+                pending.append(update)
+        # Reply/quote data is not used for dispatch and can contain a previous secret.
+        quoted={'reply_to_message','quote','external_reply','pinned_message'}
+        exclude={'message':quoted,'callback_query':{'message':quoted}}
+        async with self.pool.acquire() as c,c.transaction():
+            for update in pending:
+                await c.execute('INSERT INTO inbox(update_id,payload) VALUES($1,$2::jsonb) ON CONFLICT DO NOTHING',
+                                update.update_id,update.model_dump_json(exclude=exclude))
+            await c.execute('UPDATE poll_state SET offset_id=$1 WHERE id=1',max(u.update_id for u in updates)+1)
+
+    async def handle(self,update,*,from_inbox=False):
+        if await self.intercept_admin_update(update,allow_login=not from_inbox):return
         event=update.pre_checkout_query or update.callback_query or update.message
         if not event or not event.from_user or event.from_user.is_bot:return
         ext=event.from_user.id
@@ -1757,7 +1868,9 @@ async def register_commands(bot, admin_ids):
     base = [BotCommand(command='start',description='Запустить бота'),
             BotCommand(command='menu',description='Главное меню'),
             BotCommand(command='cancel',description='Отменить текущее действие')]
-    admin = [*base,BotCommand(command='price_report',description='Отчёт по ценам и расходам')]
+    admin = [*base,BotCommand(command='price_report',description='Отчёт по ценам и расходам'),
+             BotCommand(command='admin',description='Войти в админку'),
+             BotCommand(command='admin_logout',description='Выйти из админки')]
     scopes = [(BotCommandScopeDefault(),base)]
     scopes.extend((BotCommandScopeChat(chat_id=chat_id),admin)
                   for chat_id in dict.fromkeys(admin_ids) if chat_id>0)
@@ -1791,7 +1904,7 @@ async def poll(pool,cfg,bot):
             async with pool.acquire() as c:
                 pending=await c.fetch('SELECT update_id,payload FROM inbox WHERE NOT done ORDER BY update_id LIMIT 100')
             for r in pending:
-                try:await app.handle(Update.model_validate_json(r['payload']))
+                try:await app.handle(Update.model_validate_json(r['payload']),from_inbox=True)
                 except (ValueError,TypeError,IndexError):
                     # malformed stale callback cannot poison inbox; safe generic response
                     pass
@@ -1808,10 +1921,7 @@ async def poll(pool,cfg,bot):
                     print(json.dumps({'event':'telegram_network_retry'}),flush=True)
                     await asyncio.sleep(5);continue
                 if updates:
-                    async with pool.acquire() as c,c.transaction():
-                        for u in updates:
-                            await c.execute('INSERT INTO inbox(update_id,payload) VALUES($1,$2::jsonb) ON CONFLICT DO NOTHING',u.update_id,u.model_dump_json())
-                        await c.execute('UPDATE poll_state SET offset_id=$1 WHERE id=1',max(u.update_id for u in updates)+1)
+                    await app.enqueue_updates(updates)
             async with pool.acquire() as c:await c.execute("INSERT INTO heartbeat VALUES('bot',now()) ON CONFLICT(component) DO UPDATE SET seen_at=now()")
 
 async def reconcile_stars(pool,bot,max_pages=100):

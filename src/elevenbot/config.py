@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 
@@ -26,6 +26,7 @@ class Config:
     terms: str = 'Условия коммерческого сервиса пока не опубликованы.'
     privacy: str = 'Политика обработки данных пока не опубликована.'
     admin_ids: tuple[int, ...] = ()
+    admin_password: str = field(default='', repr=False)
     clodex_key: str = ''
     anymodel_key: str = ''
     anymodel_test_enabled: bool = False
@@ -72,6 +73,7 @@ class Config:
               support=os.getenv('SUPPORT_CONTACT',cls.support),terms=os.getenv('TERMS_TEXT',cls.terms),
               privacy=os.getenv('PRIVACY_TEXT',cls.privacy),
               admin_ids=tuple(int(x) for x in os.getenv('ADMIN_TELEGRAM_IDS','').split(',') if x.strip()),
+              admin_password=os.getenv('ADMIN_PASSWORD',''),
               interaction_mode=os.getenv('CLODEX_INTERACTION_MODE','off'),
               video_pilot=flag('CLODEX_VIDEO_PILOT'),
               interaction_limit=int(os.getenv('CLODEX_INTERACTION_LIMIT','0')),

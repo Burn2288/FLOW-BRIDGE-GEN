@@ -5,6 +5,13 @@ from elevenbot.db import connect,migrate
 from elevenbot.config import Config
 from elevenbot.core import Service
 
+
+@pytest.fixture(autouse=True)
+def admin_already_signed_in(monkeypatch):
+    # Existing feature tests exercise an administrator after sign-in.
+    from elevenbot.admin_access import AdminAccess
+    monkeypatch.setattr(AdminAccess,'active',lambda self,chat,password:True)
+
 @pytest_asyncio.fixture
 async def env(tmp_path):
     dsn=os.getenv('TEST_DATABASE_URL')
