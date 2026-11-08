@@ -132,3 +132,8 @@
 
 - [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727218079), SHA `dd94f9dcfa83eabb78eb01b7a43899542ef6984a` на `flowbridge-live-smoke`. На старте зарегистрированы три общие команды и отдельный `/price_report` в двух чатах администраторов. `getMyCommands` подтвердил списки, тест проверил отказ гостю. `halted=true`.
 - Локально 306 тестов. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42524100636) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42524100705). PR ожидает ревью.
+
+### Команда /menu открывает выбор агрегатора
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727313874), SHA `c3bc7b8a2eada6bddb1697b0c29ea4123f88f3e1` на `flowbridge-live-smoke`. Кнопка «Агрегаторы», `/menu` и `/menu@имя_бота` из карточки FIBO 2 открыли одинаковый экран с GIF. Приветствие сохранено, в подсказках «Главное меню». `halted=true`, генераций 0.
+- Локально 306 тестов. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42524859479) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42524859473). PR ожидает ревью.
