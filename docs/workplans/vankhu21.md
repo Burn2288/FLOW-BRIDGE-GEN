@@ -127,3 +127,8 @@
 
 - [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727060177), SHA `eff7bdce9a03246be244d10040c17f97d221213d` на `flowbridge-live-smoke`. FIBO 2 и Veo 3.1 возвращаются в исходные списки одной кнопкой, действия сохранены. Настройка стоимости токенов стоит перед «Помощью» при старте и автообновлении баланса.
 - Локально 304 теста, [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42522795792) и [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42522795763) зелёные. `halted=true`, генераций 0. PR ожидает ревью.
+
+### Подсказки команд Telegram Admin Edition
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727218079), SHA `dd94f9dcfa83eabb78eb01b7a43899542ef6984a` на `flowbridge-live-smoke`. На старте зарегистрированы три общие команды и отдельный `/price_report` в двух чатах администраторов. `getMyCommands` подтвердил списки, тест проверил отказ гостю. `halted=true`.
+- Локально 306 тестов. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42524100636) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42524100705). PR ожидает ревью.
