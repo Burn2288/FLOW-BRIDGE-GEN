@@ -115,3 +115,8 @@
 
 - [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6726531861), SHA `e147db36a4fefb531e30016407bb4616dfa315d0` на `flowbridge-live-smoke`. Общий порядок рабочих разделов и отдельный экран управления. На стенде проверены CLODEX и AnyModel, обратная навигация и отказы гостю. Третий провайдер из реестра покрыт заглушкой.
 - Локально 303 теста, [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42518727407) и [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42518727392) зелёные. `halted=true`, генераций 0. PR ожидает ревью.
+
+### Баланс на нижней клавиатуре Admin Edition
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6726815222), SHA `e3cc8ee639103b72d2a84f885449a84286d21c22`. Третья кнопка показывает актуальный остаток и, если задан курс, рублёвый эквивалент. Старые числовые подписи и «Баланс» открывают действующий экран.
+- На отдельной PostgreSQL с тестовым транспортом проверены порядок кнопок, нулевой и ненулевой остаток, отсутствие курса, обновление после начисления и перезапуска. Локально 304 теста. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42521048883) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42521048898). PR ожидает ревью.
