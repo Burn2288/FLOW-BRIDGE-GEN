@@ -74,3 +74,9 @@
 - В [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16) добавлены ручные тарифы с истечением, подтверждение CLODEX и сохранение ответов чата в «Моих работах». SHA `d8d36350a7e09e21878f29bb4b6416c1a6a036c8`.
 - 282 теста на изолированной PostgreSQL. Проверки обновлённого SHA: [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42493271708) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42493271162).
 - На `flowbridge-live-smoke` один бот, миграция 020 применена. Подтверждены расчёты AnyModel и Veo Fast, блокировка отсутствующего или истёкшего тарифа. Платных запусков нет. PR ожидает ревью.
+
+## AnyVoice и новые модели · S3/S5
+
+- [PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16), SHA `743ab5c13d8781bedc958bd3723cbe9cfa2e5b04`. Выбор и массовая настройка голосов AnyVoice, новые единицы ручного тарифа, динамический каталог видео и озвучки.
+- На стенде подтверждены 54 русских и 10 английских голосов на обоих экранах. Заглушки подтвердили появление нового пресета и по одному запуску нового ID для изображения, видео и озвучки. Миграция 021 применена. Платных запусков нет, подтверждённых ручных ставок в БД нет.
+- 290 тестов на отдельной PostgreSQL. Проверки этого SHA: [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42494548897) · [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42494548780). PR ожидает ревью.
