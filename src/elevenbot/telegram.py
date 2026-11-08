@@ -7,7 +7,7 @@ from uuid import uuid4
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice,BotCommand,
-                           BotCommandScopeDefault,BotCommandScopeChat,ForceReply,ReplyKeyboardRemove)
+                           BotCommandScopeDefault,BotCommandScopeChat,ForceReply)
 from .admin_access import AdminAccess, PASSWORD_PROMPT, digest
 from .core import ConsentRequired,Service,Rejected,uid
 from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError
@@ -15,7 +15,7 @@ from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
 from .video import DEFAULT_VIDEO_MODELS,VIDEO_PARAMS,VideoPilot,catalogue_video_ids,video_modes
 from .anymodel_video import AnyModelVideoPilot,MODEL as ANYMODEL_VIDEO_MODEL,TITLE as ANYMODEL_VIDEO_TITLE
-from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_image,can_view,model_store
+from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_image,available as anymodel_available,model_store
 from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
@@ -62,6 +62,15 @@ ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠
 SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
 CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','🛠 Функции',MENU[0],OPEN_CATALOGUE)
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
+ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
+    '/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'}
+ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|{
+    'agmanage','agfunctions','agfunction','pall','pview','amcat','ammdl','amvprices','amvpick','amvready',
+}
+
+
+def admin_callback(data):
+    return data.partition(':')[0] in ADMIN_CALLBACKS or (data.startswith('mwork:') and data.split(':')[2:3]==['dev'])
 MODEL_ACTIONS={
     'chat':'💬 Начать диалог',
     'images.generate':'🖼 Создать изображение',
@@ -78,9 +87,9 @@ def store_rows():
     rows.extend([[('📁 Мои работы','history:0')],[(STORE_SECTIONS['chat'][0],'slist:current:chat:0')]])
     return rows
 
-def menu(*,public=False,admin_rates=False,balance=None):
-    labels=[OPEN_CATALOGUE] if public else [MENU[0],MENU[1],balance or MENU[2],MENU[3]]
-    if admin_rates and not public:labels.insert(3,RUBLE_MENU)
+def menu(*,admin_rates=False,balance=None):
+    labels=[MENU[0],MENU[1],balance or MENU[2],MENU[3]]
+    if admin_rates:labels.insert(3,RUBLE_MENU)
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
 
 class TelegramApp:
@@ -116,7 +125,7 @@ class TelegramApp:
         return message
 
     async def balance_menu_rows(self,chats):
-        if self.pool is None or self.cfg.access_mode!='private' or not chats:
+        if self.pool is None or not chats:
             return []
         return await self.pool.fetch("""
             SELECT i.external_id,i.welcome_message_id,w.available,r.bot_amount,r.rubles
@@ -134,33 +143,32 @@ class TelegramApp:
         return label
 
     async def reply_menu(self,chat):
-        if not self.has_admin_session(chat):
-            return menu(public=True)
         rows=await self.balance_menu_rows([chat])
-        return menu(admin_rates=self.pool is not None and self.cfg.access_mode=='private',
-                    balance=self.balance_label(rows[0]) if rows else None)
+        return self.role_keyboard(chat,self.balance_label(rows[0]) if rows else None)
+
+    def role_keyboard(self,chat,balance=None):
+        return menu(admin_rates=self.has_admin_session(chat) and self.pool is not None
+                    and self.cfg.access_mode=='private',balance=balance)
 
     def remember_balance_keyboard(self,chat,markup):
         if len(markup.keyboard)>=3:
-            label=markup.keyboard[2][0].text
-            if BALANCE_BUTTON.fullmatch(label):
-                self.balance_keyboard_labels[chat]=label
+            self.balance_keyboard_labels[chat]=tuple(row[0].text for row in markup.keyboard)
 
     async def refresh_balance_keyboards(self,chat=None):
-        candidates=self.cfg.admin_ids if chat is None else (chat,)
-        chats=[ext for ext in candidates if self.has_admin_session(ext)]
+        chats=list(dict.fromkeys((*self.cfg.admin_ids,*self.balance_keyboard_labels))) if chat is None else [chat]
         for row in await self.balance_menu_rows(chats):
             ext=row['external_id']
             if row['welcome_message_id'] is None and ext not in self.balance_keyboard_labels and chat is None:
                 continue
-            label=self.balance_label(row)
-            if self.balance_keyboard_labels.get(ext)==label:
+            markup=self.role_keyboard(ext,self.balance_label(row))
+            labels=tuple(row[0].text for row in markup.keyboard)
+            if self.balance_keyboard_labels.get(ext)==labels:
                 continue
             try:
-                message=await self.bot.send_message(ext,'Главное меню',reply_markup=menu(admin_rates=True,balance=label))
+                message=await self.bot.send_message(ext,'Главное меню',reply_markup=markup)
             except (ClientDecodeError,TelegramAPIError):
                 continue
-            self.balance_keyboard_labels[ext]=label
+            self.balance_keyboard_labels[ext]=labels
             previous=self.balance_keyboard_messages.get(ext)
             self.balance_keyboard_messages[ext]=message.message_id
             if previous is not None:
@@ -244,7 +252,7 @@ class TelegramApp:
             for index,model in enumerate(snapshot['models']):
                 if model.get('provider')!='clodex' or model['id']!=model_id:
                     continue
-                scope=section if index in published else 'dev' if ext in self.cfg.admin_ids else None
+                scope=section if index in published else 'dev' if self.has_admin_session(ext) else None
                 if scope:
                     rows.append([('История модели',f'mwork:{snapshot["version"]}:{scope}:{index}:0')])
                     break
@@ -304,6 +312,12 @@ class TelegramApp:
             return False
 
         eligible=ext in self.cfg.admin_ids
+        # Navigating away abandons the challenge so the next prompt stays a user request.
+        user_navigation=bool(update.callback_query or command.startswith('/') or text in MENU
+                             or text==OPEN_CATALOGUE or BALANCE_BUTTON.fullmatch(text))
+        if waiting and user_navigation and not (login_command or password_reply or literal_secret):
+            self.admin_access.prompts.pop(ext,None)
+            waiting=False
         if message and (password_reply or (waiting and not login_command) or (literal_secret and not login_command)):
             if not allow_login:return True
             try:
@@ -335,7 +349,14 @@ class TelegramApp:
             elif command=='/admin_logout':
                 self.admin_access.logout(ext)
                 self.balance_keyboard_labels.pop(ext,None)
-                await self.bot.send_message(ext,'Вы вышли из админки.',reply_markup=ReplyKeyboardRemove())
+                try:
+                    u=await self.svc.identity(ext)
+                    await self.svc.conversation(u,'home')
+                except Rejected as error:
+                    await self.say(ext,str(error),menu())
+                else:
+                    await self.say(ext,'Вы вышли из админки.',menu())
+                    await self.show_providers(ext)
             elif not password:
                 await self.say(ext,'Админ-доступ закрыт.')
             elif len(words)>1:
@@ -349,18 +370,12 @@ class TelegramApp:
                 self.admin_access.challenge(ext,prompt.message_id)
             return True
 
-        if not eligible or self.has_admin_session(ext):
-            return False
-        if text=='/start' or (update.callback_query and update.callback_query.data=='accept'):
-            return False
-        notice='Войдите через /admin.' if password else 'Админ-доступ закрыт.'
-        if update.callback_query:
-            await self.bot.answer_callback_query(event.id,text=notice)
-        elif update.pre_checkout_query:
-            await self.bot.answer_pre_checkout_query(event.id,ok=False,error_message=notice)
-        elif message:
-            await self.say(ext,notice)
-        return True
+        return False
+
+    def admin_denial(self,ext):
+        if ext in self.cfg.admin_ids and self.cfg.admin_password:
+            return 'Войдите через /admin.'
+        return 'Админ-доступ закрыт.'
 
     async def enqueue_updates(self,updates):
         pending=[]
@@ -388,12 +403,6 @@ class TelegramApp:
         ext=event.from_user.id
         if update.message and update.message.chat.type!='private':return
         if update.callback_query and (not update.callback_query.message or update.callback_query.message.chat.type!='private'):return
-        financial_receipt=bool(update.message and (update.message.successful_payment or update.message.refunded_payment))
-        if self.cfg.access_mode=='private' and ext not in self.cfg.admin_ids and not financial_receipt:
-            if update.pre_checkout_query:await self.bot.answer_pre_checkout_query(event.id,ok=False,error_message='Доступ закрыт.')
-            elif update.callback_query:await self.bot.answer_callback_query(event.id,text='Доступ закрыт.')
-            else:await self.say(ext,'Бот работает в закрытом режиме.')
-            return
         u=await self.svc.identity(ext)
         catalogue_callback = False
         try:
@@ -423,8 +432,15 @@ class TelegramApp:
             if BALANCE_BUTTON.fullmatch(text):
                 text=MENU[2]
             command=text.lstrip().split(maxsplit=1)
-            command=command[0].lower() if command else ''
-            aggregator_menu=text==MENU[0] or command.partition('@')[0]=='/menu'
+            command=command[0].lower().partition('@')[0] if command else ''
+            if not self.has_admin_session(ext):
+                if update.callback_query and admin_callback(data):
+                    await self.bot.answer_callback_query(update.callback_query.id,text=self.admin_denial(ext))
+                    return
+                if command in ADMIN_COMMANDS or text in (RUBLE_MENU,'🧩 Модели','🛠 Функции'):
+                    await self.say(ext,self.admin_denial(ext),menu())
+                    return
+            aggregator_menu=text==MENU[0] or command=='/menu'
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
@@ -449,18 +465,20 @@ class TelegramApp:
                         (previous_screen, self.catalogue_messages.get(ext)) and previous_screen is not None):
                     await self.remove_menu_message(ext,e.message.message_id)
                 return
-            if text==OPEN_CATALOGUE or (
-                ext not in self.cfg.admin_ids and text in ('/models','🧩 Модели','/functions','🛠 Функции')
-            ):
-                await self.svc.conversation(u,'home');await self.show_store(ext)
+            if text==OPEN_CATALOGUE:
+                await self.svc.conversation(u,'home')
+                if self.has_admin_session(ext):
+                    await self.show_store(ext)
+                else:
+                    await self.show_providers(ext)
                 await self.remove_menu_message(ext,update.message.message_id);return
-            if text in ('/models','🧩 Модели'):
+            if command=='/models' or text=='🧩 Модели':
                 await self.svc.conversation(u,'home');await self.show_models(ext)
                 await self.remove_menu_message(ext,update.message.message_id);return
-            if aggregator_menu or text in ('/aggregators','/functions','🛠 Функции'):
+            if aggregator_menu or command in ('/aggregators','/functions') or text=='🛠 Функции':
                 await self.svc.conversation(u,'home')
-                if aggregator_menu and ext in self.cfg.admin_ids:
-                    message=await self.say(ext,'Выберите агрегатор ниже.',menu(admin_rates=self.pool is not None and self.cfg.access_mode=='private'))
+                if aggregator_menu:
+                    message=await self.say(ext,'Выберите агрегатор ниже.',menu())
                     previous=self.aggregator_keyboard_messages.get(ext)
                     self.aggregator_keyboard_messages[ext]=message.message_id
                     if previous is not None:
@@ -486,7 +504,7 @@ class TelegramApp:
             if command in ('/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'):
                 await self.price_admin(u,ext,command,text.split()[1:]);return
             if text.startswith('/refund '):
-                if ext not in self.cfg.admin_ids:raise Rejected('Действие недоступно.')
+                if not self.has_admin_session(ext):raise Rejected(self.admin_denial(ext))
                 p=await self.svc.prepare_refund(text.split(maxsplit=1)[1],provider='telegram')
                 try: ok=await self.bot.refund_star_payment(ext if p['user_id']==u else await self.external(p['user_id']),p['charge_id'])
                 except Exception:
@@ -520,8 +538,8 @@ class TelegramApp:
                     await self.video_prompt(u,ext,text,context);return
                 if context and 'interaction' in context:
                     await self.interaction_input(u,ext,update,context);return
-                if ext not in self.cfg.admin_ids:
-                    raise Rejected('Этот раздел доступен только разработчику.')
+                if not self.has_admin_session(ext):
+                    raise Rejected(self.admin_denial(ext))
                 await self.aggregate_input(u,ext,text,request_id=update.update_id);return
             if state['step']=='text':
                 if not text.strip() or len(text)>3000:raise Rejected('Отправьте текст от 1 до 3000 символов.')
@@ -546,14 +564,18 @@ class TelegramApp:
             if update.pre_checkout_query:
                 await self.bot.answer_pre_checkout_query(update.pre_checkout_query.id,ok=False,error_message=str(e))
             elif isinstance(e,PriceUnavailable):
-                rows=[[rate_button(e.provider,e.cost.unit)]] if isinstance(e,MissingRate) and ext in self.cfg.admin_ids else []
-                await self.catalogue_screen(ext,str(e),buttons(rows+[[('← Агрегаторы','providers')]]))
-            elif str(e).startswith('AnyModel:') and can_view(self.cfg,ext):
+                admin=self.has_admin_session(ext)
+                rows=[[rate_button(e.provider,e.cost.unit)]] if admin and isinstance(e,MissingRate) else []
+                message=str(e) if admin else 'Цена недоступна. Запуск закрыт.'
+                await self.catalogue_screen(ext,message,buttons(rows+[[('← Агрегаторы','providers')]]))
+            elif str(e).startswith(('AnyModel:','CLODEX:')) and not self.has_admin_session(ext):
+                await self.catalogue_screen(ext,str(e).partition(': ')[2],buttons([[('← Агрегаторы','providers')]]))
+            elif str(e).startswith('AnyModel:') and anymodel_available(self.cfg):
                 await self.catalogue_screen(ext,str(e),buttons([[('← AnyModel','am')]]))
             elif catalogue_callback and data.startswith('confirm:') and isinstance(update.callback_query.message,Message):
                 await self.catalogue_screen(ext,str(e),update.callback_query.message.reply_markup)
             elif catalogue_callback:
-                await self.catalogue_screen(ext,str(e),buttons([[(OPEN_CATALOGUE,'store')]] if ext not in self.cfg.admin_ids else [[('← Агрегаторы','providers')],[(OPEN_CATALOGUE,'store')]]))
+                await self.catalogue_screen(ext,str(e),buttons([[('← Агрегаторы','providers')]]))
             else:await self.say(ext,str(e),menu())
         except (ValueError,TypeError,IndexError) as error:
             if update.pre_checkout_query:
@@ -577,7 +599,7 @@ class TelegramApp:
         except (httpx.HTTPError,ValueError,OSError):
             available=False
         if not available:
-            raise Rejected('Не удалось загрузить голоса ElevenLabs из CLODEX. Откройте модель и попробуйте ещё раз.')
+            raise Rejected('Не удалось загрузить голоса ElevenLabs. Откройте модель и попробуйте ещё раз.')
 
     @staticmethod
     def voice_version(voices):
@@ -642,6 +664,8 @@ class TelegramApp:
 
     async def callback(self,u,ext,data,*,request_id=None):
         route=data.partition(':')[0]
+        if admin_callback(data) and not self.has_admin_session(ext):
+            raise Rejected('Действие доступно только администратору.')
         if route in AGGREGATOR_ROUTES:
             await self.aggregator_callback(u,ext,route,data.split(':')[1:]);return
         if route in MODEL_POLICY_ROUTES:
@@ -651,8 +675,6 @@ class TelegramApp:
         if route in TARIFF_ROUTES:
             await self.tariffs.callback(u,ext,route,data.partition(':')[2]);return
         if route in ('amconfirm','amcancel'):
-            if ext not in self.cfg.admin_ids or self.cfg.access_mode!='private':
-                raise Rejected('Действие доступно только администратору.')
             quote_id=uid(data.partition(':')[2])
             if route=='amconfirm' and request_id is not None:
                 await self.confirm_price(u,ext,quote_id,request_id);return
@@ -663,10 +685,13 @@ class TelegramApp:
             raise Rejected('Кнопка устарела. Откройте меню.')
         if route in ANYMODEL_ROUTES:
             await self.anymodel_callback(u,ext,data,request_id=request_id);return
-        if route in DEVELOPER_CALLBACKS and ext not in self.cfg.admin_ids:
-            raise Rejected('Этот раздел доступен только разработчику.')
         if data=='store':
-            await self.svc.conversation(u,'home');await self.show_store(ext);return
+            await self.svc.conversation(u,'home')
+            if self.has_admin_session(ext):
+                await self.show_store(ext)
+            else:
+                await self.show_providers(ext)
+            return
         if route=='veo':
             await self.show_veo(ext,data.split(':')[1]);return
         if route=='veoprompt':
@@ -682,7 +707,7 @@ class TelegramApp:
             snapshot=self.catalogue_snapshot(version)
             index=int(index)
             if section=='dev':
-                allowed=ext in self.cfg.admin_ids and 0<=index<len(snapshot['models'])
+                allowed=self.has_admin_session(ext) and 0<=index<len(snapshot['models'])
             else:
                 allowed=index in await self.store_models(snapshot,section,ext)
             if not allowed:
@@ -851,24 +876,32 @@ class TelegramApp:
         if temporary is not None and temporary!=previous:
             await self.remove_menu_message(ext,temporary)
 
+    def provider_title(self,ext,key):
+        titles={'clodex':'Clodex' if self.pool is None else 'CLODEX','anymodel':'AnyModel',**self.providers.interactive}
+        if self.has_admin_session(ext):
+            return titles.get(key,key)
+        number=list(titles).index(key)+1 if key in titles else None
+        return f'Агрегатор {number}' if number else 'Агрегатор'
+
     async def show_providers(self,ext,*,after_message_id=None):
-        if ext not in self.cfg.admin_ids:
-            await self.catalogue_screen(ext,self.cfg.brand,buttons([[(OPEN_CATALOGUE,'store')]]));return
+        admin=self.has_admin_session(ext)
+        text=self.cfg.brand+'\nВыберите агрегатор.'
+        if admin:
+            text+=' Здесь показаны подключённые сервисы; модели и функции внутри каждого обновляются через его API.'
         try:
             data=self.catalogue_snapshot()
-            clodex_title='CLODEX' if self.pool is not None and self.cfg.access_mode=='private' else 'Clodex'
-            rows=[[(clodex_title if s['provider']=='clodex' else s['provider'],f"provider:{data['version']}:{i}")]
+            rows=[[(self.provider_title(ext,s['provider']),f"provider:{data['version']}:{i}")]
                   for i,s in enumerate(data.get('sources',[]))]
-            text=self.cfg.brand+'\nВыберите агрегатор. Здесь показаны подключённые сервисы; модели и функции внутри каждого обновляются через его API.'
-        except Rejected as e:
-            text=str(e)
+        except Rejected as error:
+            if admin:
+                text=str(error)
             rows=[[('↻ Обновить экран','providers')]]
-        if can_view(self.cfg,ext):
-            rows.append([('AnyModel','am')])
+        if anymodel_available(self.cfg):
+            rows.append([(self.provider_title(ext,'anymodel'),'am')])
         if self.cfg.access_mode=='private':
-            rows.extend([(title,f'pentry:{key}:0')] for key,title in self.providers.interactive.items())
-        if self.cfg.access_mode=='private':
-            rows.append([('Тарифы моделей','tariffs')])
+            rows.extend([(self.provider_title(ext,key),f'pentry:{key}:0')] for key in self.providers.interactive)
+            if admin:
+                rows.append([('Тарифы моделей','tariffs')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),after_message_id=after_message_id,
@@ -881,9 +914,10 @@ class TelegramApp:
         if route=='pentry':
             await self.aggregator_callback(u,ext,'agroot',[key])
             return
-        await self.tariffs.authorize(u,ext)
-        snapshot=await self.providers.collect(key)
         full=route in ('pall','pview')
+        if full:
+            await self.tariffs.authorize(u,ext)
+        snapshot=await self.providers.collect(key)
         admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
         selected=parts[2] if route=='pcat' and len(parts)>2 else parts[3] if len(parts)>3 else None
         models=[row for row in snapshot['models'] if full or self.registered_operations(row,admitted,selected)]
@@ -899,7 +933,7 @@ class TelegramApp:
             if (page+1)*10<len(models):nav.append(('Далее →',f'{prefix}:{key}:{page+1}{suffix}'))
             if nav:rows.append(nav)
             parent=f'agmanage:{key}' if full else f'agroot:{key}'
-            await self.catalogue_screen(ext,self.providers.interactive[key],buttons(rows+[[('← К агрегатору',parent)]]))
+            await self.catalogue_screen(ext,self.provider_title(ext,key),buttons(rows+[[('← К агрегатору',parent)]]))
             return
         model=next((row for row in models if voice_key(row['id'])[:20]==parts[2]),None)
         if model is None:
@@ -912,7 +946,10 @@ class TelegramApp:
             from .discovery import OPERATIONS
             rows=[[(f'Рассчитать стоимость · {OPERATIONS[op][0]}',f"prun:{key}:{page}:{parts[2]}:{op}")]
                   for op in operations]
-            await self.catalogue_screen(ext,f"{model['title']}\nID: {model['id']}",buttons(rows+[back]))
+            text=model['title']
+            if self.has_admin_session(ext):
+                text+=f"\nID: {model['id']}"
+            await self.catalogue_screen(ext,text,buttons(rows+[back]))
             return
         operation=parts[3]
         if operation not in operations:
@@ -928,8 +965,8 @@ class TelegramApp:
                 and op in WAITING and (model['id'],op) in admitted and (selected is None or selected==op)]
 
     def anymodel_snapshot(self,ext,version=None):
-        if not can_view(self.cfg,ext):
-            raise Rejected('Раздел AnyModel доступен только тестовому администратору.')
+        if not anymodel_available(self.cfg):
+            raise Rejected('AnyModel: раздел недоступен.')
         data=model_store(self.cfg).read()
         if not data:
             raise Rejected('AnyModel: каталог пока недоступен.')
@@ -952,8 +989,8 @@ class TelegramApp:
         return '\n'.join([f'{label}: {updated}',*lines])
 
     async def anymodel_callback(self,u,ext,value,*,request_id=None):
-        if not can_view(self.cfg,ext):
-            raise Rejected('Раздел AnyModel доступен только тестовому администратору.')
+        if not anymodel_available(self.cfg):
+            raise Rejected('AnyModel: раздел недоступен.')
         route,*parts=value.split(':')
         if route in SPEECH_ROUTES and route!='amsconfirm':
             await self.anymodel_speech_callback(u,ext,route,value.partition(':')[2],request_id);return
@@ -976,7 +1013,7 @@ class TelegramApp:
                 if not allowed or not can_image(model,data):
                     raise Rejected('AnyModel: тестовый запуск FIBO 2 недоступен.')
                 await self.svc.aggregate_context(u,{'interaction':IMAGE_OP,'provider':'anymodel','model_id':FIBO_MODEL,'title':model['title']})
-                await self.catalogue_screen(ext,'FIBO 2 · AnyModel\nПришлите описание изображения.',
+                await self.catalogue_screen(ext,'FIBO 2 · '+self.provider_title(ext,'anymodel')+'\nПришлите описание изображения.',
                                             buttons([[('Параметры','amparams')],[('← FIBO 2','amimage:detail')]]));return
             actions=[('🖼 Генерировать изображение','amimage:run')] if allowed and can_image(model,data) else []
             await self.render_model_detail(ext,model,'amsection:image',actions,provider='AnyModel');return
@@ -997,15 +1034,18 @@ class TelegramApp:
         if (operation not in model['operations'] or model['availability']!='key_available'
                 or data['fresh_until']<=time.time() or not await self.models.allowed('anymodel',model['id'],operation)):
             raise Rejected('AnyModel: модель не допущена к этой операции.')
+        section=next((section for section,(_,op) in STORE_SECTIONS.items() if op==operation),None)
+        if section is None:
+            raise Rejected('Операция недоступна.')
+        work_back=f'amsection:{section}'
         if route=='amwork':
             action=f'amworkrun:{version}:{index}:{page}:{operation}'
-            section=next(section for section,(_,op) in STORE_SECTIONS.items() if op==operation)
-            await self.render_model_detail(ext,model,f'amsection:{section}',[('Рассчитать стоимость',action)],provider='AnyModel');return
+            await self.render_model_detail(ext,model,work_back,[('Рассчитать стоимость',action)],provider='AnyModel');return
         await self.svc.aggregate_context(u,{'interaction':operation,'provider':'anymodel',
                                              'model_id':model['id'],'title':model['title'],'history':[]})
-        rows=[[(MODEL_LIST_BACK,back)]]
+        rows=[[(MODEL_LIST_BACK,work_back)]]
         if operation!='audio.speech':rows.insert(0,[('Параметры','amparams')])
-        await self.catalogue_screen(ext,f"{model['title']} · AnyModel\nОтправьте текст для расчёта стоимости.",buttons(rows))
+        await self.catalogue_screen(ext,f"{model['title']} · {self.provider_title(ext,'anymodel')}\nОтправьте текст для расчёта стоимости.",buttons(rows))
 
     async def anymodel_section(self,ext,section):
         if section not in ANYMODEL_SECTIONS:raise Rejected('AnyModel: раздел недоступен.')
@@ -1014,25 +1054,28 @@ class TelegramApp:
             data=self.anymodel_snapshot(ext)
         except Rejected:
             data=None
-        rows=self.anymodel_work_rows(section,data,approved)
-        title=f'AnyModel · {ANYMODEL_SECTIONS[section]}'
+        rows=self.anymodel_work_rows(section,data,approved,available_only=not self.has_admin_session(ext))
+        title=f"{self.provider_title(ext,'anymodel')} · {ANYMODEL_SECTIONS[section]}"
         if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
         rows.append([('← К агрегатору','am')])
         await self.catalogue_screen(ext,title,buttons(rows))
 
     @staticmethod
-    def anymodel_work_rows(section,data,approvals):
+    def anymodel_work_rows(section,data,approvals,*,available_only=False):
         rows=[]
         operation=STORE_SECTIONS.get(section,('',section))[1]
         approved={item['model_id'] for item in approvals if item['operation']==operation}
-        if section=='video' and ANYMODEL_VIDEO_MODEL in approved:
+        available={model['id'] for model in (data or {}).get('models',[])
+                   if model['availability']=='key_available' and operation in model['operations']}
+        if section=='video' and ANYMODEL_VIDEO_MODEL in approved and (not available_only or ANYMODEL_VIDEO_MODEL in available):
             rows.append([(ANYMODEL_VIDEO_TITLE,'amvideo:detail')])
         if section=='speech':
-            if FISH in approved:rows.append([(FISH_TITLE,'amspeech:fish')])
+            if FISH in approved and (not available_only or FISH in available):
+                rows.append([(FISH_TITLE,'amspeech:fish')])
             if any(model.startswith('anyvoice/') for model in approved):
                 rows.append([('AnyVoice','amspeech:anyvoice')])
         if data:
-            if section=='image' and FIBO_MODEL in approved and any(m['id']==FIBO_MODEL for m in data['models']):
+            if section=='image' and FIBO_MODEL in approved and FIBO_MODEL in available:
                 rows.append([('FIBO 2','amimage:detail')])
             for index,model in enumerate(data['models']):
                 if (model['id'] in approved and operation in model['operations'] and model['availability']=='key_available'
@@ -1049,9 +1092,11 @@ class TelegramApp:
                 return
             if route=='amspeech' and arg=='anyvoice':
                 await self.svc.conversation(u,'home')
-                await self.catalogue_screen(ext,'AnyVoice · AnyModel\nВыберите голос для ИИ-озвучки.',
-                                            buttons([[('Выбрать голос','amvoices:0')],
-                                                     [('Назначить тариф голосам','amvprices:0')],back]))
+                rows=[[('Выбрать голос','amvoices:0')]]
+                if self.has_admin_session(ext):
+                    rows.append([('Назначить тариф голосам','amvprices:0')])
+                await self.catalogue_screen(ext,f"AnyVoice · {self.provider_title(ext,'anymodel')}\nВыберите голос для ИИ-озвучки.",
+                                            buttons(rows+[back]))
                 return
             if route!='amvoice' and arg!='fish':
                 raise Rejected('AnyModel: карточка недоступна.')
@@ -1069,14 +1114,17 @@ class TelegramApp:
         except AnyModelError as error:
             trace_interaction(request_id,'anymodel_speech_metadata_failed',reason=error.code)
             await self.svc.conversation(u,'home')
-            await self.catalogue_screen(ext,'AnyModel: не удалось проверить каталог или тариф. Запуск закрыт.',
+            await self.catalogue_screen(ext,'Не удалось проверить каталог или тариф. Запуск закрыт.',
                                         buttons([back]))
             return
         if not await self.models.allowed('anymodel',model,'audio.speech'):
             raise Rejected('AnyModel: голос или модель не допущены к озвучке.')
         await self.svc.aggregate_context(u,{'provider':'anymodel','interaction':'audio.speech',
                                             'model_id':model,'title':title})
-        text=f'{title} · AnyModel\nID: {model}\nПришлите текст для расчёта стоимости.'
+        text=f"{title} · {self.provider_title(ext,'anymodel')}"
+        if self.has_admin_session(ext):
+            text+=f'\nID: {model}'
+        text+='\nПришлите текст для расчёта стоимости.'
         await self.catalogue_screen(ext,text,buttons([back]))
 
     @staticmethod
@@ -1147,13 +1195,14 @@ class TelegramApp:
             rows.append([(f'Продолжить · {len(selection)}','amvready')])
         rows.append([('↻ Обновить каталог',f'{prefix}:{page}')])
         rows.append([('← AnyVoice','amspeech:anyvoice')])
-        text=f'AnyVoice · Голоса ({len(entries)})'
+        text=f'AnyVoice · Голоса ({len(entries)})' if self.has_admin_session(ext) else 'AnyVoice · Выберите голос'
         if batch:
             text+=f'\nВыберите голоса для одной ставки. Выбрано: {len(selection)}.'
         await self.catalogue_screen(ext,text,buttons(rows))
 
     async def anyvoice_save_tariff(self,u,ext,args):
-        if not can_view(self.cfg,ext):
+        await self.tariffs.authorize(u,ext)
+        if not anymodel_available(self.cfg):
             raise Rejected('Действие доступно только администратору.')
         context=await self.svc.aggregate_context(u) or {}
         ids=context.get('anyvoice_tariff_selection',[])
@@ -1183,7 +1232,7 @@ class TelegramApp:
         if not await self.models.allowed('anymodel',ANYMODEL_VIDEO_MODEL,'video'):
             raise Rejected('AnyModel: модель не допущена к видео.')
         rows=[[(MODEL_LIST_BACK,'amsection:video')]]
-        text=f'{ANYMODEL_VIDEO_TITLE} · AnyModel\n4 с · 480p · 16:9'
+        text=f"{ANYMODEL_VIDEO_TITLE} · {self.provider_title(ext,'anymodel')}\n4 с · 480p · 16:9"
         if start:
             await self.svc.aggregate_context(u,{'provider':'anymodel','interaction':'video',
                 'model_id':ANYMODEL_VIDEO_MODEL,'title':ANYMODEL_VIDEO_TITLE})
@@ -1194,7 +1243,7 @@ class TelegramApp:
         await self.catalogue_screen(ext,text,buttons(rows))
 
     async def price_admin(self,u,ext,command,args):
-        if ext not in self.cfg.admin_ids:
+        if not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
         if command in ('/tariff_set','/tariff_scope'):
             await self.tariffs.command(u,ext,command,args)
@@ -1251,16 +1300,17 @@ class TelegramApp:
         await self.say(ext,'Настройки учёта обновлены.')
 
     async def provider_detail(self,u,ext,version,index):
-        if ext not in self.cfg.admin_ids:
-            await self.svc.conversation(u,'home')
-            await self.catalogue_screen(ext,self.cfg.brand,buttons([[(OPEN_CATALOGUE,'store')]]));return
         data=self.catalogue_snapshot(version);sources=data.get('sources',[])
         if not 0<=index<len(sources):raise Rejected('Агрегатор недоступен.')
         provider=sources[index]['provider']
-        if self.pool is not None and self.cfg.access_mode=='private':
+        if self.pool is not None:
             await self.aggregator_callback(u,ext,'agroot',[provider],snapshot=data)
             return
         await self.svc.conversation(u,'home')
+        if not self.has_admin_session(ext):
+            await self.catalogue_screen(ext,self.provider_title(ext,provider)+'\nВыберите, что хотите сделать.',
+                                        buttons([[('← Агрегаторы','providers')]]))
+            return
         full=f'cat:{version}:{index}:0'
         rows=(store_rows()+[[('Наши модели','ours:clodex:0')],[('Курс и калькулятор','rates:clodex')],[('Все модели',full)]]
               if provider=='clodex' else [[(OPEN_CATALOGUE,full)]])
@@ -1277,22 +1327,21 @@ class TelegramApp:
         await self.catalogue_screen(ext,f'{title}\nМоделей: {models} · операций API: {len(functions)-docs} · разделов документации: {docs}\n{scope}\n{guidance}',buttons(rows))
 
     async def aggregator_callback(self,u,ext,route,parts,*,snapshot=None):
-        await self.tariffs.authorize(u,ext)
+        if route!='agroot':
+            await self.tariffs.authorize(u,ext)
         key=parts[0]
+        title=self.provider_title(ext,key)
         if key=='anymodel':
-            if not can_view(self.cfg,ext):raise Rejected('Агрегатор недоступен.')
-            title='AnyModel'
+            if not anymodel_available(self.cfg):raise Rejected('Агрегатор недоступен.')
             try:snapshot=self.anymodel_snapshot(ext)
             except Rejected:snapshot=None
             full='amcat:current:0'
         elif key=='clodex':
-            title='CLODEX'
             snapshot=snapshot or self.catalogue_snapshot()
             source_index=next((i for i,s in enumerate(snapshot.get('sources',[])) if s['provider']==key),None)
             if source_index is None:raise Rejected('Агрегатор недоступен.')
             full=f"cat:{snapshot['version']}:{source_index}:0"
         elif key in self.providers.interactive:
-            title=self.providers.interactive[key]
             snapshot=await self.providers.collect(key)
             full=f'pall:{key}:0'
         else:
@@ -1333,20 +1382,22 @@ class TelegramApp:
         elif key=='anymodel':
             admitted=await self.models.list(key)
             work={section:f'amsection:{section}' for section in STORE_SECTIONS
-                  if self.anymodel_work_rows(section,snapshot,admitted)}
+                  if self.anymodel_work_rows(section,snapshot,admitted,available_only=not self.has_admin_session(ext))}
         else:
             admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
             available={op for model in snapshot['models'] for op in self.registered_operations(model,admitted)}
             work={section:f'pcat:{key}:0:{op}' for section,(_,op) in STORE_SECTIONS.items() if op in available}
         rows=[[('🎆 Генерировать изображение' if section=='image' else label,work[section])]
               for section,(label,_) in STORE_SECTIONS.items() if section in work]
-        rows += [[('📁 Мои работы','history:0')],[('⚙️ Управление агрегатором',f'agmanage:{key}')],
-                 [('← Агрегаторы','providers')]]
+        rows.append([('📁 Мои работы','history:0')])
+        if self.has_admin_session(ext):
+            rows.append([('⚙️ Управление агрегатором',f'agmanage:{key}')])
+        rows.append([('← Агрегаторы','providers')])
         await self.catalogue_screen(ext,title+'\nВыберите, что хотите сделать.',buttons(rows))
 
     async def show_store(self,ext):
         rows=store_rows()
-        if ext in self.cfg.admin_ids:
+        if self.has_admin_session(ext):
             rows.append([('← Агрегаторы','providers')])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,'Каталог моделей. Выберите, что хотите сделать.',buttons(rows))
@@ -1361,17 +1412,16 @@ class TelegramApp:
             raise Rejected('Раздел недоступен.')
         from .model_policy import canonical
         operation=STORE_SECTIONS[section][1]
-        if section=='video' and ext not in self.cfg.admin_ids:
-            return []
         approved={row['model_id'] for row in await self.models.list('clodex',operation,snapshot=snapshot)} if self.pool else set()
         return [index for index,model in enumerate(snapshot['models'])
                 if model.get('provider')=='clodex' and model.get('availability')=='key_available'
-                and not is_disabled_model(model) and canonical('clodex',model['id'],operation) in approved]
+                and not is_disabled_model(model) and canonical('clodex',model['id'],operation) in approved
+                and (self.has_admin_session(ext) or operation=='video' or self.model_can_run(model,operation))]
 
-    async def admitted_veo_modes(self,ext,snapshot):
+    async def admitted_veo_modes(self,snapshot):
         if self.pool is None:return {}
         approved={row['model_id'] for row in await self.models.list('clodex','video',snapshot=snapshot)}
-        return {key:value for key,value in video_modes(self.cfg,snapshot,ext).items()
+        return {key:value for key,value in video_modes(self.cfg,snapshot).items()
                 if value[0] in approved}
 
     async def show_store_models(self,ext,version,section,page):
@@ -1379,7 +1429,7 @@ class TelegramApp:
         models=await self.store_models(snapshot,section,ext)
         veo = False
         if section=='video':
-            veo=bool(await self.admitted_veo_modes(ext,snapshot))
+            veo=bool(await self.admitted_veo_modes(snapshot))
             models=[i for i in models if snapshot['models'][i]['id'] not in DEFAULT_VIDEO_MODELS]
         page_count=max(1,(len(models)+9)//10)
         if not 0<=page<page_count:
@@ -1397,23 +1447,26 @@ class TelegramApp:
             nav.append(('Далее →',f'slist:{version}:{section}:{page+1}'))
         if nav:
             rows.append(nav)
-        if self.cfg.access_mode=='private' and ext in self.cfg.admin_ids and any(
+        if any(
             source['provider']=='clodex' for source in snapshot.get('sources',[])
         ):
             rows.append([('← К агрегатору','agroot:clodex')])
         else:
             rows.append([('← Каталог','store')])
-        status=f'Моделей: {len(models)+int(veo)} · Страница {page+1} из {page_count}' if models or veo else 'В этом разделе пока нет опубликованных моделей.'
-        await self.catalogue_screen(ext,title+'\n'+status,buttons(rows))
+        if not models and not veo:
+            title+='\nВ этом разделе пока нет опубликованных моделей.'
+        elif self.has_admin_session(ext):
+            title+=f'\nМоделей: {len(models)+int(veo)} · Страница {page+1} из {page_count}'
+        await self.catalogue_screen(ext,title,buttons(rows))
 
     async def veo_mode(self,ext,version,mode):
-        selected=(await self.admitted_veo_modes(ext,self.catalogue_snapshot(version))).get(mode)
+        selected=(await self.admitted_veo_modes(self.catalogue_snapshot(version))).get(mode)
         if selected is None:
             raise Rejected('Этот режим Veo недоступен. Обновите каталог.')
         return selected
 
     async def show_veo(self,ext,version):
-        modes=await self.admitted_veo_modes(ext,self.catalogue_snapshot(version))
+        modes=await self.admitted_veo_modes(self.catalogue_snapshot(version))
         if not modes:raise Rejected('Veo 3.1 недоступна. Обновите каталог.')
         rows=[[(label,f'veoprompt:{version}:{mode}')] for mode,(_,_,label) in modes.items()]
         rows.append([(MODEL_LIST_BACK,f'slist:{version}:video:0')])
@@ -1509,13 +1562,16 @@ class TelegramApp:
         await self.render_model_detail(ext,model,back,[])
 
     async def render_model_detail(self,ext,model,back,actions,provider=None):
+        rows=[[(label,route)] for label,route in actions]
+        rows.append([(MODEL_LIST_BACK,back)])
+        if not self.has_admin_session(ext):
+            await self.catalogue_screen(ext,model['title'],buttons(rows))
+            return
         from .discovery import OPERATIONS
         availability=('Модель возвращена API для ключа сервиса.' if model.get('availability')=='key_available'
                       else 'Доступ по ключу не подтверждён')
         protocols=', '.join(model.get('protocols',[])) or 'не указаны'
         capabilities=', '.join(OPERATIONS[x][0] for x in model['operations']) or 'точные операции для модели не подтверждены'
-        rows=[[(label,route)] for label,route in actions]
-        rows.append([(MODEL_LIST_BACK,back)])
         title=(provider+' · ' if provider else '')+model['title']
         text=f"{title}\nID: {model['id']}\n{availability}\nПротоколы: {protocols}\nВозможности: {capabilities}"
         if not provider:
@@ -1601,9 +1657,9 @@ class TelegramApp:
     async def begin_interaction(self,u,ext,version,index,operation,*,request_id=None,quality=None):
         models=self.catalogue_snapshot(version)['models']
         if self.cfg.interaction_mode=='live' and operation!='audio.speech' and (
-            self.cfg.access_mode!='private' or ext not in self.cfg.admin_ids
+            self.cfg.access_mode!='private'
         ):
-            raise Rejected('Запуск доступен только администратору.')
+            raise Rejected('Запуск недоступен.')
         model=models[index] if 0<=index<len(models) else None
         if (not model or not self.model_can_run(model,operation)
                 or not await self.models.allowed('clodex',model['id'],operation)):
@@ -1625,7 +1681,9 @@ class TelegramApp:
         if quality is not None:
             context['quality']=quality
         await self.svc.aggregate_context(u,context)
-        mode='Тест без отправки в CLODEX. ' if self.cfg.interaction_mode=='mock' else 'Запрос будет отправлен в CLODEX. '
+        mode=''
+        if self.has_admin_session(ext):
+            mode='Тест без отправки в CLODEX. ' if self.cfg.interaction_mode=='mock' else 'Запрос будет отправлен в CLODEX. '
         if operation=='images.generate':
             title = model['title']
             if quality is not None:
@@ -1656,7 +1714,7 @@ class TelegramApp:
                 or not await self.models.allowed('clodex',model['id'],operation)):
             raise Rejected('Модель больше не доступна. Откройте каталог.')
         mode=self.cfg.interaction_mode
-        if mode=='live' and (self.cfg.access_mode!='private' or ext not in self.cfg.admin_ids or snapshot['fresh_until']<time.time()):
+        if mode=='live' and (self.cfg.access_mode!='private' or snapshot['fresh_until']<time.time()):
             raise Rejected('Запуск недоступен. Проверьте доступ и обновите каталог.')
         message=update.message
         prompt=message.text
@@ -1738,11 +1796,11 @@ class TelegramApp:
                 f'amparams:{key}:{value}')] for key,values in safe.items() for value in values[:10]]
         text='Параметры · '+context['title']+'\nОтправьте текст, чтобы рассчитать стоимость.'
         if not rows:text+='\nДля этой операции используются стандартные параметры.'
-        await self.catalogue_screen(ext,text,buttons(rows+[[('← AnyModel','am')]]))
+        await self.catalogue_screen(ext,text,buttons(rows+[[('← К агрегатору','am')]]))
 
     async def anymodel_input(self,u,ext,prompt,context):
-        if not can_view(self.cfg,ext):
-            raise Rejected('Раздел AnyModel недоступен.')
+        if not anymodel_available(self.cfg):
+            raise Rejected('AnyModel: раздел недоступен.')
         operation=context['interaction']
         if not await self.models.allowed('anymodel',context['model_id'],operation):
             raise Rejected('AnyModel: модель не допущена к этой операции.')
@@ -1752,7 +1810,7 @@ class TelegramApp:
         await self.show_price(ext,await self.pricing.quote(u,req))
 
     async def show_price(self,ext,quote):
-        await self.catalogue_screen(ext,quote.card(admin=ext in self.cfg.admin_ids),buttons([[
+        await self.catalogue_screen(ext,quote.card(admin=self.has_admin_session(ext)),buttons([[
             ('Генерировать',f'amconfirm:{quote.id}'),('Отмена',f'amcancel:{quote.id}'),
         ]]))
 
@@ -1801,7 +1859,7 @@ class TelegramApp:
                 context['history']=[*req.history,{'role':'user','content':req.prompt[:2000]},
                                     {'role':'assistant','content':reply[:2000]}][-6:]
                 await self.svc.aggregate_context(u,context)
-            await self.send_chat_answer(ext,(result.label+'\n' if result.label else '')+reply)
+            await self.send_chat_answer(ext,(result.label+'\n' if result.label and self.has_admin_session(ext) else '')+reply)
 
     async def send_chat_answer(self,ext,reply):
         if len(reply)>3500:
@@ -1845,7 +1903,7 @@ class TelegramApp:
 
     async def make_quote(self,u,ext,text,voice,speed,*,after_message_id=None):
         if self.cfg.speech_pilot and self.cfg.mode=='clodex':
-            if ext not in self.cfg.admin_ids or speed!=1.0:
+            if speed!=1.0:
                 raise Rejected('CLODEX: тестовая озвучка недоступна.')
             name=next((v['name'] for v in catalog(self.cfg) if v['id']==voice),None)
             if not name or not text or not text.strip() or len(text)>3000 or '\x00' in text:

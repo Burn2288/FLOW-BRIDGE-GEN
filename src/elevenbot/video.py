@@ -39,8 +39,8 @@ class InvalidVideoError(VideoProtocolError):
     pass
 
 
-def video_modes(cfg, snapshot, external_id):
-    if not cfg.video_pilot or external_id not in cfg.admin_ids or cfg.access_mode != 'private':
+def video_modes(cfg, snapshot):
+    if not cfg.video_pilot or cfg.access_mode != 'private':
         return {}
     ids = catalogue_video_ids(snapshot)
     return {mode: details for mode, details in MODES.items() if details[0] in ids}

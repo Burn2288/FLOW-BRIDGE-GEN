@@ -87,8 +87,12 @@ def model_store(cfg):
     return SnapshotStore(Path(cfg.catalogue_path).with_name('anymodel.json'))
 
 
+def available(cfg):
+    return cfg.anymodel_test_enabled and cfg.access_mode == 'private'
+
+
 def can_view(cfg, external_id):
-    return cfg.anymodel_test_enabled and cfg.access_mode == 'private' and external_id in cfg.admin_ids
+    return available(cfg) and external_id in cfg.admin_ids
 
 
 def can_chat(model, data):

@@ -90,12 +90,17 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         await app.callback(user,100,'amsection:chat')
         await app.callback(user,100,routes(bot)['DeepSeek V4 Flash Vision'])
         action=routes(bot)['Рассчитать стоимость']
-        for restricted,external_id in ((cfg,101),(replace(cfg,anymodel_test_enabled=False),100)):
-            hidden=telegram.TelegramApp(pool,restricted,Bot())
-            await hidden.show_providers(external_id)
-            assert 'AnyModel' not in routes(hidden.bot)
-            with pytest.raises(Rejected):
-                await hidden.callback(user,external_id,action)
+        guest=await app.svc.identity(101)
+        await app.svc.accept(guest)
+        await app.show_providers(101)
+        assert 'Агрегатор 2' in routes(bot) and 'AnyModel' not in routes(bot)
+        await app.callback(guest,101,action)
+        assert 'Агрегатор 2' in bot.sent[-1][0]
+        hidden=telegram.TelegramApp(pool,replace(cfg,anymodel_test_enabled=False),Bot())
+        await hidden.show_providers(100)
+        assert 'AnyModel' not in routes(hidden.bot)
+        with pytest.raises(Rejected):
+            await hidden.callback(user,100,action)
         await app.callback(user,100,action)
         await app.handle(event('hello AnyModel'))
         assert 'ответ до 256 токенов' in bot.sent[-1][0]

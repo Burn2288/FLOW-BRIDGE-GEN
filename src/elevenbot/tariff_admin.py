@@ -65,7 +65,7 @@ class TariffAdmin:
         await self.app.catalogue_screen(ext,text,self.keyboard(rows))
 
     async def authorize(self,user,ext):
-        if self.app.cfg.access_mode!='private' or ext not in self.app.cfg.admin_ids:
+        if self.app.cfg.access_mode!='private' or not self.app.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
         async with self.app.pool.acquire() as conn:
             await self.app.pricing.admin(conn,user,ext)

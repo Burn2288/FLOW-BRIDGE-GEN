@@ -106,3 +106,92 @@ async def test_admin_attempt_limit_expiry_restart_and_password_change(env,monkey
     await login(10)
     app.cfg=replace(cfg,admin_password='rotated-fixture-password')
     assert not app.has_admin_session(100)
+
+async def test_user_and_admin_editions_share_catalogue_and_settings(env,tmp_path,manual_tariff):
+    from elevenbot.aggregate import make_snapshot
+    from elevenbot.anymodel import FIBO_MODEL, IMAGE_OP, model_store
+    from elevenbot.discovery import SnapshotStore
+    from elevenbot.telegram import MENU
+    from elevenbot.tariff_admin import RUBLE_MENU
+    from test_aggregator_menu import NoPrice, model
+    from test_anymodel import routes
+
+    pool,cfg,_,user=env
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),video_pilot=True,interaction_mode='live',
+                anymodel_test_enabled=True,catalogue_path=str(tmp_path/'catalogue.json'))
+    clodex=[model('clodex','clodex-video/veo-3.1','video','openai-video')]
+    anymodel=[model('anymodel',FIBO_MODEL,IMAGE_OP,'image-generation')]
+    for name,store,models in [('clodex',SnapshotStore(cfg.catalogue_path),clodex),
+                              ('anymodel',model_store(cfg),anymodel)]:
+        store.write(make_snapshot(models,[],[{'provider':name,'scope':'key_available'}]))
+    bot=Bot()
+    app=TelegramApp(pool,cfg,bot)
+    app.pricing.adapters['anymodel']=NoPrice()
+    await manual_tariff(app,user,FIBO_MODEL,IMAGE_OP,{},provider='anymodel')
+    await app.pricing.set_rule(user,100,'anymodel','','percent','25')
+    rules=await pool.fetch('SELECT * FROM task_price_rules')
+    tariff=await pool.fetch('SELECT * FROM task_manual_tariffs')
+    number=0
+
+    async def send(text=None,*,callback=None,chat=100):
+        nonlocal number
+        number+=1
+        await app.handle(event(number,text,callback=callback,chat=chat))
+
+    async def screens(*,admin=False,chat=100):
+        await send('/menu',chat=chat)
+        chooser=routes(bot)
+        titles=('CLODEX','AnyModel') if admin else ('Агрегатор 1','Агрегатор 2')
+        assert list(chooser)[:2]==list(titles)
+        assert ('Тарифы моделей' in chooser)==admin
+        assert (RUBLE_MENU in [row[0].text for row in bot.sent[-2][1].keyboard])==admin
+        for title,section in zip(titles,('🎬 Генерировать видео','🎆 Генерировать изображение')):
+            await send(callback=chooser[title],chat=chat)
+            assert bot.sent[-1][0]==title+'\nВыберите, что хотите сделать.'
+            assert section in routes(bot) and '📁 Мои работы' in routes(bot)
+            assert ('⚙️ Управление агрегатором' in routes(bot))==admin
+        return routes(bot)
+
+    await send('/admin')
+    assert bot.sent[-1][0]=='Админ-доступ закрыт.'
+    await screens()
+    app.cfg=replace(cfg,admin_password='fixture-password')
+    await send('/admin')
+    await send('wrong')
+    assert 'Неверный пароль' in bot.sent[-1][0]
+    image=await screens()
+    await send(callback=image['🎆 Генерировать изображение'])
+    await send(callback=routes(bot)['FIBO 2'])
+    assert 'ID:' not in bot.sent[-1][0] and 'Протоколы:' not in bot.sent[-1][0]
+    await send(callback=routes(bot)['🖼 Генерировать изображение'])
+    await send('test image')
+    quote=bot.sent[-1][0]
+    assert '125 токенов DarkFlow | Gen' in quote
+    assert 'Себестоимость' not in quote and 'Наценка' not in quote
+    await send(callback=routes(bot)['Отмена'])
+
+    await send('/admin')
+    await send(app.cfg.admin_password)
+    image=await screens(admin=True)
+    stale=image['⚙️ Управление агрегатором']
+    await send(callback=stale)
+    await send(callback=routes(bot)['Наши модели'])
+    assert 'наценка' in bot.sent[-1][0].lower()
+    await send('/admin_logout')
+    assert list(routes(bot))[:2]==['Агрегатор 1','Агрегатор 2']
+    assert [row[0].text for row in bot.sent[-2][1].keyboard][:2]==MENU[:2]
+    assert RUBLE_MENU not in [row[0].text for row in bot.sent[-2][1].keyboard]
+    count=len(bot.sent)
+    await send(callback=stale)
+    assert len(bot.sent)==count and bot.answers[-1]==(str(number),)
+    await send('/price_report@FixtureBot')
+    assert bot.sent[-1][0]=='Войдите через /admin.'
+
+    guest=await app.svc.identity(101)
+    await app.svc.accept(guest)
+    await screens(chat=101)
+    await send('/admin',chat=101)
+    assert bot.sent[-1][0]=='Админ-доступ закрыт.'
+    assert await pool.fetch('SELECT * FROM task_manual_tariffs')==tariff
+    assert await pool.fetch('SELECT * FROM task_price_rules')==rules
+    assert await pool.fetchval('SELECT count(*) FROM interaction_attempts')==0

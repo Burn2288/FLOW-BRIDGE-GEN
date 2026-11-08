@@ -25,8 +25,9 @@ class TaskLaunch:
 
     async def confirm(self,user,external,quote_id,update_id,*,progress,background):
         cfg = self.pricing.config
+        # The paid pilot has a separate allowlist from Admin Edition sessions.
         if cfg.access_mode!='private' or cfg.payments_enabled or external not in cfg.admin_ids:
-            raise Rejected('Действие доступно только администратору.')
+            raise Rejected('Тестовый запуск для этого аккаунта недоступен.')
         pool = self.pricing.pool
         async with pool.acquire() as conn:
             await self.pricing.admin(conn,user,external)

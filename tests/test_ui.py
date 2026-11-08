@@ -117,7 +117,7 @@ async def test_welcome_consent_start_and_menu():
 
 
 @pytest.mark.parametrize('missing',[True,False])
-async def test_welcome_fallback_retains_public_keyboard(monkeypatch,tmp_path,missing):
+async def test_welcome_fallback_retains_user_keyboard(monkeypatch,tmp_path,missing):
     a,b=app()
     await a.svc.accept(a.svc.u)
     if missing:
@@ -128,7 +128,7 @@ async def test_welcome_fallback_retains_public_keyboard(monkeypatch,tmp_path,mis
     await a.handle(event('/start'))
     text,keyboard=b.sent[-1]
     assert text==telegram.WELCOME_TEXT
-    assert [[button.text for button in row] for row in keyboard.keyboard]==[[telegram.OPEN_CATALOGUE]]
+    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU]
     welcome=a.svc.welcome
     await a.handle(event(telegram.OPEN_CATALOGUE))
     assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'

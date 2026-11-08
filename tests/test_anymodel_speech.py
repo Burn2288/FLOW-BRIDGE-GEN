@@ -137,8 +137,12 @@ async def test_voice_without_price_and_disabled_pilot(env):
         app=telegram.TelegramApp(pool,cfg,bot)
         app.anymodel_speech=SpeechPilot(pool,cfg,api=AnyModelProvider(cfg.anymodel_key,client=client))
         app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=app.anymodel_speech.api)
+        guest=await app.svc.identity(101)
+        await app.svc.accept(guest)
+        await app.callback(guest,101,'amvoices:0')
+        assert bot.sent[-1][0]=='AnyVoice · Выберите голос'
         with pytest.raises(Rejected):
-            await app.callback(user,101,'amvoices:0')
+            await app.callback(guest,101,'amvprices:0')
         await app.callback(user,100,'amvoices:0')
         await app.callback(user,100,routes(bot)['Далее →'])
         origin=dict(routes(bot))

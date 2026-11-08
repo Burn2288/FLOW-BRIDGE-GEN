@@ -185,8 +185,10 @@ async def test_anymodel_video_missing_price_keeps_launch_closed(env):
         await app.callback(user,100,'amvideo:run')
         await app.handle(event('Video'))
         assert 'Цена недоступна' in app.bot.sent[-1][0]
-        with pytest.raises(Rejected):
-            await app.callback(user,101,'amvideo:detail')
+        guest=await app.svc.identity(101)
+        await app.svc.accept(guest)
+        await app.callback(guest,101,'amvideo:detail')
+        assert 'Агрегатор 2' in app.bot.sent[-1][0]
 
 
 def test_rejects_mp4_signature_only():
