@@ -110,3 +110,8 @@
 
 - [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6725969327), SHA `4669f3fe35fa7f5ad26be00872263d2e86d75b7b`, стенд `flowbridge-live-smoke`, миграция 025. Исходные суммы, курсы и итоговые цены показаны отдельно. Курсы AnyModel и CLODEX USD перенесены. Ручная себестоимость в токенах бота, рублёвый эквивалент и повторное подтверждение проверены на заглушках.
 - Локально 302 теста, [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42514398735) и [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42514398564) зелёные. `halted=true`, генераций и списаний 0. PR ожидает ревью.
+
+### Меню агрегаторов Admin Edition
+
+- [Приёмка PR №16](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6726531861), SHA `e147db36a4fefb531e30016407bb4616dfa315d0` на `flowbridge-live-smoke`. Общий порядок рабочих разделов и отдельный экран управления. На стенде проверены CLODEX и AnyModel, обратная навигация и отказы гостю. Третий провайдер из реестра покрыт заглушкой.
+- Локально 303 теста, [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42518727407) и [Documentation](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42518727392) зелёные. `halted=true`, генераций 0. PR ожидает ревью.
