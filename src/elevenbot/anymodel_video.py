@@ -9,7 +9,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 
 from .anymodel import AnyModelError, AnyModelProvider, BASE
-from .video import ID_PATTERN, MAX_VIDEO_BYTES, InvalidVideoError, VideoPilot, VideoProtocolError
+from .video import ID_PATTERN, MAX_VIDEO_BYTES, InvalidVideoError, VideoPilot, VideoProtocolError, video_status_detail
 
 MODEL='xai/grok-imagine-video-1.5'
 TITLE='Grok Imagine Video 1.5'
@@ -98,7 +98,7 @@ class AnyModelVideoProvider(AnyModelProvider):
         data,_=await self.video_json('GET',f'/videos/{task}',request_headers=self.video_headers(connection))
         status=data.get('status')
         if status=='pending':
-            return status
+            return video_status_detail(data)
         video=data.get('video')
         if status=='done' and isinstance(video,dict) and isinstance(video.get('url'),str) and video['url']:
             return status

@@ -92,6 +92,8 @@ async def main():
                 if cfg.video_pilot:
                     from .video import VideoPilot
                     tasks.append(asyncio.create_task(VideoPilot(pool,cfg).loop(bot)))
+                from .progress import TaskProgress
+                tasks.append(asyncio.create_task(TaskProgress(bot,pool).loop()))
                 try:await poll(pool,cfg,bot)
                 finally:
                     for task in tasks:

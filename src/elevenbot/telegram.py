@@ -15,6 +15,7 @@ from .anymodel_video import DURATION as ANYMODEL_VIDEO_SECONDS,RESOLUTION as ANY
 from .anymodel_video import ASPECT_RATIO as ANYMODEL_VIDEO_RATIO,USD_PER_TOKEN
 from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_chat,can_image,can_view,model_store
 from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot
+from .progress import ReportedTaskError,TaskProgress,UNKNOWN
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
@@ -72,6 +73,7 @@ class TelegramApp:
         self.aggregator_keyboard_messages = {}
         self.work_previews = {}
         self.pending_speech = {}
+        self.progress = TaskProgress(bot,pool)
         self.video = VideoPilot(pool,cfg)
         self.anymodel_video = AnyModelVideoPilot(pool,cfg)
         self.anymodel_speech = SpeechPilot(pool,cfg)
@@ -80,7 +82,6 @@ class TelegramApp:
             markup=menu(public=True)
         return await self.bot.send_message(chat,text,reply_markup=markup)
     async def catalogue_screen(self, chat, text, markup=None, *, after_message_id=None, animation=None):
-        self.pending_speech.pop(chat,None)
         await self.close_work_preview(chat)
         message_id = self.catalogue_messages.get(chat)
         if (animation is None and message_id is not None and chat not in self.catalogue_animations
@@ -164,19 +165,25 @@ class TelegramApp:
 
     async def refresh_speech_results(self):
         # Runs in the same event loop as navigation, between batches of updates.
-        for ext,(u,job,rows) in list(self.pending_speech.items()):
+        for job,(ext,u,model,message,last_status) in list(self.pending_speech.items()):
             try:
                 status=(await self.svc.owned(u,job))['status']
                 if status in ('queued','dispatching'):
+                    if status!=last_status and await self.progress.edit(
+                        ext,message,f'⏳ {model} · Озвучиваю текст…',
+                    ):
+                        self.pending_speech[job]=(ext,u,model,message,status)
                     continue
+                self.pending_speech.pop(job,None)
                 if status=='succeeded':
-                    await self.catalogue_screen(ext,'Озвучка готова.',buttons(rows))
+                    await self.progress.finish(ext,message,model,success=True)
                     await self.open_work(u,ext,'audio',str(job),show_prompt=True)
                     trace_interaction(str(job),'result_notified')
                 else:
-                    await self.catalogue_screen(ext,'Статус озвучки: '+STATUS[status],buttons(rows))
+                    await self.progress.finish(ext,message,model,UNKNOWN if status=='uncertain' else STATUS[status])
             except (Rejected,TelegramBadRequest,TelegramNetworkError) as error:
-                self.pending_speech.pop(ext,None)
+                self.pending_speech.pop(job,None)
+                await self.progress.finish(ext,message,model,'Не удалось получить озвучку.')
                 trace_interaction(str(job),'result_display_failed',error_type=type(error).__name__)
 
     async def handle(self,update):
@@ -316,6 +323,8 @@ class TelegramApp:
                 await self.voices(ext,after_message_id=update.message.message_id)
                 return
             await self.show_home(ext)
+        except ReportedTaskError:
+            return
         except Rejected as e:
             if update.message and update.message.successful_payment:
                 async with self.pool.acquire() as c,c.transaction():
@@ -511,9 +520,10 @@ class TelegramApp:
                 raise
             trace_interaction(str(job),'queued',operation='audio.speech',model=self.cfg.clodex_model or 'demo')
             await self.svc.conversation(u,'home')
-            rows=self.work_rows(ext,'speech',self.cfg.clodex_model)
-            await self.catalogue_screen(ext,'Работа принята. ⏳ Подождите, идёт озвучка…',buttons(rows))
-            self.pending_speech[ext]=(u,job,rows)
+            if job not in self.pending_speech:
+                model=self.cfg.clodex_model or 'Демо-озвучка'
+                message=await self.progress.start(ext,model,'audio.speech')
+                self.pending_speech[job]=(ext,u,model,message,'queued')
             return
         if kind=='video':
             await self.open_work(u,ext,'video',arg);return
@@ -586,7 +596,6 @@ class TelegramApp:
             if previous is not None and previous!=message.message_id:
                 await self.remove_menu_message(ext,previous)
 
-        self.pending_speech.pop(ext,None)
         await self.close_work_preview(ext)
         temporary=self.catalogue_messages.pop(ext,None)
         self.catalogue_animations.discard(ext)
@@ -658,10 +667,10 @@ class TelegramApp:
             context=await self.svc.aggregate_context(u)
             if request_id is None or not context or not context.get('anymodel_video') or context.get('quote_id')!=parts[0]:
                 raise Rejected('AnyModel: оценка устарела или заказ уже принят.')
-            await self.anymodel_video.confirm(u,parts[0],request_id,ANYMODEL_VIDEO_MODEL)
+            await self.anymodel_video.confirm(u,parts[0],request_id,ANYMODEL_VIDEO_MODEL,
+                on_accepted=lambda job:self.progress.start(ext,ANYMODEL_VIDEO_TITLE,'video',video_id=job))
             await self.svc.conversation(u,'home')
-            await self.catalogue_screen(ext,'AnyModel: задание принято. Отправлю ролик, когда он будет готов.',
-                                        buttons([[('📁 Мои работы','history:0')]]));return
+            return
         if route=='amimage':
             data=self.anymodel_snapshot(ext)
             model=next((m for m in data['models'] if m['id']==FIBO_MODEL),None)
@@ -726,13 +735,12 @@ class TelegramApp:
                 context=await self.svc.aggregate_context(u)
                 if request_id is None or not context or context.get('speech_quote')!=arg:
                     raise Rejected('AnyModel: оценка устарела или запрос уже принят.')
-                work=await pilot.confirm(u,ext,arg,request_id)
+                work=await pilot.confirm(u,ext,arg,request_id,
+                    track=lambda title:self.progress.track(ext,title,'audio.speech'))
                 audio=await self.svc.audio_work(u,work)
                 await self.bot.send_audio(ext,BufferedInputFile(audio['audio'],filename=audio['filename']),
                                           caption=audio['caption'])
                 await self.svc.conversation(u,'home')
-                await self.catalogue_screen(ext,'AnyModel: озвучка сохранена.',
-                                            buttons([[('📁 Мои работы','history:0')]]))
                 return
             if route=='amvoices':
                 await self.svc.conversation(u,'home')
@@ -927,10 +935,10 @@ class TelegramApp:
         if request_id is None or not context or context.get('quote_id')!=quote_id:
             raise Rejected('Оценка устарела или заказ уже принят.')
         model,_,_=self.veo_mode(ext,context['version'],context['video_mode'])
-        await self.video.confirm(u,quote_id,request_id,model)
+        title='Veo 3.1 Fast' if context['video_mode']=='fast' else 'Veo 3.1'
+        await self.video.confirm(u,quote_id,request_id,model,
+            on_accepted=lambda job:self.progress.start(ext,title,'video',video_id=job))
         await self.svc.conversation(u,'home')
-        await self.catalogue_screen(ext,'Задание принято. Отправлю видео, когда оно будет готово.',
-                                    buttons([[('📁 Мои работы','history:0')]]))
 
     async def show_store_model(self,ext,snapshot,section,page,index):
         model=snapshot['models'][index]
@@ -1166,22 +1174,18 @@ class TelegramApp:
         history=context['history']
         if operation=='images.generate':
             await self.remove_menu_message(ext,message.message_id)
-            await self.image_status_screen(
-                ext, request_id, 'progress', '⏳ Подождите, идёт генерация…',
-                after_message_id=message.message_id,
-            )
+        title=model.get('title') or model['id']
+        job=None
         try:
-            result=await execute(operation,model,prompt,history,mode=mode,key=self.cfg.clodex_key,
-                                 request_id=request_id,quality=context.get('quality'))
+            async with self.progress.track(ext,title,operation):
+                result=await execute(operation,model,prompt,history,mode=mode,key=self.cfg.clodex_key,
+                                     request_id=request_id,quality=context.get('quality'))
+                if not result.text:
+                    job=await self.svc.save_image_work(u,request_id,model['id'],prompt,result)
+                    trace_interaction(request_id,'image_saved')
         except Rejected:
             trace_interaction(request_id,'generation_failed')
-            if operation!='images.generate':
-                raise
-            await self.catalogue_screen(
-                ext,'Не удалось создать изображение.',
-                buttons([[('Главное меню','home')]]),after_message_id=message.message_id,
-            )
-            return
+            raise
         if result.text:
             context['history']=[*history,{'role':'user','content':prompt[:2000]},
                                 {'role':'assistant','content':result.text[:2000]}][-6:]
@@ -1191,25 +1195,13 @@ class TelegramApp:
             else:
                 await self.say(ext,result.text)
             trace_interaction(request_id,'result_notified')
-        else:
+        elif job:
             try:
-                job=await self.svc.save_image_work(u,request_id,model['id'],prompt,result)
-            except Exception as error:
-                trace_interaction(request_id,'save_failed',error_type=type(error).__name__)
-                raise
-            trace_interaction(request_id,'image_saved')
-            rows=self.work_rows(ext,'image',model['id'],snapshot)
-            await self.image_status_screen(
-                ext, request_id, 'ready', 'Картинка готова. Можно отправить следующее описание.',
-                buttons(rows),after_message_id=message.message_id,
-            )
-            if job:
-                try:
-                    await self.open_work(u,ext,'image',str(job),show_prompt=True)
-                except (Rejected,TelegramBadRequest,TelegramNetworkError) as error:
-                    trace_interaction(request_id,'result_display_failed',error_type=type(error).__name__)
-                    return
-                trace_interaction(request_id,'result_notified')
+                await self.open_work(u,ext,'image',str(job),show_prompt=True)
+            except (Rejected,TelegramBadRequest,TelegramNetworkError) as error:
+                trace_interaction(request_id,'result_display_failed',error_type=type(error).__name__)
+                return
+            trace_interaction(request_id,'result_notified')
 
     async def anymodel_input(self,u,ext,update,context):
         data=self.anymodel_snapshot(ext)
@@ -1226,10 +1218,9 @@ class TelegramApp:
         if image:
             from .anymodel_image_jobs import AnyModelImageJobs
             jobs=AnyModelImageJobs(self.pool,self.cfg,adapter=AnyModelProvider(self.cfg.anymodel_key))
-            await jobs.submit(u,update.update_id,prompt)
+            await jobs.submit(u,update.update_id,prompt,
+                on_accepted=lambda job:self.progress.start(ext,'FIBO 2',operation,image_id=job))
             await self.svc.conversation(u,'home')
-            await self.catalogue_screen(ext,'AnyModel: запрос принят. Бот пришлёт изображение, когда оно будет готово.',
-                                        buttons([[('📁 Мои работы','history:0')]]))
             return
         try:
             reserved=await self.svc.reserve_interaction(u,update.update_id,operation=operation,model_id=model['id'])
@@ -1239,10 +1230,12 @@ class TelegramApp:
             raise Rejected(f'AnyModel: {error}') from None
         adapter=AnyModelProvider(self.cfg.anymodel_key)
         history=context['history']
-        try:
-            reply=await adapter.chat(model['id'],prompt,history)
-        except AnyModelError as error:
-            raise Rejected(f'AnyModel: {error}. Автоповтора нет.') from None
+        async with self.progress.track(ext,model.get('title') or model['id'],operation):
+            try:
+                reply=await adapter.chat(model['id'],prompt,history)
+            except AnyModelError as error:
+                detail=UNKNOWN if error.code in ('response_timeout','transport_error','connect_timeout','connect_error') else str(error)
+                raise Rejected(f'AnyModel: {detail}') from None
         context['history']=[*history,{'role':'user','content':prompt[:2000]},
                             {'role':'assistant','content':reply[:2000]}][-6:]
         await self.svc.aggregate_context(u,context)
@@ -1250,13 +1243,6 @@ class TelegramApp:
             await self.bot.send_document(ext,BufferedInputFile(reply.encode(),filename='answer.txt'),caption='AnyModel')
         else:
             await self.say(ext,'AnyModel\n'+reply)
-
-    async def image_status_screen(self, chat, request_id, screen, text, markup=None, *, after_message_id):
-        try:
-            await self.catalogue_screen(chat, text, markup, after_message_id=after_message_id)
-        except (TelegramBadRequest, TelegramNetworkError) as error:
-            trace_interaction(request_id, 'image_status_screen_failed',
-                              screen=screen, error_type=type(error).__name__)
 
     async def begin_aggregate(self,u,ext,version,fi,mi):
         data=self.catalogue_snapshot(version)

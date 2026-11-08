@@ -274,7 +274,7 @@ async def test_corrupt_provider_image_is_not_saved_sent_or_retried(env, tmp_path
     async with client:
         prompt = event("Draw a fixture")
         await app.handle(prompt)
-        assert "Не удалось создать изображение." in bot.sent[-1][0]
+        assert bot.sent[-1][0].startswith("⚠️ Image fixture ·")
         await app.handle(prompt)
         await app.handle(event(MENU[1]).model_copy(update={"update_id": 2}))
 
