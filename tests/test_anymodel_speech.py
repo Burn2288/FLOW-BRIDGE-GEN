@@ -10,6 +10,7 @@ from aiogram.exceptions import TelegramNetworkError
 from aiogram.methods import SendAudio
 
 from elevenbot import telegram
+from elevenbot.anymodel_pricing import AnyModelPricing
 from elevenbot.anymodel import AnyModelError, AnyModelProvider
 from elevenbot.anymodel_speech import FISH, FISH_TITLE, SpeechPilot, validate_mp3
 from elevenbot.core import Rejected
@@ -66,6 +67,7 @@ async def test_speech_confirmation_and_library(env,model,outcome):
         bot=Bot()
         app=telegram.TelegramApp(pool,cfg,bot)
         app.anymodel_speech=SpeechPilot(pool,cfg,api=AnyModelProvider(cfg.anymodel_key,client=client))
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=app.anymodel_speech.api)
         await app.callback(user,100,'am')
         await app.callback(user,100,routes(bot)['🎙 Озвучить текст'])
         await app.callback(user,100,routes(bot)[FISH_TITLE if model==FISH else 'AnyVoice'])
@@ -73,16 +75,17 @@ async def test_speech_confirmation_and_library(env,model,outcome):
             await app.callback(user,100,routes(bot)['Выбрать голос'])
             await app.callback(user,100,routes(bot)[NAME])
         assert model in bot.sent[-1][0]
-        assert ('Голос по умолчанию' if model==FISH else NAME) in bot.sent[-1][0]
+        assert (FISH_TITLE if model==FISH else NAME) in bot.sent[-1][0]
         await app.handle(event(TEXT))
-        assert '5 единиц UTF-16' in bot.sent[-1][0]
+        assert '5 ед. UTF-16' in bot.sent[-1][0]
         assert f'Стоимость: {250*output} токенов' in bot.sent[-1][0]
-        action=routes(bot)['Подтвердить']
+        action=routes(bot)['Генерировать']
         assert not calls
         if outcome=='changed_rate':
             output=3
-            with pytest.raises(Rejected,match='цена изменилась'):
-                await app.callback(user,100,action,request_id=2)
+            await app.callback(user,100,action,request_id=2)
+            assert '750 токенов' in bot.sent[-1][0]
+            assert routes(bot)['Генерировать']!=action
             assert not calls
             assert await pool.fetchval('SELECT count(*) FROM interaction_attempts')==0
             return
@@ -92,7 +95,7 @@ async def test_speech_confirmation_and_library(env,model,outcome):
             app.callback(user,100,action,request_id=2),app.callback(user,100,action,request_id=3),
             return_exceptions=True,
         )
-        assert calls==[{'model':model,'input':TEXT}]
+        assert calls==[{'model':model,'input':TEXT}], results
         assert any(isinstance(result,Rejected) for result in results)
         if outcome in ('timeout','invalid_audio'):
             assert all(isinstance(result,Rejected) for result in results)
@@ -129,18 +132,18 @@ async def test_voice_without_price_and_disabled_pilot(env):
         bot=Bot()
         app=telegram.TelegramApp(pool,cfg,bot)
         app.anymodel_speech=SpeechPilot(pool,cfg,api=AnyModelProvider(cfg.anymodel_key,client=client))
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=app.anymodel_speech.api)
         with pytest.raises(Rejected):
             await app.callback(user,101,'amvoices:0')
         await app.callback(user,100,'amvoices:0')
         await app.callback(user,100,routes(bot)['Далее →'])
         await app.callback(user,100,routes(bot)[NAME])
-        assert NAME in bot.sent[-1][0] and 'Тариф не подтверждён' in bot.sent[-1][0]
+        assert NAME in bot.sent[-1][0]
         await app.handle(event(TEXT))
-        assert 'тариф не подтверждён' in bot.sent[-1][0].lower()
+        assert 'Не удалось рассчитать стоимость' in bot.sent[-1][0]
         assert await pool.fetchval('SELECT count(*) FROM anymodel_speech')==0
         closed=telegram.TelegramApp(pool,replace(cfg,anymodel_speech_live=False),Bot())
-        await closed.handle(event(TEXT))
-        assert 'выключен' in closed.bot.sent[-1][0]
+        assert not closed.anymodel_speech.enabled(100)
 
 
 def test_mp3_signature_is_not_audio():

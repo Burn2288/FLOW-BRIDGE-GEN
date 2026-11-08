@@ -12,11 +12,15 @@ import httpx
 import pytest
 
 from elevenbot import telegram
+from elevenbot.anymodel_pricing import AnyModelPricing
 from elevenbot.anymodel import AnyModelProvider, FIBO_MODEL, model_store
 from elevenbot.anymodel_image_jobs import AnyModelImageJobs
 from test_anymodel import routes
 from test_image_validation import encoded_image
 from test_ui import Bot, event
+
+FIBO_TARIFF={'id':FIBO_MODEL,'endpoint':'/v1/images/generations',
+             'billing':{'unit':'image','base_tokens':100000,'coefficient':{'output':0.95}}}
 
 
 @pytest.mark.parametrize('variant',['base64','url','broken','timeout','connect','unsafe'])
@@ -35,6 +39,8 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
 
     def respond(req):
         calls.append((req.method,req.url.path))
+        if req.url.path=='/v1/models/info':
+            return httpx.Response(200,json=FIBO_TARIFF)
         if req.url.path=='/v1/models':
             return httpx.Response(200,json={'data':[
                 {'id':FIBO_MODEL,'kind':'image'},{'id':'anymedia/fibo-lite','kind':'image'},
@@ -62,6 +68,8 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
         bot=Bot()
         bot.send_photo=AsyncMock(return_value=SimpleNamespace(message_id=15))
         app=telegram.TelegramApp(pool,cfg,bot)
+        app.anymodel_images.adapter=AnyModelProvider(cfg.anymodel_key,client=http)
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=app.anymodel_images.adapter)
         await app.callback(user,100,'am')
         home=routes(bot)
         assert set(home.values())=={
@@ -74,17 +82,23 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
         await app.callback(user,100,home[telegram.OPEN_CATALOGUE])
         assert 'anymedia/fibo-lite' in routes(bot)
         await app.callback(user,100,'amsection:image')
-        assert set(routes(bot))=={'FIBO 2','← AnyModel'}
+        assert 'FIBO 2' in routes(bot)
         await app.callback(user,100,routes(bot)['FIBO 2'])
         assert FIBO_MODEL in bot.sent[-1][0]
         run=routes(bot)['🖼 Генерировать изображение']
         disabled=telegram.TelegramApp(pool,replace(cfg,anymodel_image_live=False),Bot())
         await disabled.callback(user,100,'amimage:detail')
-        assert run not in routes(disabled.bot).values()
+        assert run in routes(disabled.bot).values()  # Quotes are available with live runs disabled.
         await app.callback(user,100,run)
         assert 'Пришлите описание' in bot.sent[-1][0]
         prompt=event('Draw a blue square')
         await app.handle(prompt)
+        assert '95\u202f000' in bot.sent[-1][0]
+        action=routes(bot)['Генерировать']
+        assert not any(method=='POST' for method,_ in calls)
+        await app.handle(event(callback=action).model_copy(update={'update_id':2}))
+        with pytest.raises(telegram.Rejected):
+            await app.callback(user,100,action,request_id=3)
         if variant in ('base64','url'):
             jobs=AnyModelImageJobs(pool,cfg,adapter=AnyModelProvider(cfg.anymodel_key,client=http))
             assert await jobs.poll_one(bot)
@@ -97,7 +111,6 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
             assert await pool.fetchval('SELECT image FROM image_works')==png
         else:
             assert 'Автоповтора нет' in bot.sent[-1][0]
-            await app.handle(prompt)
             expected='unknown' if variant in ('timeout','connect') else 'failed'
             assert await pool.fetchval('SELECT status FROM anymodel_image_jobs')==expected
             if variant in ('timeout','connect'):
@@ -107,7 +120,7 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
             assert await pool.fetchval('SELECT count(*) FROM image_works')==0
             bot.send_photo.assert_not_awaited()
 
-    assert calls==[('GET','/v1/models'),('POST','/v1/images/generations')]+(
+    assert calls==[('GET','/v1/models'),('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations')]+(
         [('GET','/fixture.png')] if variant=='url' else []
     )
 
@@ -175,6 +188,8 @@ async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch):
 
     def respond(req):
         requests.append((req.method,req.url.path))
+        if req.url.path=='/v1/models/info':
+            return httpx.Response(200,json=FIBO_TARIFF)
         if req.method=='GET':
             return httpx.Response(200,json={'data':[{'id':FIBO_MODEL,'kind':'image'}]})
         assert json.loads(req.content)=={'model':FIBO_MODEL,'prompt':'Blue square','background':True}
@@ -187,13 +202,16 @@ async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch):
         monkeypatch.setattr(telegram,'AnyModelProvider',lambda key: adapter)
         before=Bot()
         app=telegram.TelegramApp(pool,cfg,before)
+        app.anymodel_images.adapter=adapter
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=adapter)
         await app.callback(user,100,'am')
         await app.callback(user,100,routes(before)['🖼 Генерировать изображение'])
         await app.callback(user,100,routes(before)['FIBO 2'])
         await app.callback(user,100,routes(before)['🖼 Генерировать изображение'])
         await app.handle(event('Blue square'))
+        await app.callback(user,100,routes(before)['Генерировать'],request_id=2)
         assert 'FIBO 2 · Генерирую изображение' in before.sent[-1][0]
-    assert requests==[('GET','/v1/models'),('POST','/v1/images/generations')]
+    assert requests==[('GET','/v1/models'),('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations')]
     assert await pool.fetchval("""
         SELECT status='pending' AND provider_id='fixture-job' AND next_at>now()+interval '110 seconds'
         FROM anymodel_image_jobs

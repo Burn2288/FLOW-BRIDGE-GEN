@@ -5,8 +5,9 @@ import httpx
 import pytest
 
 from elevenbot import interaction, telegram
+from elevenbot.anymodel_pricing import AnyModelPricing
 from elevenbot.aggregate import make_snapshot
-from elevenbot.anymodel import AnyModelProvider, TEST_MODEL, model_store
+from elevenbot.anymodel import AnyModelProvider, TEST_MODEL, can_chat, model_store
 from elevenbot.core import Rejected
 from elevenbot.discovery import SnapshotStore
 from test_ui import Bot, event
@@ -30,6 +31,10 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
     def respond(req):
         body=json.loads(req.content) if req.content else None
         calls.append((req.method,req.url.host,req.url.path,req.headers.get('Authorization'),body))
+        if req.url.path=='/v1/models/info':
+            assert req.url.params['id']==TEST_MODEL
+            return httpx.Response(200,json={'id':TEST_MODEL,'endpoint':'/v1/chat/completions',
+                'billing':{'unit':'token','coefficient':{'input':1,'output':2}}})
         if req.method=='GET':
             return httpx.Response(200,json={'data':records})
         if req.url.host=='anymodel.org' and failure:
@@ -54,6 +59,7 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         ]))
         bot=Bot()
         app=telegram.TelegramApp(pool,cfg,bot)
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=anymodel)
         await app.show_providers(100)
         await app.callback(user,100,routes(bot)['AnyModel'])
         assert 'Моделей: 23' in bot.sent[-1][0]
@@ -70,7 +76,7 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         await app.callback(user,100,routes(bot)['← Назад'])
         await app.callback(user,100,routes(bot)['DeepSeek V4 Flash Vision'])
         assert f'ID: {TEST_MODEL}' in bot.sent[-1][0]
-        action=routes(bot)['Тестовый чат']
+        action=routes(bot)['Рассчитать стоимость']
         for restricted,external_id in ((cfg,101),(replace(cfg,anymodel_test_enabled=False),100)):
             hidden=telegram.TelegramApp(pool,restricted,Bot())
             await hidden.show_providers(external_id)
@@ -79,19 +85,24 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
                 await hidden.callback(user,external_id,action)
         await app.callback(user,100,action)
         await app.handle(event('hello AnyModel'))
+        assert 'ответ до 256 токенов' in bot.sent[-1][0]
+        assert not any(call[0]=='POST' for call in calls)
+        action=routes(bot)['Генерировать']
+        await app.handle(event(callback=action).model_copy(update={'update_id':2}))
         assert ('Исход запроса неизвестен' if failure else 'Reply from anymodel.org') in bot.sent[-1][0]
-        assert len(calls)==2
+        with pytest.raises(Rejected):
+            await app.callback(user,100,action,request_id=3)
+        assert sum(call[0]=='POST' for call in calls)==1
 
         version=app.catalogue_snapshot()['version']
         await app.callback(user,100,f'runmodel:{version}:0:chat')
-        await app.handle(event('hello CLODEX').model_copy(update={'update_id':2}))
+        await app.handle(event('hello CLODEX').model_copy(update={'update_id':4}))
         assert 'Reply from clodex.xyz' in bot.sent[-1][0]
-        assert [call[:4] for call in calls]==[
-            ('GET','anymodel.org','/v1/models','Bearer fixture-any'),
+        assert [call[:4] for call in calls if call[0]=='POST']==[
             ('POST','anymodel.org','/v1/chat/completions','Bearer fixture-any'),
             ('POST','clodex.xyz','/v1/chat/completions','Bearer fixture-clodex'),
         ]
-        assert all(call[4]['model']==TEST_MODEL for call in calls[1:])
+        assert all(call[4]['model']==TEST_MODEL for call in calls if call[0]=='POST')
 
 
 async def test_failed_refresh_keeps_last_authenticated_snapshot(tmp_path):
@@ -123,4 +134,4 @@ async def test_public_fallback_is_unverified_and_does_not_use_key(tmp_path):
     assert result['sources'][0]['scope']=='public_only'
     assert result['refresh_error']=='HTTP 401'
     assert result['models'][0]['availability']=='public_only'
-    assert not telegram.can_chat(result['models'][0],result)
+    assert not can_chat(result['models'][0],result)

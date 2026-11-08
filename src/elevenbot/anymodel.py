@@ -92,13 +92,13 @@ def can_view(cfg, external_id):
 
 
 def can_chat(model, data):
-    return (model['provider'] == 'anymodel' and model['id'] == TEST_MODEL
+    return (model['provider'] == 'anymodel'
             and model['availability'] == 'key_available' and 'chat' in model['operations']
             and data['fresh_until'] > time.time())
 
 
 def can_image(model, data):
-    return (model['provider'] == 'anymodel' and model['id'] == FIBO_MODEL
+    return (model['provider'] == 'anymodel'
             and model['availability'] == 'key_available' and IMAGE_OP in model['operations']
             and data['fresh_until'] > time.time())
 
@@ -163,15 +163,18 @@ class AnyModelProvider:
             models = normalize(payload)
         except DiscoveryError:
             raise AnyModelError('неизвестный формат каталога') from None
-        image_ids = {record['id'] for record in payload['data'] if record.get('kind') == 'image'}
+        kinds = {record['id']: record.get('kind') for record in payload['data']}
         for model in models:
-            if model['id'] in image_ids:
+            if kinds.get(model['id']) == 'image':
                 model.update(operations=[IMAGE_OP],capabilities_known=True,protocols=['openai-images'])
             if model['id'] == FIBO_MODEL:
                 if model['title'] == FIBO_MODEL:
                     model['title'] = 'FIBO 2'
+            if kinds.get(model['id']) in ('video','tts'):
+                operation = 'video' if kinds[model['id']] == 'video' else 'audio.speech'
+                model.update(operations=[operation], capabilities_known=True)
             # Exact route documented for this ID. Do not infer other models' capabilities from their names.
-            if model['id'] == TEST_MODEL:
+            if model['id'] == TEST_MODEL or kinds.get(model['id']) in ('chat','llm'):
                 model.update(operations=['chat'], capabilities_known=True, protocols=['openai-chat'])
             model['availability'] = scope
         return {'models': models, 'functions': [], 'scope': scope}
@@ -207,11 +210,9 @@ class AnyModelProvider:
         await asyncio.to_thread(store.write,data)
         return data
 
-    async def submit_image(self,model,prompt):
-        if model != FIBO_MODEL:
-            raise AnyModelError('модель генерации изображения недоступна')
+    async def submit_image(self,model,prompt,*,params=None):
         return await self.read_response('POST',IMAGE_ENDPOINT,authenticated=True,max_body=8*1024*1024,
-                                        accepted=(200,202),json={'model':model,'prompt':prompt,'background':True})
+                                        accepted=(200,202),json={'model':model,'prompt':prompt,'background':True, **(params or {})})
 
     async def poll_image(self,job_id):
         if not JOB_ID.fullmatch(job_id):
@@ -247,11 +248,9 @@ class AnyModelProvider:
         except (Rejected,TimeoutError):
             raise AnyModelError('не удалось скачать или проверить изображение',code='image_download') from None
 
-    async def chat(self, model, prompt, history):
-        if model != TEST_MODEL:
-            raise AnyModelError('модель тестового чата недоступна')
+    async def chat(self, model, prompt, history, *, max_tokens=256):
         payload = {'model': model, 'messages': [*history, {'role':'user','content':prompt}],
-                   'max_tokens': 256, 'stream': False}
+                   'max_tokens': max_tokens, 'stream': False}
         body = self.decode(await self.request('POST', BASE+'/chat/completions', authenticated=True, json=payload))
         try:
             reply = body['choices'][0]['message']['content']

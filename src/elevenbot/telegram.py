@@ -1,5 +1,5 @@
 """Telegram transport. Durable inbox polling; business rules live in core."""
-import asyncio,hashlib,json,time
+import asyncio,hashlib,json,re,time
 from datetime import datetime,timezone
 from pathlib import Path
 from aiogram import Bot
@@ -12,16 +12,19 @@ from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_inter
 from .video import VideoPilot,VideoProtocolError,video_modes
 from .anymodel_video import AnyModelVideoPilot,MODEL as ANYMODEL_VIDEO_MODEL,TITLE as ANYMODEL_VIDEO_TITLE
 from .anymodel_video import DURATION as ANYMODEL_VIDEO_SECONDS,RESOLUTION as ANYMODEL_VIDEO_RESOLUTION
-from .anymodel_video import ASPECT_RATIO as ANYMODEL_VIDEO_RATIO,USD_PER_TOKEN
-from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_chat,can_image,can_view,model_store
+from .anymodel_video import ASPECT_RATIO as ANYMODEL_VIDEO_RATIO
+from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_image,can_view,model_store
 from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot
+from .anymodel_image_jobs import AnyModelImageJobs
+from .anymodel_pricing import AnyModelPricing
+from .pricing import BOT_UNIT,PriceUnavailable,Pricing,Request
 from .progress import ReportedTaskError,TaskProgress,UNKNOWN
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm'}
-ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm'}|SPEECH_ROUTES
+ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage','amvideo','amvconfirm','amconfirm','amcancel','amparams'}|SPEECH_ROUTES
 CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|{'provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
@@ -77,6 +80,8 @@ class TelegramApp:
         self.video = VideoPilot(pool,cfg)
         self.anymodel_video = AnyModelVideoPilot(pool,cfg)
         self.anymodel_speech = SpeechPilot(pool,cfg)
+        self.anymodel_images = AnyModelImageJobs(pool,cfg)
+        self.pricing = Pricing(pool,cfg,{'anymodel':AnyModelPricing(cfg.anymodel_key)})
     async def say(self,chat,text,markup=None):
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
             markup=menu(public=True)
@@ -277,6 +282,8 @@ class TelegramApp:
                 await self.remove_menu_message(ext,update.message.message_id);return
             if text in ('/terms','/privacy','/support','/paysupport'):
                 await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
+            if command in ('/markup','/price_rate','/price_report','/price_account'):
+                await self.price_admin(u,ext,command,text.split()[1:]);return
             if text.startswith('/refund '):
                 if ext not in self.cfg.admin_ids:raise Rejected('Действие недоступно.')
                 p=await self.svc.prepare_refund(text.split(maxsplit=1)[1],provider='telegram')
@@ -300,10 +307,8 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
-                if context and context.get('anymodel_video'):
-                    await self.anymodel_video_prompt(u,ext,text,context);return
-                if context and 'anymodel_speech' in context:
-                    await self.anymodel_speech_prompt(u,ext,text,context);return
+                if context and context.get('provider')=='anymodel':
+                    await self.anymodel_input(u,ext,text,context);return
                 if context and 'video_mode' in context:
                     await self.video_prompt(u,ext,text,context);return
                 if context and 'interaction' in context:
@@ -333,7 +338,7 @@ class TelegramApp:
                     await c.execute("INSERT INTO audit_events(action,target) VALUES('payment_review',$1)",u)
             if update.pre_checkout_query:
                 await self.bot.answer_pre_checkout_query(update.pre_checkout_query.id,ok=False,error_message=str(e))
-            elif str(e).startswith('AnyModel:') and can_view(self.cfg,ext):
+            elif (isinstance(e,PriceUnavailable) or str(e).startswith('AnyModel:')) and can_view(self.cfg,ext):
                 await self.catalogue_screen(ext,str(e),buttons([[('← AnyModel','am')]]))
             elif catalogue_callback and data.startswith('confirm:') and isinstance(update.callback_query.message,Message):
                 await self.catalogue_screen(ext,str(e),update.callback_query.message.reply_markup)
@@ -647,7 +652,7 @@ class TelegramApp:
         if not can_view(self.cfg,ext):
             raise Rejected('Раздел AnyModel доступен только тестовому администратору.')
         route,*parts=value.split(':')
-        if route in SPEECH_ROUTES:
+        if route in SPEECH_ROUTES and route!='amsconfirm':
             await self.anymodel_speech_callback(u,ext,route,value.partition(':')[2],request_id);return
         if route=='am':
             await self.svc.conversation(u,'home')
@@ -663,25 +668,27 @@ class TelegramApp:
             await self.anymodel_section(ext,parts[0]);return
         if route=='amvideo':
             await self.anymodel_video_card(u,ext,start=parts==['run']);return
-        if route=='amvconfirm':
-            context=await self.svc.aggregate_context(u)
-            if request_id is None or not context or not context.get('anymodel_video') or context.get('quote_id')!=parts[0]:
-                raise Rejected('AnyModel: оценка устарела или заказ уже принят.')
-            await self.anymodel_video.confirm(u,parts[0],request_id,ANYMODEL_VIDEO_MODEL,
-                on_accepted=lambda job:self.progress.start(ext,ANYMODEL_VIDEO_TITLE,'video',video_id=job))
-            await self.svc.conversation(u,'home')
-            return
+        if route in ('amvconfirm','amsconfirm'):
+            raise Rejected('Оценка устарела. Откройте карточку модели заново.')
+        if route=='amconfirm' and request_id is not None:
+            await self.confirm_price(u,ext,uid(parts[0]),request_id);return
+        if route=='amparams':
+            await self.anymodel_params(u,ext,parts);return
+        if route=='amcancel':
+            if not await self.pricing.cancel(u,uid(parts[0])):
+                raise Rejected('Оценка уже закрыта.')
+            await self.catalogue_screen(ext,'Оценка отменена.',buttons([[('← AnyModel','am')]]));return
         if route=='amimage':
             data=self.anymodel_snapshot(ext)
             model=next((m for m in data['models'] if m['id']==FIBO_MODEL),None)
             if not model:raise Rejected('AnyModel: FIBO 2 недоступна в каталоге.')
             if parts==['run']:
-                if not self.cfg.anymodel_image_live or not can_image(model,data):
+                if not can_image(model,data):
                     raise Rejected('AnyModel: тестовый запуск FIBO 2 недоступен.')
-                await self.svc.aggregate_context(u,{'interaction':IMAGE_OP,'provider':'anymodel','model_id':FIBO_MODEL})
+                await self.svc.aggregate_context(u,{'interaction':IMAGE_OP,'provider':'anymodel','model_id':FIBO_MODEL,'title':model['title']})
                 await self.catalogue_screen(ext,'FIBO 2 · AnyModel\nПришлите описание изображения.',
-                                            buttons([[('← FIBO 2','amimage:detail')]]));return
-            actions=[('🖼 Генерировать изображение','amimage:run')] if self.cfg.anymodel_image_live and can_image(model,data) else []
+                                            buttons([[('Параметры','amparams')],[('← FIBO 2','amimage:detail')]]));return
+            actions=[('🖼 Генерировать изображение','amimage:run')] if can_image(model,data) else []
             await self.render_model_detail(ext,model,'amsection:image',actions,provider='AnyModel');return
         version=None if parts[0]=='current' else parts[0]
         data=self.anymodel_snapshot(ext,version)
@@ -692,17 +699,21 @@ class TelegramApp:
         index,page=map(int,parts[1:])
         if not 0<=index<len(data['models']):raise Rejected('AnyModel: модель недоступна.')
         model=data['models'][index]
+        back=f'amcat:{version}:{page}'
+        operation=next((op for op in ('chat',IMAGE_OP,'video','audio.speech')
+                        if op in model['operations']),None)
+        available=(operation and model['availability']=='key_available'
+                   and data['fresh_until']>time.time())
         if route=='ammdl':
-            back=f'amcat:{version}:{page}'
-            action=[('Тестовый чат',f'amrun:{version}:{index}:{page}')] if can_chat(model,data) else []
+            action=[('Рассчитать стоимость',f'amrun:{version}:{index}:{page}')] if available else []
             await self.render_model_detail(ext,model,back,action,provider='AnyModel');return
-        if not can_chat(model,data):
-            raise Rejected('AnyModel: тестовый чат недоступен. Обновите каталог.')
-        await self.svc.aggregate_context(u,{'interaction':'chat','provider':'anymodel',
-                                             'model_id':model['id'],'history':[]})
-        note='Отправьте текст.' if self.cfg.anymodel_chat_live else 'Платный вызов выключен на стенде.'
-        await self.catalogue_screen(ext,f"AnyModel · {model['id']}\n{note}",
-                                    buttons([[('← К списку моделей',f'amcat:{version}:{page}')]]))
+        if not available:
+            raise Rejected('AnyModel: модель недоступна. Обновите каталог.')
+        await self.svc.aggregate_context(u,{'interaction':operation,'provider':'anymodel',
+                                             'model_id':model['id'],'title':model['title'],'history':[]})
+        rows=[[('← К списку моделей',back)]]
+        if operation!='audio.speech':rows.insert(0,[('Параметры','amparams')])
+        await self.catalogue_screen(ext,f"{model['title']} · AnyModel\nОтправьте текст для расчёта стоимости.",buttons(rows))
 
     async def anymodel_section(self,ext,section):
         if section not in ANYMODEL_SECTIONS:raise Rejected('AnyModel: раздел недоступен.')
@@ -711,17 +722,22 @@ class TelegramApp:
             rows.append([(ANYMODEL_VIDEO_TITLE,'amvideo:detail')])
         if section=='speech':
             rows.extend([[(FISH_TITLE,'amspeech:fish')],[('AnyVoice','amspeech:anyvoice')]])
-        if section in ('image','chat'):
-            try:
-                data=self.anymodel_snapshot(ext)
-            except Rejected:
-                data=None
-            if data and section=='image' and any(m['id']==FIBO_MODEL for m in data['models']):
+        try:
+            data=self.anymodel_snapshot(ext)
+        except Rejected:
+            data=None
+        if data:
+            operation=STORE_SECTIONS.get(section,('',section))[1]
+            if section=='image' and any(m['id']==FIBO_MODEL for m in data['models']):
                 rows.append([('FIBO 2','amimage:detail')])
-            if data and section=='chat':
-                for index,model in enumerate(data['models']):
-                    if can_chat(model,data):
-                        rows.append([(model['title'],f"ammdl:{data['version']}:{index}:{index//10}")])
+            for index,model in enumerate(data['models']):
+                if (operation in model['operations'] and model['availability']=='key_available'
+                        and model['id'] not in (FIBO_MODEL,ANYMODEL_VIDEO_MODEL,FISH)):
+                    rows.append([(model['title'],f"ammdl:{data['version']}:{index}:{index//10}")])
+                    if len(rows)>=10:
+                        break
+            if rows:
+                rows.append([('Все модели','amcat:current:0')])
         title=f'AnyModel · {ANYMODEL_SECTIONS[section]}'
         if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
         rows.append([('← AnyModel','am')])
@@ -731,17 +747,6 @@ class TelegramApp:
         pilot=self.anymodel_speech
         back=[('← Озвучить текст','amsection:speech')]
         try:
-            if route=='amsconfirm':
-                context=await self.svc.aggregate_context(u)
-                if request_id is None or not context or context.get('speech_quote')!=arg:
-                    raise Rejected('AnyModel: оценка устарела или запрос уже принят.')
-                work=await pilot.confirm(u,ext,arg,request_id,
-                    track=lambda title:self.progress.track(ext,title,'audio.speech'))
-                audio=await self.svc.audio_work(u,work)
-                await self.bot.send_audio(ext,BufferedInputFile(audio['audio'],filename=audio['filename']),
-                                          caption=audio['caption'])
-                await self.svc.conversation(u,'home')
-                return
             if route=='amvoices':
                 await self.svc.conversation(u,'home')
                 voices=list((await pilot.voices()).values())
@@ -763,75 +768,60 @@ class TelegramApp:
             if route!='amvoice' and arg!='fish':
                 raise Rejected('AnyModel: карточка недоступна.')
             model=arg if route=='amvoice' else FISH
-            title,rate=await pilot.model(model)
+            title=await pilot.title(model)
         except AnyModelError as error:
             trace_interaction(request_id,'anymodel_speech_metadata_failed',reason=error.code)
             await self.svc.conversation(u,'home')
             await self.catalogue_screen(ext,'AnyModel: не удалось проверить каталог или тариф. Запуск закрыт.',
                                         buttons([back]))
             return
-        await self.svc.aggregate_context(u,{'anymodel_speech':model})
-        text=f'{title} · AnyModel\nID: {model}\n'
-        if model==FISH:text+='Голос по умолчанию.\n'
-        text+='Пришлите текст.\n'
-        if rate is None:
-            text+='Тариф не подтверждён. Тестовый запуск закрыт.'
-        else:
-            text+=f'Тариф: {rate.normalize():f} токенов баланса за единицу UTF-16.'
-            if not pilot.enabled(ext):text+='\nТестовый запуск выключен.'
+        await self.svc.aggregate_context(u,{'provider':'anymodel','interaction':'audio.speech',
+                                            'model_id':model,'title':title})
+        text=f'{title} · AnyModel\nID: {model}\nПришлите текст для расчёта стоимости.'
         rows=[[('← Выбрать голос','amvoices:0')],back] if route=='amvoice' else [back]
         await self.catalogue_screen(ext,text,buttons(rows))
 
-    async def anymodel_speech_prompt(self,u,ext,text,context):
-        if not self.anymodel_speech.enabled(ext):
-            raise Rejected('AnyModel: тестовый запуск озвучки выключен.')
-        if 'speech_quote' in context:
-            raise Rejected('AnyModel: подтвердите оценку или откройте меню для отмены.')
-        try:
-            quote,title,units,cost=await self.anymodel_speech.quote(u,context['anymodel_speech'],text)
-        except AnyModelError as error:
-            trace_interaction(None,'anymodel_speech_metadata_failed',reason=error.code)
-            raise Rejected('AnyModel: не удалось подтвердить тариф. Запуск закрыт.') from None
-        await self.svc.aggregate_context(u,{**context,'speech_quote':str(quote)})
-        await self.catalogue_screen(ext,f'{title} · AnyModel\n{units} единиц UTF-16\n'
-                                    f'Стоимость: {cost.normalize():f} токенов баланса. Оценка действует 5 минут.',
-                                    buttons([[('Подтвердить',f'amsconfirm:{quote}')],[('Отмена','home')]]))
-
-    @staticmethod
-    def anymodel_video_price(price):
-        tokens=int(price/USD_PER_TOKEN)
-        return (f'{ANYMODEL_VIDEO_TITLE} · AnyModel\nID: {ANYMODEL_VIDEO_MODEL}\n'
-                f'{ANYMODEL_VIDEO_SECONDS} с · {ANYMODEL_VIDEO_RESOLUTION} · {ANYMODEL_VIDEO_RATIO}\n'
-                f'Оценка: {tokens:,} токенов баланса (≈ {price.normalize():f} USD).'.replace(',',' '))
-
     async def anymodel_video_card(self,u,ext,*,start):
-        if start and not self.anymodel_video.enabled():
-            raise Rejected('AnyModel: тестовый запуск видео выключен.')
         rows=[[('← Назад','amsection:video')]]
-        try:
-            price=await self.anymodel_video.current_price(ANYMODEL_VIDEO_MODEL)
-        except VideoProtocolError:
-            await self.catalogue_screen(ext,f'{ANYMODEL_VIDEO_TITLE} · AnyModel\n'
-                                        'Тариф не подтверждён. Тестовый запуск закрыт.',buttons(rows));return
-        text=self.anymodel_video_price(price)
+        text=f'{ANYMODEL_VIDEO_TITLE} · AnyModel\n4 с · 480p · 16:9'
         if start:
-            await self.svc.aggregate_context(u,{'anymodel_video':True})
-            text+='\nПришлите описание ролика.'
-        elif self.anymodel_video.enabled():
-            rows.insert(0,[('🎬 Генерировать видео','amvideo:run')])
+            await self.svc.aggregate_context(u,{'provider':'anymodel','interaction':'video',
+                'model_id':ANYMODEL_VIDEO_MODEL,'title':ANYMODEL_VIDEO_TITLE})
+            text+='\nПришлите описание ролика для расчёта стоимости.'
+            rows.insert(0,[('Параметры','amparams')])
         else:
-            text+='\nТестовый запуск выключен.'
+            rows.insert(0,[('🎬 Генерировать видео','amvideo:run')])
         await self.catalogue_screen(ext,text,buttons(rows))
 
-    async def anymodel_video_prompt(self,u,ext,text,context):
-        if not can_view(self.cfg,ext) or not self.anymodel_video.enabled():
-            raise Rejected('AnyModel: тестовый запуск видео выключен.')
-        if 'quote_id' in context:
-            raise Rejected('AnyModel: подтвердите оценку или откройте меню для отмены.')
-        quote_id,price=await self.anymodel_video.quote(u,ANYMODEL_VIDEO_MODEL,text)
-        await self.svc.aggregate_context(u,{**context,'quote_id':str(quote_id)})
-        await self.catalogue_screen(ext,self.anymodel_video_price(price)+'\nОценка действует 5 минут.',
-                                    buttons([[('Подтвердить',f'amvconfirm:{quote_id}')],[('Отмена','home')]]))
+    async def price_admin(self,u,ext,command,args):
+        if ext not in self.cfg.admin_ids:
+            raise Rejected('Действие доступно только администратору.')
+        if command=='/price_report' and not args:
+            row=await self.pricing.report(u,ext)
+            def amount(value):
+                return 'нет данных' if value is None else f'{value.normalize():f}'
+            await self.say(ext,f'Отчёт · {BOT_UNIT}\nПринято задач: {row["jobs"]}'
+                f'\nСверено списаний: {row["reconciled"]}\nПодтверждено расходов: {row["cost_count"]}'
+                f'\nВыручка за вычетом возвратов: {amount(row["revenue"])}'
+                f'\nПодтверждённый расход: {amount(row["actual_cost"])}'
+                f'\nВаловая маржа по полностью сверенным задачам: {amount(row["actual_margin"])}'
+                f'\nРасчётная маржа по задачам без подтверждённого расхода: {amount(row["estimated_margin"])}')
+            return
+        if command=='/markup' and len(args) in (3,4):
+            provider,model,kind=args[:3]
+            if provider=='*' and model!='*':
+                raise Rejected('У правила модели должен быть указан агрегатор.')
+            await self.pricing.set_rule(u,ext,'' if provider=='*' else provider,'' if model=='*' else model,
+                                        kind,args[3] if len(args)==4 else None)
+        elif command=='/price_rate' and len(args)==2:
+            await self.pricing.set_rate(u,ext,*args)
+        elif command=='/price_account' and len(args)==5:
+            await self.pricing.reconcile(u,ext,uid(args[0]),*args[1:])
+        else:
+            raise Rejected('Формат: /markup агрегатор|* модель|* percent|fixed сумма или remove; '
+                           '/price_rate единица курс; /price_account оценка списано возвращено расход|- ссылка; '
+                           '/price_report')
+        await self.say(ext,'Настройки учёта обновлены.')
 
     async def provider_detail(self,ext,version,index):
         if ext not in self.cfg.admin_ids:
@@ -1133,7 +1123,7 @@ class TelegramApp:
         operation=context['interaction']
         provider=context.get('provider','clodex')
         if provider=='anymodel':
-            await self.anymodel_input(u,ext,update,context);return
+            await self.anymodel_input(u,ext,update.message.text,context);return
         if provider!='clodex':raise Rejected('Агрегатор недоступен.')
         snapshot=self.catalogue_snapshot()
         model=next((m for m in snapshot['models'] if m.get('provider')==provider and m['id']==context['model_id']),None)
@@ -1203,42 +1193,103 @@ class TelegramApp:
                 return
             trace_interaction(request_id,'result_notified')
 
-    async def anymodel_input(self,u,ext,update,context):
-        data=self.anymodel_snapshot(ext)
-        model=next((m for m in data['models'] if (m.get('provider'),m['id'])==('anymodel',context['model_id'])),None)
+    async def anymodel_params(self,u,ext,parts):
+        context=await self.svc.aggregate_context(u)
+        if not context or context.get('provider')!='anymodel':
+            raise Rejected('AnyModel: откройте карточку модели.')
         operation=context['interaction']
-        image=operation==IMAGE_OP
-        if not model or not (can_image(model,data) if image else operation=='chat' and can_chat(model,data)):
-            raise Rejected('AnyModel: модель недоступна. Обновите каталог.')
-        if not (self.cfg.anymodel_image_live if image else self.cfg.anymodel_chat_live):
-            raise Rejected('AnyModel: платный вызов выключен на стенде.')
-        prompt=update.message.text
-        if not prompt or not prompt.strip() or len(prompt)>4000 or '\x00' in prompt:
-            raise Rejected('AnyModel: отправьте текст от 1 до 4000 символов.')
-        if image:
-            from .anymodel_image_jobs import AnyModelImageJobs
-            jobs=AnyModelImageJobs(self.pool,self.cfg,adapter=AnyModelProvider(self.cfg.anymodel_key))
-            await jobs.submit(u,update.update_id,prompt,
-                on_accepted=lambda job:self.progress.start(ext,'FIBO 2',operation,image_id=job))
-            await self.svc.conversation(u,'home')
+        opts=await self.pricing.adapters['anymodel'].options(context['model_id'],operation)
+        safe={key:[value for value in values if re.fullmatch(r'[a-zA-Z0-9_.:-]{1,24}',str(value))] for key,values in opts.items()}
+        selected=context.get('params',{})
+        if parts:
+            key,value=parts[0],':'.join(parts[1:])
+            matches=[choice for choice in safe.get(key,[]) if str(choice)==value]
+            if not matches:
+                raise Rejected('AnyModel: параметр недоступен.')
+            await self.pricing.invalidate(u,'anymodel',context['model_id'],operation)
+            selected=selected|{key:matches[0]}
+            await self.svc.aggregate_context(u,context|{'params':selected})
+        labels={'duration':'Секунды','aspect_ratio':'Пропорции','resolution':'Разрешение',
+                'mode':'Режим','quality':'Качество','size':'Размер','max_tokens':'Лимит ответа'}
+        rows=[[(f'{labels[key]} · {value}'+(' ✓' if selected.get(key)==value else ''),
+                f'amparams:{key}:{value}')] for key,values in safe.items() for value in values[:10]]
+        text='Параметры · '+context['title']+'\nОтправьте текст, чтобы рассчитать стоимость.'
+        if not rows:text+='\nДля этой операции используются стандартные параметры.'
+        await self.catalogue_screen(ext,text,buttons(rows+[[('← AnyModel','am')]]))
+
+    async def anymodel_input(self,u,ext,prompt,context):
+        if not can_view(self.cfg,ext):
+            raise Rejected('Раздел AnyModel недоступен.')
+        operation=context['interaction']
+        parameters={
+            'video':{'duration':ANYMODEL_VIDEO_SECONDS,'resolution':ANYMODEL_VIDEO_RESOLUTION,
+                     'aspect_ratio':ANYMODEL_VIDEO_RATIO},
+            'chat':{'max_tokens':256},
+        }
+        req=Request('anymodel',context['model_id'],operation,context.get('title') or context['model_id'],
+                    prompt or '',parameters.get(operation,{})|context.get('params',{}),context.get('history',[]))
+        await self.show_price(ext,await self.pricing.quote(u,req))
+
+    async def show_price(self,ext,quote):
+        await self.catalogue_screen(ext,quote.card(),buttons([[
+            ('Генерировать',f'amconfirm:{quote.id}'),('Отмена',f'amcancel:{quote.id}'),
+        ]]))
+
+    async def confirm_price(self,u,ext,quote_id,update_id):
+        if not can_view(self.cfg,ext):
+            raise Rejected('Раздел AnyModel недоступен.')
+
+        async def prepare(conn,quote):
+            req=quote.request
+            enabled={
+                'video':self.anymodel_video.enabled(),
+                'audio.speech':self.anymodel_speech.enabled(ext),
+                IMAGE_OP:self.cfg.anymodel_image_live and req.params.get('n',1)==1,
+                'chat':self.cfg.anymodel_chat_live,
+            }
+            if not enabled.get(req.operation) or self.cfg.payments_enabled:
+                raise Rejected('AnyModel: тестовый запуск выключен.')
+            if req.operation=='video':
+                await self.anymodel_video.prepare(conn,u,quote)
+            elif req.operation==IMAGE_OP:
+                await self.anymodel_images.prepare(conn,u,update_id,req.prompt,req.model)
+            elif req.operation=='audio.speech':
+                await self.anymodel_speech.prepare(conn,u,quote)
+
+        quote,accepted=await self.pricing.confirm(u,quote_id,update_id,prepare)
+        if not accepted:
+            await self.show_price(ext,quote)
             return
-        try:
-            reserved=await self.svc.reserve_interaction(u,update.update_id,operation=operation,model_id=model['id'])
-            if not reserved:
-                raise Rejected('Запрос уже был принят.')
-        except Rejected as error:
-            raise Rejected(f'AnyModel: {error}') from None
+        req=quote.request
+        if req.operation=='video':
+            await self.anymodel_video.dispatch(quote,on_accepted=lambda job:
+                self.progress.start(ext,req.title,req.operation,video_id=job))
+        elif req.operation==IMAGE_OP:
+            await self.anymodel_images.dispatch(u,update_id,req.prompt,req.model,params=req.params,
+                on_accepted=lambda job:self.progress.start(ext,req.title,req.operation,image_id=job))
+        elif req.operation=='audio.speech':
+            work=await self.anymodel_speech.synthesize(quote.id,req.model,req.prompt,req.title,
+                track=lambda title:self.progress.track(ext,title,req.operation))
+            audio=await self.svc.audio_work(u,work)
+            await self.bot.send_audio(ext,BufferedInputFile(audio['audio'],filename=audio['filename']),
+                                      caption=audio['caption'])
+        else:
+            await self.confirm_anymodel_chat(u,ext,req)
+
+    async def confirm_anymodel_chat(self,u,ext,req):
         adapter=AnyModelProvider(self.cfg.anymodel_key)
-        history=context['history']
-        async with self.progress.track(ext,model.get('title') or model['id'],operation):
+        async with self.progress.track(ext,req.title,'chat'):
             try:
-                reply=await adapter.chat(model['id'],prompt,history)
+                reply=await adapter.chat(req.model,req.prompt,req.history,max_tokens=req.params['max_tokens'])
             except AnyModelError as error:
                 detail=UNKNOWN if error.code in ('response_timeout','transport_error','connect_timeout','connect_error') else str(error)
                 raise Rejected(f'AnyModel: {detail}') from None
-        context['history']=[*history,{'role':'user','content':prompt[:2000]},
-                            {'role':'assistant','content':reply[:2000]}][-6:]
-        await self.svc.aggregate_context(u,context)
+        context=await self.svc.aggregate_context(u)
+        if context and (context.get('provider'),context.get('interaction'),context.get('model_id'),
+                        context.get('history',[]))==('anymodel','chat',req.model,req.history):
+            context['history']=[*req.history,{'role':'user','content':req.prompt[:2000]},
+                                {'role':'assistant','content':reply[:2000]}][-6:]
+            await self.svc.aggregate_context(u,context)
         if len(reply)>3500:
             await self.bot.send_document(ext,BufferedInputFile(reply.encode(),filename='answer.txt'),caption='AnyModel')
         else:

@@ -206,11 +206,14 @@ class VideoPilot:
                 raise Rejected('Оценка устарела или заказ уже принят.')
             if not await self.svc.reserve_interaction_on(conn, user, update_id, unlimited=False):
                 raise Rejected('Запрос уже был принят. Автоматический повтор отключён.')
+        await self.submit_task(job,model,reserved['prompt'],reserved['idempotency_key'],on_accepted=on_accepted)
+
+    async def submit_task(self,job,model,prompt,idempotency_key,*,on_accepted=None,create=None):
         # Claim is durable before the only POST. A lost response never triggers a retry.
         if on_accepted:
             await on_accepted(job)
         try:
-            provider_id,connection=await self.create_task(model,reserved["prompt"],reserved["idempotency_key"])
+            provider_id,connection=await (create or self.create_task)(model,prompt,idempotency_key)
             await self.pool.execute("""
                 UPDATE video_jobs SET status='polling',provider_id=$2,connection_id=$3,next_poll_at=now()
                 WHERE id=$1 AND status='submitting'

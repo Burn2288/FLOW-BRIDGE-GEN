@@ -12,6 +12,7 @@ import httpx
 import pytest
 
 from elevenbot import telegram
+from elevenbot.anymodel_pricing import AnyModelPricing
 from elevenbot.anymodel_video import AnyModelVideoPilot, AnyModelVideoProvider, MODEL, TITLE, validate_mp4
 from elevenbot.core import Rejected
 from elevenbot.video import InvalidVideoError
@@ -110,14 +111,16 @@ async def test_anymodel_video_confirmation_and_restart(env,video,lose_response):
         bot=Bot()
         app=telegram.TelegramApp(pool,cfg,bot)
         app.anymodel_video=AnyModelVideoPilot(pool,cfg,api=api)
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=api)
         await app.callback(user,100,'am')
         await app.callback(user,100,routes(bot)['🎬 Генерировать видео'])
         await app.callback(user,100,routes(bot)[TITLE])
-        assert '3 200 000' in bot.sent[-1][0] and '0.16 USD' in bot.sent[-1][0]
+        assert not calls
         await app.callback(user,100,routes(bot)['🎬 Генерировать видео'])
         await app.handle(event('Blue square'))
-        assert '4 с · 480p · 16:9' in bot.sent[-1][0] and '0.16 USD' in bot.sent[-1][0]
-        confirmation=routes(bot)['Подтвердить']
+        assert '4 с · 480p · 16:9' in bot.sent[-1][0] and '3\u202f200\u202f000' in bot.sent[-1][0]
+        assert not calls
+        confirmation=routes(bot)['Генерировать']
         results=await asyncio.gather(
             app.callback(user,100,confirmation,request_id=2),
             app.callback(user,100,confirmation,request_id=3),return_exceptions=True,
@@ -178,9 +181,10 @@ async def test_anymodel_video_missing_price_keeps_launch_closed(env):
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
         app=telegram.TelegramApp(pool,cfg,Bot())
         app.anymodel_video=AnyModelVideoPilot(pool,cfg,api=AnyModelVideoProvider(cfg.anymodel_key,client=http))
-        await app.callback(user,100,'amvideo:detail')
-        assert 'Тариф не подтверждён' in app.bot.sent[-1][0]
-        assert 'amvideo:run' not in routes(app.bot).values()
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=app.anymodel_video.api)
+        await app.callback(user,100,'amvideo:run')
+        await app.handle(event('Video'))
+        assert 'Не удалось рассчитать стоимость' in app.bot.sent[-1][0]
         with pytest.raises(Rejected):
             await app.callback(user,101,'amvideo:detail')
 
