@@ -146,8 +146,6 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
 
     app=TelegramApp(pool,cfg,bot)
     assert len(bot.events)==count
-    await app.refresh_balance_keyboards()
-    assert len(bot.events)==count
     await send('/menu')
     assert (await panel()).active_id==logged_out.active_id
     assert bot.events[count:]==[('edit',logged_out.active_id)]

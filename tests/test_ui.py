@@ -181,18 +181,14 @@ async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels
     await app.handle(event('/start'))
     check_keyboard(bot.photos[-1][2],'💳 0 токенов')
     await app.pricing.set_ruble_rate(user,100,'100','10')
-    await app.refresh_balance_keyboards()
-    check_keyboard(bot.sent[-1][1],'💳 0 токенов ≈ 0 ₽')
-    first_refresh=(await app.navigation.read(100)).keyboard_id
+    await app.handle(event('💳 Баланс'))
+    check_keyboard(bot.sent[-2][1],'💳 0 токенов ≈ 0 ₽')
     async with pool.acquire() as conn:
         await app.svc.movement(conn,user,'live','fixture:wallet-top-up','pilot_grant',1250,0)
-    await app.refresh_balance_keyboards()
+    await app.handle(event(MENU[0]))
     label='💳 1\u202f250 токенов ≈ 125 ₽'
-    check_keyboard(bot.sent[-1][1],label)
-    assert bot.sent[-1][0]=='Главное меню' and first_refresh not in bot.deleted
-    published=len(bot.sent)
-    await app.refresh_balance_keyboards()
-    assert len(bot.sent)==published
+    check_keyboard(bot.sent[-2][1],label)
+    first_refresh=(await app.navigation.read(100)).keyboard_id
 
     async with pool.acquire() as conn:
         await app.svc.movement(conn,user,'live','fixture:second-top-up','pilot_grant',500,0)
@@ -207,9 +203,7 @@ async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels
     check_keyboard(bot.sent[-2][1],'💳 1\u202f750 токенов')
     assert first_refresh in bot.deleted
     restarted=TelegramApp(pool,cfg,bot)
-    previous=len(bot.sent)
-    await restarted.refresh_balance_keyboards()
-    assert len(bot.sent)==previous
+    assert (await restarted.reply_menu(100)).keyboard[2][0].text=='💳 1\u202f750 токенов'
 
 
 @pytest.mark.parametrize('rejected',[False,True])

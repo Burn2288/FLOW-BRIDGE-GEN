@@ -102,7 +102,6 @@ class TelegramApp:
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.admin_access=AdminAccess()
         self.navigation = Navigation(pool,bot)
-        self.balance_keyboard_labels = {}
         self.pending_speech = {}
         self.progress = TaskProgress(bot,pool)
         self.video = VideoPilot(pool,cfg)
@@ -121,21 +120,7 @@ class TelegramApp:
     async def say(self,chat,text,markup=None):
         if not isinstance(markup,ReplyKeyboardMarkup):
             return await self.bot.send_message(chat,text,reply_markup=markup)
-        markup=await self.reply_menu(chat)
-        message=await self.bot.send_message(chat,text,reply_markup=markup)
-        self.remember_balance_keyboard(chat,markup)
-        return message
-
-    async def balance_menu_rows(self,chats):
-        if self.pool is None or not chats:
-            return []
-        return await self.pool.fetch("""
-            SELECT i.external_id,i.welcome_message_id,w.available,r.bot_amount,r.rubles
-            FROM identities i JOIN users u ON u.id=i.user_id JOIN wallets w ON w.user_id=u.id
-            LEFT JOIN task_ruble_equivalent r ON r.id=1
-            WHERE i.platform='telegram' AND i.external_id=ANY($1::bigint[]) AND w.mode=$2
-                AND i.terms_version='1' AND i.accepted_at IS NOT NULL AND NOT u.blocked
-            """,chats,self.cfg.balance_wallet_mode)
+        return await self.bot.send_message(chat,text,reply_markup=await self.reply_menu(chat))
 
     @staticmethod
     def balance_label(row):
@@ -145,16 +130,20 @@ class TelegramApp:
         return label
 
     async def reply_menu(self,chat):
-        rows=await self.balance_menu_rows([chat])
-        return self.role_keyboard(chat,self.balance_label(rows[0]) if rows else None)
+        row=None
+        if self.pool is not None:
+            row=await self.pool.fetchrow("""
+                SELECT w.available,r.bot_amount,r.rubles
+                FROM identities i JOIN users u ON u.id=i.user_id JOIN wallets w ON w.user_id=u.id
+                LEFT JOIN task_ruble_equivalent r ON r.id=1
+                WHERE i.platform='telegram' AND i.external_id=$1 AND w.mode=$2
+                    AND i.terms_version='1' AND i.accepted_at IS NOT NULL AND NOT u.blocked
+                """,chat,self.cfg.balance_wallet_mode)
+        return self.role_keyboard(chat,self.balance_label(row) if row else None)
 
     def role_keyboard(self,chat,balance=None):
         return menu(admin_rates=self.has_admin_session(chat) and self.pool is not None
                     and self.cfg.access_mode=='private',balance=balance)
-
-    def remember_balance_keyboard(self,chat,markup):
-        if len(markup.keyboard)>=3:
-            self.balance_keyboard_labels[chat]=tuple(row[0].text for row in markup.keyboard)
 
     async def navigation_keyboard(self,chat,text,markup,*,force=False):
         async with self.navigation.serial(chat):
@@ -168,17 +157,9 @@ class TelegramApp:
                 return
             await self.navigation.save(chat,state.retire(state.keyboard_id,keyboard_id=message.message_id,
                                                          keyboard_labels=labels))
-            self.remember_balance_keyboard(chat,markup)
 
-    async def refresh_balance_keyboards(self,chat=None):
-        chats=list(dict.fromkeys((*self.cfg.admin_ids,*self.balance_keyboard_labels))) if chat is None else [chat]
-        for row in await self.balance_menu_rows(chats):
-            ext=row['external_id']
-            if row['welcome_message_id'] is None and ext not in self.balance_keyboard_labels and chat is None:
-                continue
-            async with self.navigation.serial(ext):
-                markup=await self.reply_menu(ext)
-                await self.navigation_keyboard(ext,'Главное меню',markup)
+    async def refresh_balance_keyboard(self,chat):
+        await self.navigation_keyboard(chat,'Главное меню',await self.reply_menu(chat))
 
     async def edit_panel(self,chat,state,text,markup,animation_key):
         if (state.active_id is None or state.animation!=animation_key
@@ -349,7 +330,6 @@ class TelegramApp:
                 await self.say(ext,'Админ-доступ закрыт.')
             elif command=='/admin_logout':
                 self.admin_access.logout(ext)
-                self.balance_keyboard_labels.pop(ext,None)
                 try:
                     u=await self.svc.identity(ext)
                     await self.svc.conversation(u,'home')
@@ -409,12 +389,15 @@ class TelegramApp:
             await self.handle_chat(update,ext,from_inbox=from_inbox)
 
     async def handle_chat(self,update,ext,*,from_inbox):
+        if update.message or update.callback_query:
+            chat_event=update.message or update.callback_query.message
+            if not chat_event or chat_event.chat.type!='private' or chat_event.chat.id!=ext:
+                return
+        else:
+            chat_event=None
         if await self.intercept_admin_update(update,allow_login=not from_inbox):return
-        if update.message and update.message.chat.type!='private':return
-        if update.callback_query and (not update.callback_query.message or update.callback_query.message.chat.type!='private'):return
         u=await self.svc.identity(ext)
-        chat_event=update.message or (update.callback_query and update.callback_query.message)
-        if self.pool is not None and chat_event and chat_event.chat.id==ext:
+        if self.pool is not None and chat_event:
             await self.broadcasts.queue.observe_private(ext)
         catalogue_callback = False
         try:
@@ -537,6 +520,8 @@ class TelegramApp:
                 if context and any(key in context for key in ('tariff_admin','tariff_preview','our_markup','anyvoice_tariff_selection','price_rate')):
                     raise Rejected('Используйте команду с экрана настройки тарифа.')
                 if context and context.get('provider') in self.providers.interactive:
+                    if not await self.models.allowed(context['provider'],context['model_id'],context['interaction']):
+                        raise Rejected('Модель не допущена к этой операции.')
                     request=Request(context['provider'],context['model_id'],context['interaction'],
                                     context['title'],text,context.get('params',{}),context.get('history',[]))
                     await self.show_price(ext,await self.pricing.quote(u,request));return
@@ -660,7 +645,7 @@ class TelegramApp:
         rows=[]
         if section==2:
             w=await self.svc.wallet(u)
-            await self.refresh_balance_keyboards(ext)
+            await self.refresh_balance_keyboard(ext)
             text=f"{'Демо-кредиты' if self.cfg.balance_wallet_mode=='demo' else 'Кредиты'}: {w['available']}\nЗарезервировано: {w['reserved']}"
             if self.cfg.payments_enabled and self.cfg.payment_backend=='stars':
                 rows.append([('Пополнить','buy')])
@@ -874,7 +859,6 @@ class TelegramApp:
                         raise
                     return
             await self.svc.save_welcome_message(ext,message.message_id)
-            self.remember_balance_keyboard(ext,markup)
             labels=tuple(row[0].text for row in markup.keyboard)
             await self.navigation.save(ext,state.retire(state.keyboard_id,keyboard_id=None,keyboard_labels=labels))
             if previous is not None and previous!=message.message_id:
@@ -883,7 +867,7 @@ class TelegramApp:
                 except (ClientDecodeError,TelegramAPIError):
                     pass
         else:
-            await self.refresh_balance_keyboards(ext)
+            await self.refresh_balance_keyboard(ext)
         if open_panel or replace_welcome and state.active_id is not None:
             await self.show_providers(ext)
 
@@ -2022,7 +2006,6 @@ async def poll(pool,cfg,bot):
             else:
                 async with pool.acquire() as c:offset=await c.fetchval('SELECT offset_id FROM poll_state WHERE id=1')
                 await app.refresh_speech_results()
-                await app.refresh_balance_keyboards()
                 try:updates=await bot.get_updates(offset=offset,timeout=2 if app.pending_speech else 20,allowed_updates=['message','callback_query','pre_checkout_query'])
                 except TelegramNetworkError:
                     print(json.dumps({'event':'telegram_network_retry'}),flush=True)

@@ -37,13 +37,14 @@ class TaskLaunch:
         pool = self.pricing.pool
 
         adapter = prepared = None
+        async def validate(conn, request):
+            from .model_policy import admitted
+            if not await admitted(conn,request.provider,request.model,request.operation):
+                raise Rejected('Модель не допущена к этой операции.')
+
         async def prepare(conn,quote):
             nonlocal adapter,prepared
             await self.authorize(conn,user,external)
-            from .model_policy import admitted
-            req = quote.request
-            if not await admitted(conn,req.provider,req.model,req.operation):
-                raise Rejected('Модель не допущена к этой операции.')
             adapter = self.adapters.get(quote.request.provider)
             if adapter is None:
                 raise Rejected('Агрегатор недоступен.')
@@ -51,7 +52,7 @@ class TaskLaunch:
             await conn.execute("INSERT INTO task_dispatch VALUES($1,'pending',false)",quote.id)
             await reserve_task_tokens(conn,user,quote.id,int(quote.price['total']))
 
-        quote,accepted = await self.pricing.confirm(user,quote_id,update_id,prepare,live_wallet=True)
+        quote,accepted = await self.pricing.confirm(user,quote_id,update_id,prepare,live_wallet=True,validate=validate)
         if not accepted:
             return quote,False,None
         request = quote.request

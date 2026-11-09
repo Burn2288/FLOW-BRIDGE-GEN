@@ -327,24 +327,26 @@ class Pricing:
                 """, user, request.provider, request.model, request.operation)
             return await self.insert(conn, user, request, await self.calculate(conn, request, cost))
 
-    async def confirm(self, user, quote_id, update_id, prepare, *, live_wallet=False):
+    async def confirm(self, user, quote_id, update_id, prepare, *, live_wallet=False, validate=None):
         if quote_id in self.confirming:
             raise Rejected('Подтверждение уже обрабатывается.')
         self.confirming.add(quote_id)
         try:
-            return await self.confirm_once(user,quote_id,update_id,prepare,live_wallet=live_wallet)
+            return await self.confirm_once(user,quote_id,update_id,prepare,live_wallet=live_wallet,validate=validate)
         finally:
             self.confirming.discard(quote_id)
 
-    async def confirm_once(self, user, quote_id, update_id, prepare, *, live_wallet):
+    async def confirm_once(self, user, quote_id, update_id, prepare, *, live_wallet, validate):
         async with self.pool.acquire() as conn:
             await self.service.authorize(conn, user)
             raw = await conn.fetchval("""
                 SELECT request::text FROM task_price_quotes WHERE id=$1 AND user_id=$2 AND state='pending'
                 """, quote_id, user)
-        if not raw:
-            raise Rejected('Оценка отменена или запрос уже принят.')
-        request = Request(**json.loads(raw))
+            if not raw:
+                raise Rejected('Оценка отменена или запрос уже принят.')
+            request = Request(**json.loads(raw))
+            if validate is not None:
+                await validate(conn,request)
         cost = await self.cost(request)
         async with self.pool.acquire() as conn, conn.transaction():
             await self.service.authorize(conn, user)
@@ -355,6 +357,8 @@ class Pricing:
                 """, quote_id, user)
             if not row:
                 raise Rejected('Оценка отменена или запрос уже принят.')
+            if validate is not None:
+                await validate(conn,request)
             price = await self.calculate(conn, request, cost)
             previous = json.loads(row['price'])
             if row['expired'] or price['total'] != previous['total']:
