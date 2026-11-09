@@ -33,6 +33,8 @@ ALL_USERS = 'Всем пользователям бота'
 CAPTION_MEDIA = ('photo', 'animation', 'video', 'audio', 'voice', 'document')
 VISUAL_MEDIA = ('photo', 'animation', 'video')
 MEDIA = (*CAPTION_MEDIA, 'sticker', 'video_note')
+# PostgreSQL's two-integer key space is separate from the project's bigint locks.
+BROADCAST_LOCK = (921190, 0)
 
 
 async def send_post(bot, chat, row, markup=None):
@@ -322,7 +324,7 @@ class BroadcastWorker:
         while True:
             try:
                 async with self.queue.pool.acquire() as lock:
-                    if await lock.fetchval('SELECT pg_try_advisory_lock(921189)'):
+                    if await lock.fetchval('SELECT pg_try_advisory_lock($1, $2)', *BROADCAST_LOCK):
                         try:
                             await self.queue.recover()
                             while True:
@@ -334,7 +336,7 @@ class BroadcastWorker:
                                     await self.deliver(claim)
                                 await asyncio.sleep(1.05 if claim or row else 0.75)
                         finally:
-                            await lock.execute('SELECT pg_advisory_unlock(921189)')
+                            await lock.execute('SELECT pg_advisory_unlock($1, $2)', *BROADCAST_LOCK)
             except (asyncpg.PostgresError, TimeoutError, OSError):
                 pass
             await asyncio.sleep(3)

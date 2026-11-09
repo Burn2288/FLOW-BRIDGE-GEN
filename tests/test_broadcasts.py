@@ -1,7 +1,10 @@
+import asyncio
+import os
 from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import asyncpg
 import pytest
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError, TelegramRetryAfter
 from aiogram.methods import SendMessage
@@ -11,6 +14,7 @@ from elevenbot.aggregate import make_snapshot
 from elevenbot.anymodel import model_store
 from elevenbot.broadcasts import CAPTION_MEDIA, MEDIA, VISUAL_MEDIA, Broadcasts, BroadcastWorker, report_text, send_post
 from elevenbot.discovery import SnapshotStore
+from elevenbot.pricing import NoProviderPrice, Pricing, Request
 from elevenbot.telegram import MENU, TelegramApp, buttons
 from test_admin_access import event
 from test_navigation import Transport
@@ -240,3 +244,127 @@ async def test_broadcast_media_survives_restart_and_keeps_caption(env, kind):
     assert send.await_args.args == preview.args
     assert send.await_args.kwargs == {**preview.kwargs, 'reply_markup': None}
     assert await restarted.counts(draft['id']) == {'sent': 1}
+
+
+@pytest.mark.parametrize('sending', [False, True], ids=['idle', 'sending'])
+async def test_broadcast_loop_does_not_block_pricing(env, sending):
+    pool, cfg, _, user = env
+    cfg = replace(cfg, admin_ids=(100,), interaction_limit=10)
+    worker_ready = asyncio.Event()
+    competitor_tried = asyncio.Event()
+    send_started = asyncio.Event()
+    allow_send = asyncio.Event()
+    delivered = asyncio.Event()
+    calls = []
+
+    class Queue(Broadcasts):
+        def __init__(self, pool, ready):
+            super().__init__(pool)
+            self.ready = ready
+
+        async def claim(self):
+            claim = await super().claim()
+            self.ready.set()
+            return claim
+
+        async def complete(self, *args, **kwargs):
+            await super().complete(*args, **kwargs)
+            delivered.set()
+
+    async def send(chat, body, **kwargs):
+        calls.append(('first', chat, body))
+        send_started.set()
+        await allow_send.wait()
+        return SimpleNamespace(message_id=1001)
+
+    async def duplicate(chat, body, **kwargs):
+        calls.append(('second', chat, body))
+        return SimpleNamespace(message_id=1002)
+
+    def observe_query(query):
+        if 'pg_try_advisory_lock' in query.query:
+            competitor_tried.set()
+
+    async def observe_connection(conn):
+        conn.add_query_logger(observe_query)
+
+    async def held_lock():
+        # Observe both the historical key and the new two-integer key so the
+        # old implementation fails on pricing, rather than on test setup.
+        return await pricing_pool.fetchrow("""
+            SELECT pid,classid,objid,objsubid FROM pg_locks
+            WHERE locktype='advisory' AND granted AND pid<>pg_backend_pid()
+              AND database=(SELECT oid FROM pg_database WHERE datname=current_database())
+              AND ((classid=0 AND objid=921189 AND objsubid=1)
+                OR (classid=921190 AND objid=0 AND objsubid=2))
+            """)
+
+    async def bounded(operation, awaitable):
+        try:
+            return await asyncio.wait_for(awaitable, timeout=2)
+        except TimeoutError:
+            raise AssertionError(f'{operation} timed out while BroadcastWorker held its advisory lock') from None
+
+    queue = Queue(pool, worker_ready)
+    schema = await pool.fetchval('SELECT current_schema()')
+    async with asyncpg.create_pool(os.environ['TEST_DATABASE_URL'], min_size=1, max_size=4,
+                                   server_settings={'search_path': schema}, init=observe_connection) as pricing_pool:
+        pricing = Pricing(pricing_pool, cfg, {'fixture':SimpleNamespace(cost=AsyncMock(side_effect=NoProviderPrice))})
+
+        async def tariff(model, amount):
+            await pricing.set_tariff(user,100,'fixture',model,'chat',{},basis='request',
+                                     unit='darkflow_token',amount=amount,evidence='fixture-rate')
+
+        async def prepare(conn, quote):
+            pass
+
+        await tariff('fixture/quoted','100')
+        quote = await pricing.quote(user, Request('fixture','fixture/quoted','chat','Fixture','prompt'))
+        if sending:
+            await queue.observe_private(100)
+            draft = await queue.draft(100)
+            post = await queue.save_post(100,draft['id'],draft['revision'],event(1,'Fixture post').message)
+            chosen = await queue.select_audience(100,draft['id'],post['revision'],'self')
+            await queue.confirm(100,draft['id'],chosen['revision'])
+
+        first = asyncio.create_task(BroadcastWorker(queue,SimpleNamespace(send_message=send),buttons).loop())
+        second = None
+        try:
+            await asyncio.wait_for((send_started if sending else worker_ready).wait(), timeout=5)
+            lock = await held_lock()
+            assert lock is not None
+            outcomes = await asyncio.gather(
+                bounded('set_tariff',tariff('fixture/changed','250')),
+                bounded('confirm_quote',pricing.confirm(user,quote.id,42,prepare)),
+                return_exceptions=True,
+            )
+            errors = [str(outcome) for outcome in outcomes if isinstance(outcome,Exception)]
+            assert not errors, '\n'.join(errors)
+            assert outcomes[1][1] is True
+            assert await pricing_pool.fetchval("SELECT amount FROM task_manual_tariffs WHERE model_id='fixture/changed'")==250
+            assert await held_lock()==lock
+            if sending:
+                assert await queue.counts(draft['id'])=={'sending':1}
+                contender_ready = asyncio.Event()
+                contender = Queue(pricing_pool, contender_ready)
+                second = asyncio.create_task(BroadcastWorker(contender,SimpleNamespace(send_message=duplicate),buttons).loop())
+                await asyncio.wait_for(competitor_tried.wait(), timeout=5)
+                assert not contender_ready.is_set()
+                assert await queue.counts(draft['id'])=={'sending':1}
+                allow_send.set()
+                await asyncio.wait_for(delivered.wait(), timeout=5)
+                first.cancel()
+                await asyncio.gather(first, return_exceptions=True)
+                await asyncio.wait_for(contender_ready.wait(), timeout=5)
+                assert calls==[('first',100,'Fixture post')]
+                assert await queue.counts(draft['id'])=={'sent':1}
+            else:
+                assert not calls
+            print(f'BROADCAST_LOCK phase={"sending" if sending else "idle"} '
+                  f'tariff=completed confirm=accepted posts={len(calls)}',flush=True)
+        finally:
+            workers = [task for task in (first, second) if task is not None]
+            for task in workers:
+                task.cancel()
+            await asyncio.gather(*workers,return_exceptions=True)
+        assert await held_lock() is None
