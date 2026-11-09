@@ -58,7 +58,7 @@ async def test_password_updates_skip_inbox_and_logout_blocks_old_buttons(env):
     prompt=app.admin_access.prompts[100][0]
     await app.enqueue_updates([event(2,'fixture-wrong'),event(3,password,reply=(prompt,PASSWORD_PROMPT))])
     assert any('Неверный пароль' in text for text,_ in bot.sent)
-    assert {0,1,2,3}.issubset(bot.deleted)
+    assert {0,2,3}.issubset(bot.deleted) and 1 not in bot.deleted
     assert app.has_admin_session(100)
     assert await pool.fetchval('SELECT count(*) FROM inbox')==0
     assert await pool.fetchval('SELECT offset_id FROM poll_state WHERE id=1')==4
@@ -148,7 +148,7 @@ async def test_user_and_admin_editions_share_catalogue_and_settings(env,tmp_path
         titles=('CLODEX','AnyModel') if admin else ('Агрегатор 1','Агрегатор 2')
         assert list(chooser)[:2]==list(titles)
         assert ('Тарифы моделей' in chooser)==admin
-        assert (RUBLE_MENU in [row[0].text for row in bot.sent[-2][1].keyboard])==admin
+        assert (RUBLE_MENU in (await app.navigation.read(chat)).keyboard_labels)==admin
         for title,section in zip(titles,('🎬 Генерировать видео','🎆 Генерировать изображение')):
             await send(callback=chooser[title],chat=chat)
             assert bot.sent[-1][0]==title+'\nВыберите, что хотите сделать.'

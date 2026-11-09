@@ -19,6 +19,8 @@ class Bot:
     async def edit_message_text(self,text,*,chat_id,message_id,reply_markup=None):
         self.sent.append((text,reply_markup))
         return SimpleNamespace(message_id=message_id)
+    async def edit_message_caption(self,*,chat_id,message_id,caption,reply_markup=None):
+        return await self.edit_message_text(caption,chat_id=chat_id,message_id=message_id,reply_markup=reply_markup)
     async def delete_message(self,chat,message_id):self.deleted.append(message_id);return True
     async def answer_callback_query(self,*args,**kw):self.answers.append(args)
     async def send_audio(self,*args,**kw):self.audio.append((args,kw));return SimpleNamespace(message_id=1)
@@ -105,11 +107,11 @@ async def test_welcome_consent_start_and_menu():
 
     for label in MENU:
         await a.handle(event(label))
-        temporary=a.catalogue_messages[100]
+        temporary=(await a.navigation.read(100)).active_id
         assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
         await a.handle(event(callback='home'))
-        assert temporary in b.deleted
-        assert 100 not in a.catalogue_messages
+        current=(await a.navigation.read(100)).active_id
+        assert current is not None and (temporary==current or temporary in b.deleted)
     assert len(b.photos)==1 and 1001 not in b.deleted
     await a.handle(event('/start'))
     assert len(b.photos)==2 and b.deleted.count(1001)==1
@@ -133,8 +135,8 @@ async def test_welcome_fallback_retains_user_keyboard(monkeypatch,tmp_path,missi
     await a.handle(event(telegram.OPEN_CATALOGUE))
     assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
     await a.handle(event(callback='home'))
-    assert a.svc.welcome==welcome and welcome not in b.deleted and 100 not in a.catalogue_messages
-    assert len(b.sent)==2
+    assert a.svc.welcome==welcome and welcome not in b.deleted
+    assert (await a.navigation.read(100)).active_id is not None
 
 
 async def test_welcome_replacement_survives_restart_and_send_failure(env):
@@ -180,13 +182,13 @@ async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels
     await app.pricing.set_ruble_rate(user,100,'100','10')
     await app.refresh_balance_keyboards()
     check_keyboard(bot.sent[-1][1],'💳 0 токенов ≈ 0 ₽')
-    first_refresh=app.balance_keyboard_messages[100]
+    first_refresh=(await app.navigation.read(100)).keyboard_id
     async with pool.acquire() as conn:
         await app.svc.movement(conn,user,'live','fixture:wallet-top-up','pilot_grant',1250,0)
     await app.refresh_balance_keyboards()
     label='💳 1\u202f250 токенов ≈ 125 ₽'
     check_keyboard(bot.sent[-1][1],label)
-    assert bot.sent[-1][0]=='Главное меню' and first_refresh in bot.deleted
+    assert bot.sent[-1][0]=='Главное меню' and first_refresh not in bot.deleted
     published=len(bot.sent)
     await app.refresh_balance_keyboards()
     assert len(bot.sent)==published
@@ -202,9 +204,11 @@ async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels
     await pool.execute('DELETE FROM task_ruble_equivalent')
     await app.handle(event(MENU[0]))
     check_keyboard(bot.sent[-2][1],'💳 1\u202f750 токенов')
+    assert first_refresh in bot.deleted
     restarted=TelegramApp(pool,cfg,bot)
+    previous=len(bot.sent)
     await restarted.refresh_balance_keyboards()
-    check_keyboard(bot.sent[-1][1],'💳 1\u202f750 токенов')
+    assert len(bot.sent)==previous
 
 
 @pytest.mark.parametrize('rejected',[False,True])
@@ -222,9 +226,9 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
         b.send_animation=AsyncMock(side_effect=error)
     await a.handle(event('/start'))
     await a.handle(event(MENU[0]))
-    _,keyboard=b.sent[-2]
+    keyboard=b.photos[-1][2]
     assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU]
-    first=a.catalogue_messages[100]
+    first=(await a.navigation.read(100)).active_id
     text,markup=b.sent[-1]
     assert text.startswith('DarkFlow | Gen\nВыберите агрегатор')
     options={button.text:button.callback_data for row in markup.inline_keyboard for button in row}
@@ -239,10 +243,11 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
         assert b.animations[0].data==telegram.AGGREGATORS_ANIMATION.read_bytes()
         assert first in b.deleted
     await a.handle(event(callback='providers'))
-    second=a.catalogue_messages[100]
-    assert second!=first
+    second=(await a.navigation.read(100)).active_id
+    assert (second==first)==rejected
     await a.handle(event(callback='home'))
-    assert second in b.deleted and 1001 not in b.deleted
+    assert (await a.navigation.read(100)).active_id==second
+    assert second not in b.deleted and 1001 not in b.deleted
     assert len(b.photos)==1 and len(b.animations)==(0 if rejected else 2)
 
 async def test_UI_full_dialog():

@@ -83,8 +83,8 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
                     status=400,
                 )
         else:
-            assert method in ("sendmessage", "editmessagetext", "sendphoto", "sendanimation"), method
-        message_id = int(form["message_id"]) if method == "editmessagetext" else 1000 + len(screens)
+            assert method in ("sendmessage", "editmessagetext", "editmessagecaption", "sendphoto", "sendanimation"), method
+        message_id = int(form["message_id"]) if method in ("editmessagetext","editmessagecaption") else 1000 + len(screens)
         if method != "sendphoto":
             screens.append((message_id, json.loads(form.get("reply_markup", "{}"))))
         return web.json_response({

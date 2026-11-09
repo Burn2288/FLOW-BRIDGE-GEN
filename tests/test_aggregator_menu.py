@@ -54,7 +54,7 @@ async def test_admin_aggregator_menu_routes_and_permissions(env, tmp_path):
         await click('AnyModel')
         await click('🎆 Генерировать изображение')
         await click('FIBO 2')
-        card=app.catalogue_messages[100]
+        card=(await app.navigation.read(100)).active_id
         await app.handle(event(command))
         assert bot.sent[-1]==chooser and bot.animations[-1].data==animation
         assert card in bot.deleted and welcome not in bot.deleted
