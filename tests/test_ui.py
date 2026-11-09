@@ -108,8 +108,9 @@ async def test_welcome_consent_start_and_menu():
     for label in MENU:
         await a.handle(event(label))
         temporary=(await a.navigation.read(100)).active_id
-        assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
-        await a.handle(event(callback='home'))
+        back=b.sent[-1][1].inline_keyboard[-1][0].callback_data
+        assert back==('providers' if label==MENU[1] else 'home')
+        await a.handle(event(callback=back))
         current=(await a.navigation.read(100)).active_id
         assert current is not None and (temporary==current or temporary in b.deleted)
     assert len(b.photos)==1 and 1001 not in b.deleted

@@ -283,7 +283,7 @@ class TelegramApp:
     def has_admin_session(self,ext):
         return ext in self.cfg.admin_ids and self.admin_access.active(ext,self.cfg.admin_password)
 
-    async def delete_auth_message(self,message):
+    async def delete_input_message(self,message):
         try:
             await self.bot.delete_message(message.chat.id,message.message_id)
         except (ClientDecodeError,TelegramAPIError):
@@ -323,7 +323,7 @@ class TelegramApp:
                 status=(self.admin_access.verify(ext,password,text,reply.message_id if password_reply else None)
                         if eligible and message.text is not None else 'expired')
             finally:
-                await self.delete_auth_message(message)
+                await self.delete_input_message(message)
             if status=='ok':
                 u=await self.svc.identity(ext)
                 try:
@@ -342,7 +342,7 @@ class TelegramApp:
         if message and login_command:
             if not allow_login:return True
             if len(words)>1:
-                await self.delete_auth_message(message)
+                await self.delete_input_message(message)
             if not eligible:
                 await self.say(ext,'Админ-доступ закрыт.')
             elif command=='/admin_logout':
@@ -473,9 +473,14 @@ class TelegramApp:
             if command=='/models' or text=='🧩 Модели':
                 await self.svc.conversation(u,'home');await self.show_models(ext)
                 return
-            if aggregator_menu or command in ('/aggregators','/functions') or text=='🛠 Функции':
+            if aggregator_menu:
+                await self.open_aggregators(u,ext)
+                if text==MENU[0]:
+                    await self.delete_keyboard_input(update.message)
+                return
+            if command in ('/aggregators','/functions') or text=='🛠 Функции':
                 await self.svc.conversation(u,'home')
-                await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.' if aggregator_menu else None)
+                await self.show_providers(ext)
                 return
             if command=='/start':
                 try:
@@ -492,7 +497,9 @@ class TelegramApp:
             if command in RATE_COMMANDS:
                 await self.tariffs.rate_command(u,ext,command,text.split()[1:]);return
             if text==RUBLE_MENU:
-                await self.tariffs.callback(u,ext,'rublerate','');return
+                await self.tariffs.callback(u,ext,'rublerate','')
+                await self.delete_keyboard_input(update.message)
+                return
             if command in ('/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'):
                 await self.price_admin(u,ext,command,text.split()[1:]);return
             if text.startswith('/refund '):
@@ -510,6 +517,7 @@ class TelegramApp:
                     return
                 if text in MENU[1:]:
                     await self.menu_section(u,ext,MENU.index(text))
+                    await self.delete_keyboard_input(update.message)
                 else:
                     await self.show_home(ext,open_panel=True)
                 return
@@ -636,7 +644,7 @@ class TelegramApp:
             _,version,section,index=origin.split(':')
             back=f'mdl:{version}:{index}' if section=='dev' else f'smodel:{version}:{section}:0:{index}'
             rows.append([('← К модели',back)])
-        rows.append([('Главное меню','home')])
+        rows.append([('Главное меню','providers')])
         await self.catalogue_screen(ext,'\n'.join(lines),buttons(rows))
 
     async def menu_section(self,u,ext,section):
@@ -735,9 +743,8 @@ class TelegramApp:
         if data in ('section:1','section:2','section:3'):
             await self.svc.conversation(u,'home')
             await self.menu_section(u,ext,int(data[-1]));return
-        if data=='home':await self.svc.conversation(u,'home');await self.show_home(ext,open_panel=True);return
-        if data=='providers':
-            await self.svc.conversation(u,'home');await self.show_providers(ext);return
+        if data in ('home','providers'):
+            await self.open_aggregators(u,ext);return
         if data.startswith('provider:'):
             _,version,index=data.split(':');await self.provider_detail(u,ext,version,int(index));return
         if data.startswith('pf:'):
@@ -876,6 +883,15 @@ class TelegramApp:
             return titles.get(key,key)
         number=list(titles).index(key)+1 if key in titles else None
         return f'Агрегатор {number}' if number else 'Агрегатор'
+
+    async def open_aggregators(self,user,ext):
+        await self.svc.conversation(user,'home')
+        await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.')
+
+    async def delete_keyboard_input(self,message):
+        # Plain reply buttons arrive as text. Skip forwarded or quoted content when marked.
+        if not (message.forward_origin or message.reply_to_message or message.quote):
+            await self.delete_input_message(message)
 
     async def show_providers(self,ext,*,keyboard_text=None,force_keyboard=False):
         admin=self.has_admin_session(ext)

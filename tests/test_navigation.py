@@ -167,3 +167,117 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
     assert all(message_id in bot.messages for message_id in protected)
     assert [action[1] for action in bot.events if action[0]=='delete' and action[1]<1000]==[password_id]
     print('NAV_RAPID',bot.events[count:],flush=True)
+
+
+@pytest.mark.parametrize('admin',[False,True])
+@pytest.mark.parametrize('populated',[False,True])
+async def test_reply_keyboard_and_history_home(env,tmp_path,admin,populated):
+    pool,cfg,_,user=env
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),admin_password='fixture-password',
+                anymodel_test_enabled=True,catalogue_path=str(tmp_path/'catalogue.json'))
+    SnapshotStore(cfg.catalogue_path).write(make_snapshot([],[],[{'provider':'clodex','scope':'key_available'}]))
+    model_store(cfg).write(make_snapshot([],[],[{'provider':'anymodel','scope':'key_available'}]))
+    await exercise_reply_keyboard(pool,cfg,user,admin,populated)
+
+
+async def exercise_reply_keyboard(pool,cfg,user,admin,populated):
+    from aiogram.types import Document
+
+    from elevenbot.interaction import MOCK_IMAGE
+    from elevenbot.telegram import WELCOME_TEXT
+
+    class NoWelcome(Transport):
+        async def send_photo(self,*args,**kwargs):
+            raise AssertionError('Navigation must not attempt a welcome photo')
+
+        async def send_message(self,chat,text,reply_markup=None):
+            assert text!=WELCOME_TEXT
+            return await super().send_message(chat,text,reply_markup)
+
+    bot=NoWelcome(pool)
+    app=TelegramApp(pool,cfg,bot)
+    if populated:
+        await app.svc.save_image_work(user,-6001,'fixture/image','fixture',
+                                      SimpleNamespace(image=MOCK_IMAGE,filename='test.png'))
+    n=0
+
+    async def text(value,*,button=False):
+        nonlocal n
+        n+=1
+        start=len(bot.events)
+        await app.handle(event(n,value))
+        actions=bot.events[start:]
+        deletions=[item for item in actions if item[0]=='delete' and item[1]==n]
+        assert bool(deletions)==button
+        if button:
+            assert actions[-1]==deletions[0]
+            assert any(item[0] in ('edit','new_id') for item in actions[:-1])
+        return actions
+
+    async def click(route):
+        nonlocal n
+        n+=1
+        await app.handle(event(n,callback=route))
+
+    async def panel():
+        state=await app.navigation.read(100)
+        assert [i for i,(_,_,markup) in bot.messages.items() if hasattr(markup,'inline_keyboard')]==[state.active_id]
+        assert state.keyboard_id in bot.messages
+        screen=bot.messages[state.active_id]
+        return screen[1],{button.text:button.callback_data for row in screen[2].inline_keyboard for button in row}
+
+    if admin:
+        await text('/admin')
+        n+=1
+        await app.handle(event(n,cfg.admin_password))
+        assert app.has_admin_session(100)
+
+    aggregates=await text(MENU[0],button=True)
+    chooser=await panel()
+    assert 'Выберите агрегатор.' in chooser[0]
+    assert ('Тарифы моделей' in chooser[1])==admin
+    assert ('CLODEX' if admin else 'Агрегатор 1') in chooser[1]
+    assert ('AnyModel' if admin else 'Агрегатор 2') in chooser[1]
+    assert (RUBLE_MENU in (await app.navigation.read(100)).keyboard_labels)==admin
+
+    old_panel=(await app.navigation.read(100)).active_id
+    bot.fail_send=True
+    n+=1
+    with pytest.raises(TelegramNetworkError):
+        await app.handle(event(n,MENU[1]))
+    assert not any(action[0]=='delete' and action[1]==n for action in bot.events)
+    assert (await app.navigation.read(100)).active_id==old_panel
+    bot.fail_send=False
+
+    works=await text(MENU[1],button=True)
+    history,routes=await panel()
+    assert ('Работ пока нет.' in history)==(not populated)
+    assert ('Открыть работу №1' in routes)==populated
+    route=routes['Главное меню']
+    await click(route)
+    assert await panel()==chooser
+    await click('home')  # Existing history buttons keep working.
+    assert await panel()==chooser
+    balance=await text('💳 0 токенов',button=True)
+    assert 'Зарезервировано: 0' in (await panel())[0]
+    help_screen=await text(MENU[3],button=True)
+    ruble_screen=await text(RUBLE_MENU,button=admin)
+    if admin:
+        assert RUBLE_MENU in (await panel())[0]
+        await click('home')
+    await text('/menu')
+    assert await app.svc.welcome_message(100) is None
+    await app.svc.save_welcome_message(100,999)
+    await text('Обычное сообщение')
+    n+=1
+    document=event(n)
+    document=document.model_copy(update={'message':document.message.model_copy(update={
+        'document':Document(file_id='fixture',file_unique_id='fixture'), 'caption':MENU[1],
+    })})
+    await app.handle(document)
+    assert not any(action[0]=='delete' and action[1]==n for action in bot.events)
+    assert await app.svc.welcome_message(100)==999
+    print('MENU_ACTIONS',{'admin':admin,'populated':populated,'history_route':route,'one_panel':True,
+                          'aggregators':aggregates,'works':works,'balance':balance,'help':help_screen,
+                          'ruble':ruble_screen,'failed_input_retained':True},
+          flush=True)
