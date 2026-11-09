@@ -65,13 +65,14 @@ class ProviderRegistry:
         if title is not None:
             self.interactive[provider] = title
 
-    async def collect(self,provider=None):
+    async def collect(self,provider=None,*,refresh=False):
         models=[];functions=[];sources=[]
         adapters = self.adapters.items() if provider is None else [(provider,self.adapters[provider])]
         for key,adapter in adapters:
             if adapter is None:
                 continue
-            data=await adapter.collect()
+            collect=getattr(adapter,'refresh',adapter.collect) if refresh else adapter.collect
+            data=await collect()
             for model in data['models']:
                 models.append(dict(model,provider=key,key=key+':'+model['id']))
             for fn in data['functions']:

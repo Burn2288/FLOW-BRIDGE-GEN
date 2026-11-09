@@ -41,7 +41,7 @@ BALANCE_BUTTON=re.compile(r'💳 [0-9][0-9 \u00a0\u202f]* токенов(?: ≈ 
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amwork','amworkrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
-REGISTERED_ROUTES={'pentry','pall','pview','pcat','pcard','prun'}
+REGISTERED_ROUTES={'pentry','pall','pview','pcat','pcard','prun','prefresh'}
 REGISTERED_PILOT_ROUTES={'pilotconfirm','pilotcancel','pilotwork'}
 AGGREGATOR_ROUTES={'agroot','agmanage','agfunctions','agfunction'}
 CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|REGISTERED_PILOT_ROUTES|AGGREGATOR_ROUTES|BROADCAST_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
@@ -72,7 +72,7 @@ RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
     '/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'}
 ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|BROADCAST_ROUTES|MUSIC_ROUTES|REGISTERED_PILOT_ROUTES|{
-    'agmanage','agfunctions','agfunction','pall','pview','amcat','ammdl','amvprices','amvpick','amvready',
+    'agmanage','agfunctions','agfunction','pall','pview','prefresh','amcat','ammdl','amvprices','amvpick','amvready',
 }
 
 
@@ -116,7 +116,7 @@ class TelegramApp:
             launch=AnyModelExecution(self,lambda:AnyModelProvider(self.cfg.anymodel_key)))
         self.providers.register('clodex',price=ClodexPricing(self.video.api,self.music.api),launch=ClodexExecution(self))
         from .fal import FalMusicPilot, FalProvider
-        fal = FalProvider(cfg.fal_key)
+        fal = FalProvider(cfg.fal_key,catalogue_path=Path(cfg.catalogue_path).with_name('fal.json'))
         self.providers.register('fal',fal,price=fal,launch=FalMusicPilot(pool,cfg,api=fal),title='fal')
         self.pricing = Pricing(pool,cfg,self.providers.prices)
         self.launch = TaskLaunch(self.pricing,self.providers.launches)
@@ -982,19 +982,28 @@ class TelegramApp:
         if route=='pentry':
             await self.aggregator_callback(u,ext,'agroot',[key])
             return
-        full=route in ('pall','pview')
+        full=route in ('pall','pview','prefresh')
         if full:
             await self.tariffs.authorize(u,ext)
         else:
             self.check_registered_launch(ext,key)
-        snapshot=await self.providers.collect(key)
+        refresh=route=='prefresh'
+        try:
+            snapshot=await self.providers.collect(key,refresh=refresh)
+        except Rejected as error:
+            if not full:
+                raise
+            await self.catalogue_screen(ext,str(error),buttons([
+                [('Обновить',f'prefresh:{key}:{parts[1]}')],[('← К управлению',f'agmanage:{key}')],
+            ]))
+            return
         admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
         selected=parts[2] if route=='pcat' and len(parts)>2 else parts[3] if len(parts)>3 else None
         models=[row for row in snapshot['models'] if full or self.registered_operations(row,admitted,selected)]
         page=max(0,min(int(parts[1]),max(0,(len(models)-1)//10)))
         prefix='pall' if full else 'pcat'
         suffix=f':{selected}' if selected else ''
-        if route in ('pcat','pall'):
+        if route in ('pcat','pall','prefresh'):
             card='pview' if full else 'pcard'
             rows=[[(m['id'] if full and m.get('availability')=='public_only' else m['title'],
                     f"{card}:{key}:{page}:{voice_key(m['id'])[:20]}{suffix}")]
@@ -1005,8 +1014,14 @@ class TelegramApp:
             if nav:rows.append(nav)
             parent=f'agmanage:{key}' if full else f'agroot:{key}'
             title=self.provider_title(ext,key)
-            if any(source.get('evidence',{}).get('stale') for source in snapshot['sources']):
+            evidence=snapshot['sources'][0].get('evidence',{})
+            if evidence.get('stale'):
+                fetched=evidence.get('fetched_at')
                 title+='\nКаталог устарел'
+                if fetched is not None:
+                    title+=' · снимок от '+datetime.fromtimestamp(fetched,timezone.utc).strftime('%d.%m.%Y %H:%M UTC')
+                if full:
+                    rows.append([('Обновить',f'prefresh:{key}:{page}')])
             if not models and not self.has_admin_session(ext):
                 title+='\n'+EMPTY_MODELS
             await self.catalogue_screen(ext,title,buttons(rows+[[('← К агрегатору',parent)]]))

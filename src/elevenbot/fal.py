@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import re
 import time
 from datetime import datetime, timezone
@@ -13,6 +14,7 @@ import httpx
 from .anymodel_speech import validate_mp3
 from .clodex_music import MAX_MP3, OPERATION, MusicPilot
 from .core import Rejected
+from .discovery import SnapshotStore, snapshot
 from .pricing import NoProviderPrice, PriceUnavailable, ProviderCost
 from .submission import ProviderRefused
 from .video import ID_PATTERN, VideoProtocolError
@@ -20,6 +22,8 @@ from .video import ID_PATTERN, VideoProtocolError
 PLATFORM = 'https://api.fal.ai'
 QUEUE = 'https://queue.fal.run'
 LYRIA = 'google/lyria-3.5'
+CATALOGUE_TTL = 300
+LOG = logging.getLogger(__name__)
 CATEGORIES = {
     'text-to-audio': OPERATION, 'text-to-speech': 'audio.speech',
     'text-to-image': 'images.generate', 'image-to-image': 'images.edit',
@@ -29,11 +33,13 @@ CATEGORIES = {
 
 
 class FalProvider:
-    def __init__(self, key, *, transport=None):
+    def __init__(self, key, *, transport=None, catalogue_path=None):
         self.key, self.transport = key, transport
         self.lock = asyncio.Lock()
-        self.catalogue = None
-        self.fresh_until = 0
+        self.store = SnapshotStore(catalogue_path) if catalogue_path else None
+        saved = self.store.read() if self.store else None
+        self.catalogue = saved if saved and saved.get('complete') is True else None
+        self.retry_at = 0
 
     def client(self, *, authenticated=True):
         headers = {'Authorization': 'Key '+self.key} if authenticated and self.key else {}
@@ -54,49 +60,75 @@ class FalProvider:
             raise VideoProtocolError('fal_json_shape')
         return payload
 
-    async def collect(self):
+    async def collect(self, *, refresh=False):
         async with self.lock:
-            if self.catalogue is not None and self.fresh_until > time.monotonic():
-                return self.catalogue
-            try:
-                self.catalogue = await self.collect_pages()
-            except (httpx.HTTPError, TimeoutError, ValueError, VideoProtocolError, TypeError):
-                if self.catalogue is None:
-                    raise Rejected('Каталог fal временно недоступен.') from None
-                self.fresh_until = time.monotonic() + 30
-                self.catalogue = {**self.catalogue, 'evidence': {'stale': True}}
-                return self.catalogue
-            self.fresh_until = time.monotonic() + 300
-            return self.catalogue
+            fresh = self.catalogue and self.catalogue['fresh_until'] > time.time()
+            if refresh or (not fresh and time.monotonic() >= self.retry_at):
+                try:
+                    data = await self.collect_pages()
+                except (httpx.HTTPError, TimeoutError, ValueError, VideoProtocolError, TypeError):
+                    self.retry_at = time.monotonic() + 30
+                else:
+                    complete = {**snapshot(data['models'],ttl=CATALOGUE_TTL),'complete':True}
+                    if self.store:
+                        try:
+                            self.store.write(complete)
+                        except OSError:
+                            LOG.warning('fal catalogue snapshot write failed')
+                    self.catalogue = complete
+                    self.retry_at = 0
+            if not self.catalogue:
+                raise Rejected('Каталог fal временно недоступен.')
+            data = self.catalogue
+            models = [dict(model,registered_launchable=bool(model.get('active'))
+                           and any(self.supports(model['id'],op) for op in model['operations']))
+                      for model in data['models']]
+            stale = bool(self.retry_at) or data['fresh_until'] <= time.time()
+            return {'models':models,'functions':[],'scope':'public_only',
+                    'evidence':{'stale':stale,'fetched_at':data['fetched_at'],'fresh_until':data['fresh_until']}}
+
+    async def refresh(self):
+        return await self.collect(refresh=True)
 
     async def collect_pages(self):
         cursor = None
         cursors = set()
         models = {}
-        async with asyncio.timeout(120):
-            for _ in range(300):
-                params = {'limit': 100}
-                if cursor:
-                    params['cursor'] = cursor
-                body = await self.catalogue_page(params)
-                if not isinstance(body.get('models'), list) or type(body.get('has_more')) is not bool:
-                    raise VideoProtocolError('fal_catalogue_shape')
-                for entry in body['models']:
-                    model = self.model(entry)
-                    models[model['id']] = model
-                cursor = body.get('next_cursor')
-                if not body['has_more'] and cursor is None:
-                    return {'models': list(models.values()), 'functions': [], 'scope': 'public_only'}
-                if not isinstance(cursor, str) or not cursor or len(cursor)>4096 or cursor in cursors:
-                    raise VideoProtocolError('fal_catalogue_cursor')
-                cursors.add(cursor)
-                await asyncio.sleep(0.15)
-        raise VideoProtocolError('fal_catalogue_page_limit')
+        page = 0
+        try:
+            async with asyncio.timeout(120):
+                for page in range(1,301):
+                    params = {'limit': 100}
+                    if cursor:
+                        params['cursor'] = cursor
+                    body = await self.catalogue_page(params)
+                    if not isinstance(body.get('models'), list) or type(body.get('has_more')) is not bool:
+                        raise VideoProtocolError('fal_catalogue_shape')
+                    for entry in body['models']:
+                        model = self.model(entry)
+                        models[model['id']] = model
+                    cursor = body.get('next_cursor')
+                    if not body['has_more'] and cursor is None:
+                        return {'models': list(models.values()), 'functions': [], 'scope': 'public_only'}
+                    if (not body['has_more'] or not isinstance(cursor, str) or not cursor
+                            or len(cursor)>4096 or cursor in cursors):
+                        raise VideoProtocolError('fal_catalogue_cursor')
+                    cursors.add(cursor)
+                    await asyncio.sleep(0.15)
+                raise VideoProtocolError('fal_catalogue_page_limit')
+        except (httpx.HTTPError, TimeoutError, ValueError, VideoProtocolError, TypeError) as error:
+            reason = f'HTTP {error.response.status_code}' if isinstance(error,httpx.HTTPStatusError) else type(error).__name__
+            LOG.warning('fal catalogue failed on page %d: %s',page,reason)
+            raise
 
     async def catalogue_page(self, params):
         for attempt in range(3):
             try:
                 return await self.json('GET', PLATFORM+'/v1/models', params=params)
+            except (httpx.TransportError,TimeoutError):
+                if attempt==2:
+                    raise
+                delay = 2**attempt
             except httpx.HTTPStatusError as error:
                 if error.response.status_code != 429 or attempt==2:
                     raise
@@ -106,7 +138,7 @@ class FalProvider:
                                                            - datetime.now(timezone.utc)).total_seconds()
                 except (TypeError,ValueError,OverflowError):
                     delay = 2**attempt
-                await asyncio.sleep(max(1,delay))
+            await asyncio.sleep(max(0,delay))
 
     def model(self, entry):
         ident = entry.get('endpoint_id') if isinstance(entry, dict) else None
@@ -121,10 +153,9 @@ class FalProvider:
         if not isinstance(title,str):
             title = ident
         operation = CATEGORIES.get(category)
-        launchable = self.supports(ident,operation) and meta.get('status')=='active'
         return {'id': ident, 'title': title[:100], 'protocols': [category] if category else [],
                 'operations': [operation] if operation else [],
-                'availability': 'public_only', 'registered_launchable': launchable}
+                'availability': 'public_only', 'active': meta.get('status')=='active'}
 
     def supports(self, model, operation):
         return bool(self.key and model==LYRIA and operation==OPERATION)

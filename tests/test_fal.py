@@ -163,3 +163,90 @@ async def test_fal_registered_pilot(env, timeout):
     assert not await restarted.tick(bot)
     assert requests.count(create)==1 and await pool.fetchval('SELECT halted FROM settings WHERE id=1')
 
+
+async def test_fal_catalogue_survives_restart_and_partial_refresh(env,tmp_path):
+    pool,cfg,_,_=env
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),admin_password='fixture-password',
+                catalogue_path=str(tmp_path/'models.json'))
+    bot=BroadcastTransport(pool)
+    app=TelegramApp(pool,cfg,bot)
+    pages=[]
+    n=0
+    online=True
+
+    def transport(req):
+        assert req.method=='GET' and req.url.path=='/v1/models'
+        cursor=req.url.params.get('cursor')
+        pages.append(cursor)
+        if cursor is None:
+            model='fal-ai/first' if online else 'fal-ai/partial'
+            return httpx.Response(200,json={'models':[entry(model)],
+                                            'has_more':True,'next_cursor':'second'})
+        if not online:
+            return httpx.Response(503)
+        return httpx.Response(200,json={'models':[entry(LYRIA)],'has_more':False,'next_cursor':None})
+
+    async def send(text=None,callback=None):
+        nonlocal n
+        n+=1
+        await app.handle(event(n,text,callback=callback))
+        panel=await app.navigation.read(100)
+        return bot.messages[panel.active_id] if panel.active_id else None
+
+    async def catalogue():
+        await send('/admin')
+        chooser=await send(cfg.admin_password)
+        aggregator=await send(callback=routes(chooser)['fal'])
+        management=await send(callback=routes(aggregator)['⚙️ Управление агрегатором'])
+        return await send(callback=routes(management)['Все модели'])
+
+    app.providers.adapters['fal'].transport=httpx.MockTransport(transport)
+    first=await catalogue()
+    assert {'fal-ai/first',LYRIA} <= routes(first).keys()
+    path=tmp_path/'fal.json'
+    saved=json.loads(path.read_text(encoding='utf-8'))
+    assert saved['complete'] and len(saved['models'])==2 and pages==[None,'second']
+    saved['fresh_until']=0
+    path.write_text(json.dumps(saved),encoding='utf-8')
+    original=path.read_bytes()
+
+    online=False
+    app=TelegramApp(pool,cfg,bot)
+    app.providers.adapters['fal'].transport=httpx.MockTransport(transport)
+    stale=await catalogue()
+    assert 'Каталог устарел · снимок от' in stale[1]
+    assert {'fal-ai/first',LYRIA,'Обновить'} <= routes(stale).keys()
+    assert 'fal-ai/partial' not in routes(stale) and path.read_bytes()==original
+    assert pages==[None,'second',None,'second']
+
+    app=TelegramApp(pool,replace(cfg,catalogue_path=str(tmp_path/'empty'/'models.json')),bot)
+    app.providers.adapters['fal'].transport=httpx.MockTransport(transport)
+    empty=await catalogue()
+    assert 'временно недоступен' in empty[1] and 'Обновить' in routes(empty)
+    assert not (tmp_path/'empty'/'fal.json').exists()
+    online=True
+    restored=await send(callback=routes(empty)['Обновить'])
+    assert LYRIA in routes(restored) and 'Каталог устарел' not in restored[1]
+
+
+async def test_fal_catalogue_get_retries_same_cursor(monkeypatch):
+    cursor_log=[]
+    delays=[]
+
+    def transport(req):
+        assert req.method=='GET'
+        cursor_log.append(req.url.params['cursor'])
+        if len(cursor_log)==1:
+            raise httpx.ConnectError('fixture',request=req)
+        if len(cursor_log)==2:
+            return httpx.Response(429,headers={'Retry-After':'7'})
+        return httpx.Response(200,json={'models':[],'has_more':False,'next_cursor':None})
+
+    async def delay(seconds):
+        delays.append(seconds)
+
+    monkeypatch.setattr('elevenbot.fal.asyncio.sleep',delay)
+    provider=FalProvider('',transport=httpx.MockTransport(transport))
+    assert (await provider.catalogue_page({'cursor':'second'}))['has_more'] is False
+    assert cursor_log==['second']*3 and delays==[1,7]
+
