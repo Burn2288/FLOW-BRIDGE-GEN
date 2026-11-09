@@ -104,6 +104,13 @@ def request(prompt):
 
 
 class MusicPilot:
+    provider = 'clodex'
+    model = MODEL
+    title = TITLE
+    provider_title = 'CLODEX'
+    filename = 'leonardo-music.mp3'
+    params = {'n': 1}
+
     def __init__(self, pool, cfg, *, api=None):
         self.pool, self.cfg = pool, cfg
         self.api = api or MusicAPI(cfg.clodex_key)
@@ -113,11 +120,22 @@ class MusicPilot:
             chat > 0 and chat == self.cfg.clodex_music_owner and chat in self.cfg.admin_ids
         )
 
+    def enabled(self):
+        return self.cfg.clodex_music_live
+
+    async def validate_model(self, conn, request):
+        pass
+
+    async def used(self, user, conn=None):
+        return await (conn or self.pool).fetchval(
+            'SELECT EXISTS(SELECT 1 FROM clodex_music_jobs WHERE user_id=$1 AND provider=$2)',
+            user,self.provider)
+
     async def balance(self, user, conn=None):
         return await (conn or self.pool).fetchrow("""
             SELECT coalesce(sum(da),0)::bigint AS available,coalesce(sum(dr),0)::bigint AS reserved
-            FROM clodex_music_ledger WHERE user_id=$1
-            """, user)
+            FROM clodex_music_ledger WHERE user_id=$1 AND provider=$2
+            """, user,self.provider)
 
     async def grant(self, user, chat, quote_id):
         if not self.owner(chat):
@@ -128,43 +146,46 @@ class MusicPilot:
                 JOIN identities i ON i.user_id=q.user_id AND i.platform='telegram'
                 WHERE q.id=$1 AND q.user_id=$2 AND i.external_id=$3 AND i.terms_version='1'
                   AND i.accepted_at IS NOT NULL AND q.state='pending' AND q.expires_at>now()
-                  AND q.provider='clodex' AND q.model_id=$4 AND q.operation=$5
-                """, quote_id, user, chat, MODEL, OPERATION)
+                  AND q.provider=$6 AND q.model_id=$4 AND q.operation=$5
+                """, quote_id,user,chat,self.model,OPERATION,self.provider)
             if not amount or amount < 0:
                 raise Rejected('Нужна свежая положительная оценка пилота.')
             return await conn.fetchval("""
-                INSERT INTO clodex_music_ledger VALUES($1,$2,'credit',$3,0)
+                INSERT INTO clodex_music_ledger(user_id,quote_id,kind,da,dr,provider) VALUES($1,$2,'credit',$3,0,$4)
                 ON CONFLICT DO NOTHING RETURNING da
-                """, user, quote_id, amount)
+                """, user,quote_id,amount,self.provider)
 
     async def confirm(self, pricing, user, chat, quote_id, update_id, session):
         async def validate(conn, req):
-            if not self.owner(chat) or not session() or not self.cfg.clodex_music_live:
+            if not self.owner(chat) or not session() or not self.enabled():
                 raise Rejected('Пилот закрыт. Войдите через /admin.')
-            if (req.provider, req.model, req.operation, req.params) != ('clodex', MODEL, OPERATION, {'n': 1}):
+            if (req.provider, req.model, req.operation, req.params) != (self.provider,self.model,OPERATION,self.params):
                 raise Rejected('Оценка недоступна.')
-            if await conn.fetchval('SELECT EXISTS(SELECT 1 FROM clodex_music_jobs WHERE user_id=$1)',user):
+            await self.validate_model(conn,req)
+            if await self.used(user,conn):
                 raise Rejected('Единственная попытка уже использована.')
 
         async def prepare(conn, quote):
             await pricing.admin(conn, user, chat)
             amount = int(quote.price['total'])
             funds = await self.balance(user,conn)
-            if amount<=0 or funds['available'] < amount:
-                raise Rejected('Недостаточно тестовых токенов для Leonardo Music.')
+            if amount<0 or funds['available'] < amount:
+                raise Rejected(f'Недостаточно тестовых токенов для {self.title}.')
             await conn.execute("""
-                INSERT INTO clodex_music_jobs(id,user_id,chat_id,status) VALUES($1,$2,$3,'queued')
-                """, quote.id,user,chat)
-            await conn.execute("""
-                INSERT INTO clodex_music_ledger VALUES($1,$2,'reserve',-$3::bigint,$3)
-                """, user,quote.id,amount)
+                INSERT INTO clodex_music_jobs(id,user_id,chat_id,status,provider) VALUES($1,$2,$3,'queued',$4)
+                """, quote.id,user,chat,self.provider)
+            if amount:
+                await conn.execute("""
+                    INSERT INTO clodex_music_ledger(user_id,quote_id,kind,da,dr,provider)
+                    VALUES($1,$2,'reserve',-$3::bigint,$3,$4)
+                    """, user,quote.id,amount,self.provider)
 
         return await pricing.confirm(user,quote_id,update_id,prepare,validate=validate,track_interaction=False)
 
     async def work(self, user, job):
         row=await self.pool.fetchrow("""
-            SELECT mp3 FROM clodex_music_jobs WHERE id=$1 AND user_id=$2 AND mp3 IS NOT NULL AND expires_at>now()
-            """,job,user)
+            SELECT mp3 FROM clodex_music_jobs WHERE id=$1 AND user_id=$2 AND provider=$3 AND mp3 IS NOT NULL AND expires_at>now()
+            """,job,user,self.provider)
         if not row:
             raise Rejected('Трек недоступен или срок хранения истёк.')
         return row['mp3']
@@ -175,15 +196,15 @@ class MusicPilot:
                 UPDATE clodex_music_jobs SET status=$2,mp3=$3,next_at=now(),last_error=NULL WHERE id=$1
                 """,job,status,audio)
             await conn.execute("""
-                INSERT INTO clodex_music_ledger
-                SELECT user_id,quote_id,$2,CASE WHEN $2='release' THEN dr ELSE 0 END,-dr
+                INSERT INTO clodex_music_ledger(user_id,quote_id,kind,da,dr,provider)
+                SELECT user_id,quote_id,$2,CASE WHEN $2='release' THEN dr ELSE 0 END,-dr,provider
                 FROM clodex_music_ledger WHERE quote_id=$1 AND kind='reserve'
                 ON CONFLICT DO NOTHING
                 """,job,'capture' if audio is not None else 'release')
 
     async def send(self, bot, chat, audio):
-        await bot.send_audio(chat, BufferedInputFile(audio,filename='leonardo-music.mp3'),
-                             title=TITLE, caption=f'{TITLE} · CLODEX')
+        await bot.send_audio(chat, BufferedInputFile(audio,filename=self.filename),
+                             title=self.title, caption=f'{self.title} · {self.provider_title}')
 
     async def tick(self, bot):
         row=await self.pool.fetchrow("""
@@ -192,24 +213,24 @@ class MusicPilot:
             FROM (
                 SELECT m.id,m.status FROM clodex_music_jobs m
                 JOIN identities i ON i.user_id=m.user_id AND i.platform='telegram' AND i.external_id=m.chat_id
-                WHERE m.next_at<=now() AND m.status IN ('queued','submitting','polling','ready','delivering')
+                WHERE m.provider=$1 AND m.next_at<=now() AND m.status IN ('queued','submitting','polling','ready','delivering')
                 ORDER BY m.next_at LIMIT 1 FOR UPDATE OF m SKIP LOCKED
             ) due,task_price_quotes q
             WHERE j.id=due.id AND q.id=j.id
             RETURNING j.*,due.status AS previous,q.request->>'prompt' AS prompt
-            """)
+            """,self.provider)
         if not row:
             return False
         progress=TaskProgress(bot,self.pool)
         job,chat,message,previous=row['id'],row['chat_id'],row['status_message_id'],row['previous']
         if previous=='queued':
-            message=await progress.start(chat,TITLE,OPERATION)
+            message=await progress.start(chat,self.title,OPERATION)
             await self.pool.execute('UPDATE clodex_music_jobs SET status_message_id=$2 WHERE id=$1',job,message)
             try:
                 task=await self.api.create(row['prompt'])
             except ProviderRefused:
                 await self.settle(job,'failed')
-                await progress.finish(chat,message,TITLE,'CLODEX отклонил запрос. Резерв возвращён.')
+                await progress.finish(chat,message,self.title,f'{self.provider_title} отклонил запрос. Резерв возвращён.')
             except (httpx.HTTPError,TimeoutError,VideoProtocolError,ValueError) as error:
                 await self.unknown(progress,row,message,'create_'+type(error).__name__)
             else:
@@ -231,9 +252,12 @@ class MusicPilot:
                     await self.settle(job,'ready',audio)
                 elif status=='failed':
                     await self.settle(job,'failed')
-                    await progress.finish(chat,message,TITLE,'CLODEX сообщил об ошибке. Резерв возвращён.')
+                    await progress.finish(chat,message,self.title,f'{self.provider_title} сообщил об ошибке. Резерв возвращён.')
                 else:
                     await self.reschedule(job)
+            except ProviderRefused:
+                await self.settle(job,'failed')
+                await progress.finish(chat,message,self.title,f'{self.provider_title} сообщил об ошибке. Резерв возвращён.')
             except (httpx.HTTPError,TimeoutError,VideoProtocolError,ValueError,AnyModelError) as error:
                 detail=str(error) if isinstance(error,VideoProtocolError) else type(error).__name__
                 await self.reschedule(job,stage+'_'+detail)
@@ -249,7 +273,7 @@ class MusicPilot:
                     delivered=True
             await self.pool.execute('UPDATE clodex_music_jobs SET status=$2 WHERE id=$1',
                                     job,'delivered' if delivered else 'delivery_unknown')
-            await progress.finish(chat,message,TITLE,'Готово.' if delivered else
+            await progress.finish(chat,message,self.title,'Готово.' if delivered else
                 'Трек сохранён в «Моих работах». Доставка не подтверждена.',success=delivered)
         return True
 
@@ -260,7 +284,7 @@ class MusicPilot:
 
     async def unknown(self, progress, row, message, code):
         await self.pool.execute("UPDATE clodex_music_jobs SET status='unknown',last_error=$2 WHERE id=$1",row['id'],code)
-        await progress.finish(row['chat_id'],message,TITLE,UNKNOWN+' Резерв на сверке.')
+        await progress.finish(row['chat_id'],message,self.title,UNKNOWN+' Резерв на сверке.')
 
     async def loop(self, bot):
         while True:
@@ -268,5 +292,5 @@ class MusicPilot:
                 if await self.tick(bot):
                     continue
             except Exception as error:
-                trace_interaction('clodex-music','music_worker_error',error_type=type(error).__name__)
+                trace_interaction(self.provider+'-music','music_worker_error',error_type=type(error).__name__)
             await asyncio.sleep(2)

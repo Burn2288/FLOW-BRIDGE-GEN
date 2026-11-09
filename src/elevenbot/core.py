@@ -190,7 +190,7 @@ class Service:
             if not r: raise Rejected('Работа не найдена.')
             return r
 
-    async def history(self,u,offset=0,model_id=None,*,include_music=False):
+    async def history(self,u,offset=0,model_id=None,*,include_music=False,music_providers=None):
         async with self.pool.acquire() as c:
             await self.authorize(c,u)
             return await c.fetch("""
@@ -216,12 +216,12 @@ class Service:
                     FROM task_chat_works w JOIN task_price_quotes q ON q.id=w.quote_id
                     WHERE q.user_id=$1 AND w.expires_at>now() AND ($3::text IS NULL OR q.model_id=$3)
                     UNION ALL
-                    SELECT m.id,'succeeded',NULL,m.created_at,'music',q.model_id,true
+                    SELECT m.id,'succeeded',NULL,m.created_at,CASE m.provider WHEN 'clodex' THEN 'music' ELSE 'music:'||m.provider END,q.model_id,true
                     FROM clodex_music_jobs m JOIN task_price_quotes q ON q.id=m.id
-                    WHERE $4 AND m.user_id=$1 AND m.mp3 IS NOT NULL AND m.expires_at>now()
+                    WHERE m.provider=ANY($4::text[]) AND m.user_id=$1 AND m.mp3 IS NOT NULL AND m.expires_at>now()
                     AND ($3::text IS NULL OR q.model_id=$3)
                 ) works ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $2
-                """,u,max(0,offset),model_id,include_music)
+                """,u,max(0,offset),model_id,music_providers if music_providers is not None else ['clodex'] if include_music else [])
 
     async def save_image_work(self,u,update_id,model_id,prompt,result):
         async with self.pool.acquire() as c:

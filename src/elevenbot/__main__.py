@@ -100,6 +100,9 @@ async def main():
                 if cfg.clodex_music_owner:
                     from .clodex_music import MusicPilot
                     tasks.append(asyncio.create_task(MusicPilot(pool,cfg).loop(bot)))
+                if cfg.fal_key and cfg.fal_music_owner:
+                    from .fal import FalMusicPilot
+                    tasks.append(asyncio.create_task(FalMusicPilot(pool,cfg).loop(bot)))
                 from .broadcasts import Broadcasts,BroadcastWorker
                 tasks.append(asyncio.create_task(BroadcastWorker(Broadcasts(pool),bot,buttons).loop()))
                 try:await poll(pool,cfg,bot)

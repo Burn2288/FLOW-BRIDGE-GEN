@@ -42,8 +42,9 @@ DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo
 SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick','amvready'}
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amwork','amworkrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
 REGISTERED_ROUTES={'pentry','pall','pview','pcat','pcard','prun'}
+REGISTERED_PILOT_ROUTES={'pilotconfirm','pilotcancel','pilotwork'}
 AGGREGATOR_ROUTES={'agroot','agmanage','agfunctions','agfunction'}
-CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|AGGREGATOR_ROUTES|BROADCAST_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
+CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|REGISTERED_PILOT_ROUTES|AGGREGATOR_ROUTES|BROADCAST_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -70,7 +71,7 @@ CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','�
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
     '/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'}
-ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|BROADCAST_ROUTES|MUSIC_ROUTES|{
+ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|BROADCAST_ROUTES|MUSIC_ROUTES|REGISTERED_PILOT_ROUTES|{
     'agmanage','agfunctions','agfunction','pall','pview','amcat','ammdl','amvprices','amvpick','amvready',
 }
 
@@ -114,6 +115,9 @@ class TelegramApp:
         self.providers.register('anymodel',price=AnyModelPricing(cfg.anymodel_key),
             launch=AnyModelExecution(self,lambda:AnyModelProvider(self.cfg.anymodel_key)))
         self.providers.register('clodex',price=ClodexPricing(self.video.api,self.music.api),launch=ClodexExecution(self))
+        from .fal import FalMusicPilot, FalProvider
+        fal = FalProvider(cfg.fal_key)
+        self.providers.register('fal',fal,price=fal,launch=FalMusicPilot(pool,cfg,api=fal),title='fal')
         self.pricing = Pricing(pool,cfg,self.providers.prices)
         self.launch = TaskLaunch(self.pricing,self.providers.launches)
         self.tariffs = TariffAdmin(self,buttons)
@@ -528,6 +532,7 @@ class TelegramApp:
                 if context and any(key in context for key in ('tariff_admin','tariff_preview','our_markup','anyvoice_tariff_selection','price_rate')):
                     raise Rejected('Используйте команду с экрана настройки тарифа.')
                 if context and context.get('provider') in self.providers.interactive:
+                    self.check_registered_launch(ext,context['provider'])
                     if not await self.models.allowed(context['provider'],context['model_id'],context['interaction']):
                         raise Rejected('Модель не допущена к этой операции.')
                     request=Request(context['provider'],context['model_id'],context['interaction'],
@@ -623,19 +628,25 @@ class TelegramApp:
     async def history(self,u,ext,page=0,*,model=None):
         await self.svc.conversation(u,'home')
         model_id,origin=model if model else (None,'history')
-        if self.music_access(ext):
+        music_providers=[key for key in self.providers.interactive if self.registered_pilot(ext,key)]
+        if music_providers:
+            if self.music_access(ext):
+                music_providers.append('clodex')
+            jobs=await self.svc.history(u,page*10,model_id,music_providers=music_providers)
+        elif self.music_access(ext):
             jobs=await self.svc.history(u,page*10,model_id,include_music=True)
         else:
             jobs=await (self.svc.history(u,page*10,model_id) if model else self.svc.history(u,page*10))
         lines=[f'Работы модели {model_id}:' if model else 'Ваши работы:'] if jobs else ['Работ пока нет.']
         rows=[]
         for index,r in enumerate(jobs,start=page*10+1):
-            kind=r.get('kind','audio')
+            kind,_,music_provider=r.get('kind','audio').partition(':')
             name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата','music':'Музыка'}[kind]
             price=f" · {r['price']} кредитов" if r['price'] is not None else ''
             lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {STATUS[r['status']]}{price}")
             if r['status']=='succeeded' and r.get('file_available',True):
                 route={'image':'image','audio':'get','video':'video','chat':'chatwork','music':'musicwork'}[kind]
+                if music_provider:route=f'pilotwork:{music_provider}'
                 if model and kind in ('audio','image'):route='m'+route
                 rows.append([(f"Открыть работу №{index}",f"{route}:{r['id']}")])
             if r['status']=='queued':
@@ -674,6 +685,9 @@ class TelegramApp:
             raise Rejected('Действие доступно только администратору.')
         if route in MUSIC_ROUTES:
             await self.music_callback(u,ext,route,data.partition(':')[2],request_id);return
+        if route in REGISTERED_PILOT_ROUTES:
+            _,key,value=data.split(':',2)
+            await self.registered_pilot_callback(u,ext,route,key,uid(value),request_id);return
         if route in BROADCAST_ROUTES:
             await self.broadcasts.callback(u,ext,route,data.partition(':')[2]);return
         if route in AGGREGATOR_ROUTES:
@@ -918,16 +932,48 @@ class TelegramApp:
             rows=[[('↻ Обновить экран','providers')]]
         if anymodel_available(self.cfg):
             rows.append([(self.provider_title(ext,'anymodel'),'am')])
-        if self.cfg.access_mode=='private':
-            rows.extend([(self.provider_title(ext,key),f'pentry:{key}:0')] for key in self.providers.interactive)
-            if admin:
-                rows.append([('Тарифы моделей','tariffs')])
-                rows.append([('📣 Рассылки','brlist')])
+        rows.extend([(self.provider_title(ext,key),f'pentry:{key}:0')] for key in self.providers.interactive
+                    if self.cfg.access_mode=='private' or isinstance(self.providers.launches.get(key),MusicPilot))
+        if self.cfg.access_mode=='private' and admin:
+            rows.append([('Тарифы моделей','tariffs')])
+            rows.append([('📣 Рассылки','brlist')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),
                                     animation=AGGREGATORS_ANIMATION,keyboard_text=keyboard_text,
                                     force_keyboard=force_keyboard,fresh_panel=fresh_panel)
+
+    def registered_pilot(self,ext,key):
+        pilot=self.providers.launches.get(key)
+        if isinstance(pilot,MusicPilot) and self.has_admin_session(ext) and pilot.owner(ext):
+            return pilot
+        return None
+
+    def check_registered_launch(self,ext,key):
+        adapter=self.providers.launches.get(key)
+        if isinstance(adapter,MusicPilot):
+            pilot=self.registered_pilot(ext,key)
+            if pilot is None or not pilot.enabled():
+                raise Rejected('Тестовый запуск недоступен.')
+
+    async def registered_pilot_callback(self,u,ext,route,key,job,request_id):
+        pilot=self.registered_pilot(ext,key)
+        if pilot is None:
+            raise Rejected('Тестовый запуск доступен только в Admin Edition.')
+        if route=='pilotwork':
+            await pilot.send(self.bot,ext,await pilot.work(u,job));return
+        if route=='pilotcancel':
+            if not await self.pricing.cancel(u,job,music=True,provider=key):
+                raise Rejected('Оценка уже закрыта.')
+            await self.aggregator_callback(u,ext,'agroot',[key]);return
+        if request_id is None:
+            raise Rejected('Кнопка устарела.')
+        quote,accepted=await pilot.confirm(self.pricing,u,ext,job,request_id,
+                                           lambda:self.registered_pilot(ext,key) is not None)
+        if not accepted:
+            await self.show_price(ext,quote);return
+        await self.svc.conversation(u,'home')
+        await self.catalogue_screen(ext,f'{pilot.title} · задание принято.',buttons([[('📁 Мои работы','history:0')]]))
 
     async def registered_callback(self,u,ext,route,parts):
         key=parts[0]
@@ -939,6 +985,8 @@ class TelegramApp:
         full=route in ('pall','pview')
         if full:
             await self.tariffs.authorize(u,ext)
+        else:
+            self.check_registered_launch(ext,key)
         snapshot=await self.providers.collect(key)
         admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
         selected=parts[2] if route=='pcat' and len(parts)>2 else parts[3] if len(parts)>3 else None
@@ -948,7 +996,8 @@ class TelegramApp:
         suffix=f':{selected}' if selected else ''
         if route in ('pcat','pall'):
             card='pview' if full else 'pcard'
-            rows=[[(m['title'],f"{card}:{key}:{page}:{voice_key(m['id'])[:20]}{suffix}")]
+            rows=[[(m['id'] if full and m.get('availability')=='public_only' else m['title'],
+                    f"{card}:{key}:{page}:{voice_key(m['id'])[:20]}{suffix}")]
                   for m in models[page*10:(page+1)*10]]
             nav=[]
             if page:nav.append(('← Назад',f'{prefix}:{key}:{page-1}{suffix}'))
@@ -956,6 +1005,8 @@ class TelegramApp:
             if nav:rows.append(nav)
             parent=f'agmanage:{key}' if full else f'agroot:{key}'
             title=self.provider_title(ext,key)
+            if any(source.get('evidence',{}).get('stale') for source in snapshot['sources']):
+                title+='\nКаталог устарел'
             if not models and not self.has_admin_session(ext):
                 title+='\n'+EMPTY_MODELS
             await self.catalogue_screen(ext,title,buttons(rows+[[('← К агрегатору',parent)]]))
@@ -966,7 +1017,7 @@ class TelegramApp:
         operations=self.registered_operations(model,admitted,selected)
         back=[(MODEL_LIST_BACK,f'{prefix}:{key}:{page}{suffix}')]
         if full:
-            await self.render_model_detail(ext,model,f'pall:{key}:{page}',[]);return
+            await self.render_model_detail(ext,model,f'pall:{key}:{page}',[],self.provider_title(ext,key));return
         if route=='pcard':
             from .discovery import OPERATIONS
             rows=[[(f'Рассчитать стоимость · {OPERATIONS[op][0]}',f"prun:{key}:{page}:{parts[2]}:{op}")]
@@ -986,7 +1037,8 @@ class TelegramApp:
 
     @staticmethod
     def registered_operations(model,admitted,selected=None):
-        return [op for op in model['operations'] if model.get('availability')=='key_available'
+        return [op for op in model['operations'] if (model.get('availability')=='key_available'
+                or model.get('registered_launchable'))
                 and op in WAITING and (model['id'],op) in admitted and (selected is None or selected==op)]
 
     def anymodel_snapshot(self,ext,version=None):
@@ -1388,7 +1440,11 @@ class TelegramApp:
             if source_index is None:raise Rejected('Агрегатор недоступен.')
             full=f"cat:{snapshot['version']}:{source_index}:0"
         elif key in self.providers.interactive:
-            snapshot=await self.providers.collect(key)
+            if route!='agroot' or not isinstance(self.providers.launches.get(key),MusicPilot) or self.registered_pilot(ext,key):
+                try:
+                    snapshot=await self.providers.collect(key)
+                except Rejected:
+                    snapshot=None
             full=f'pall:{key}:0'
         else:
             raise Rejected('Агрегатор недоступен.')
@@ -1417,6 +1473,8 @@ class TelegramApp:
             text=f'{title} · Управление агрегатором\nМоделей: {models} · операций API: {len(functions)-docs} · разделов документации: {docs}'
             if key=='anymodel' and snapshot:
                 text+='\n'+self.anymodel_status(snapshot)
+            if key in self.providers.interactive and not snapshot:
+                text+='\n'+CATALOGUE_UNAVAILABLE
             await self.catalogue_screen(ext,text,buttons(rows))
             return
 
@@ -1430,13 +1488,19 @@ class TelegramApp:
                   if not admin or self.anymodel_work_rows(section,snapshot,admitted)}
         else:
             available=set()
-            if admin:
+            pilot_adapter=isinstance(self.providers.launches.get(key),MusicPilot)
+            pilot=self.registered_pilot(ext,key) if pilot_adapter else None
+            if admin and snapshot and (not pilot_adapter or pilot and pilot.enabled() and not await pilot.used(u)):
                 admitted={(row['model_id'],row['operation']) for row in await self.models.list(key)}
                 available={op for model in snapshot['models'] for op in self.registered_operations(model,admitted)}
             work={section:f'pcat:{key}:0:{op}' for section,(_,op) in STORE_SECTIONS.items()
-                  if not admin or op in available}
+                  if (not admin and not pilot_adapter) or op in available}
+            if MUSIC_OP in available:
+                work['music']=f'pcat:{key}:0:{MUSIC_OP}'
         rows=[[('🎆 Генерировать изображение' if section=='image' else label,work[section])]
               for section,(label,_) in STORE_SECTIONS.items() if section in work]
+        if 'music' in work:
+            rows.append([('🎵 Генерировать музыку',work['music'])])
         if key=='clodex' and self.music_access(ext):
             rows.append([('🎵 Генерировать музыку','music')])
         rows.append([('📁 Мои работы','history:0')])
@@ -1862,9 +1926,14 @@ class TelegramApp:
         await self.show_price(ext,await self.pricing.quote(u,req))
 
     async def show_price(self,ext,quote):
-        prefix='music' if quote.request.operation==MUSIC_OP else 'am'
+        key=quote.request.provider
+        if quote.request.operation==MUSIC_OP and key in self.providers.interactive:
+            confirm,cancel=f'pilotconfirm:{key}',f'pilotcancel:{key}'
+        else:
+            prefix='music' if quote.request.operation==MUSIC_OP else 'am'
+            confirm,cancel=f'{prefix}confirm',f'{prefix}cancel'
         await self.catalogue_screen(ext,quote.card(admin=self.has_admin_session(ext)),buttons([[
-            ('Генерировать',f'{prefix}confirm:{quote.id}'),('Отмена',f'{prefix}cancel:{quote.id}'),
+            ('Генерировать',f'{confirm}:{quote.id}'),('Отмена',f'{cancel}:{quote.id}'),
         ]]))
 
     def music_access(self,ext):
@@ -1877,7 +1946,7 @@ class TelegramApp:
         if route=='music':
             await self.svc.conversation(u,'home')
             funds=await self.music.balance(u)
-            used=await self.pool.fetchval('SELECT EXISTS(SELECT 1 FROM clodex_music_jobs WHERE user_id=$1)',u)
+            used=await self.music.used(u)
             text=f'{MUSIC_TITLE} · CLODEX\nОдин MP3 по текстовому описанию.\nТестовый баланс: {display(funds["available"])} токенов.'
             rows=[]
             if self.cfg.clodex_music_live and not used:
@@ -1886,9 +1955,7 @@ class TelegramApp:
                 text+='\nЕдинственная попытка уже использована.' if used else '\nЖивой запуск закрыт.'
             await self.catalogue_screen(ext,text,buttons(rows+[[('← К CLODEX','agroot:clodex')]]))
         elif route=='musicprompt':
-            if not self.cfg.clodex_music_live or await self.pool.fetchval(
-                'SELECT EXISTS(SELECT 1 FROM clodex_music_jobs WHERE user_id=$1)',u
-            ):
+            if not self.cfg.clodex_music_live or await self.music.used(u):
                 raise Rejected('Живой запуск пилота закрыт.')
             await self.svc.aggregate_context(u,{'music_prompt':True})
             await self.catalogue_screen(ext,'Опишите один музыкальный трек. Можно указать в промпте пожелание к вокалу.',
@@ -1896,7 +1963,7 @@ class TelegramApp:
         elif route=='musicwork':
             await self.music.send(self.bot,ext,await self.music.work(u,uid(value)))
         elif route=='musiccancel':
-            if not await self.pricing.cancel(u,uid(value),music=True):
+            if not await self.pricing.cancel(u,uid(value),music=True,provider='clodex'):
                 raise Rejected('Оценка уже закрыта.')
             await self.music_callback(u,ext,'music','',request_id)
         elif request_id is not None:

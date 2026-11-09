@@ -225,15 +225,19 @@ class Pricing:
             return 'unavailable',None,manual
         if cost is not None:
             return 'api',cost,manual
-        if manual and manual['active']:
+        if self.active_manual(request,manual):
             return 'manual',self.manual_price(request,manual),manual
         return 'missing',None,manual
 
     async def manual_cost(self, conn, request):
         row = await self.manual_row(conn,request)
-        if not row or not row['active']:
+        if not self.active_manual(request,row):
             raise MissingTariff()
         return self.manual_price(request,row)
+
+    def active_manual(self,request,row):
+        allowed = getattr(self.adapters.get(request.provider),'allows_manual',None)
+        return row and row['active'] and (allowed is None or allowed(row))
 
     @staticmethod
     def manual_price(request,row):
@@ -385,14 +389,14 @@ class Pricing:
                 AND provider=$2 AND model_id=$3 AND operation=$4
                 """, user, provider, model, operation)
 
-    async def cancel(self, user, quote_id, *, music=False):
+    async def cancel(self, user, quote_id, *, music=False, provider=None):
         async with self.pool.acquire() as conn:
             await self.service.authorize(conn, user)
             return await conn.fetchval("""
                 UPDATE task_price_quotes SET state='cancelled' WHERE id=$1 AND user_id=$2 AND state='pending'
-                    AND (operation='audio.generate')=$3
+                    AND (operation='audio.generate')=$3 AND ($4::text IS NULL OR provider=$4)
                 RETURNING id
-                """, quote_id, user, music)
+                """, quote_id,user,music,provider)
 
     async def admin(self, conn, user, external):
         if external not in self.config.admin_ids:

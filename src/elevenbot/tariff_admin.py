@@ -11,7 +11,7 @@ from .pricing import (BOT_TOKEN, BOT_UNIT, MANUAL_BASES, RATE_UNITS, UNIT_LABELS
 
 ROUTES = {'tariffs','tariffmodel','tariffop','tariffedit','tariffdisable','tariffinspect',
           'tariffpreset','tariffapply','tariffdiscard','rates','rateunit','rublerate'}
-OPERATIONS = {'chat':'Чат','images.generate':'Изображение','video':'Видео','audio.speech':'Озвучка'}
+OPERATIONS = {'chat':'Чат','images.generate':'Изображение','video':'Видео','audio.speech':'Озвучка','audio.generate':'Музыка'}
 PROVIDERS = {'anymodel':'AnyModel','anyvoice':'AnyVoice','clodex':'CLODEX'}
 RUBLE_MENU = 'Стоимость токенов бота'
 BASIS_LABELS = {'request':'запрос','utf16':'ед. UTF-16','image':'изображение','second':'секунду',
@@ -87,9 +87,9 @@ class TariffAdmin:
             snapshot = self.app.anymodel_snapshot(ext) if provider=='anymodel' else self.app.catalogue_snapshot()
         models = []
         for row in snapshot['models']:
-            if row.get('provider')!=provider or row.get('availability')!='key_available':
+            if row.get('provider')!=provider or not (row.get('availability')=='key_available' or row.get('registered_launchable')):
                 continue
-            operations = [op for op in row['operations'] if op in OPERATIONS]
+            operations = [op for op in row['operations'] if op in OPERATIONS and (op!='audio.generate' or row.get('registered_launchable'))]
             if provider=='clodex' and 'openai-video' in row.get('protocols',[]) and 'video' not in operations:
                 operations.append('video')
             if operations:
@@ -354,7 +354,7 @@ class TariffAdmin:
                 raise Rejected('Агрегатор недоступен.')
             stored = await self.app.pool.fetch('SELECT source_unit FROM task_price_conversions WHERE provider=$1',arg)
             units = dict.fromkeys([unit for unit,provider in RATE_UNITS.items() if provider==arg]
-                                  + [row['source_unit'] for row in stored])
+                                  + (['USD'] if arg=='fal' else []) + [row['source_unit'] for row in stored])
             rows = [[(UNIT_LABELS.get(unit,unit),f'rateunit:{arg}:{unit}')] for unit in units]
             await self.app.svc.conversation(user,'home')
             await self.screen(ext,'Курс и калькулятор · '+provider_title(self.app,arg),rows+[[('← К управлению',f'agmanage:{arg}')]])
