@@ -30,14 +30,25 @@ RECIPIENTS = """
 STALE = 'Кнопка рассылки устарела. Откройте «📣 Рассылки».'
 TITLE = 'Системные уведомления'
 ALL_USERS = 'Всем пользователям бота'
+CAPTION_MEDIA = ('photo', 'animation', 'video', 'audio', 'voice', 'document')
+VISUAL_MEDIA = ('photo', 'animation', 'video')
+MEDIA = (*CAPTION_MEDIA, 'sticker', 'video_note')
 
 
 async def send_post(bot, chat, row, markup=None):
     entities = [MessageEntity.model_validate(entity) for entity in json.loads(row['entities'])]
-    if row['photo_id']:
-        return await bot.send_photo(chat, row['photo_id'], caption=row['body'],
-                                    caption_entities=entities, reply_markup=markup)
-    return await bot.send_message(chat, row['body'], entities=entities, reply_markup=markup)
+    kind = row['media_kind']
+    if kind is None:
+        return await bot.send_message(chat, row['body'], entities=entities, reply_markup=markup)
+    options = {'reply_markup': markup}
+    if kind in CAPTION_MEDIA:
+        options.update(caption=row['body'], caption_entities=entities)
+    if kind in VISUAL_MEDIA:
+        if row['media_spoiler']:
+            options['has_spoiler'] = True
+        if row['caption_above_media']:
+            options['show_caption_above_media'] = True
+    return await getattr(bot, f'send_{kind}')(chat, row['media_file_id'], **options)
 
 
 class Broadcasts:
@@ -85,22 +96,29 @@ class Broadcasts:
         return row
 
     async def save_post(self, chat, id, revision, message):
-        if not message or message.media_group_id or not (message.photo or message.text):
-            raise Rejected('Пришлите текст или одну фотографию с подписью.')
-        if message.photo:
-            body, photo_id, entities = message.caption, message.photo[-1].file_id, message.caption_entities
-            if not body or not body.strip():
-                raise Rejected('Добавьте подпись к фотографии.')
+        if not message:
+            raise Rejected('Пришлите сообщение с текстом или вложением.')
+        if message.media_group_id:
+            raise Rejected('Пришлите один файл отдельным сообщением. Альбомы пока не поддерживаются.')
+        # Telegram also exposes an animation as a document for older clients.
+        kind = next((kind for kind in MEDIA if getattr(message, kind)), None)
+        file_id = None
+        if kind:
+            media = message.photo[-1] if kind == 'photo' else getattr(message, kind)
+            file_id = media.file_id
+            body, entities = message.caption, message.caption_entities
         else:
-            body, photo_id, entities = message.text, None, message.entities
-        if not body.strip():
-            raise Rejected('Добавьте текст рассылки.')
+            body, entities = message.text, message.entities
+            if not body or not body.strip():
+                raise Rejected('Пришлите текст, фото, видео, GIF, аудио, голосовое, файл, стикер или кружок.')
         row = await self.pool.fetchrow("""
-            UPDATE telegram_broadcasts SET body=$4,photo_id=$5,entities=$6::jsonb,awaiting_post=false,
+            UPDATE telegram_broadcasts SET body=$4,media_file_id=$5,entities=$6::jsonb,awaiting_post=false,
+                media_kind=$7,media_spoiler=$8,caption_above_media=$9,
                 revision=revision+1,audience=NULL,expected_count=NULL
             WHERE id=$1 AND owner_chat=$2 AND revision=$3 AND state='draft' AND awaiting_post RETURNING *
-            """, id, chat, revision, body, photo_id,
-            json.dumps([entity.model_dump(mode='json', exclude_none=True) for entity in (entities or ())]))
+            """, id, chat, revision, body, file_id,
+            json.dumps([entity.model_dump(mode='json', exclude_none=True) for entity in (entities or ())]),
+            kind, bool(message.has_media_spoiler), bool(message.show_caption_above_media))
         if not row:
             raise Rejected(STALE)
         return row
@@ -344,7 +362,8 @@ class BroadcastUI:
     async def request_post(self, user, chat, row):
         key = f"{row['id']}:{row['revision']}"
         await self.app.svc.aggregate_context(user, {'broadcast_post': key})
-        await self.app.catalogue_screen(chat, 'Пришлите текст или одну фотографию с подписью.',
+        await self.app.catalogue_screen(chat, 'Пришлите текст или одно вложение. '
+                                        'Можно отправить фото, видео, GIF, аудио, голосовое, файл, стикер или кружок.',
                                         self.buttons([[('Отменить', f'brcancel:{key}')]]))
 
     async def post(self, user, chat, key, message):

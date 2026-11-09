@@ -1,4 +1,6 @@
 from dataclasses import replace
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError, TelegramRetryAfter
@@ -7,7 +9,7 @@ from aiogram.types import MessageEntity, PhotoSize
 
 from elevenbot.aggregate import make_snapshot
 from elevenbot.anymodel import model_store
-from elevenbot.broadcasts import Broadcasts, BroadcastWorker, report_text
+from elevenbot.broadcasts import CAPTION_MEDIA, MEDIA, VISUAL_MEDIA, Broadcasts, BroadcastWorker, report_text, send_post
 from elevenbot.discovery import SnapshotStore
 from elevenbot.telegram import MENU, TelegramApp, buttons
 from test_admin_access import event
@@ -194,3 +196,47 @@ async def test_broadcast_bulk_snapshot_restart_and_stop(env):
     assert await restarted.counts(id) == counts
     assert 'Отправлено 2 из 7 · Недоступные чаты: 1 · Ошибки: 1' in report_text(counts)
     print(report_text(counts), flush=True)
+
+
+@pytest.mark.parametrize('kind', MEDIA)
+async def test_broadcast_media_survives_restart_and_keeps_caption(env, kind):
+    pool, _, _, _ = env
+    queue = Broadcasts(pool)
+    await queue.observe_private(100)
+    draft = await queue.draft(100)
+    file = SimpleNamespace(file_id='telegram-file')
+    values = {kind: [file] if kind == 'photo' else file}
+    if kind == 'animation':
+        values['document'] = SimpleNamespace(file_id='fallback-document')
+    if kind in CAPTION_MEDIA:
+        values.update(caption='Ссылка', caption_entities=[
+            MessageEntity(type='text_link', offset=0, length=6, url='https://example.org'),
+        ])
+    if kind in VISUAL_MEDIA:
+        values.update(has_media_spoiler=True, show_caption_above_media=True)
+    message = event(1).message.model_copy(update=values)
+    post = await queue.save_post(100, draft['id'], draft['revision'], message)
+    send = AsyncMock(return_value=SimpleNamespace(message_id=1234))
+    bot = SimpleNamespace(**{f'send_{kind}': send})
+    markup = buttons([[('Выбрать получателей', 'test')]])
+    await send_post(bot, 100, post, markup)
+    preview = send.await_args
+    assert preview.args == (100, 'telegram-file')
+    assert preview.kwargs['reply_markup'] == markup
+    if kind in CAPTION_MEDIA:
+        assert preview.kwargs['caption'] == message.caption
+        assert preview.kwargs['caption_entities'] == message.caption_entities
+    else:
+        assert set(preview.kwargs) == {'reply_markup'}
+    if kind in VISUAL_MEDIA:
+        assert preview.kwargs['has_spoiler'] and preview.kwargs['show_caption_above_media']
+    chosen = await queue.select_audience(100, draft['id'], post['revision'], 'self')
+    await queue.confirm(100, draft['id'], chosen['revision'])
+    restarted = Broadcasts(pool)
+    await restarted.recover()
+    await BroadcastWorker(restarted, bot, buttons).deliver(await restarted.claim())
+    assert await restarted.claim() is None
+    assert send.await_count == 2
+    assert send.await_args.args == preview.args
+    assert send.await_args.kwargs == {**preview.kwargs, 'reply_markup': None}
+    assert await restarted.counts(draft['id']) == {'sent': 1}
