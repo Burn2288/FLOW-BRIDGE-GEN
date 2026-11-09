@@ -97,6 +97,9 @@ async def main():
                     tasks.append(asyncio.create_task(VideoPilot(pool,cfg).loop(bot)))
                 from .progress import TaskProgress
                 tasks.append(asyncio.create_task(TaskProgress(bot,pool).loop()))
+                if cfg.clodex_music_owner:
+                    from .clodex_music import MusicPilot
+                    tasks.append(asyncio.create_task(MusicPilot(pool,cfg).loop(bot)))
                 from .broadcasts import Broadcasts,BroadcastWorker
                 tasks.append(asyncio.create_task(BroadcastWorker(Broadcasts(pool),bot,buttons).loop()))
                 try:await poll(pool,cfg,bot)

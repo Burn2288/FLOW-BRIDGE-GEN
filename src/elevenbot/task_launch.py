@@ -39,7 +39,7 @@ class TaskLaunch:
         adapter = prepared = None
         async def validate(conn, request):
             from .model_policy import admitted
-            if not await admitted(conn,request.provider,request.model,request.operation):
+            if request.operation=='audio.generate' or not await admitted(conn,request.provider,request.model,request.operation):
                 raise Rejected('Модель не допущена к этой операции.')
 
         async def prepare(conn,quote):

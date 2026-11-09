@@ -327,16 +327,18 @@ class Pricing:
                 """, user, request.provider, request.model, request.operation)
             return await self.insert(conn, user, request, await self.calculate(conn, request, cost))
 
-    async def confirm(self, user, quote_id, update_id, prepare, *, live_wallet=False, validate=None):
+    async def confirm(self, user, quote_id, update_id, prepare, *, live_wallet=False, validate=None,
+                      track_interaction=True):
         if quote_id in self.confirming:
             raise Rejected('Подтверждение уже обрабатывается.')
         self.confirming.add(quote_id)
         try:
-            return await self.confirm_once(user,quote_id,update_id,prepare,live_wallet=live_wallet,validate=validate)
+            return await self.confirm_once(user,quote_id,update_id,prepare,live_wallet=live_wallet,
+                                           validate=validate,track_interaction=track_interaction)
         finally:
             self.confirming.discard(quote_id)
 
-    async def confirm_once(self, user, quote_id, update_id, prepare, *, live_wallet, validate):
+    async def confirm_once(self, user, quote_id, update_id, prepare, *, live_wallet, validate, track_interaction):
         async with self.pool.acquire() as conn:
             await self.service.authorize(conn, user)
             raw = await conn.fetchval("""
@@ -367,7 +369,7 @@ class Pricing:
             quote = Quote(quote_id, request, price)
             if live_wallet:
                 await check_task_balance(conn,user,int(previous['total']))
-            if not await self.service.reserve_interaction_on(conn, user, update_id, unlimited=False):
+            if track_interaction and not await self.service.reserve_interaction_on(conn, user, update_id, unlimited=False):
                 raise Rejected('Запрос уже принят.')
             await prepare(conn, quote)
             await conn.execute("""
@@ -383,13 +385,14 @@ class Pricing:
                 AND provider=$2 AND model_id=$3 AND operation=$4
                 """, user, provider, model, operation)
 
-    async def cancel(self, user, quote_id):
+    async def cancel(self, user, quote_id, *, music=False):
         async with self.pool.acquire() as conn:
             await self.service.authorize(conn, user)
             return await conn.fetchval("""
                 UPDATE task_price_quotes SET state='cancelled' WHERE id=$1 AND user_id=$2 AND state='pending'
+                    AND (operation='audio.generate')=$3
                 RETURNING id
-                """, quote_id, user)
+                """, quote_id, user, music)
 
     async def admin(self, conn, user, external):
         if external not in self.config.admin_ids:
@@ -531,7 +534,7 @@ class Pricing:
         async with self.pool.acquire() as conn, conn.transaction():
             await self.admin(conn, user, external)
             if not await conn.fetchval("""
-                SELECT id FROM task_price_quotes WHERE id=$1 AND state='accepted' FOR UPDATE
+                SELECT id FROM task_price_quotes WHERE id=$1 AND state='accepted' AND operation<>'audio.generate' FOR UPDATE
                 """, quote_id):
                 raise Rejected('Принятая задача не найдена.')
             await conn.execute("""
@@ -554,5 +557,5 @@ class Pricing:
                     sum(COALESCE(a.user_debit-a.user_refund,(q.price->>'total')::numeric)-(q.price->>'base')::numeric)
                         FILTER (WHERE a.provider_cost IS NULL) AS estimated_margin
                 FROM task_price_quotes q LEFT JOIN task_price_accounting a ON a.quote_id=q.id
-                WHERE q.state='accepted'
+                WHERE q.state='accepted' AND q.operation<>'audio.generate'
                 """)

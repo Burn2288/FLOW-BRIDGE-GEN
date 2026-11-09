@@ -2,14 +2,17 @@
 
 import httpx
 
+from .clodex_music import OPERATION
 from .pricing import NoProviderPrice, PriceUnavailable, ProviderCost, number
 from .video import VIDEO_PARAMS, VideoProtocolError
 
 class ClodexPricing:
-    def __init__(self, video_api):
-        self.video_api = video_api
+    def __init__(self, video_api, music_api=None):
+        self.video_api, self.music_api = video_api, music_api
 
     async def cost(self, request):
+        if request.operation == OPERATION and self.music_api is not None:
+            return await self.music_api.cost(request)
         if request.operation != 'video':
             # /api/pricing does not establish the account's group or a unit for
             # images, chat, or TTS. Use an approved manual tariff for these routes.

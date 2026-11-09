@@ -24,6 +24,7 @@ from .navigation import Navigation
 from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
 from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request,decimal_text,display,ruble_value
 from .clodex_pricing import ClodexPricing
+from .clodex_music import MusicPilot, OPERATION as MUSIC_OP, ROUTES as MUSIC_ROUTES, TITLE as MUSIC_TITLE, request as music_request
 from .task_launch import TaskLaunch,notify_interrupted,recover_interrupted
 from .task_wallet import settle_task_tokens
 from .provider_execution import AnyModelExecution,ClodexExecution
@@ -69,7 +70,7 @@ CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','�
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
     '/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'}
-ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|BROADCAST_ROUTES|{
+ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|BROADCAST_ROUTES|MUSIC_ROUTES|{
     'agmanage','agfunctions','agfunction','pall','pview','amcat','ammdl','amvprices','amvpick','amvready',
 }
 
@@ -105,13 +106,14 @@ class TelegramApp:
         self.pending_speech = {}
         self.progress = TaskProgress(bot,pool)
         self.video = VideoPilot(pool,cfg)
+        self.music = MusicPilot(pool,cfg)
         self.anymodel_video = AnyModelVideoPilot(pool,cfg)
         self.anymodel_speech = SpeechPilot(pool,cfg)
         self.anymodel_images = AnyModelImageJobs(pool,cfg)
         self.providers = providers if providers is not None else ProviderRegistry()
         self.providers.register('anymodel',price=AnyModelPricing(cfg.anymodel_key),
             launch=AnyModelExecution(self,lambda:AnyModelProvider(self.cfg.anymodel_key)))
-        self.providers.register('clodex',price=ClodexPricing(self.video.api),launch=ClodexExecution(self))
+        self.providers.register('clodex',price=ClodexPricing(self.video.api,self.music.api),launch=ClodexExecution(self))
         self.pricing = Pricing(pool,cfg,self.providers.prices)
         self.launch = TaskLaunch(self.pricing,self.providers.launches)
         self.tariffs = TariffAdmin(self,buttons)
@@ -515,6 +517,12 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
+                if context and context.get('music_prompt'):
+                    if not self.music_access(ext):
+                        raise Rejected('Пилот доступен только владельцу в Admin Edition.')
+                    if not self.cfg.clodex_music_live:
+                        raise Rejected('Живой запуск пилота закрыт.')
+                    await self.show_price(ext,await self.pricing.quote(u,music_request(text)));return
                 if context and 'broadcast_post' in context:
                     await self.broadcasts.post(u,ext,context['broadcast_post'],update.message);return
                 if context and any(key in context for key in ('tariff_admin','tariff_preview','our_markup','anyvoice_tariff_selection','price_rate')):
@@ -615,16 +623,19 @@ class TelegramApp:
     async def history(self,u,ext,page=0,*,model=None):
         await self.svc.conversation(u,'home')
         model_id,origin=model if model else (None,'history')
-        jobs=await (self.svc.history(u,page*10,model_id) if model else self.svc.history(u,page*10))
+        if self.music_access(ext):
+            jobs=await self.svc.history(u,page*10,model_id,include_music=True)
+        else:
+            jobs=await (self.svc.history(u,page*10,model_id) if model else self.svc.history(u,page*10))
         lines=[f'Работы модели {model_id}:' if model else 'Ваши работы:'] if jobs else ['Работ пока нет.']
         rows=[]
         for index,r in enumerate(jobs,start=page*10+1):
             kind=r.get('kind','audio')
-            name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата'}[kind]
+            name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата','music':'Музыка'}[kind]
             price=f" · {r['price']} кредитов" if r['price'] is not None else ''
             lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {STATUS[r['status']]}{price}")
             if r['status']=='succeeded' and r.get('file_available',True):
-                route={'image':'image','audio':'get','video':'video','chat':'chatwork'}[kind]
+                route={'image':'image','audio':'get','video':'video','chat':'chatwork','music':'musicwork'}[kind]
                 if model and kind in ('audio','image'):route='m'+route
                 rows.append([(f"Открыть работу №{index}",f"{route}:{r['id']}")])
             if r['status']=='queued':
@@ -647,6 +658,9 @@ class TelegramApp:
             w=await self.svc.wallet(u)
             await self.refresh_balance_keyboard(ext)
             text=f"{'Демо-кредиты' if self.cfg.balance_wallet_mode=='demo' else 'Кредиты'}: {w['available']}\nЗарезервировано: {w['reserved']}"
+            if self.music_access(ext):
+                pilot=await self.music.balance(u)
+                text+=f"\n\nLeonardo Music · тестовый баланс: {display(pilot['available'])}\nРезерв пилота: {display(pilot['reserved'])}"
             if self.cfg.payments_enabled and self.cfg.payment_backend=='stars':
                 rows.append([('Пополнить','buy')])
         else:
@@ -658,6 +672,8 @@ class TelegramApp:
         route=data.partition(':')[0]
         if admin_callback(data) and not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
+        if route in MUSIC_ROUTES:
+            await self.music_callback(u,ext,route,data.partition(':')[2],request_id);return
         if route in BROADCAST_ROUTES:
             await self.broadcasts.callback(u,ext,route,data.partition(':')[2]);return
         if route in AGGREGATOR_ROUTES:
@@ -1421,6 +1437,8 @@ class TelegramApp:
                   if not admin or op in available}
         rows=[[('🎆 Генерировать изображение' if section=='image' else label,work[section])]
               for section,(label,_) in STORE_SECTIONS.items() if section in work]
+        if key=='clodex' and self.music_access(ext):
+            rows.append([('🎵 Генерировать музыку','music')])
         rows.append([('📁 Мои работы','history:0')])
         if self.has_admin_session(ext):
             rows.append([('⚙️ Управление агрегатором',f'agmanage:{key}')])
@@ -1844,9 +1862,52 @@ class TelegramApp:
         await self.show_price(ext,await self.pricing.quote(u,req))
 
     async def show_price(self,ext,quote):
+        prefix='music' if quote.request.operation==MUSIC_OP else 'am'
         await self.catalogue_screen(ext,quote.card(admin=self.has_admin_session(ext)),buttons([[
-            ('Генерировать',f'amconfirm:{quote.id}'),('Отмена',f'amcancel:{quote.id}'),
+            ('Генерировать',f'{prefix}confirm:{quote.id}'),('Отмена',f'{prefix}cancel:{quote.id}'),
         ]]))
+
+    def music_access(self,ext):
+        return self.music.owner(ext) and self.has_admin_session(ext)
+
+    async def music_callback(self,u,ext,route,value,request_id):
+        if not self.music_access(ext):
+            raise Rejected('Пилот доступен только владельцу в Admin Edition.')
+        await self.svc.authorize(self.pool,u)
+        if route=='music':
+            await self.svc.conversation(u,'home')
+            funds=await self.music.balance(u)
+            used=await self.pool.fetchval('SELECT EXISTS(SELECT 1 FROM clodex_music_jobs WHERE user_id=$1)',u)
+            text=f'{MUSIC_TITLE} · CLODEX\nОдин MP3 по текстовому описанию.\nТестовый баланс: {display(funds["available"])} токенов.'
+            rows=[]
+            if self.cfg.clodex_music_live and not used:
+                rows.append([(MUSIC_TITLE,'musicprompt')])
+            else:
+                text+='\nЕдинственная попытка уже использована.' if used else '\nЖивой запуск закрыт.'
+            await self.catalogue_screen(ext,text,buttons(rows+[[('← К CLODEX','agroot:clodex')]]))
+        elif route=='musicprompt':
+            if not self.cfg.clodex_music_live or await self.pool.fetchval(
+                'SELECT EXISTS(SELECT 1 FROM clodex_music_jobs WHERE user_id=$1)',u
+            ):
+                raise Rejected('Живой запуск пилота закрыт.')
+            await self.svc.aggregate_context(u,{'music_prompt':True})
+            await self.catalogue_screen(ext,'Опишите один музыкальный трек. Можно указать в промпте пожелание к вокалу.',
+                                        buttons([[('← Leonardo Music','music')]]))
+        elif route=='musicwork':
+            await self.music.send(self.bot,ext,await self.music.work(u,uid(value)))
+        elif route=='musiccancel':
+            if not await self.pricing.cancel(u,uid(value),music=True):
+                raise Rejected('Оценка уже закрыта.')
+            await self.music_callback(u,ext,'music','',request_id)
+        elif request_id is not None:
+            quote,accepted=await self.music.confirm(self.pricing,u,ext,uid(value),request_id,
+                                                   lambda:self.music_access(ext))
+            if not accepted:
+                await self.show_price(ext,quote)
+            else:
+                await self.svc.conversation(u,'home')
+                await self.catalogue_screen(ext,'Leonardo Music · задание принято.',
+                                            buttons([[('📁 Мои работы','history:0')]]))
 
     def clodex_launch_model(self,ext,req):
         snapshot=self.catalogue_snapshot()

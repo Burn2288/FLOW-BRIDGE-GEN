@@ -28,6 +28,8 @@ class Config:
     admin_ids: tuple[int, ...] = ()
     admin_password: str = field(default='', repr=False)
     clodex_key: str = ''
+    clodex_music_owner: int = 0
+    clodex_music_live: bool = False
     anymodel_key: str = ''
     anymodel_test_enabled: bool = False
     anymodel_chat_live: bool = False
@@ -90,8 +92,15 @@ class Config:
               anymodel_video_live=flag('ANYMODEL_TEST_VIDEO_LIVE'),
               anymodel_speech_live=flag('ANYMODEL_TEST_SPEECH_LIVE'),
               clodex_key=os.getenv('CLODEX_API_KEY',''),clodex_model=os.getenv('CLODEX_TTS_MODEL',''),
+              clodex_music_owner=int(os.getenv('CLODEX_MUSIC_OWNER','0') or 0),
+              clodex_music_live=flag('CLODEX_MUSIC_LIVE'),
               voices_file=local(os.getenv('VOICES_FILE','')),speech_pilot=flag('CLODEX_SPEECH_PILOT'),economy_verified=flag('ECONOMY_VERIFIED'))
         if c.access_mode not in ('private','public') or (c.access_mode=='private' and not c.admin_ids):raise ValueError('Private access requires ADMIN_TELEGRAM_IDS')
+        if c.clodex_music_owner and (c.access_mode!='private' or c.clodex_music_owner not in c.admin_ids
+                                    or not c.admin_password or c.payments_enabled or not c.clodex_key):
+            raise ValueError('Music pilot requires one listed administrator, a password and a CLODEX key without payments')
+        if c.clodex_music_live and not c.clodex_music_owner:
+            raise ValueError('Music pilot requires CLODEX_MUSIC_OWNER')
         if c.speech_pilot and (c.access_mode!='private' or c.payments_enabled):
             raise ValueError('Speech pilot requires private access without payments')
         if c.speech_pilot and c.generation_enabled and (c.mode!='clodex' or c.clodex_model!='eleven_v4'):
