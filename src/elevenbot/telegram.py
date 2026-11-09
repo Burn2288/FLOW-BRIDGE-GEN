@@ -42,7 +42,7 @@ SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amwork','amworkrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
 REGISTERED_ROUTES={'pentry','pall','pview','pcat','pcard','prun'}
 AGGREGATOR_ROUTES={'agroot','agmanage','agfunctions','agfunction'}
-CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|AGGREGATOR_ROUTES|BROADCAST_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm','brpref','bron','broff'}
+CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|AGGREGATOR_ROUTES|BROADCAST_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -666,7 +666,6 @@ class TelegramApp:
                 rows.append([('Пополнить','buy')])
         else:
             text=self.cfg.brand+'\nОткройте каталог и выберите нужное действие.\n/terms /privacy /support /paysupport'
-            rows.append([('Настройки рассылок','brpref')])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows))
 
@@ -676,9 +675,6 @@ class TelegramApp:
             raise Rejected('Действие доступно только администратору.')
         if route in BROADCAST_ROUTES:
             await self.broadcasts.callback(u,ext,route,data.partition(':')[2]);return
-        if route in ('brpref','bron','broff'):
-            await self.svc.conversation(u,'home')
-            await self.broadcasts.preference(ext,{'brpref':None,'bron':False,'broff':True}[route]);return
         if route in AGGREGATOR_ROUTES:
             await self.aggregator_callback(u,ext,route,data.split(':')[1:]);return
         if route in MODEL_POLICY_ROUTES:

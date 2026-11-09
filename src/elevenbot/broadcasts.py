@@ -22,12 +22,14 @@ from .core import Rejected
 ROUTES = {'brlist', 'brnew', 'brview', 'brreplace', 'braudience', 'brself', 'brall',
           'brconfirm', 'brcancel', 'brstop'}
 RECIPIENTS = """
-    SELECT i.external_id FROM identities i JOIN users u ON u.id=i.user_id
+    SELECT i.external_id FROM identities i
     WHERE i.platform='telegram' AND i.telegram_private AND i.terms_version='1'
-      AND i.accepted_at IS NOT NULL AND NOT i.broadcast_opt_out AND NOT u.blocked
+      AND i.accepted_at IS NOT NULL
       AND ($1='all' OR i.external_id=$2)
 """
 STALE = 'Кнопка рассылки устарела. Откройте «📣 Рассылки».'
+TITLE = 'Системные уведомления'
+ALL_USERS = 'Всем пользователям бота'
 
 
 async def send_post(bot, chat, row, markup=None):
@@ -47,16 +49,6 @@ class Broadcasts:
             UPDATE identities SET telegram_private=true
             WHERE platform='telegram' AND external_id=$1 AND NOT telegram_private
             """, chat)
-
-    async def preference(self, chat, opt_out=None):
-        if opt_out is None:
-            return await self.pool.fetchval("""
-                SELECT broadcast_opt_out FROM identities WHERE platform='telegram' AND external_id=$1
-                """, chat)
-        return await self.pool.fetchval("""
-            UPDATE identities SET broadcast_opt_out=$2 WHERE platform='telegram' AND external_id=$1
-            RETURNING broadcast_opt_out
-            """, chat, opt_out)
 
     async def recent(self, chat):
         return await self.pool.fetch("""
@@ -188,15 +180,10 @@ class Broadcasts:
                 """, row['id'])
             if chat is None:
                 return None
-            eligible = await conn.fetchval(f"""
-                SELECT EXISTS ({RECIPIENTS})
-                """, 'self', chat)
             await conn.execute("""
-                UPDATE telegram_broadcast_deliveries SET status=$3 WHERE broadcast_id=$1 AND chat_id=$2
-                """, row['id'], chat, 'sending' if eligible else 'opted_out')
-            if not eligible:
-                await self.finish_if_empty(conn, row['id'])
-            return row, chat, eligible
+                UPDATE telegram_broadcast_deliveries SET status='sending' WHERE broadcast_id=$1 AND chat_id=$2
+                """, row['id'], chat)
+            return row, chat
 
     async def finish_if_empty(self, conn, id):
         await conn.execute("""
@@ -267,11 +254,10 @@ class Broadcasts:
 def report_text(counts):
     def count(status):
         return counts.get(status, 0)
-    return (f"📣 Рассылка\nОтправлено {count('sent')} из {sum(counts.values())}"
-            f" · {count('unavailable')} недоступны · {count('error')} ошибки"
+    return (f"📣 {TITLE}\nОтправлено {count('sent')} из {sum(counts.values())}"
+            f" · Недоступные чаты: {count('unavailable')} · Ошибки: {count('error')}"
             f"\nВ очереди: {count('pending')} · Отправляется: {count('sending')}"
-            f"\nОстановлено: {count('stopped')} · Исход неизвестен: {count('unknown')}"
-            f" · Отключили рассылки или потеряли доступ: {count('opted_out')}")
+            f"\nОстановлено: {count('stopped')} · Исход неизвестен: {count('unknown')}")
 
 
 class BroadcastWorker:
@@ -279,9 +265,7 @@ class BroadcastWorker:
         self.queue, self.bot, self.buttons = queue, bot, buttons
 
     async def deliver(self, claim):
-        row, chat, eligible = claim
-        if not eligible:
-            return
+        row, chat = claim
         id = row['id']
         try:
             message = await send_post(self.bot, chat, row)
@@ -346,14 +330,6 @@ class BroadcastUI:
         if not self.app.has_admin_session(chat):
             raise Rejected(self.app.admin_denial(chat))
 
-    async def preference(self, chat, opt_out=None):
-        disabled = await self.queue.preference(chat, opt_out)
-        label, action = ('Включить рассылки', 'bron') if disabled else ('Отключить рассылки', 'broff')
-        await self.app.catalogue_screen(
-            chat, 'Рассылки отключены.' if disabled else 'Рассылки включены.',
-            self.buttons([[(label, action)], [('← Помощь', 'section:3')]]),
-        )
-
     async def list(self, user, chat):
         await self.app.svc.conversation(user, 'home')
         states = {'draft': 'Продолжить черновик', 'running': 'Идёт', 'done': 'Завершена', 'stopped': 'Остановлена'}
@@ -363,7 +339,7 @@ class BroadcastUI:
             if row['state'] != 'draft':
                 label += f" · {str(row['id'])[:8]}"
             rows.append([(label, f"brview:{row['id']}")])
-        await self.app.catalogue_screen(chat, '📣 Рассылки', self.buttons(rows + [[('← Назад', 'providers')]]))
+        await self.app.catalogue_screen(chat, TITLE, self.buttons(rows + [[('← Назад', 'providers')]]))
 
     async def request_post(self, user, chat, row):
         key = f"{row['id']}:{row['revision']}"
@@ -388,8 +364,9 @@ class BroadcastUI:
     async def confirm_screen(self, chat, row):
         key = f"{row['id']}:{row['revision']}"
         count = row['expected_count']
-        audience = 'Только мне' if row['audience'] == 'self' else 'Все пользователи, принявшие условия'
-        rows = [[(f'Разослать · {count} получ.', f'brconfirm:{key}')]] if count else []
+        audience = 'Только мне' if row['audience'] == 'self' else ALL_USERS
+        recipient = 'пользователю' if count % 10 == 1 and count % 100 != 11 else 'пользователям'
+        rows = [[(f'Разослать {count} {recipient}', f'brconfirm:{key}')]] if count else []
         rows.extend([[('Выбрать получателей', f'braudience:{key}')], [('Отменить', f'brcancel:{key}')]])
         await self.app.catalogue_screen(chat, f'{audience}\nПолучателей: {count}', self.buttons(rows))
 
@@ -434,7 +411,7 @@ class BroadcastUI:
             key = f'{id}:{revision}'
             await self.app.catalogue_screen(chat, 'Выберите получателей.', self.buttons([
                 [('Только мне', f'brself:{key}')],
-                [('Все пользователи, принявшие условия', f'brall:{key}')],
+                [(ALL_USERS, f'brall:{key}')],
                 [('Отменить', f'brcancel:{key}')],
             ]))
         elif route in ('brself', 'brall'):

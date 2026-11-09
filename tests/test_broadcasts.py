@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 import pytest
-from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError, TelegramRetryAfter
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError, TelegramRetryAfter
 from aiogram.methods import SendMessage
 from aiogram.types import MessageEntity, PhotoSize
 
@@ -74,11 +74,14 @@ async def exercise_broadcast_ui(pool, cfg, admin_chat=100):
 
     await send('/menu')
     assert '📣 Рассылки' not in routes(await panel())
+    await send(MENU[3])
+    assert 'Настройки рассылок' not in routes(await panel())
     await send('/admin')
     await send(cfg.admin_password)
     labels = list(routes(await panel()))
     assert labels.index('📣 Рассылки') == labels.index('Тарифы моделей') + 1
     await send(callback=routes(await panel())['📣 Рассылки'])
+    assert (await panel())[1] == 'Системные уведомления'
     assert list(routes(await panel())) == ['Создать рассылку', '← Назад']
     await send(callback=routes(await panel())['← Назад'])
     assert '📣 Рассылки' in routes(await panel())
@@ -98,9 +101,10 @@ async def exercise_broadcast_ui(pool, cfg, admin_chat=100):
     assert preview[:2] == ('photo', caption)
     assert list(routes(preview)) == ['Заменить пост', 'Выбрать получателей', 'Отменить']
     await send(callback=routes(preview)['Выбрать получателей'])
+    assert list(routes(await panel())) == ['Только мне', 'Всем пользователям бота', 'Отменить']
     await send(callback=routes(await panel())['Только мне'])
     assert 'Получателей: 1' in (await panel())[1]
-    confirm = routes(await panel())['Разослать · 1 получ.']
+    confirm = routes(await panel())['Разослать 1 пользователю']
     await send(callback=confirm)
     await send(callback=confirm)
 
@@ -126,51 +130,47 @@ async def exercise_broadcast_ui(pool, cfg, admin_chat=100):
     assert bot.answers[-1][1]['text'] == 'Войдите через /admin.'
     await send(callback=confirm)
     assert bot.answers[-1][1]['text'] == 'Войдите через /admin.'
+    await send(callback=f'brstop:{broadcast}')
+    assert bot.answers[-1][1]['text'] == 'Войдите через /admin.'
     await send(callback='brlist', chat=admin_chat+1)
     assert bot.answers[-1][1]['text'] == 'Админ-доступ закрыт.'
     print('BROADCAST_UI user_hidden=true admin_position=true back=true logout_denied=true '
           'photo_caption_entities=true one_delivery=true navigation_preserved=true')
 
 
-async def test_broadcast_bulk_snapshot_preferences_restart_and_stop(env):
-    pool, cfg, svc, _ = env
+async def test_broadcast_bulk_snapshot_restart_and_stop(env):
+    pool, _, svc, _ = env
     queue = Broadcasts(pool)
     bot = BroadcastTransport(pool)
-    app = TelegramApp(pool, cfg, bot)
     for chat in range(100, 109):
         user = await svc.identity(chat)
         if chat != 108:
             await svc.accept(user)
         if chat != 107:
             await queue.observe_private(chat)
-    await app.handle(event(1, MENU[3], chat=106))
-    state = await app.navigation.read(106)
-    await app.handle(event(2, chat=106, callback=routes(bot.messages[state.active_id])['Настройки рассылок']))
-    await app.handle(event(3, chat=106, callback='broff'))
-    assert await queue.preference(106) is True
-    await app.handle(event(4, chat=106, callback='bron'))
-    assert await queue.preference(106) is False
-    await app.handle(event(5, chat=106, callback='broff'))
-    assert await queue.preference(106) is True
 
     row = await queue.draft(100)
     id = row['id']
     row = await queue.save_post(100, id, row['revision'], event(6, 'Ссылка').message)
     row = await queue.select_audience(100, id, row['revision'], 'all')
-    assert row['expected_count'] == 6
+    assert row['expected_count'] == 7
     await queue.confirm(100, id, row['revision'])
     await queue.confirm(100, id, row['revision'])
-    assert await queue.counts(id) == {'pending':6}
+    assert await queue.counts(id) == {'pending':7}
+    recipients = await pool.fetch("""
+        SELECT chat_id FROM telegram_broadcast_deliveries WHERE broadcast_id=$1 ORDER BY chat_id
+        """, id)
+    assert [recipient['chat_id'] for recipient in recipients] == list(range(100, 107))
+    await svc.accept(await svc.identity(109))
+    await queue.observe_private(109)
+    assert await queue.counts(id) == {'pending':7}
 
-    # Persisted in-flight send with unknown response is never retried after restart.
-    assert (await queue.claim())[1] == 100
+    await BroadcastWorker(queue, bot, buttons).deliver(await queue.claim())
+    # Neither a known success nor an in-flight send with an unknown response is retried.
+    assert (await queue.claim())[1] == 101
     restarted = Broadcasts(pool)
     await restarted.recover()
     worker = BroadcastWorker(restarted, bot, buttons)
-    await queue.preference(101, True)
-    claim = await restarted.claim()
-    assert claim[1:] == (101, False)
-    await worker.deliver(claim)
     method = SendMessage(chat_id=102,text='fixture')
     bot.delivery_errors[102] = TelegramRetryAfter(method, 'rate limit', 2)
     await worker.deliver(await restarted.claim())
@@ -183,9 +183,12 @@ async def test_broadcast_bulk_snapshot_preferences_restart_and_stop(env):
     await worker.deliver(await restarted.claim())
     bot.delivery_errors[104] = TelegramNetworkError(method, 'timeout')
     await worker.deliver(await restarted.claim())
+    bot.delivery_errors[105] = TelegramBadRequest(method, 'fixture rejected')
+    await worker.deliver(await restarted.claim())
     await queue.stop(100, id)
     assert await restarted.claim() is None
-    assert [post[0] for post in bot.posts] == [102,102,103,104]
-    counts = {'unknown':2,'opted_out':1,'sent':1,'unavailable':1,'stopped':1}
+    assert [post[0] for post in bot.posts] == [100,102,102,103,104,105]
+    counts = {'unknown':2,'sent':2,'unavailable':1,'error':1,'stopped':1}
     assert await restarted.counts(id) == counts
-    assert 'Отправлено 1 из 6 · 1 недоступны · 0 ошибки' in report_text(counts)
+    assert 'Отправлено 2 из 7 · Недоступные чаты: 1 · Ошибки: 1' in report_text(counts)
+    print(report_text(counts), flush=True)
