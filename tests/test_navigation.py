@@ -28,12 +28,13 @@ class Transport(Bot):
         self.messages={}
         self.events=[]
         self.fail_send=False
+        self.fail_animation=False
         self.deny_delete=set()
 
     async def send(self,kind,text,markup):
         self.events.append(('send',kind))
         await asyncio.sleep(0)
-        if self.fail_send and kind=='text':
+        if (self.fail_send and kind=='text') or (self.fail_animation and kind=='gif'):
             self.events.append(('send_failed',kind))
             raise TelegramNetworkError(SendMessage(chat_id=100,text=text),'fixture timeout')
         self.next_id+=1
@@ -167,6 +168,78 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
     assert all(message_id in bot.messages for message_id in protected)
     assert [action[1] for action in bot.events if action[0]=='delete' and action[1]<1000]==[password_id]
     print('NAV_RAPID',bot.events[count:],flush=True)
+
+
+@pytest.mark.parametrize('admin',[False,True])
+async def test_aggregator_keyboard_sends_fresh_panel(env,tmp_path,admin):
+    pool,cfg,_,_=env
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),admin_password='fixture-password',
+                anymodel_test_enabled=True,catalogue_path=str(tmp_path/'catalogue.json'))
+    SnapshotStore(cfg.catalogue_path).write(make_snapshot([],[],[{'provider':'clodex','scope':'key_available'}]))
+    model_store(cfg).write(make_snapshot([],[],[{'provider':'anymodel','scope':'key_available'}]))
+    await exercise_fresh_aggregators(pool,cfg,admin)
+
+
+async def exercise_fresh_aggregators(pool,cfg,admin):
+    bot=Transport(pool)
+    app=TelegramApp(pool,cfg,bot)
+
+    async def send(number,text):
+        return await app.handle(event(number,text))
+
+    async def active():
+        state=await app.navigation.read(100)
+        assert [i for i,(_,_,markup) in bot.messages.items()
+                if hasattr(markup,'inline_keyboard')]==[state.active_id]
+        markup=bot.messages[state.active_id][2]
+        labels=[button.text for row in markup.inline_keyboard for button in row]
+        assert ('Тарифы моделей' in labels)==admin
+        assert ('CLODEX' if admin else 'Агрегатор 1') in labels
+        assert ('AnyModel' if admin else 'Агрегатор 2') in labels
+        return state.active_id
+
+    def replacement(old,new,input_id):
+        return [('send','gif'),('new_id',new),('delete',old,new),('delete',input_id,new)]
+
+    await send(1,'/start')
+    if admin:
+        await send(2,'/admin')
+        await send(3,cfg.admin_password)
+        assert app.has_admin_session(100)
+    await send(4,MENU[0])
+    old=await active()
+    await send(5,'/start')
+    welcome=await app.svc.welcome_message(100)
+    assert await active()==old<welcome
+    stale=(await app.navigation.read(100)).stale_ids
+
+    start=len(bot.events)
+    await send(6,MENU[0])
+    new=await active()
+    assert new>welcome and old not in bot.messages and welcome in bot.messages
+    after_start=bot.events[start:]
+    assert after_start==[('send','gif'),('new_id',new),
+                         *(('delete',message_id,new) for message_id in stale),
+                         ('delete',old,new),('delete',6,new)]
+
+    start=len(bot.events)
+    await asyncio.gather(send(7,MENU[0]),send(8,MENU[0]))
+    latest=await active()
+    rapid=bot.events[start:]
+    intermediate=rapid[1][1]
+    assert new<intermediate<latest
+    assert rapid==replacement(new,intermediate,7)+replacement(intermediate,latest,8)
+
+    start=len(bot.events)
+    bot.fail_animation=True
+    with pytest.raises(TelegramNetworkError):
+        await send(9,MENU[0])
+    failed=bot.events[start:]
+    assert failed==[('send','gif'),('send_failed','gif')]
+    assert await active()==latest
+    assert await app.svc.welcome_message(100)==welcome and welcome in bot.messages
+    print('AGGREGATORS_FRESH',{'admin':admin,'old':old,'welcome':welcome,'after_start':after_start,
+                              'rapid':rapid,'failed':failed,'active':latest},flush=True)
 
 
 @pytest.mark.parametrize('admin',[False,True])

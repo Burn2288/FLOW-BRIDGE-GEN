@@ -198,13 +198,13 @@ class TelegramApp:
         return True
 
     async def catalogue_screen(self, chat, text, markup=None, *, animation=None,
-                               keyboard_text=None, force_keyboard=False):
+                               keyboard_text=None, force_keyboard=False, fresh_panel=False):
         async with self.navigation.serial(chat):
             if keyboard_text is not None:
                 await self.navigation_keyboard(chat,keyboard_text,await self.reply_menu(chat),force=force_keyboard)
             state=await self.navigation.read(chat)
             animation_key=str(animation) if animation is not None else None
-            if await self.edit_panel(chat,state,text,markup,animation_key):
+            if not fresh_panel and await self.edit_panel(chat,state,text,markup,animation_key):
                 return
             message=None
             if animation is not None:
@@ -213,7 +213,7 @@ class TelegramApp:
                     message=await self.bot.send_animation(chat,BufferedInputFile(data,filename=animation.name),
                                                           caption=text,reply_markup=markup)
                 except (OSError,TelegramBadRequest):
-                    if await self.edit_panel(chat,state,text,markup,None):
+                    if not fresh_panel and await self.edit_panel(chat,state,text,markup,None):
                         return
             if message is None:
                 message=await self.say(chat,text,markup)
@@ -474,8 +474,9 @@ class TelegramApp:
                 await self.svc.conversation(u,'home');await self.show_models(ext)
                 return
             if aggregator_menu:
-                await self.open_aggregators(u,ext)
-                if text==MENU[0]:
+                from_keyboard=text==MENU[0]
+                await self.open_aggregators(u,ext,fresh_panel=from_keyboard)
+                if from_keyboard:
                     await self.delete_keyboard_input(update.message)
                 return
             if command in ('/aggregators','/functions') or text=='🛠 Функции':
@@ -884,16 +885,16 @@ class TelegramApp:
         number=list(titles).index(key)+1 if key in titles else None
         return f'Агрегатор {number}' if number else 'Агрегатор'
 
-    async def open_aggregators(self,user,ext):
+    async def open_aggregators(self,user,ext,*,fresh_panel=False):
         await self.svc.conversation(user,'home')
-        await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.')
+        await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.',fresh_panel=fresh_panel)
 
     async def delete_keyboard_input(self,message):
         # Plain reply buttons arrive as text. Skip forwarded or quoted content when marked.
         if not (message.forward_origin or message.reply_to_message or message.quote):
             await self.delete_input_message(message)
 
-    async def show_providers(self,ext,*,keyboard_text=None,force_keyboard=False):
+    async def show_providers(self,ext,*,keyboard_text=None,force_keyboard=False,fresh_panel=False):
         admin=self.has_admin_session(ext)
         text=self.cfg.brand+'\nВыберите агрегатор.'
         if admin:
@@ -916,7 +917,7 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),
                                     animation=AGGREGATORS_ANIMATION,keyboard_text=keyboard_text,
-                                    force_keyboard=force_keyboard)
+                                    force_keyboard=force_keyboard,fresh_panel=fresh_panel)
 
     async def registered_callback(self,u,ext,route,parts):
         key=parts[0]
