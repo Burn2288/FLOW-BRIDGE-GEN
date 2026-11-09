@@ -69,7 +69,7 @@ async def main():
             print('reserve released; provider cost may remain');return
         from .providers import MockProvider,ClodexProvider,DisabledProvider
         from .worker import Worker
-        from .telegram import poll,reconcile_stars,make_bot
+        from .telegram import poll,reconcile_stars,make_bot,buttons
         if a.command=='platega-webhook':
             from .platega_web import serve
             await serve(pool,cfg);return
@@ -97,6 +97,8 @@ async def main():
                     tasks.append(asyncio.create_task(VideoPilot(pool,cfg).loop(bot)))
                 from .progress import TaskProgress
                 tasks.append(asyncio.create_task(TaskProgress(bot,pool).loop()))
+                from .broadcasts import Broadcasts,BroadcastWorker
+                tasks.append(asyncio.create_task(BroadcastWorker(Broadcasts(pool),bot,buttons).loop()))
                 try:await poll(pool,cfg,bot)
                 finally:
                     for task in tasks:

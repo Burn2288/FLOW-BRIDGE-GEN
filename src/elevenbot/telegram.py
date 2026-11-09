@@ -9,6 +9,7 @@ from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardBut
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice,BotCommand,
                            BotCommandScopeDefault,BotCommandScopeChat,ForceReply)
 from .admin_access import AdminAccess, PASSWORD_PROMPT, digest
+from .broadcasts import Broadcasts, BroadcastUI, ROUTES as BROADCAST_ROUTES
 from .core import ConsentRequired,Service,Rejected,uid
 from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
@@ -41,7 +42,7 @@ SPEECH_ROUTES={'amspeech','amvoices','amvoice','amsconfirm','amvprices','amvpick
 ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amwork','amworkrun','amsection','amimage','amvideo','amvconfirm','amparams'}|SPEECH_ROUTES
 REGISTERED_ROUTES={'pentry','pall','pview','pcat','pcard','prun'}
 AGGREGATOR_ROUTES={'agroot','agmanage','agfunctions','agfunction'}
-CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|AGGREGATOR_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
+CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|AGGREGATOR_ROUTES|BROADCAST_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm','brpref','bron','broff'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -68,7 +69,7 @@ CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','�
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
     '/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'}
-ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|{
+ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|BROADCAST_ROUTES|{
     'agmanage','agfunctions','agfunction','pall','pview','amcat','ammdl','amvprices','amvpick','amvready',
 }
 
@@ -116,6 +117,7 @@ class TelegramApp:
         self.launch = TaskLaunch(self.pricing,self.providers.launches)
         self.tariffs = TariffAdmin(self,buttons)
         self.models = ModelPolicy(self,buttons)
+        self.broadcasts = BroadcastUI(self,Broadcasts(pool),buttons)
     async def say(self,chat,text,markup=None):
         if not isinstance(markup,ReplyKeyboardMarkup):
             return await self.bot.send_message(chat,text,reply_markup=markup)
@@ -411,6 +413,9 @@ class TelegramApp:
         if update.message and update.message.chat.type!='private':return
         if update.callback_query and (not update.callback_query.message or update.callback_query.message.chat.type!='private'):return
         u=await self.svc.identity(ext)
+        chat_event=update.message or (update.callback_query and update.callback_query.message)
+        if self.pool is not None and chat_event and chat_event.chat.id==ext:
+            await self.broadcasts.queue.observe_private(ext)
         catalogue_callback = False
         try:
             if update.pre_checkout_query:
@@ -527,6 +532,8 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
+                if context and 'broadcast_post' in context:
+                    await self.broadcasts.post(u,ext,context['broadcast_post'],update.message);return
                 if context and any(key in context for key in ('tariff_admin','tariff_preview','our_markup','anyvoice_tariff_selection','price_rate')):
                     raise Rejected('Используйте команду с экрана настройки тарифа.')
                 if context and context.get('provider') in self.providers.interactive:
@@ -659,6 +666,7 @@ class TelegramApp:
                 rows.append([('Пополнить','buy')])
         else:
             text=self.cfg.brand+'\nОткройте каталог и выберите нужное действие.\n/terms /privacy /support /paysupport'
+            rows.append([('Настройки рассылок','brpref')])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows))
 
@@ -666,6 +674,11 @@ class TelegramApp:
         route=data.partition(':')[0]
         if admin_callback(data) and not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
+        if route in BROADCAST_ROUTES:
+            await self.broadcasts.callback(u,ext,route,data.partition(':')[2]);return
+        if route in ('brpref','bron','broff'):
+            await self.svc.conversation(u,'home')
+            await self.broadcasts.preference(ext,{'brpref':None,'bron':False,'broff':True}[route]);return
         if route in AGGREGATOR_ROUTES:
             await self.aggregator_callback(u,ext,route,data.split(':')[1:]);return
         if route in MODEL_POLICY_ROUTES:
@@ -913,6 +926,7 @@ class TelegramApp:
             rows.extend([(self.provider_title(ext,key),f'pentry:{key}:0')] for key in self.providers.interactive)
             if admin:
                 rows.append([('Тарифы моделей','tariffs')])
+                rows.append([('📣 Рассылки','brlist')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),
