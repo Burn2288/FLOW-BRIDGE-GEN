@@ -413,7 +413,7 @@ class BroadcastUI:
                 [('Только мне', f'brself:{key}')],
                 [(ALL_USERS, f'brall:{key}')],
                 [('Отменить', f'brcancel:{key}')],
-            ]))
+            ]), fresh_panel=True)
         elif route in ('brself', 'brall'):
             row = await self.queue.select_audience(chat, id, revision, 'self' if route == 'brself' else 'all')
             await self.confirm_screen(chat, row)

@@ -101,6 +101,8 @@ async def exercise_broadcast_ui(pool, cfg, admin_chat=100):
     assert preview[:2] == ('photo', caption)
     assert list(routes(preview)) == ['Заменить пост', 'Выбрать получателей', 'Отменить']
     await send(callback=routes(preview)['Выбрать получателей'])
+    assert (await app.navigation.read(admin_chat)).active_id > preview_id
+    assert bot.messages[preview_id] == preview
     assert list(routes(await panel())) == ['Только мне', 'Всем пользователям бота', 'Отменить']
     await send(callback=routes(await panel())['Только мне'])
     assert 'Получателей: 1' in (await panel())[1]
