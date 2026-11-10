@@ -389,3 +389,21 @@ async def test_topup_presets_limits_and_session_isolation(env):
     assert prior==await pool.fetchval('SELECT custom_enabled FROM topup_settings WHERE id=1')
     await payments.client.close()
 
+
+
+async def test_topup_notice_waits_for_payment_review(env):
+    pool,cfg,user,payments,gateway=await fixture(env)
+    row=await quote(payments,user)
+    await payments.create(user,row['id'],test_session=True)
+    await payments.check(user,row['id'])
+    gateway.states[str(row['id'])]='DISPUTED'
+    await payments.check(user,row['id'])
+    bot=BroadcastTransport(pool)
+    await payments.notify(bot)
+    assert not bot.messages
+    gateway.states[str(row['id'])]='CONFIRMED'
+    await payments.check(user,row['id'])
+    await payments.notify(bot)
+    assert len(bot.messages)==1
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='topup'")==1
+    await payments.client.close()

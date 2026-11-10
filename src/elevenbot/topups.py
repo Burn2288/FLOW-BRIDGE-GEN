@@ -305,7 +305,7 @@ class Topups:
     async def notify(self,bot,keyboard=None):
         # Claim before send. A lost Telegram response is never silently replayed.
         row=await self.pool.fetchrow("""UPDATE topup_orders t SET notice_state='sending',notice_at=now()+interval '60 seconds'
-            FROM (SELECT payment_id FROM topup_orders WHERE notice_state='pending' AND notice_at<=now()
+            FROM (SELECT payment_id FROM topup_orders WHERE notice_state='pending' AND state='paid' AND notice_at<=now()
                   ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) due
             WHERE t.payment_id=due.payment_id RETURNING t.payment_id""")
         if not row:
