@@ -103,7 +103,7 @@ async def test_welcome_consent_start_and_menu():
     assert photo.data==telegram.WELCOME_BANNER.read_bytes()
     assert caption==telegram.WELCOME_TEXT
     assert '🎵 Создавай музыку' in caption
-    assert [row[0].text for row in keyboard.keyboard]==MENU
+    assert [row[0].text for row in keyboard.keyboard]==MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]
 
     for label in MENU:
         await a.handle(event(label))
@@ -131,7 +131,7 @@ async def test_welcome_fallback_retains_user_keyboard(monkeypatch,tmp_path,missi
     await a.handle(event('/start'))
     text,keyboard=b.sent[-1]
     assert text==telegram.WELCOME_TEXT
-    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU]
+    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]]
     welcome=a.svc.welcome
     await a.handle(event(telegram.OPEN_CATALOGUE))
     assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
@@ -175,7 +175,7 @@ async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels
 
     def check_keyboard(markup,balance):
         assert [[button.text for button in row] for row in markup.keyboard]==[
-            [MENU[0]],[MENU[1]],[balance],[telegram.RUBLE_MENU],[MENU[3]],
+            [MENU[0]],[MENU[1]],[balance],[telegram.TOPUP_MENU],[telegram.RUBLE_MENU],[MENU[3]],
         ]
 
     await app.handle(event('/start'))
@@ -222,7 +222,7 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
     await a.handle(event('/start'))
     await a.handle(event(MENU[0]))
     keyboard=b.photos[-1][2]
-    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU]
+    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]]
     first=(await a.navigation.read(100)).active_id
     text,markup=b.sent[-1]
     assert text.startswith('DarkFlow | Gen\nВыберите агрегатор')
@@ -316,5 +316,5 @@ async def test_image_delivery_survives_menu_failure(monkeypatch, failed_screen):
     assert bot.send_photo.await_args.args[1].data == MOCK_IMAGE
 
 def test_menu_core_and_discovery():
-    assert len(menu().keyboard)==4
-    assert [r[0].text for r in menu().keyboard]==MENU
+    assert len(menu().keyboard)==5
+    assert [r[0].text for r in menu().keyboard]==MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]

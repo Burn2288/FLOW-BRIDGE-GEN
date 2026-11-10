@@ -141,6 +141,9 @@ class Service:
                 raise Rejected('Генерация временно выключена.')
             if await c.fetchval('SELECT halted FROM settings WHERE id=1 FOR SHARE'): raise Rejected('Сервис на проверке. Попробуйте позже.')
             if await c.fetchval("SELECT EXISTS(SELECT 1 FROM jobs WHERE user_id=$1 AND status IN ('queued','dispatching','uncertain'))",u): raise Rejected('Дождитесь завершения текущей работы.')
+            if await c.fetchval('SELECT EXISTS(SELECT 1 FROM wallet_debts WHERE user_id=$1 AND mode=$2 AND amount>0) '
+                                "OR EXISTS(SELECT 1 FROM topup_orders WHERE user_id=$1 AND mode=$2 AND state='review')",u,r['mode']):
+                raise Rejected('Расходы ограничены до урегулирования платежа.')
             money=await c.fetchval('SELECT available FROM wallets WHERE user_id=$1 AND mode=$2',u,r['mode'])
             if money<r['price']: raise Rejected('Недостаточно токенов')
             day=datetime.now(timezone.utc).date()

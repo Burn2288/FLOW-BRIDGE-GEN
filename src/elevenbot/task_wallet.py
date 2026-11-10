@@ -7,6 +7,9 @@ async def check_task_balance(conn, user, amount):
     available = await conn.fetchval("""
         SELECT available FROM wallets WHERE user_id=$1 AND mode='live' FOR UPDATE
         """, user)
+    if await conn.fetchval("SELECT EXISTS(SELECT 1 FROM wallet_debts WHERE user_id=$1 AND mode='live' AND amount>0) "
+                           "OR EXISTS(SELECT 1 FROM topup_orders WHERE user_id=$1 AND mode='live' AND state='review')",user):
+        raise Rejected('Расходы ограничены до урегулирования платежа. Обратитесь в поддержку.')
     if not available or available < amount:
         raise Rejected('Недостаточно токенов')
 

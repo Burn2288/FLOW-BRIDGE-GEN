@@ -81,6 +81,10 @@ async def main():
             if not cfg.token:raise ValueError('TELEGRAM_BOT_TOKEN required')
             async with make_bot(cfg) as bot:
                 tasks=[]
+                from .telegram import TelegramApp
+                app=TelegramApp(pool,cfg,bot)
+                if cfg.topup_mode!='off':
+                    tasks.append(asyncio.create_task(app.topups.loop(bot,app.reply_menu)))
                 if cfg.catalogue_enabled:
                     from .discovery import refresh_loop
                     tasks.append(asyncio.create_task(refresh_loop(cfg)))
@@ -105,11 +109,12 @@ async def main():
                     tasks.append(asyncio.create_task(FalMusicPilot(pool,cfg).loop(bot)))
                 from .broadcasts import Broadcasts,BroadcastWorker
                 tasks.append(asyncio.create_task(BroadcastWorker(Broadcasts(pool),bot,buttons).loop()))
-                try:await poll(pool,cfg,bot)
+                try:await poll(pool,cfg,bot,app=app)
                 finally:
                     for task in tasks:
                         task.cancel()
                     await asyncio.gather(*tasks,return_exceptions=True)
+                    await app.topups.client.close()
         else:
             provider=MockProvider() if cfg.mode=='mock' else DisabledProvider() if cfg.mode=='catalogue' else ClodexProvider(cfg)
             try:

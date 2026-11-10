@@ -10,6 +10,8 @@ from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardBut
                            BotCommandScopeDefault,BotCommandScopeChat,ForceReply)
 from .admin_access import AdminAccess, PASSWORD_PROMPT, digest
 from .broadcasts import Broadcasts, BroadcastUI, ROUTES as BROADCAST_ROUTES
+from .topups import Topups
+from .topup_ui import TopupUI, TOPUP_MENU, ADMIN_TITLE as TOPUP_ADMIN_TITLE, ROUTES as TOPUP_ROUTES, ADMIN_ROUTES as TOPUP_ADMIN_ROUTES
 from .core import ConsentRequired,Service,Rejected,uid
 from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
@@ -44,7 +46,7 @@ ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amwork','amworkrun','amsection','
 REGISTERED_ROUTES={'pentry','pall','pview','pcat','pcard','prun','prefresh'}
 REGISTERED_PILOT_ROUTES={'pilotconfirm','pilotcancel','pilotwork'}
 AGGREGATOR_ROUTES={'agroot','agmanage','agfunctions','agfunction'}
-CATALOGUE_CALLBACKS=MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|REGISTERED_PILOT_ROUTES|AGGREGATOR_ROUTES|BROADCAST_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
+CATALOGUE_CALLBACKS=TOPUP_ROUTES|MODEL_POLICY_ROUTES|ANYMODEL_ROUTES|TARIFF_ROUTES|REGISTERED_ROUTES|REGISTERED_PILOT_ROUTES|AGGREGATOR_ROUTES|BROADCAST_ROUTES|{'amconfirm','amcancel','provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -71,7 +73,7 @@ CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','�
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
     '/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'}
-ADMIN_CALLBACKS=MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|BROADCAST_ROUTES|MUSIC_ROUTES|REGISTERED_PILOT_ROUTES|{
+ADMIN_CALLBACKS=TOPUP_ADMIN_ROUTES|MODEL_POLICY_ROUTES|TARIFF_ROUTES|DEVELOPER_CALLBACKS|BROADCAST_ROUTES|MUSIC_ROUTES|REGISTERED_PILOT_ROUTES|{
     'agmanage','agfunctions','agfunction','pall','pview','prefresh','amcat','ammdl','amvprices','amvpick','amvready',
 }
 
@@ -96,7 +98,8 @@ def store_rows():
 
 def menu(*,admin_rates=False,balance=None):
     labels=[MENU[0],MENU[1],balance or MENU[2],MENU[3]]
-    if admin_rates:labels.insert(3,RUBLE_MENU)
+    labels.insert(3,TOPUP_MENU)
+    if admin_rates:labels.insert(4,RUBLE_MENU)
     return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
 
 class TelegramApp:
@@ -123,6 +126,8 @@ class TelegramApp:
         self.tariffs = TariffAdmin(self,buttons)
         self.models = ModelPolicy(self,buttons)
         self.broadcasts = BroadcastUI(self,Broadcasts(pool),buttons)
+        self.topups = Topups(pool,cfg)
+        self.topup_ui = TopupUI(self,buttons)
     async def say(self,chat,text,markup=None):
         if not isinstance(markup,ReplyKeyboardMarkup):
             return await self.bot.send_message(chat,text,reply_markup=markup)
@@ -444,7 +449,7 @@ class TelegramApp:
             aggregator_menu=text==MENU[0] or command=='/menu'
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
-                        or aggregator_menu or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
+                        or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
                         or command in RATE_COMMANDS)
             await self.svc.rate(u,navigation=navigation)
             if update.callback_query:
@@ -463,6 +468,14 @@ class TelegramApp:
                     await self.show_store(ext)
                 else:
                     await self.show_providers(ext)
+                return
+            if text==TOPUP_MENU:
+                await self.topup_ui.panel(u,ext,fresh=True)
+                await self.delete_keyboard_input(update.message)
+                return
+            if command=='/start' and len(text.split())==2 and text.split()[1].startswith('pay_'):
+                await self.svc.authorize(self.pool,u)
+                await self.topup_ui.callback(u,ext,'tucheck',text.split()[1][4:])
                 return
             if command=='/models' or text=='🧩 Модели':
                 await self.svc.conversation(u,'home');await self.show_models(ext)
@@ -521,6 +534,9 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
+                if context and any(key in context for key in ('topup_amount','topup_admin')):
+                    await self.topup_ui.input(u,ext,text,context)
+                    return
                 if context and context.get('music_prompt'):
                     if not self.music_access(ext):
                         raise Rejected('Пилот доступен только владельцу в Admin Edition.')
@@ -688,6 +704,8 @@ class TelegramApp:
         if route in REGISTERED_PILOT_ROUTES:
             _,key,value=data.split(':',2)
             await self.registered_pilot_callback(u,ext,route,key,uid(value),request_id);return
+        if route in TOPUP_ROUTES:
+            await self.topup_ui.callback(u,ext,route,data.partition(':')[2]);return
         if route in BROADCAST_ROUTES:
             await self.broadcasts.callback(u,ext,route,data.partition(':')[2]);return
         if route in AGGREGATOR_ROUTES:
@@ -937,6 +955,7 @@ class TelegramApp:
         if self.cfg.access_mode=='private' and admin:
             rows.append([('Тарифы моделей','tariffs')])
             rows.append([('📣 Рассылки','brlist')])
+            rows.append([(TOPUP_ADMIN_TITLE,'tuadmin')])
         rows.append([(label,f'section:{index}') for index,label in enumerate(MENU[1:],1)])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),
@@ -2124,8 +2143,8 @@ async def register_commands(bot, admin_ids):
             break
 
 
-async def poll(pool,cfg,bot):
-    app=TelegramApp(pool,cfg,bot)
+async def poll(pool,cfg,bot,*,app=None):
+    app=app or TelegramApp(pool,cfg,bot)
     # Session-level lock prevents two polling consumers of the same deployment.
     async with pool.acquire() as lock:
         if not await lock.fetchval('SELECT pg_try_advisory_lock(921183)'):raise RuntimeError('Polling already running')

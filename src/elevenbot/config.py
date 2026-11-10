@@ -50,6 +50,14 @@ class Config:
     fal_music_owner: int = 0
     fal_music_live: bool = False
 
+    topup_mode: str = 'off'
+    platega_enabled: bool = False
+    platega_merchant: str = ''
+    platega_secret: str = field(default='',repr=False)
+    platega_return: str = ''
+    platega_failed: str = ''
+    platega_method: int = 2
+
     @property
     def wallet_mode(self): return 'demo' if self.mode == 'mock' else 'live'
 
@@ -101,6 +109,13 @@ class Config:
               fal_key=os.getenv('FAL_KEY','').strip(),
               fal_music_owner=int(os.getenv('FAL_MUSIC_OWNER','0') or 0),
               fal_music_live=flag('FAL_MUSIC_LIVE'),
+              topup_mode=os.getenv('TOPUP_MODE','off'),
+              platega_enabled=flag('PLATEGA_ENABLED'),
+              platega_merchant=os.getenv('PLATEGA_MERCHANT_ID','').strip(),
+              platega_secret=os.getenv('PLATEGA_SECRET','').strip(),
+              platega_return=os.getenv('PLATEGA_RETURN_URL',''),
+              platega_failed=os.getenv('PLATEGA_FAILED_URL',''),
+              platega_method=int(os.getenv('PLATEGA_PAYMENT_METHOD','2')),
               voices_file=local(os.getenv('VOICES_FILE','')),speech_pilot=flag('CLODEX_SPEECH_PILOT'),economy_verified=flag('ECONOMY_VERIFIED'))
         if c.access_mode not in ('private','public') or (c.access_mode=='private' and not c.admin_ids):raise ValueError('Private access requires ADMIN_TELEGRAM_IDS')
         if c.clodex_music_owner and (c.access_mode!='private' or c.clodex_music_owner not in c.admin_ids
@@ -135,6 +150,13 @@ class Config:
         if c.catalogue_enabled:
             from .discovery import SchemaProfile
             SchemaProfile.load(c.catalogue_profile)
+        if c.topup_mode not in ('off','test','live'):
+            raise ValueError('Invalid TOPUP_MODE')
+        if c.topup_mode=='test' and (c.payments_enabled or c.access_mode!='private'):
+            raise ValueError('Test top-ups require private mode and payments disabled')
+        if c.topup_mode=='live' and not (c.payments_enabled and c.payment_backend=='platega' and c.platega_enabled
+                                        and c.platega_merchant and c.platega_secret):
+            raise ValueError('Live top-ups require enabled Platega credentials')
         if c.payment_backend not in ('stars','platega'):raise ValueError('Invalid payment backend')
         if c.telegram_api_base:
             from urllib.parse import urlparse
