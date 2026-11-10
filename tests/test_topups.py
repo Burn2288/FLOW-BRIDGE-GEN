@@ -368,9 +368,10 @@ async def test_topup_presets_limits_and_session_isolation(env):
     chosen=uid(disabled.split(':')[1])
     await send(callback=disabled)
     assert not await pool.fetchval('SELECT enabled FROM topup_presets WHERE id=$1',chosen)
+    original=[r['id'] for r in await pool.fetch('SELECT id FROM topup_presets ORDER BY position,id')]
     await send(callback=f'tumove:{chosen}:down')
     ordered=await pool.fetch('SELECT id FROM topup_presets ORDER BY position,id')
-    assert ordered[1]['id']==chosen
+    assert ordered[original.index(chosen)+1]['id']==chosen
     await send(callback=f'tudelete:{chosen}')
     assert not await pool.fetchval('SELECT 1 FROM topup_presets WHERE id=$1',chosen)
     await send(callback='tulimits')
