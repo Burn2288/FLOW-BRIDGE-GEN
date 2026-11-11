@@ -237,6 +237,7 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
     assert any(button.text=='Все модели' and button.callback_data=='amcat:current:0'
                for row in markup.inline_keyboard for button in row)
     if not rejected:
+        assert b.animations[0].filename=='darkflow-energy-strip-1200x80-2x.mp4'
         assert b.animations[0].data==telegram.AGGREGATORS_ANIMATION.read_bytes()
         assert first not in b.deleted
     await a.handle(event(callback='providers'))

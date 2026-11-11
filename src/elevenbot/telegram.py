@@ -56,7 +56,7 @@ STORE_SECTIONS={
 }
 OPEN_CATALOGUE='Открыть каталог'
 WELCOME_BANNER=Path(__file__).with_name('welcome.png')
-AGGREGATORS_ANIMATION=Path(__file__).with_name('darkflow-energy-strip.gif')
+AGGREGATORS_ANIMATION=Path(__file__).with_name('darkflow-energy-strip-1200x80-2x.mp4')
 WELCOME_TEXT=(
     'Добро пожаловать в DarkFlow | Gen 🔮\n\n'
     'Создавай контент с помощью нейросетей прямо в Telegram.\n\n'
@@ -238,7 +238,8 @@ class TelegramApp:
                         pass
                 raise
 
-            if panel=='chooser' and state.active_panel=='main' and state.animation==str(AGGREGATORS_ANIMATION):
+            if panel=='chooser' and state.active_panel=='main' and state.animation in (
+                    str(AGGREGATORS_ANIMATION), str(AGGREGATORS_ANIMATION.with_name('darkflow-energy-strip.gif'))):
                 state=state.adopt_legacy_chooser()
             old_main={state.panel_ids.get('chooser'),state.panel_ids.get('main_hint')}
             state=state.publish(message.message_id,animation_key,panel)
