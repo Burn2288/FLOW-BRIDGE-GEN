@@ -5,8 +5,9 @@ import httpx
 import pytest
 
 from elevenbot import interaction, telegram
+from elevenbot.anymodel_pricing import AnyModelPricing
 from elevenbot.aggregate import make_snapshot
-from elevenbot.anymodel import AnyModelProvider, TEST_MODEL, model_store
+from elevenbot.anymodel import AnyModelProvider, TEST_MODEL, can_chat, model_store
 from elevenbot.core import Rejected
 from elevenbot.discovery import SnapshotStore
 from test_ui import Bot, event
@@ -18,8 +19,8 @@ def routes(bot):
 
 
 @pytest.mark.parametrize('failure', [False, True])
-async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failure):
-    pool,cfg,_,user=env
+async def test_anymodel_menu_and_provider_routing(funded_env,tmp_path,monkeypatch,failure,manual_tariff):
+    pool,cfg,_,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_chat_live=True,
                 anymodel_key='fixture-any',clodex_key='fixture-clodex',catalogue_path=str(tmp_path/'models.json'),
                 interaction_mode='live',interaction_limit=3,interaction_pairs=(f'chat:{TEST_MODEL}',))
@@ -30,6 +31,12 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
     def respond(req):
         body=json.loads(req.content) if req.content else None
         calls.append((req.method,req.url.host,req.url.path,req.headers.get('Authorization'),body))
+        if req.url.path=='/v1/models/info':
+            assert req.url.params['id']==TEST_MODEL
+            return httpx.Response(200,json={'id':TEST_MODEL,'endpoint':'/v1/chat/completions',
+                'billing':{'unit':'token','coefficient':{'input':1,'output':2}}})
+        if req.url.path in ('/v1/models/video','/v1/models/tts'):
+            return httpx.Response(200,json={'data':[]})
         if req.method=='GET':
             return httpx.Response(200,json={'data':records})
         if req.url.host=='anymodel.org' and failure:
@@ -54,15 +61,24 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         ]))
         bot=Bot()
         app=telegram.TelegramApp(pool,cfg,bot)
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=anymodel)
         await app.show_providers(100)
         await app.callback(user,100,routes(bot)['AnyModel'])
+        assert bot.sent[-1][0]=='AnyModel\nВыберите, что хотите сделать.'
+        await app.callback(user,100,routes(bot)['⚙️ Управление агрегатором'])
         assert 'Моделей: 23' in bot.sent[-1][0]
         assert 'Последнее успешное обновление' in bot.sent[-1][0]
-        await app.callback(user,100,routes(bot)[telegram.OPEN_CATALOGUE])
+        await app.callback(user,100,routes(bot)['Все модели'])
         listed=set()
         for page in range(3):
             buttons=routes(bot)
             listed.update(v for v in buttons if v.startswith('fixture/'))
+            if page==1:
+                card=next(route for label,route in buttons.items() if label.startswith('fixture/'))
+                await app.callback(user,100,card)
+                assert list(routes(bot))==['← К списку моделей']
+                await app.callback(user,100,routes(bot)['← К списку моделей'])
+                assert routes(bot)==buttons
             if page<2:
                 await app.callback(user,100,buttons['Далее →'])
         assert listed==set(ids)
@@ -70,34 +86,57 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
         await app.callback(user,100,routes(bot)['← Назад'])
         await app.callback(user,100,routes(bot)['DeepSeek V4 Flash Vision'])
         assert f'ID: {TEST_MODEL}' in bot.sent[-1][0]
-        action=routes(bot)['Тестовый чат']
-        for restricted,external_id in ((cfg,101),(replace(cfg,anymodel_test_enabled=False),100)):
-            hidden=telegram.TelegramApp(pool,restricted,Bot())
-            await hidden.show_providers(external_id)
-            assert 'AnyModel' not in routes(hidden.bot)
-            with pytest.raises(Rejected):
-                await hidden.callback(user,external_id,action)
+        assert 'Рассчитать стоимость' not in routes(bot)
+        await app.callback(user,100,'amsection:chat')
+        await app.callback(user,100,routes(bot)['DeepSeek V4 Flash Vision'])
+        action=routes(bot)['Рассчитать стоимость']
+        guest=await app.svc.identity(101)
+        await app.svc.accept(guest)
+        await app.show_providers(101)
+        assert 'Агрегатор 2' in routes(bot) and 'AnyModel' not in routes(bot)
+        await app.callback(guest,101,action)
+        assert 'Агрегатор 2' in bot.sent[-1][0]
+        hidden=telegram.TelegramApp(pool,replace(cfg,anymodel_test_enabled=False),Bot())
+        await hidden.show_providers(100)
+        assert 'AnyModel' not in routes(hidden.bot)
+        with pytest.raises(Rejected):
+            await hidden.callback(user,100,action)
         await app.callback(user,100,action)
         await app.handle(event('hello AnyModel'))
+        assert 'ответ до 256 токенов' in bot.sent[-1][0]
+        assert not any(call[0]=='POST' for call in calls)
+        action=routes(bot)['Генерировать']
+        await app.handle(event(callback=action).model_copy(update={'update_id':2}))
         assert ('Исход запроса неизвестен' if failure else 'Reply from anymodel.org') in bot.sent[-1][0]
-        assert len(calls)==2
+        with pytest.raises(Rejected):
+            await app.callback(user,100,action,request_id=3)
+        assert sum(call[0]=='POST' for call in calls)==1
 
+        await pool.execute("INSERT INTO approved_models VALUES('clodex',$1,'chat','CLODEX fixture')",TEST_MODEL)
         version=app.catalogue_snapshot()['version']
         await app.callback(user,100,f'runmodel:{version}:0:chat')
-        await app.handle(event('hello CLODEX').model_copy(update={'update_id':2}))
+        await manual_tariff(app,user,TEST_MODEL,'chat',{'max_tokens':512})
+        await app.handle(event('hello CLODEX').model_copy(update={'update_id':4}))
+        assert 'Ручная себестоимость: 100 токенов DarkFlow | Gen' in bot.sent[-1][0]
+        await app.handle(event(callback=routes(bot)['Генерировать']).model_copy(update={'update_id':5}))
         assert 'Reply from clodex.xyz' in bot.sent[-1][0]
-        assert [call[:4] for call in calls]==[
-            ('GET','anymodel.org','/v1/models','Bearer fixture-any'),
+        assert [call[:4] for call in calls if call[0]=='POST']==[
             ('POST','anymodel.org','/v1/chat/completions','Bearer fixture-any'),
             ('POST','clodex.xyz','/v1/chat/completions','Bearer fixture-clodex'),
         ]
-        assert all(call[4]['model']==TEST_MODEL for call in calls[1:])
+        assert all(call[4]['model']==TEST_MODEL for call in calls if call[0]=='POST')
+        await app.callback(user,100,'history:0')
+        works=[callback for name,callback in routes(bot).items() if name.startswith('Открыть работу')]
+        assert len(works)==(1 if failure else 2)
+        await app.callback(user,100,works[0])
+        assert bot.sent[-1][0]=='Reply from clodex.xyz'
 
 
 async def test_failed_refresh_keeps_last_authenticated_snapshot(tmp_path):
     fail=False
     def respond(req):
         if fail:return httpx.Response(503)
+        if req.url.path!='/v1/models':return httpx.Response(200,json={'data':[]})
         return httpx.Response(200,json={'data':[{'id':TEST_MODEL}]})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
@@ -123,4 +162,97 @@ async def test_public_fallback_is_unverified_and_does_not_use_key(tmp_path):
     assert result['sources'][0]['scope']=='public_only'
     assert result['refresh_error']=='HTTP 401'
     assert result['models'][0]['availability']=='public_only'
-    assert not telegram.can_chat(result['models'][0],result)
+    assert not can_chat(result['models'][0],result)
+
+
+async def test_user_anymodel_distinguishes_outage_empty_and_recovery(env,tmp_path):
+    from elevenbot.anymodel import FIBO_MODEL,model_store
+    from elevenbot.anymodel_speech import FISH
+    from elevenbot.anymodel_video import MODEL as GROK
+    from elevenbot.telegram import CATALOGUE_UNAVAILABLE,EMPTY_MODELS
+
+    pool,cfg,_,_=env
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
+                catalogue_path=str(tmp_path/'catalogue.json'))
+    bot=Bot()
+    app=telegram.TelegramApp(pool,cfg,bot)
+    guest=await app.svc.identity(101)
+    await app.svc.accept(guest)
+    sections={'video':'Grok Imagine Video 1.5','image':'FIBO 2','speech':'Fish Audio S2.1 Pro Free',
+              'chat':TEST_MODEL}
+    state='empty'
+
+    def respond(req):
+        path=req.url.path
+        if state=='public' and path=='/v1/models':
+            return httpx.Response(401)
+        if path=='/en/pricing':
+            return httpx.Response(200,text=f'<option value="{TEST_MODEL}">Flash Vision · $0.025</option>')
+        if state=='outage' and path=='/v1/models/tts':
+            return httpx.Response(503)
+        models={'/v1/models':[{'id':TEST_MODEL},{'id':FIBO_MODEL,'kind':'image'}],
+                '/v1/models/video':[{'id':GROK}],'/v1/models/tts':[{'id':FISH}]}
+        return httpx.Response(200,json={'data':[] if state=='empty' else models[path]})
+
+    async def show_expected(message):
+        for section in sections:
+            await app.callback(guest,101,f'amsection:{section}')
+            assert bot.sent[-1][0].endswith(message)
+            assert routes(bot)=={'← К агрегатору':'am'}
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+        provider=AnyModelProvider('fixture',client=http)
+        store=model_store(cfg)
+        await show_expected(CATALOGUE_UNAVAILABLE)
+        state='public'
+        public=await provider.refresh(store)
+        assert public['sources'][0]['scope']=='public_only'
+        await show_expected(CATALOGUE_UNAVAILABLE)
+        state='empty'
+        await provider.refresh(store)
+        await show_expected(EMPTY_MODELS)
+        state='fresh'
+        fresh=await provider.refresh(store)
+        state='outage'
+        stale=await provider.refresh(store)
+        assert stale['fetched_at']==fresh['fetched_at']
+        assert stale['refresh_error_code']=='http_503'
+        assert stale['refresh_error_endpoint']=='/v1/models/tts'
+        await show_expected(CATALOGUE_UNAVAILABLE)
+        state='fresh'
+        recovered=await provider.refresh(store)
+        assert 'refresh_error_code' not in recovered
+        for section,title in sections.items():
+            await app.callback(guest,101,f'amsection:{section}')
+            assert list(routes(bot))==[title,'← К агрегатору']
+
+
+async def test_anymodel_background_retries_transient_error(tmp_path,monkeypatch):
+    from types import SimpleNamespace
+
+    from elevenbot import anymodel
+    from elevenbot.config import Config
+
+    class StopLoop(Exception):
+        pass
+
+    results=iter([{'refresh_error_code':'connect_error','refresh_error_endpoint':'/v1/models/tts'},{}])
+
+    class Provider:
+        def __init__(self,key):
+            pass
+
+        async def refresh(self,store):
+            return next(results)
+
+    delays=[]
+    async def sleep(delay):
+        delays.append(delay)
+        if len(delays)==2:
+            raise StopLoop
+
+    monkeypatch.setattr(anymodel,'AnyModelProvider',Provider)
+    monkeypatch.setattr(anymodel,'asyncio',SimpleNamespace(sleep=sleep))
+    with pytest.raises(StopLoop):
+        await anymodel.refresh_anymodel(Config(catalogue_path=str(tmp_path/'models.json')))
+    assert delays==[30,300]

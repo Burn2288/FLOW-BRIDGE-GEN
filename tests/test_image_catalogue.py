@@ -10,9 +10,7 @@ import httpx
 import pytest
 
 from elevenbot import interaction
-from elevenbot.config import Config
 from elevenbot.core import Rejected
-from elevenbot.demo import DemoService
 from elevenbot.discovery import SnapshotStore, snapshot
 from elevenbot.telegram import TelegramApp
 from test_image_validation import encoded_image
@@ -24,7 +22,8 @@ from test_ui import Bot, event
     ("gpt-image-2.5-sunburst", None),
     ("gpt-image-2.5-sunburst", "high"),
 ])
-async def test_gpt_image_quality_reaches_provider(tmp_path, monkeypatch, quality, model_id):
+async def test_gpt_image_quality_reaches_provider(funded_env, tmp_path, monkeypatch, quality, model_id, manual_tariff):
+    pool,base,_,user=funded_env
     path = tmp_path / "catalogue.json"
     operation = "images.generate"
     model = {
@@ -38,17 +37,16 @@ async def test_gpt_image_quality_reaches_provider(tmp_path, monkeypatch, quality
     catalogue = snapshot([model])
     SnapshotStore(path).write(catalogue)
     cfg = replace(
-        Config(), access_mode="private", admin_ids=(100,), catalogue_path=str(path),
+        base, access_mode="private", admin_ids=(100,), catalogue_path=str(path), interaction_limit=3,
         interaction_mode="live", interaction_pairs=(f"{operation}:{model_id}",),
         public_catalogue_models=(f"image:{model_id}",), clodex_key="fixture-only",
     )
     bot = Bot()
     bot.send_photo = AsyncMock()
-    app = TelegramApp(None, cfg, bot)
-    app.svc = DemoService()
-    app.svc.reserve_interaction = AsyncMock(return_value=True)
-    user = await app.svc.identity(100)
-    await app.svc.accept(user)
+    app = TelegramApp(pool, cfg, bot)
+    params={'n':1} if quality is None else {'n':1,'quality':quality}
+    await manual_tariff(app,user,model_id,operation,params)
+    await app.pricing.set_rule(user,100,'clodex',model_id,'percent','25')
     await app.show_store_model(100, catalogue, "image", 0, 0)
     _, markup = bot.sent[-1]
     prefix = f"srun:{catalogue['version']}:image:0:0"
@@ -78,12 +76,24 @@ async def test_gpt_image_quality_reaches_provider(tmp_path, monkeypatch, quality
 
         monkeypatch.setattr(interaction, "execute", execute_against_stub)
         await app.interaction_input(user, 100, event("Баннер"), context)
+        assert not requests
+        assert 'Ручная себестоимость: 100 токенов DarkFlow | Gen' in bot.sent[-1][0]
+        assert "Наценка: 25" in bot.sent[-1][0]
+        assert "Оценка: 125" in bot.sent[-1][0]
+        confirm=bot.sent[-1][1].inline_keyboard[0][0].callback_data
+        await app.callback(user,100,confirm,request_id=2)
+        with pytest.raises(Rejected):
+            await app.callback(user,100,confirm,request_id=3)
 
     expected = {"model": model_id, "prompt": "Баннер", "n": 1, "response_format": "b64_json"}
     if quality is not None:
         expected["quality"] = quality
     assert requests == [expected]
     bot.send_photo.assert_awaited_once()
+    assert bot.send_photo.await_args.args[1].data==png
+    await app.callback(user,100,'history:0')
+    await app.callback(user,100,bot.sent[-1][1].inline_keyboard[0][0].callback_data)
+    assert bot.send_photo.await_count==2 and bot.send_photo.await_args.args[1].data==png
 
 async def test_image_menu_blocks_old_launches_and_keeps_saved_work(env, tmp_path, monkeypatch):
     pool, config, service, user = env

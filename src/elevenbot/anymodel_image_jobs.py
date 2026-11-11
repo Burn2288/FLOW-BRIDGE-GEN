@@ -25,16 +25,22 @@ class AnyModelImageJobs:
             existing=await conn.fetchval('SELECT status FROM anymodel_image_jobs WHERE update_id=$1',update_id)
             if existing or not await self.svc.reserve_interaction_on(conn,user,update_id,unlimited=False):
                 raise Rejected('AnyModel: запрос уже был принят. Автоповтора нет.')
-            await conn.execute("""
-                INSERT INTO anymodel_image_jobs(update_id,user_id,prompt,status,next_at)
-                VALUES($1,$2,$3,'submitting',now()+interval '1 minute')
-                """,update_id,user,prompt)
+            await self.prepare(conn,user,update_id,prompt,FIBO_MODEL)
+        await self.dispatch(user,update_id,prompt,FIBO_MODEL,on_accepted=on_accepted)
 
+    async def prepare(self,conn,user,update_id,prompt,model):
+        await conn.execute("""
+            INSERT INTO anymodel_image_jobs(update_id,user_id,prompt,model_id,status,next_at)
+            VALUES($1,$2,$3,$4,'submitting',now()+interval '1 minute')
+            """,update_id,user,prompt,model)
+
+    async def dispatch(self,user,update_id,prompt,model,*,params=None,on_accepted=None):
         if on_accepted:
             await on_accepted(update_id)
         reply=None
         try:
-            reply=await self.adapter.submit_image(FIBO_MODEL,prompt)
+            options={'params':params} if params else {}
+            reply=await self.adapter.submit_image(model,prompt,**options)
             trace_interaction(update_id,'anymodel_image_submit_response',status=reply.status)
             if reply.status==202:
                 job_id=self.adapter.accepted_image_id(reply)
@@ -58,12 +64,12 @@ class AnyModelImageJobs:
     async def save(self,update_id,user,prompt,result,lease=None):
         async with self.pool.acquire() as conn,conn.transaction():
             active=await conn.fetchval("""
-                SELECT true FROM anymodel_image_jobs WHERE update_id=$1
+                SELECT model_id FROM anymodel_image_jobs WHERE update_id=$1
                 AND (($2::timestamptz IS NULL AND status='submitting') OR (status='pending' AND next_at=$2))
                 FOR UPDATE
                 """,update_id,lease)
             if active:
-                await self.svc.save_image_work_on(conn,user,update_id,FIBO_MODEL,prompt,result)
+                await self.svc.save_image_work_on(conn,user,update_id,active,prompt,result)
                 await conn.execute("UPDATE anymodel_image_jobs SET status='ready',next_at=now() WHERE update_id=$1",update_id)
 
     async def poll_one(self,bot):
@@ -120,7 +126,7 @@ class AnyModelImageJobs:
             try:
                 async with asyncio.timeout(50):
                     await bot.send_photo(work['external_id'],BufferedInputFile(work['image'],filename=work['filename']),
-                                         caption='FIBO 2 · AnyModel · Изображение также доступно в «Моих работах».')
+                                         caption='AnyModel · Изображение также доступно в «Моих работах».')
             except (TelegramAPIError,TimeoutError):
                 trace_interaction(update_id,'anymodel_image_delivery_failed')
                 return

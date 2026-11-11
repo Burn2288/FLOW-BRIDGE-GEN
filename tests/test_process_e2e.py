@@ -48,9 +48,9 @@ async def test_bot_worker_process_mock_e2e(env,runtime_role):
             return web.json_response({'ok':True,'result':[update]})
         if method in ('answercallbackquery','deletemessage'):
             return web.json_response({'ok':True,'result':True})
-        if method in ('sendmessage','editmessagetext','sendaudio','sendphoto'):
+        if method in ('sendmessage','editmessagetext','editmessagecaption','sendanimation','sendaudio','sendphoto'):
             received.append(method)
-            message_id = int(form['message_id']) if method == 'editmessagetext' else len(received) + 100
+            message_id = int(form['message_id']) if method in ('editmessagetext','editmessagecaption') else len(received) + 100
             return web.json_response({'ok':True,'result':{'message_id':message_id,'date':int(time.time()),'chat':{'id':100,'type':'private'}}})
         return web.json_response({'ok':False,'error_code':400,'description':'Unhandled fixture method'},status=400)
     app=web.Application(client_max_size=3*1024**2);app.router.add_post('/bot{token}/{method}',api)

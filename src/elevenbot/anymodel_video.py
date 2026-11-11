@@ -1,4 +1,4 @@
-"""The single text-to-video route approved for the AnyModel pilot."""
+"""AnyModel text-to-video transport and durable polling."""
 
 import asyncio
 from decimal import Decimal
@@ -53,35 +53,11 @@ class AnyModelVideoProvider(AnyModelProvider):
             raise VideoProtocolError('video_schema')
         return data,response
 
-    async def estimate(self,model,prompt):
-        if model!=MODEL:
-            raise VideoProtocolError('video_model')
-        data,_=await self.video_json('GET','/models/info',params={'id':model})
-        if isinstance(data.get('data'),dict):
-            data=data['data']
-        params=data.get('params')
-        billing=data.get('billing')
-        if (data.get('id')!=MODEL or data.get('endpoint')!=VIDEO_PATH or not isinstance(params,list)
-            or not all(field in params for field in ('duration','resolution','aspect_ratio'))
-            or not isinstance(billing,dict) or billing.get('unit')!='second'):
-            raise VideoProtocolError('video_tariff')
-        # The documented Grok 1.5 contract permits 1–15 s and 16:9. Honor additional limits when present.
-        for field,value in (('durations',DURATION),('resolutions',RESOLUTION),('aspect_ratios',ASPECT_RATIO)):
-            limits=data.get(field)
-            if limits is not None and (not isinstance(limits,list) or value not in limits):
-                raise VideoProtocolError('video_parameters')
-        coefficient=billing.get('coefficient')
-        rates=billing.get('rates')
-        rate=rates.get(RESOLUTION) if isinstance(rates,dict) else None
-        if (not isinstance(coefficient,dict) or coefficient.get('input')!=1 or coefficient.get('output')!=1
-            or type(rate) is not int or not 0<rate<=1_000_000_000):
-            raise VideoProtocolError('video_tariff')
-        return rate*DURATION*USD_PER_TOKEN
-
-    async def create_video(self,model,prompt,idempotency_key):
-        data,reply=await self.video_json('POST','/videos/generations',accepted=(200,201,202),
+    async def create_video(self,model,prompt,idempotency_key,*,params=None):
+        parameters=params or {'duration':DURATION,'resolution':RESOLUTION,'aspect_ratio':ASPECT_RATIO}
+        data,reply=await self.video_json('POST','/videos/generations',accepted=(200,201,202),submission=True,
             request_headers={'Idempotency-Key':str(idempotency_key)},
-            json={'model':model,'prompt':prompt,'duration':DURATION,'resolution':RESOLUTION,'aspect_ratio':ASPECT_RATIO})
+            json={'model':model,'prompt':prompt,**parameters})
         task=data.get('request_id')
         if not isinstance(task,str) or not ID_PATTERN.fullmatch(task):
             raise VideoProtocolError('create_id')
@@ -133,11 +109,26 @@ class AnyModelVideoPilot(VideoPilot):
         return (cfg.anymodel_test_enabled and cfg.anymodel_video_live and cfg.access_mode=='private'
                 and not cfg.payments_enabled and cfg.interaction_limit>0 and bool(cfg.anymodel_key))
 
-    async def current_price(self,model):
-        return await self.api.estimate(model,'')
+    async def prepare(self,conn,user,quote):
+        req=quote.request
+        amount=Decimal(quote.price['provider_amount'])
+        unit=quote.price['provider_unit']
+        usd=None
+        if unit=='USD':
+            usd=amount
+        elif unit=='anymodel_balance_token':
+            usd=amount*USD_PER_TOKEN
+        await conn.execute("""
+            INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,provider,key_fingerprint,
+                status,next_poll_at,idempotency_key)
+            VALUES($1,$2,$3,$4,$5,'anymodel',$6,'submitting',now()+interval '1 minute',$1)
+            """,quote.id,user,req.model,req.prompt,usd,self.key_fingerprint)
 
-    async def create_task(self,model,prompt,idempotency_key):
-        return await self.api.create_video(model,prompt,idempotency_key)
+    async def dispatch(self,quote,*,on_accepted):
+        req=quote.request
+        async def create(model,prompt,key):
+            return await self.api.create_video(model,prompt,key,params=req.params)
+        await self.submit_task(quote.id,req.model,req.prompt,quote.id,on_accepted=on_accepted,create=create)
 
     async def task_status(self,task,connection):
         return await self.api.video_status(task,connection)

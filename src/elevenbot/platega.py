@@ -2,7 +2,7 @@
 Amounts in the application are integer kopecks; boundary JSON uses exact Decimal.
 Callbacks are authenticated AND canonical status is re-read server-to-server.
 """
-import hashlib,hmac,json,uuid
+import asyncio,hashlib,hmac,json,uuid
 from dataclasses import dataclass
 from decimal import Decimal,InvalidOperation
 from urllib.parse import urlparse
@@ -45,35 +45,54 @@ class PlategaClient:
         return bool(self.cfg.merchant and self.cfg.secret and
             hmac.compare_digest(headers.get('X-MerchantId','').encode(),self.cfg.merchant.encode()) and
             hmac.compare_digest(headers.get('X-Secret','').encode(),self.cfg.secret.encode()))
-    async def request(self,method,path,payload=None):
+    async def request(self,method,path,payload=None,*,allow_list=False):
+        for attempt in range(3 if method=='GET' else 1):
+            try:
+                return await self.request_once(method,path,payload,allow_list=allow_list)
+            except PaymentUnknown as error:
+                if method!='GET' or attempt==2:
+                    raise
+                await asyncio.sleep(getattr(error,'retry_after',2**attempt))
+    async def request_once(self,method,path,payload=None,*,allow_list=False):
         if not self.cfg.enabled:raise PaymentInvalid('Platega disabled')
         if not self.cfg.merchant or not self.cfg.secret:raise PaymentInvalid('Missing credentials')
         try:
             async with self.client.stream(method,'https://app.platega.io'+path,
                 headers={'X-MerchantId':self.cfg.merchant,'X-Secret':self.cfg.secret,'Content-Type':'application/json'},
                 content=encode_payload(payload).encode() if payload is not None else None) as r:
-                if r.status_code!=200:raise PaymentUnknown('Platega HTTP outcome')
+                if r.status_code!=200:
+                    error=PaymentUnknown('Platega HTTP outcome')
+                    error.http_status=r.status_code
+                    raw=r.headers.get('retry-after','')
+                    if r.status_code==429 and raw.isdigit():
+                        error.retry_after=min(120,max(1,int(raw)))
+                    raise error
                 data=bytearray()
                 async for chunk in r.aiter_bytes():
                     data.extend(chunk)
                     if len(data)>262144:raise PaymentUnknown('Response limit')
                 result=json.loads(data,parse_float=Decimal)
-                if not isinstance(result,dict):raise PaymentUnknown('Invalid response')
+                if not isinstance(result,dict) and not (allow_list and isinstance(result,list)):raise PaymentUnknown('Invalid response')
                 return result
         except (httpx.HTTPError,ValueError):raise PaymentUnknown('Platega transport/response') from None
     async def create(self,order,external_user_id,amount_minor):
+        remote,url,_=await self.create_details(order,external_user_id,amount_minor)
+        return remote,url
+    async def create_details(self,order,external_user_id,amount_minor):
         if type(amount_minor) is not int or not 1<=amount_minor<=1000000000:raise PaymentInvalid('Invalid tariff')
         for url in [self.cfg.return_url,self.cfg.failed_url]:
             parts=urlparse(url)
             if parts.scheme!='https' or not parts.hostname or parts.username or parts.password:raise PaymentInvalid('HTTPS return URL required')
         body={'paymentMethod':self.cfg.method,'paymentDetails':{'amount':Decimal(amount_minor)/100,'currency':'RUB'},
-              'description':'ElevenBot credits','return':self.cfg.return_url,'failedUrl':self.cfg.failed_url,'payload':str(order),
+              'description':'DarkFlow | Gen balance top-up','return':self.cfg.return_url.replace('{order_id}',str(order)),'failedUrl':self.cfg.failed_url.replace('{order_id}',str(order)),'payload':str(order),
               'metadata':{'userId':str(external_user_id),'user_email':f'{external_user_id}@telegram.org'}}
         r=await self.request('POST','/transaction/process',body)
         try:remote=uuid.UUID(r['transactionId']);url=r['redirect'];parts=urlparse(url)
         except (KeyError,ValueError,TypeError):raise PaymentUnknown('Invalid creation response') from None
         if parts.scheme!='https' or not parts.hostname or parts.username or parts.password:raise PaymentUnknown('Invalid checkout URL')
-        return remote,url
+        if r.get('merchantId') and str(uid(r['merchantId']))!=str(uid(self.cfg.merchant)):
+            raise PaymentUnknown('Creation merchant mismatch')
+        return remote,url,r.get('expiresIn')
     async def status(self,remote):return await self.request('GET','/transaction/'+str(uid(remote)))
     async def refund(self,remote):
         # No request body; accepted != completed. No POST retries.
@@ -113,6 +132,9 @@ class PlategaPayments:
                 try:
                     if uid(r['id'])!=remote:raise PaymentInvalid('Wrong remote ID')
                     p=uid(r['payload']);amount=kopecks(r['paymentDetails']['amount']);currency=r['paymentDetails']['currency'];status=r['status']
+                    if await c.fetchval('SELECT EXISTS(SELECT 1 FROM topup_orders WHERE payment_id=$1)',p):
+                        from .topups import Topups
+                        return await Topups(self.pool,self.svc.cfg,self.client).sync(remote)
                     merchant=r.get('mechantId',r.get('merchantId'))
                     if merchant and str(uid(merchant))!=str(uid(self.client.cfg.merchant)):raise PaymentInvalid('Merchant mismatch')
                 except (KeyError,TypeError,Rejected):raise PaymentInvalid('Invalid status response') from None

@@ -14,7 +14,10 @@ async def main():
             raise ValueError('AnyModel pilot disabled')
         data=await refresh_anymodel(cfg,once=True)
         print(json.dumps({'models':len(data['models']),'scope':data['sources'][0]['scope'],
-                          'refresh_error':data.get('refresh_error'),'version':data['version']},ensure_ascii=False))
+                          'refresh_error':data.get('refresh_error'),
+                          'refresh_error_code':data.get('refresh_error_code'),
+                          'refresh_error_endpoint':data.get('refresh_error_endpoint'),
+                          'version':data['version']},ensure_ascii=False))
         return
     if a.command=='catalog-refresh':
         from .aggregate import refresh_aggregate
@@ -66,7 +69,7 @@ async def main():
             print('reserve released; provider cost may remain');return
         from .providers import MockProvider,ClodexProvider,DisabledProvider
         from .worker import Worker
-        from .telegram import poll,reconcile_stars,make_bot
+        from .telegram import poll,reconcile_stars,make_bot,buttons
         if a.command=='platega-webhook':
             from .platega_web import serve
             await serve(pool,cfg);return
@@ -78,6 +81,10 @@ async def main():
             if not cfg.token:raise ValueError('TELEGRAM_BOT_TOKEN required')
             async with make_bot(cfg) as bot:
                 tasks=[]
+                from .telegram import TelegramApp
+                app=TelegramApp(pool,cfg,bot)
+                if cfg.topup_mode!='off':
+                    tasks.append(asyncio.create_task(app.topups.loop(bot,app.reply_menu)))
                 if cfg.catalogue_enabled:
                     from .discovery import refresh_loop
                     tasks.append(asyncio.create_task(refresh_loop(cfg)))
@@ -94,11 +101,20 @@ async def main():
                     tasks.append(asyncio.create_task(VideoPilot(pool,cfg).loop(bot)))
                 from .progress import TaskProgress
                 tasks.append(asyncio.create_task(TaskProgress(bot,pool).loop()))
-                try:await poll(pool,cfg,bot)
+                if cfg.clodex_music_owner:
+                    from .clodex_music import MusicPilot
+                    tasks.append(asyncio.create_task(MusicPilot(pool,cfg).loop(bot)))
+                if cfg.fal_key and cfg.fal_music_owner:
+                    from .fal import FalMusicPilot
+                    tasks.append(asyncio.create_task(FalMusicPilot(pool,cfg).loop(bot)))
+                from .broadcasts import Broadcasts,BroadcastWorker
+                tasks.append(asyncio.create_task(BroadcastWorker(Broadcasts(pool),bot,buttons).loop()))
+                try:await poll(pool,cfg,bot,app=app)
                 finally:
                     for task in tasks:
                         task.cancel()
                     await asyncio.gather(*tasks,return_exceptions=True)
+                    await app.topups.client.close()
         else:
             provider=MockProvider() if cfg.mode=='mock' else DisabledProvider() if cfg.mode=='catalogue' else ClodexProvider(cfg)
             try:

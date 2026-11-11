@@ -1,4 +1,4 @@
-"""Private Veo pilot. A confirmed quote can dispatch at most one create request."""
+"""Private CLODEX video pilot. A confirmed quote can dispatch at most one create request."""
 
 import asyncio
 from decimal import Decimal, InvalidOperation
@@ -11,11 +11,14 @@ import httpx
 
 from .core import Rejected, Service, uid
 from .interaction import trace_interaction
+from .submission import ProviderRefused,check_submission_refusal
 
 MODES = {
     'standard': ('clodex-video/veo-3.1', 'Обычный', '🎬 Генерировать видео'),
     'fast': ('clodex-video/veo-3.1-fast', 'Fast', '⚡ Режим: Fast'),
 }
+DEFAULT_VIDEO_MODELS = frozenset(mode[0] for mode in MODES.values())
+VIDEO_PARAMS = {'duration':4,'resolution':'720p','aspect_ratio':'16:9'}
 ROOT = 'https://clodex.xyz'
 VIDEOS = '/v1/videos'
 MAX_VIDEO_BYTES = 49_000_000
@@ -37,26 +40,35 @@ class InvalidVideoError(VideoProtocolError):
     pass
 
 
-def video_modes(cfg, snapshot, external_id):
-    if not cfg.video_pilot or external_id not in cfg.admin_ids or cfg.access_mode != 'private':
+def video_modes(cfg, snapshot):
+    if not cfg.video_pilot or cfg.access_mode != 'private':
         return {}
+    ids = catalogue_video_ids(snapshot)
+    return {mode: details for mode, details in MODES.items() if details[0] in ids}
+
+
+def catalogue_video_ids(snapshot):
     if snapshot['fresh_until'] <= time.time():
-        return {}
-    ids = {
+        return set()
+    return {
         m['id'] for m in snapshot['models']
         if m.get('provider') == 'clodex' and m.get('availability') == 'key_available'
         and 'openai-video' in m.get('protocols', [])
     }
-    return {mode: details for mode, details in MODES.items() if details[0] in ids}
 
 
 def payload(model, prompt):
-    return {'model': model, 'prompt': prompt, 'duration': 4, 'resolution': '720p', 'aspect_ratio': '16:9'}
+    return {'model': model, 'prompt': prompt, **VIDEO_PARAMS}
 
 
 class VideoAPI:
-    def __init__(self, key, *, transport=None):
+    def __init__(self, key, *, transport=None, supported_models=DEFAULT_VIDEO_MODELS):
         self.key, self.transport = key, transport
+        # Each entry must implement the estimate/create/status/content contract below.
+        self.supported_models = frozenset(supported_models)
+
+    def supports_model(self, model):
+        return model in self.supported_models
 
     def client(self):
         return httpx.AsyncClient(base_url=ROOT, headers={'Authorization': 'Bearer '+self.key},
@@ -65,6 +77,8 @@ class VideoAPI:
     async def json(self, method, path, **kwargs):
         async with asyncio.timeout(25), self.client() as client:
             async with client.stream(method, path, **kwargs) as response:
+                if method=='POST' and path==VIDEOS and not response.is_success:
+                    await check_submission_refusal(response)
                 response.raise_for_status()
                 raw = bytearray()
                 async for chunk in response.aiter_bytes(chunk_size=8192):
@@ -80,19 +94,31 @@ class VideoAPI:
         return result
 
     async def estimate(self, model, prompt):
+        price,unit,_ = await self.estimate_cost(model,prompt)
+        if unit!='USD':
+            raise VideoProtocolError('quote_unit')
+        return price
+
+    async def estimate_cost(self, model, prompt):
+        if not self.supports_model(model):
+            raise VideoProtocolError('video_model')
         body = await self.json('POST', VIDEOS+'/estimate', json=payload(model, prompt))
         data = body.get('data')
         if body.get('success') is not True or not isinstance(data, dict) or data.get('model') != model:
             raise VideoProtocolError('quote_shape')
+        field,unit,limit = ('cost_usd','USD',10000) if 'cost_usd' in data else (
+            'cost_tokens','clodex_balance_token',10**12)
         try:
-            price = Decimal(str(data.get('cost_usd')))
+            price = Decimal(str(data.get(field)))
         except InvalidOperation:
             raise VideoProtocolError('quote_amount') from None
-        if not price.is_finite() or not 0 <= price <= 10000:
+        if not price.is_finite() or not 0 <= price <= limit:
             raise VideoProtocolError('quote_amount')
-        return price
+        return price,unit,field
 
     async def create(self, model, prompt):
+        if not self.supports_model(model):
+            raise VideoProtocolError('video_model')
         body = await self.json('POST', VIDEOS, json=payload(model, prompt))
         task = body.get('id') or body.get('request_id')
         if not isinstance(task, str) or not ID_PATTERN.fullmatch(task):
@@ -206,15 +232,29 @@ class VideoPilot:
                 raise Rejected('Оценка устарела или заказ уже принят.')
             if not await self.svc.reserve_interaction_on(conn, user, update_id, unlimited=False):
                 raise Rejected('Запрос уже был принят. Автоматический повтор отключён.')
+        await self.submit_task(job,model,reserved['prompt'],reserved['idempotency_key'],on_accepted=on_accepted)
+
+    async def prepare_price(self,conn,user,quote):
+        request = quote.request
+        usd = Decimal(quote.price['provider_amount']) if quote.price['provider_unit']=='USD' else None
+        await conn.execute("""
+            INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,status,next_poll_at)
+            VALUES($1,$2,$3,$4,$5,'submitting',now()+interval '1 minute')
+            """, quote.id,user,request.model,request.prompt,usd)
+
+    async def submit_task(self,job,model,prompt,idempotency_key,*,on_accepted=None,create=None):
         # Claim is durable before the only POST. A lost response never triggers a retry.
         if on_accepted:
             await on_accepted(job)
         try:
-            provider_id,connection=await self.create_task(model,reserved["prompt"],reserved["idempotency_key"])
+            provider_id,connection=await (create or self.create_task)(model,prompt,idempotency_key)
             await self.pool.execute("""
                 UPDATE video_jobs SET status='polling',provider_id=$2,connection_id=$3,next_poll_at=now()
                 WHERE id=$1 AND status='submitting'
                 """, job, provider_id,connection)
+        except ProviderRefused:
+            await self.pool.execute("UPDATE video_jobs SET status='failed',expires_at=now()+interval '7 days' WHERE id=$1 AND status='submitting'", job)
+            raise
         except (httpx.HTTPError, TimeoutError, VideoProtocolError) as error:
             await self.pool.execute("UPDATE video_jobs SET status='uncertain',expires_at=now()+interval '7 days' WHERE id=$1 AND status='submitting'", job)
             video_failure(job, 'video_create_uncertain', error)
@@ -273,11 +313,12 @@ class VideoPilot:
                 ORDER BY notify_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) due
             WHERE j.id=due.id
-            RETURNING j.id,j.user_id,j.video,j.notify_at
+            RETURNING j.id,j.user_id,j.video,j.notify_at,
+                      (SELECT request->>'title' FROM task_price_quotes WHERE id=j.id) AS title
             """,self.provider)
         if not row:
             return False
-        job, user, video, lease = row
+        job, user, video, lease, title = row
         external = await self.pool.fetchval("""
             SELECT i.external_id FROM identities i JOIN users u ON u.id=i.user_id
             WHERE i.user_id=$1 AND i.platform='telegram' AND i.accepted_at IS NOT NULL AND NOT u.blocked
@@ -288,8 +329,8 @@ class VideoPilot:
                     if video is None:
                         await bot.send_message(external, f'{self.label}: не удалось завершить обработку видео.')
                     else:
-                        await bot.send_video(external, BufferedInputFile(video, filename='grok.mp4' if self.provider=='anymodel' else 'veo.mp4'),
-                                             caption=f'{self.title} · Видео также доступно в «Моих работах».')
+                        await bot.send_video(external, BufferedInputFile(video, filename='video.mp4' if self.provider=='anymodel' else 'veo.mp4'),
+                                             caption=f'{title or self.title} · Видео также доступно в «Моих работах».')
             except (TelegramAPIError, TimeoutError) as error:
                 video_failure(job, 'video_delivery_failed', error)
                 return True
