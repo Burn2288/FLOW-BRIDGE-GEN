@@ -59,7 +59,7 @@ async def test_admin_aggregator_menu_routes_and_permissions(env, tmp_path):
         await app.handle(event(command))
         assert bot.sent[-1]==chooser and bot.animations[-1].data==animation
         assert before.panel_ids['chooser'] in bot.deleted
-        assert before.panel_ids['main_hint'] in bot.deleted
+        assert (await app.navigation.read(100)).keyboard_id==before.keyboard_id
         assert card not in bot.deleted and welcome not in bot.deleted
         assert await app.svc.welcome_message(100)==welcome
 

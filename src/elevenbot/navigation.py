@@ -19,6 +19,7 @@ class NavigationState:
 
     active_panel: str | None = None
     panel_ids: dict[str, int] = field(default_factory=dict)
+    keyboard_revision: int = 0
 
     def publish(self, message_id, animation, panel=None):
         slot = panel or (None if self.active_panel == 'chooser' else self.active_panel)
@@ -34,9 +35,9 @@ class NavigationState:
         panels.pop('main', None)
         return replace(self, active_panel='chooser', panel_ids=panels)
 
-    def publish_main_hint(self, message_id, labels):
-        return self.retire(self.panel_ids.get('main_hint'), keyboard_id=message_id,
-                           keyboard_labels=labels, panel_ids={**self.panel_ids, 'main_hint': message_id})
+    def publish_main_hint(self, message_id, keyboard_changes):
+        return self.retire(self.panel_ids.get('main_hint'),
+                           panel_ids={**self.panel_ids, 'main_hint': message_id}, **keyboard_changes)
 
     def retire(self, message_id, **changes):
         ids = self.stale_ids if message_id is None or message_id in self.stale_ids else (*self.stale_ids, message_id)
@@ -74,20 +75,20 @@ class Navigation:
             return NavigationState()
         return NavigationState(row['active_id'], row['animation'], row['keyboard_id'],
                                tuple(row['keyboard_labels']), tuple(row['stale_ids']),
-                               row['active_panel'], json.loads(row['panel_ids']))
+                               row['active_panel'], json.loads(row['panel_ids']), row['keyboard_revision'])
 
     async def save(self, chat, state):
         if self.pool is None:
             self.memory[chat] = state
             return
         await self.pool.execute("""
-            INSERT INTO telegram_navigation(chat_id,active_id,animation,keyboard_id,keyboard_labels,stale_ids,active_panel,panel_ids)
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+            INSERT INTO telegram_navigation(chat_id,active_id,animation,keyboard_id,keyboard_labels,stale_ids,active_panel,panel_ids,keyboard_revision)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
             ON CONFLICT(chat_id) DO UPDATE SET active_id=excluded.active_id,animation=excluded.animation,
                 keyboard_id=excluded.keyboard_id,keyboard_labels=excluded.keyboard_labels,stale_ids=excluded.stale_ids,
-                active_panel=excluded.active_panel,panel_ids=excluded.panel_ids
+                active_panel=excluded.active_panel,panel_ids=excluded.panel_ids,keyboard_revision=excluded.keyboard_revision
             """, chat, state.active_id, state.animation, state.keyboard_id, state.keyboard_labels, state.stale_ids,
-                 state.active_panel, json.dumps(state.panel_ids))
+                 state.active_panel, json.dumps(state.panel_ids), state.keyboard_revision)
 
     async def cleanup(self, chat, state, *, only=None):
         remaining = []

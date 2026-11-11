@@ -97,11 +97,16 @@ def store_rows():
     rows.extend([[('📁 Мои работы','history:0')],[(STORE_SECTIONS['chat'][0],'slist:current:chat:0')]])
     return rows
 
+# Re-send the keyboard once when its options change for existing chats.
+KEYBOARD_REVISION = 1
+CHOOSER_HINT = 'Выберите агрегатор ниже.'
+
+
 def menu(*,admin_rates=False,balance=None):
     labels=[MENU[0],MENU[1],balance or MENU[2],MENU[3]]
     labels.insert(3,TOPUP_MENU)
     if admin_rates:labels.insert(4,RUBLE_MENU)
-    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=True)
+    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=False,one_time_keyboard=False)
 
 class TelegramApp:
     def __init__(self,pool,cfg,bot,*,providers=None):
@@ -162,7 +167,7 @@ class TelegramApp:
         async with self.navigation.serial(chat):
             state=await self.navigation.read(chat)
             labels=tuple(row[0].text for row in markup.keyboard)
-            if not force and state.keyboard_labels==labels:
+            if not force and state.keyboard_revision==KEYBOARD_REVISION and state.keyboard_labels==labels:
                 return
             try:
                 message=await self.bot.send_message(chat,text,reply_markup=markup)
@@ -171,7 +176,7 @@ class TelegramApp:
                     raise
                 return
             await self.navigation.save(chat,state.retire(state.keyboard_id,keyboard_id=message.message_id,
-                                                         keyboard_labels=labels))
+                                                         keyboard_labels=labels,keyboard_revision=KEYBOARD_REVISION))
 
     async def refresh_balance_keyboard(self,chat):
         await self.navigation_keyboard(chat,'Главное меню',await self.reply_menu(chat))
@@ -214,9 +219,16 @@ class TelegramApp:
                 return
 
             hint=None
+            keyboard_changes={}
             if keyboard_text is not None:
                 keyboard=await self.reply_menu(chat)
-                hint=await self.bot.send_message(chat,keyboard_text,reply_markup=keyboard)
+                labels=tuple(row[0].text for row in keyboard.keyboard)
+                if state.keyboard_revision!=KEYBOARD_REVISION or state.keyboard_labels!=labels:
+                    hint=await self.bot.send_message(chat,keyboard_text,reply_markup=keyboard)
+                    keyboard_changes=dict(keyboard_id=hint.message_id,keyboard_labels=labels,
+                                          keyboard_revision=KEYBOARD_REVISION)
+                elif keyboard_text!=CHOOSER_HINT:
+                    hint=await self.bot.send_message(chat,keyboard_text)
             try:
                 message=None
                 if animation is not None:
@@ -244,7 +256,7 @@ class TelegramApp:
             old_main={state.panel_ids.get('chooser'),state.panel_ids.get('main_hint')}
             state=state.publish(message.message_id,animation_key,panel)
             if hint is not None:
-                state=state.publish_main_hint(hint.message_id,tuple(row[0].text for row in keyboard.keyboard))
+                state=state.publish_main_hint(hint.message_id,keyboard_changes)
             await self.navigation.save(chat,state)
             await self.navigation.cleanup(chat,state,only=old_main if panel=='chooser' else None)
 
@@ -945,7 +957,7 @@ class TelegramApp:
                     return
             await self.svc.save_welcome_message(ext,message.message_id)
             labels=tuple(row[0].text for row in markup.keyboard)
-            await self.navigation.save(ext,state.retire(state.keyboard_id,keyboard_id=None,keyboard_labels=labels))
+            await self.navigation.save(ext,state.retire(state.keyboard_id,keyboard_id=None,keyboard_labels=labels,keyboard_revision=KEYBOARD_REVISION))
             if previous is not None and previous!=message.message_id:
                 try:
                     await self.bot.delete_message(ext,previous)
@@ -965,7 +977,7 @@ class TelegramApp:
 
     async def open_aggregators(self,user,ext):
         await self.svc.conversation(user,'home')
-        await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.',panel='chooser')
+        await self.show_providers(ext,keyboard_text=CHOOSER_HINT,panel='chooser')
 
     async def delete_keyboard_input(self,message):
         # Plain reply buttons arrive as text. Skip forwarded or quoted content when marked.

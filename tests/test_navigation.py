@@ -201,9 +201,10 @@ async def exercise_fresh_aggregators(pool,cfg,admin):
         if previous:
             actions=bot.events[start:]
             deleted={item[1] for item in actions if item[0]=='delete'}
-            assert deleted==set(previous)|({number} if text==MENU[0] else set())
-            assert all(actions.index(('new_id',card))<actions.index(('delete',old,card))
-                       for old in previous)
+            assert hint==previous[1]
+            assert ('send','keyboard') not in actions
+            assert deleted=={previous[0]}|({number} if text==MENU[0] else set())
+            assert actions.index(('new_id',card))<actions.index(('delete',previous[0],card))
         return card,hint
 
     await send(1,'/start')
@@ -211,10 +212,14 @@ async def exercise_fresh_aggregators(pool,cfg,admin):
         await send(2,'/admin')
         await send(3,cfg.admin_password)
         assert app.has_admin_session(100)
+    state=await app.navigation.read(100)
+    await app.navigation.save(100,replace(state,keyboard_revision=0))
     previous=await open_and_check(4,'/menu')
-    await send(5,'/start')
+    keyboard=bot.messages[previous[1]][2]
+    assert keyboard.resize_keyboard is True
+    assert keyboard.is_persistent is False
+    assert keyboard.one_time_keyboard is False
     welcome=await app.svc.welcome_message(100)
-    assert await active()==previous[0]<welcome
     previous=await open_and_check(6,'/menu',previous)
     assert previous[0]>welcome
     previous=await open_and_check(7,MENU[0],previous)
@@ -232,9 +237,7 @@ async def exercise_fresh_aggregators(pool,cfg,admin):
     with pytest.raises(TelegramNetworkError):
         await send(11,'/menu')
     failed=bot.events[start:]
-    assert failed[0]==('send','keyboard')
-    assert failed[2:4]==[('send','gif'),('send_failed','gif')]
-    assert failed[4:]==[('delete',failed[1][1],previous[0])]
+    assert failed==[('send','gif'),('send_failed','gif')]
     assert await active()==previous[0]
     assert all(message_id in bot.messages for message_id in (*previous,works,welcome))
     assert (await app.navigation.read(100)).panel_ids['main_hint']==previous[1]
@@ -244,7 +247,7 @@ async def exercise_fresh_aggregators(pool,cfg,admin):
     assert await active()==latest.panel_ids['chooser']
     assert [i for i,(_,text,_) in bot.messages.items()
             if text=='Выберите агрегатор ниже.']==[latest.panel_ids['main_hint']]
-    assert all(message_id not in bot.messages for message_id in previous)
+    assert previous[0] not in bot.messages and previous[1] in bot.messages
     print('CHOOSER_REPLACEMENT',{'admin':admin,'card':previous[0],'hint':previous[1],
                                  'works':works,'failed':failed},flush=True)
 
