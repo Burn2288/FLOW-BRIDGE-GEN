@@ -945,10 +945,13 @@ class TelegramApp:
         state=await self.navigation.read(ext)
         if previous is None or replace_welcome:
             markup=await self.reply_menu(ext)
+            keyboard_on_welcome=not replace_welcome
             try:
                 photo=BufferedInputFile(await asyncio.to_thread(WELCOME_BANNER.read_bytes),filename='welcome.png')
-                message=await self.bot.send_photo(ext,photo,caption=WELCOME_TEXT,reply_markup=markup)
+                message=await self.bot.send_photo(ext,photo,caption=WELCOME_TEXT,
+                                                  reply_markup=markup if keyboard_on_welcome else None)
             except (OSError,ClientDecodeError,TelegramAPIError):
+                keyboard_on_welcome=True
                 try:
                     message=await self.bot.send_message(ext,WELCOME_TEXT,reply_markup=markup)
                 except (ClientDecodeError,TelegramAPIError):
@@ -956,8 +959,15 @@ class TelegramApp:
                         raise
                     return
             await self.svc.save_welcome_message(ext,message.message_id)
-            labels=tuple(row[0].text for row in markup.keyboard)
-            await self.navigation.save(ext,state.retire(state.keyboard_id,keyboard_id=None,keyboard_labels=labels,keyboard_revision=KEYBOARD_REVISION))
+            if keyboard_on_welcome:
+                labels=tuple(row[0].text for row in markup.keyboard)
+                await self.navigation.save(ext,state.retire(state.keyboard_id,keyboard_id=None,
+                                                           keyboard_labels=labels,keyboard_revision=KEYBOARD_REVISION))
+            else:
+                try:
+                    await self.navigation_keyboard(ext,'Главное меню',markup,force=True)
+                except (ClientDecodeError,TelegramAPIError):
+                    pass
             if previous is not None and previous!=message.message_id:
                 try:
                     await self.bot.delete_message(ext,previous)

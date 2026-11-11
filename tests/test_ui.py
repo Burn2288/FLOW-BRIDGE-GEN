@@ -181,7 +181,8 @@ async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels
         ]
 
     await app.handle(event('/start'))
-    check_keyboard(bot.photos[-1][2],'💳 0 токенов')
+    assert bot.photos[-1][2] is None
+    check_keyboard(bot.sent[-1][1],'💳 0 токенов')
     await app.pricing.set_ruble_rate(user,100,'100','10')
     await app.handle(event('💳 Баланс'))
     check_keyboard(bot.sent[-2][1],'💳 0 токенов ≈ 0 ₽')
@@ -222,8 +223,9 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
         error=TelegramBadRequest(SendAnimation(chat_id=100,animation='fixture'),'fixture')
         b.send_animation=AsyncMock(side_effect=error)
     await a.handle(event('/start'))
+    assert b.photos[-1][2] is None
+    keyboard=b.sent[-1][1]
     await a.handle(event(MENU[0]))
-    keyboard=b.photos[-1][2]
     assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]]
     first=(await a.navigation.read(100)).active_id
     text,markup=b.sent[-1]

@@ -212,7 +212,12 @@ async def exercise_fresh_aggregators(pool,cfg,admin):
         await send(2,'/admin')
         await send(3,cfg.admin_password)
         assert app.has_admin_session(100)
+    start=len(bot.events)
+    await send(5,'/start')
     state=await app.navigation.read(100)
+    assert bot.events[start:].count(('send','keyboard'))==1
+    assert bot.messages[state.keyboard_id][1]=='Главное меню'
+    assert bot.messages[await app.svc.welcome_message(100)][2] is None
     await app.navigation.save(100,replace(state,keyboard_revision=0))
     previous=await open_and_check(4,'/menu')
     keyboard=bot.messages[previous[1]][2]
