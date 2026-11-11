@@ -196,33 +196,56 @@ class TelegramApp:
         return True
 
     async def catalogue_screen(self, chat, text, markup=None, *, animation=None,
-                               keyboard_text=None, force_keyboard=False, fresh_panel=False, panel=None):
+                               keyboard_text=None, fresh_panel=False, panel=None):
         async with self.navigation.serial(chat):
-            if keyboard_text is not None:
-                await self.navigation_keyboard(chat,keyboard_text,await self.reply_menu(chat),force=force_keyboard)
             state=await self.navigation.read(chat)
-            source = self.panel_source.get()
+            source=self.panel_source.get()
             if panel is None and source is not None and source != state.active_id:
-                panel = next((name for name, message_id in state.panel_ids.items() if message_id == source), None)
-            fresh_panel = fresh_panel or panel is not None
+                panel=next((name for name,message_id in state.panel_ids.items()
+                            if name not in ('chooser','main_hint') and message_id==source),None)
+            if panel is None and (source==state.panel_ids.get('chooser') and source is not None
+                                  or state.active_panel=='chooser'):
+                panel='chooser_detail'
+            replace_main=panel=='chooser' and (keyboard_text is not None or state.active_panel!='chooser')
+            fresh_panel=(fresh_panel or replace_main or
+                         (panel is not None and panel!='chooser'))
             animation_key=str(animation) if animation is not None else None
             if not fresh_panel and await self.edit_panel(chat,state,text,markup,animation_key):
                 return
-            message=None
-            if animation is not None:
-                try:
-                    data=await asyncio.to_thread(animation.read_bytes)
-                    message=await self.bot.send_animation(chat,BufferedInputFile(data,filename=animation.name),
-                                                          caption=text,reply_markup=markup)
-                except (OSError,TelegramBadRequest):
-                    if not fresh_panel and await self.edit_panel(chat,state,text,markup,None):
-                        return
-            if message is None:
-                message=await self.say(chat,text,markup)
-                animation_key=None
+
+            hint=None
+            if keyboard_text is not None:
+                keyboard=await self.reply_menu(chat)
+                hint=await self.bot.send_message(chat,keyboard_text,reply_markup=keyboard)
+            try:
+                message=None
+                if animation is not None:
+                    try:
+                        data=await asyncio.to_thread(animation.read_bytes)
+                        message=await self.bot.send_animation(chat,BufferedInputFile(data,filename=animation.name),
+                                                              caption=text,reply_markup=markup)
+                    except (OSError,TelegramBadRequest):
+                        if not fresh_panel and await self.edit_panel(chat,state,text,markup,None):
+                            return
+                if message is None:
+                    message=await self.say(chat,text,markup)
+                    animation_key=None
+            except (ClientDecodeError,TelegramAPIError):
+                if hint is not None:
+                    try:
+                        await self.bot.delete_message(chat,hint.message_id)
+                    except (ClientDecodeError,TelegramAPIError):
+                        pass
+                raise
+
+            if panel=='chooser' and state.active_panel=='main' and state.animation==str(AGGREGATORS_ANIMATION):
+                state=state.adopt_legacy_chooser()
+            old_main={state.panel_ids.get('chooser'),state.panel_ids.get('main_hint')}
             state=state.publish(message.message_id,animation_key,panel)
+            if hint is not None:
+                state=state.publish_main_hint(hint.message_id,tuple(row[0].text for row in keyboard.keyboard))
             await self.navigation.save(chat,state)
-            await self.navigation.cleanup(chat,state)
+            await self.navigation.cleanup(chat,state,only=old_main if panel=='chooser' else None)
 
     async def open_work(self,u,ext,kind,job,*,prompt_only=False,show_prompt=False):
         work=await getattr(self.svc,f'{kind}_work')(u,job)
@@ -333,7 +356,7 @@ class TelegramApp:
                 except Rejected as error:
                     await self.say(ext,str(error))
                 else:
-                    await self.show_providers(ext,keyboard_text='Вход выполнен на 8 часов.',force_keyboard=True,panel='main')
+                    await self.show_providers(ext,keyboard_text='Вход выполнен на 8 часов.',panel='chooser')
             else:
                 feedback={'incorrect':'Неверный пароль. Попробуйте ещё раз.',
                           'locked':'Слишком много попыток. Попробуйте позже.',
@@ -355,7 +378,7 @@ class TelegramApp:
                 except Rejected as error:
                     await self.say(ext,str(error),menu())
                 else:
-                    await self.show_providers(ext,keyboard_text='Вы вышли из админки.',force_keyboard=True,panel='main')
+                    await self.show_providers(ext,keyboard_text='Вы вышли из админки.',panel='chooser')
             elif not password:
                 await self.say(ext,'Админ-доступ закрыт.')
             elif len(words)>1:
@@ -494,7 +517,7 @@ class TelegramApp:
                 return
             if aggregator_menu:
                 from_keyboard=text==MENU[0]
-                await self.open_aggregators(u,ext,force_keyboard=not from_keyboard)
+                await self.open_aggregators(u,ext)
                 if from_keyboard:
                     await self.delete_keyboard_input(update.message)
                 return
@@ -939,16 +962,16 @@ class TelegramApp:
         number=list(titles).index(key)+1 if key in titles else None
         return f'Агрегатор {number}' if number else 'Агрегатор'
 
-    async def open_aggregators(self,user,ext,*,force_keyboard=True):
+    async def open_aggregators(self,user,ext):
         await self.svc.conversation(user,'home')
-        await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.',force_keyboard=force_keyboard,panel='main')
+        await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.',panel='chooser')
 
     async def delete_keyboard_input(self,message):
         # Plain reply buttons arrive as text. Skip forwarded or quoted content when marked.
         if not (message.forward_origin or message.reply_to_message or message.quote):
             await self.delete_input_message(message)
 
-    async def show_providers(self,ext,*,keyboard_text=None,force_keyboard=False,fresh_panel=False,panel=None):
+    async def show_providers(self,ext,*,keyboard_text=None,panel='chooser'):
         admin=self.has_admin_session(ext)
         text=self.cfg.brand+'\nВыберите агрегатор.'
         if admin:
@@ -973,7 +996,7 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),
                                     animation=AGGREGATORS_ANIMATION,keyboard_text=keyboard_text,
-                                    force_keyboard=force_keyboard,fresh_panel=fresh_panel,panel=panel)
+                                    panel=panel)
 
     def registered_pilot(self,ext,key):
         pilot=self.providers.launches.get(key)

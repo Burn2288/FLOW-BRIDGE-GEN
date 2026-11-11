@@ -51,13 +51,16 @@ async def test_admin_aggregator_menu_routes_and_permissions(env, tmp_path):
     chooser=bot.sent[-1]
     animation=bot.animations[-1].data
     for command in ('/menu','/menu@FixtureBot'):
+        before=await app.navigation.read(100)
         await click('AnyModel')
         await click('🎆 Генерировать изображение')
         await click('FIBO 2')
         card=(await app.navigation.read(100)).active_id
         await app.handle(event(command))
         assert bot.sent[-1]==chooser and bot.animations[-1].data==animation
-        assert card in bot.deleted and welcome not in bot.deleted
+        assert before.panel_ids['chooser'] in bot.deleted
+        assert before.panel_ids['main_hint'] in bot.deleted
+        assert card not in bot.deleted and welcome not in bot.deleted
         assert await app.svc.welcome_message(100)==welcome
 
     expected={

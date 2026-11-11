@@ -21,11 +21,22 @@ class NavigationState:
     panel_ids: dict[str, int] = field(default_factory=dict)
 
     def publish(self, message_id, animation, panel=None):
-        slot = panel or self.active_panel
-        previous = self.panel_ids.get(slot) if panel else self.active_id
+        slot = panel or (None if self.active_panel == 'chooser' else self.active_panel)
+        previous = self.panel_ids.get(slot) if panel else (
+            None if self.active_panel == 'chooser' else self.active_id
+        )
         panels = {**self.panel_ids, slot: message_id} if slot else self.panel_ids
         return self.retire(previous, active_id=message_id, animation=animation,
                            active_panel=slot, panel_ids=panels)
+
+    def adopt_legacy_chooser(self):
+        panels = {**self.panel_ids, 'chooser': self.active_id}
+        panels.pop('main', None)
+        return replace(self, active_panel='chooser', panel_ids=panels)
+
+    def publish_main_hint(self, message_id, labels):
+        return self.retire(self.panel_ids.get('main_hint'), keyboard_id=message_id,
+                           keyboard_labels=labels, panel_ids={**self.panel_ids, 'main_hint': message_id})
 
     def retire(self, message_id, **changes):
         ids = self.stale_ids if message_id is None or message_id in self.stale_ids else (*self.stale_ids, message_id)
@@ -78,10 +89,13 @@ class Navigation:
             """, chat, state.active_id, state.animation, state.keyboard_id, state.keyboard_labels, state.stale_ids,
                  state.active_panel, json.dumps(state.panel_ids))
 
-    async def cleanup(self, chat, state):
+    async def cleanup(self, chat, state, *, only=None):
         remaining = []
         for message_id in state.stale_ids:
             if message_id in (state.active_id, state.keyboard_id) or message_id in state.panel_ids.values():
+                continue
+            if only is not None and message_id not in only:
+                remaining.append(message_id)
                 continue
             try:
                 if await self.bot.delete_message(chat, message_id):

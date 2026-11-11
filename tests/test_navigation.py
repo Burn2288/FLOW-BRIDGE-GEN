@@ -92,7 +92,7 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
     async def panel(*,admin=False):
         state=await app.navigation.read(100)
         panels={key for key,(_,_,markup) in bot.messages.items() if hasattr(markup,'inline_keyboard')}
-        assert panels=={state.active_id}
+        assert state.active_id in panels
         markup=bot.messages[state.active_id][2]
         labels=[button.text for row in markup.inline_keyboard for button in row]
         assert ('Тарифы моделей' in labels or '⚙️ Управление агрегатором' in labels)==admin
@@ -106,10 +106,9 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
         state=await panel(admin=admin)
         assert state.active_id!=old
         actions=bot.events[start:]
-        if old is not None:
+        if ('delete',old,state.active_id) in actions:
             cleanup=actions.index(('delete',old,state.active_id))
             assert actions.index(('new_id',state.active_id))<cleanup
-            assert any(event[0]=='send' for event in actions[:cleanup])
         print('NAV_REPLACEMENT',actions,flush=True)
         return state
 
@@ -157,7 +156,7 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
     count=len(bot.events)
     await asyncio.gather(send(callback='am'),send(callback='providers'),send(callback='agroot:clodex'))
     assert bot.messages[(await panel()).active_id][1].startswith('Агрегатор 1')
-    assert sum(action[0]=='delete' for action in bot.events[count:])==4
+    assert (await app.navigation.read(100)).panel_ids['chooser'] in bot.messages
     assert all(message_id in bot.messages for message_id in protected)
     assert [action[1] for action in bot.events if action[0]=='delete' and action[1]<1000]==[password_id]
     print('NAV_RAPID',bot.events[count:],flush=True)
@@ -182,8 +181,8 @@ async def exercise_fresh_aggregators(pool,cfg,admin):
 
     async def active():
         state=await app.navigation.read(100)
-        assert [i for i,(_,_,markup) in bot.messages.items()
-                if hasattr(markup,'inline_keyboard')]==[state.active_id]
+        assert [i for i,(_,text,markup) in bot.messages.items()
+                if hasattr(markup,'inline_keyboard') and 'Выберите агрегатор.' in text]==[state.active_id]
         markup=bot.messages[state.active_id][2]
         labels=[button.text for row in markup.inline_keyboard for button in row]
         assert ('Тарифы моделей' in labels)==admin
@@ -191,48 +190,63 @@ async def exercise_fresh_aggregators(pool,cfg,admin):
         assert ('AnyModel' if admin else 'Агрегатор 2') in labels
         return state.active_id
 
-    def replacement(old,new,input_id):
-        return [('send','gif'),('new_id',new),('delete',old,new),('delete',input_id,new)]
+    async def open_and_check(number,text,previous=None):
+        start=len(bot.events)
+        await send(number,text)
+        state=await app.navigation.read(100)
+        card=await active()
+        hint=state.panel_ids['main_hint']
+        assert bot.messages[hint][1]=='Выберите агрегатор ниже.'
+        assert hint<card
+        if previous:
+            actions=bot.events[start:]
+            deleted={item[1] for item in actions if item[0]=='delete'}
+            assert deleted==set(previous)|({number} if text==MENU[0] else set())
+            assert all(actions.index(('new_id',card))<actions.index(('delete',old,card))
+                       for old in previous)
+        return card,hint
 
     await send(1,'/start')
     if admin:
         await send(2,'/admin')
         await send(3,cfg.admin_password)
         assert app.has_admin_session(100)
-    await send(4,MENU[0])
-    old=await active()
+    previous=await open_and_check(4,'/menu')
     await send(5,'/start')
     welcome=await app.svc.welcome_message(100)
-    assert await active()==old<welcome
-    stale=(await app.navigation.read(100)).stale_ids
-
-    start=len(bot.events)
-    await send(6,MENU[0])
-    new=await active()
-    assert new>welcome and old not in bot.messages and welcome in bot.messages
-    after_start=bot.events[start:]
-    assert after_start==[('send','gif'),('new_id',new),
-                         *(('delete',message_id,new) for message_id in stale),
-                         ('delete',old,new),('delete',6,new)]
-
-    start=len(bot.events)
-    await asyncio.gather(send(7,MENU[0]),send(8,MENU[0]))
-    latest=await active()
-    rapid=bot.events[start:]
-    intermediate=rapid[1][1]
-    assert new<intermediate<latest
-    assert rapid==replacement(new,intermediate,7)+replacement(intermediate,latest,8)
+    assert await active()==previous[0]<welcome
+    previous=await open_and_check(6,'/menu',previous)
+    assert previous[0]>welcome
+    previous=await open_and_check(7,MENU[0],previous)
+    await app.handle(event(8,callback='am'))
+    provider=(await app.navigation.read(100)).active_id
+    assert provider!=previous[0]
+    assert all(message_id in bot.messages for message_id in previous)
+    await send(9,MENU[1])
+    works=(await app.navigation.read(100)).active_id
+    previous=await open_and_check(10,'/menu',previous)
+    assert works in bot.messages
 
     start=len(bot.events)
     bot.fail_animation=True
     with pytest.raises(TelegramNetworkError):
-        await send(9,MENU[0])
+        await send(11,'/menu')
     failed=bot.events[start:]
-    assert failed==[('send','gif'),('send_failed','gif')]
-    assert await active()==latest
-    assert await app.svc.welcome_message(100)==welcome and welcome in bot.messages
-    print('AGGREGATORS_FRESH',{'admin':admin,'old':old,'welcome':welcome,'after_start':after_start,
-                              'rapid':rapid,'failed':failed,'active':latest},flush=True)
+    assert failed[0]==('send','keyboard')
+    assert failed[2:4]==[('send','gif'),('send_failed','gif')]
+    assert failed[4:]==[('delete',failed[1][1],previous[0])]
+    assert await active()==previous[0]
+    assert all(message_id in bot.messages for message_id in (*previous,works,welcome))
+    assert (await app.navigation.read(100)).panel_ids['main_hint']==previous[1]
+    bot.fail_animation=False
+    await asyncio.gather(send(12,MENU[0]),send(13,'/menu'))
+    latest=await app.navigation.read(100)
+    assert await active()==latest.panel_ids['chooser']
+    assert [i for i,(_,text,_) in bot.messages.items()
+            if text=='Выберите агрегатор ниже.']==[latest.panel_ids['main_hint']]
+    assert all(message_id not in bot.messages for message_id in previous)
+    print('CHOOSER_REPLACEMENT',{'admin':admin,'card':previous[0],'hint':previous[1],
+                                 'works':works,'failed':failed},flush=True)
 
 
 @pytest.mark.parametrize('admin',[False,True])
@@ -287,7 +301,7 @@ async def exercise_reply_keyboard(pool,cfg,user,admin,populated):
 
     async def panel():
         state=await app.navigation.read(100)
-        assert {i for i,(_,_,markup) in bot.messages.items() if hasattr(markup,'inline_keyboard')}==set(state.panel_ids.values())
+        assert {i for i,(_,_,markup) in bot.messages.items() if hasattr(markup,'inline_keyboard')}=={message_id for key,message_id in state.panel_ids.items() if key!='main_hint'}
         assert state.keyboard_id in bot.messages
         screen=bot.messages[state.active_id]
         return screen[1],{button.text:button.callback_data for row in screen[2].inline_keyboard for button in row}

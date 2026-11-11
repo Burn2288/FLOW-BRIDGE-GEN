@@ -112,7 +112,7 @@ async def test_welcome_consent_start_and_menu():
         assert back==('providers' if label==MENU[1] else 'home')
         await a.handle(event(callback=back))
         state=await a.navigation.read(100)
-        assert state.active_id==state.panel_ids['main']
+        assert state.active_id==state.panel_ids['chooser']
         assert state.active_id!=temporary
         assert (temporary in b.deleted)==(label==MENU[0])
     assert len(b.photos)==1 and 1001 not in b.deleted
@@ -238,7 +238,7 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
                for row in markup.inline_keyboard for button in row)
     if not rejected:
         assert b.animations[0].data==telegram.AGGREGATORS_ANIMATION.read_bytes()
-        assert first in b.deleted
+        assert first not in b.deleted
     await a.handle(event(callback='providers'))
     second=(await a.navigation.read(100)).active_id
     assert second!=first and first in b.deleted
