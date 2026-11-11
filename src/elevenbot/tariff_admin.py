@@ -61,8 +61,8 @@ class TariffAdmin:
     def __init__(self, app, keyboard):
         self.app, self.keyboard = app, keyboard
 
-    async def screen(self,ext,text,rows):
-        await self.app.catalogue_screen(ext,text,self.keyboard(rows))
+    async def screen(self,ext,text,rows,*,panel=None):
+        await self.app.catalogue_screen(ext,text,self.keyboard(rows),panel=panel)
 
     async def authorize(self,user,ext):
         if self.app.cfg.access_mode!='private' or not self.app.has_admin_session(ext):
@@ -347,7 +347,7 @@ class TariffAdmin:
         rows += [[('↻ Проверить источник',f'tariffinspect:{code}')],self.back(state)]
         await self.screen(ext,text,rows)
 
-    async def rates(self,user,ext,route,arg,*,sample=None):
+    async def rates(self,user,ext,route,arg,*,sample=None,panel=None):
         pricing = self.app.pricing
         if route=='rates':
             if arg not in pricing.adapters:
@@ -364,7 +364,7 @@ class TariffAdmin:
             rate = await self.app.pool.fetchrow('SELECT bot_amount,rubles FROM task_ruble_equivalent WHERE id=1')
             value = f"{decimal_text(rate['bot_amount'])} {BOT_UNIT} = {decimal_text(rate['rubles'])} ₽" if rate else 'Курс не настроен'
             await self.app.svc.aggregate_context(user,{'price_rate':{'code':code,'ruble':True}})
-            await self.screen(ext,f'{RUBLE_MENU}\n{value}\n/ruble_set {code} ТОКЕНЫ РУБЛИ',[[('Главное меню','home')]])
+            await self.screen(ext,f'{RUBLE_MENU}\n{value}\n/ruble_set {code} ТОКЕНЫ РУБЛИ',[[('Главное меню','home')]],panel=panel)
             return
         provider,unit = arg.split(':',1)
         if provider not in pricing.adapters or not unit or unit==BOT_TOKEN or len(arg.encode())>55:

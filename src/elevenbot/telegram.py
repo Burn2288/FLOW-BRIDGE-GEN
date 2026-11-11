@@ -1,3 +1,4 @@
+from contextvars import ContextVar
 """Telegram transport. Durable inbox polling; business rules live in core."""
 import asyncio,hashlib,json,re,time
 from datetime import datetime,timezone
@@ -128,6 +129,7 @@ class TelegramApp:
         self.broadcasts = BroadcastUI(self,Broadcasts(pool),buttons)
         self.topups = Topups(pool,cfg)
         self.topup_ui = TopupUI(self,buttons)
+        self.panel_source = ContextVar("panel_source", default=None)
     async def say(self,chat,text,markup=None):
         if not isinstance(markup,ReplyKeyboardMarkup):
             return await self.bot.send_message(chat,text,reply_markup=markup)
@@ -165,6 +167,8 @@ class TelegramApp:
             try:
                 message=await self.bot.send_message(chat,text,reply_markup=markup)
             except (ClientDecodeError,TelegramAPIError):
+                if force:
+                    raise
                 return
             await self.navigation.save(chat,state.retire(state.keyboard_id,keyboard_id=message.message_id,
                                                          keyboard_labels=labels))
@@ -192,11 +196,15 @@ class TelegramApp:
         return True
 
     async def catalogue_screen(self, chat, text, markup=None, *, animation=None,
-                               keyboard_text=None, force_keyboard=False, fresh_panel=False):
+                               keyboard_text=None, force_keyboard=False, fresh_panel=False, panel=None):
         async with self.navigation.serial(chat):
             if keyboard_text is not None:
                 await self.navigation_keyboard(chat,keyboard_text,await self.reply_menu(chat),force=force_keyboard)
             state=await self.navigation.read(chat)
+            source = self.panel_source.get()
+            if panel is None and source is not None and source != state.active_id:
+                panel = next((name for name, message_id in state.panel_ids.items() if message_id == source), None)
+            fresh_panel = fresh_panel or panel is not None
             animation_key=str(animation) if animation is not None else None
             if not fresh_panel and await self.edit_panel(chat,state,text,markup,animation_key):
                 return
@@ -212,7 +220,7 @@ class TelegramApp:
             if message is None:
                 message=await self.say(chat,text,markup)
                 animation_key=None
-            state=state.retire(state.active_id,active_id=message.message_id,animation=animation_key)
+            state=state.publish(message.message_id,animation_key,panel)
             await self.navigation.save(chat,state)
             await self.navigation.cleanup(chat,state)
 
@@ -307,7 +315,7 @@ class TelegramApp:
         eligible=ext in self.cfg.admin_ids
         # Navigating away abandons the challenge so the next prompt stays a user request.
         user_navigation=bool(update.callback_query or command.startswith('/') or text in MENU
-                             or text==OPEN_CATALOGUE or BALANCE_BUTTON.fullmatch(text))
+                             or text in (OPEN_CATALOGUE, TOPUP_MENU, 'Главное меню') or BALANCE_BUTTON.fullmatch(text))
         if waiting and user_navigation and not (login_command or password_reply or literal_secret):
             self.admin_access.prompts.pop(ext,None)
             waiting=False
@@ -325,7 +333,7 @@ class TelegramApp:
                 except Rejected as error:
                     await self.say(ext,str(error))
                 else:
-                    await self.show_providers(ext,keyboard_text='Вход выполнен на 8 часов.',force_keyboard=True)
+                    await self.show_providers(ext,keyboard_text='Вход выполнен на 8 часов.',force_keyboard=True,panel='main')
             else:
                 feedback={'incorrect':'Неверный пароль. Попробуйте ещё раз.',
                           'locked':'Слишком много попыток. Попробуйте позже.',
@@ -347,7 +355,7 @@ class TelegramApp:
                 except Rejected as error:
                     await self.say(ext,str(error),menu())
                 else:
-                    await self.show_providers(ext,keyboard_text='Вы вышли из админки.',force_keyboard=True)
+                    await self.show_providers(ext,keyboard_text='Вы вышли из админки.',force_keyboard=True,panel='main')
             elif not password:
                 await self.say(ext,'Админ-доступ закрыт.')
             elif len(words)>1:
@@ -446,7 +454,7 @@ class TelegramApp:
                 if command in ADMIN_COMMANDS or text in (RUBLE_MENU,'🧩 Модели','🛠 Функции'):
                     await self.say(ext,self.admin_denial(ext),menu())
                     return
-            aggregator_menu=text==MENU[0] or command=='/menu'
+            aggregator_menu=text in (MENU[0],'Главное меню') or command=='/menu'
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
@@ -460,7 +468,11 @@ class TelegramApp:
                     if not any(reason in str(error).lower() for reason in ('query is too old', 'query id is invalid')):
                         raise
                 catalogue_callback = data=='accept' or data=='providers' or data.partition(':')[0] in SCREEN_CALLBACKS
-                await self.callback(u,ext,data,request_id=update.update_id)
+                source = self.panel_source.set(e.message.message_id if e.message else None)
+                try:
+                    await self.callback(u,ext,data,request_id=update.update_id)
+                finally:
+                    self.panel_source.reset(source)
                 return
             if text==OPEN_CATALOGUE:
                 await self.svc.conversation(u,'home')
@@ -482,7 +494,7 @@ class TelegramApp:
                 return
             if aggregator_menu:
                 from_keyboard=text==MENU[0]
-                await self.open_aggregators(u,ext,fresh_panel=from_keyboard)
+                await self.open_aggregators(u,ext,force_keyboard=not from_keyboard)
                 if from_keyboard:
                     await self.delete_keyboard_input(update.message)
                 return
@@ -505,7 +517,8 @@ class TelegramApp:
             if command in RATE_COMMANDS:
                 await self.tariffs.rate_command(u,ext,command,text.split()[1:]);return
             if text==RUBLE_MENU:
-                await self.tariffs.callback(u,ext,'rublerate','')
+                await self.tariffs.authorize(u,ext)
+                await self.tariffs.rates(u,ext,'rublerate','',panel='ruble')
                 await self.delete_keyboard_input(update.message)
                 return
             if command in ('/markup','/price_rate','/price_report','/price_account','/tariff','/voice_tariff','/tariff_set','/tariff_scope'):
@@ -641,7 +654,7 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,'Выберите голос.' if voices else 'Проверенные голоса пока не подключены.',buttons(rows))
 
-    async def history(self,u,ext,page=0,*,model=None):
+    async def history(self,u,ext,page=0,*,model=None,panel=None):
         await self.svc.conversation(u,'home')
         model_id,origin=model if model else (None,'history')
         music_providers=[key for key in self.providers.interactive if self.registered_pilot(ext,key)]
@@ -676,10 +689,10 @@ class TelegramApp:
             back=f'mdl:{version}:{index}' if section=='dev' else f'smodel:{version}:{section}:0:{index}'
             rows.append([('← К модели',back)])
         rows.append([('Главное меню','providers')])
-        await self.catalogue_screen(ext,'\n'.join(lines),buttons(rows))
+        await self.catalogue_screen(ext,'\n'.join(lines),buttons(rows),panel=panel)
 
     async def menu_section(self,u,ext,section):
-        if section==1:await self.history(u,ext);return
+        if section==1:await self.history(u,ext,panel='works');return
         rows=[]
         if section==2:
             w=await self.svc.wallet(u)
@@ -693,7 +706,7 @@ class TelegramApp:
         else:
             text=self.cfg.brand+'\nОткройте каталог и выберите нужное действие.\n/terms /privacy /support /paysupport'
         rows.append([('Главное меню','home')])
-        await self.catalogue_screen(ext,text,buttons(rows))
+        await self.catalogue_screen(ext,text,buttons(rows),panel='balance' if section==2 else 'help')
 
     async def callback(self,u,ext,data,*,request_id=None):
         route=data.partition(':')[0]
@@ -926,16 +939,16 @@ class TelegramApp:
         number=list(titles).index(key)+1 if key in titles else None
         return f'Агрегатор {number}' if number else 'Агрегатор'
 
-    async def open_aggregators(self,user,ext,*,fresh_panel=False):
+    async def open_aggregators(self,user,ext,*,force_keyboard=True):
         await self.svc.conversation(user,'home')
-        await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.',fresh_panel=fresh_panel)
+        await self.show_providers(ext,keyboard_text='Выберите агрегатор ниже.',force_keyboard=force_keyboard,panel='main')
 
     async def delete_keyboard_input(self,message):
         # Plain reply buttons arrive as text. Skip forwarded or quoted content when marked.
         if not (message.forward_origin or message.reply_to_message or message.quote):
             await self.delete_input_message(message)
 
-    async def show_providers(self,ext,*,keyboard_text=None,force_keyboard=False,fresh_panel=False):
+    async def show_providers(self,ext,*,keyboard_text=None,force_keyboard=False,fresh_panel=False,panel=None):
         admin=self.has_admin_session(ext)
         text=self.cfg.brand+'\nВыберите агрегатор.'
         if admin:
@@ -960,7 +973,7 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),
                                     animation=AGGREGATORS_ANIMATION,keyboard_text=keyboard_text,
-                                    force_keyboard=force_keyboard,fresh_panel=fresh_panel)
+                                    force_keyboard=force_keyboard,fresh_panel=fresh_panel,panel=panel)
 
     def registered_pilot(self,ext,key):
         pilot=self.providers.launches.get(key)

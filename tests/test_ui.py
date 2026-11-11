@@ -111,8 +111,10 @@ async def test_welcome_consent_start_and_menu():
         back=b.sent[-1][1].inline_keyboard[-1][0].callback_data
         assert back==('providers' if label==MENU[1] else 'home')
         await a.handle(event(callback=back))
-        current=(await a.navigation.read(100)).active_id
-        assert current is not None and (temporary==current or temporary in b.deleted)
+        state=await a.navigation.read(100)
+        assert state.active_id==state.panel_ids['main']
+        assert state.active_id!=temporary
+        assert (temporary in b.deleted)==(label==MENU[0])
     assert len(b.photos)==1 and 1001 not in b.deleted
     await a.handle(event('/start'))
     assert len(b.photos)==2 and b.deleted.count(1001)==1
@@ -239,11 +241,11 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
         assert first in b.deleted
     await a.handle(event(callback='providers'))
     second=(await a.navigation.read(100)).active_id
-    assert (second==first)==rejected
+    assert second!=first and first in b.deleted
     await a.handle(event(callback='home'))
-    assert (await a.navigation.read(100)).active_id==second
-    assert second not in b.deleted and 1001 not in b.deleted
-    assert len(b.photos)==1 and len(b.animations)==(0 if rejected else 2)
+    assert (await a.navigation.read(100)).active_id!=second
+    assert second in b.deleted and 1001 not in b.deleted
+    assert len(b.photos)==1 and len(b.animations)==(0 if rejected else 3)
 
 async def test_UI_full_dialog():
     a,b=app()

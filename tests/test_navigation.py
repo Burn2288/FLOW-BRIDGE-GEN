@@ -123,14 +123,11 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
     old_keyboard=(await app.navigation.read(100)).keyboard_id
     await app.navigation_keyboard(100,'Выберите агрегатор ниже.',await app.reply_menu(100),force=True)
 
-    start=len(bot.events)
-    await send('/menu')
-    assert (await panel()).active_id==first.active_id
-    assert bot.events[start:]==[('edit',first.active_id)]
-    print('NAV_EDIT',bot.events[start:],flush=True)
     bot.deny_delete.add(first.active_id)
-    await replace_panel(callback='agroot:clodex')
+    await replace_panel('/menu')
     assert ('strip',first.active_id) in bot.events
+    start=len(bot.events)
+    await replace_panel(callback='agroot:clodex')
     assert old_keyboard not in bot.messages
     await replace_panel(callback='providers')
     await replace_panel(callback='am')
@@ -146,9 +143,7 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
 
     app=TelegramApp(pool,cfg,bot)
     assert len(bot.events)==count
-    await send('/menu')
-    assert (await panel()).active_id==logged_out.active_id
-    assert bot.events[count:]==[('edit',logged_out.active_id)]
+    logged_out=await replace_panel('/menu')
 
     count=len(bot.events)
     bot.fail_send=True
@@ -162,7 +157,7 @@ async def test_one_navigation_panel_across_modes_and_restart(env,tmp_path):
     count=len(bot.events)
     await asyncio.gather(send(callback='am'),send(callback='providers'),send(callback='agroot:clodex'))
     assert bot.messages[(await panel()).active_id][1].startswith('Агрегатор 1')
-    assert sum(action[0]=='delete' for action in bot.events[count:])==3
+    assert sum(action[0]=='delete' for action in bot.events[count:])==4
     assert all(message_id in bot.messages for message_id in protected)
     assert [action[1] for action in bot.events if action[0]=='delete' and action[1]<1000]==[password_id]
     print('NAV_RAPID',bot.events[count:],flush=True)
@@ -252,7 +247,7 @@ async def test_reply_keyboard_and_history_home(env,tmp_path,admin,populated):
 
 
 async def exercise_reply_keyboard(pool,cfg,user,admin,populated):
-    from aiogram.types import Document
+    from aiogram.types import Document, MessageEntity
 
     from elevenbot.interaction import MOCK_IMAGE
     from elevenbot.telegram import WELCOME_TEXT
@@ -292,7 +287,7 @@ async def exercise_reply_keyboard(pool,cfg,user,admin,populated):
 
     async def panel():
         state=await app.navigation.read(100)
-        assert [i for i,(_,_,markup) in bot.messages.items() if hasattr(markup,'inline_keyboard')]==[state.active_id]
+        assert {i for i,(_,_,markup) in bot.messages.items() if hasattr(markup,'inline_keyboard')}==set(state.panel_ids.values())
         assert state.keyboard_id in bot.messages
         screen=bot.messages[state.active_id]
         return screen[1],{button.text:button.callback_data for row in screen[2].inline_keyboard for button in row}
@@ -336,6 +331,34 @@ async def exercise_reply_keyboard(pool,cfg,user,admin,populated):
     if admin:
         assert RUBLE_MENU in (await panel())[0]
         await click('home')
+    from elevenbot.topup_ui import TOPUP_MENU
+
+    await text(TOPUP_MENU,button=True)
+    topup_text, topup_routes = await panel()
+    assert 'Пополнение баланса' in topup_text
+    await click(topup_routes['✏️ Своя сумма'])
+    assert 'topup_amount' in await app.svc.aggregate_context(user)
+    await text('/menu@DarkFlowGen_Bot')
+    assert await panel()==chooser
+    n+=1
+    command=event(n,'/menu')
+    command=command.model_copy(update={'message':command.message.model_copy(update={
+        'entities':[MessageEntity(type='bot_command',offset=0,length=5)],
+    })})
+    await app.handle(command)
+    assert await panel()==chooser
+    assert not await app.svc.aggregate_context(user)
+
+    await text(TOPUP_MENU,button=True)
+    await click((await panel())[1]['✏️ Своя сумма'])
+    previous=(await app.navigation.read(100)).panel_ids
+    await text(MENU[1],button=True)
+    current=await app.navigation.read(100)
+    assert current.panel_ids['works']!=previous['works']
+    assert previous['works'] not in bot.messages
+    assert all(bot.messages.get(message_id) for slot,message_id in previous.items() if slot!='works')
+    assert not await app.svc.aggregate_context(user)
+
     await text('/menu')
     assert await app.svc.welcome_message(100) is None
     await app.svc.save_welcome_message(100,999)
@@ -348,7 +371,7 @@ async def exercise_reply_keyboard(pool,cfg,user,admin,populated):
     await app.handle(document)
     assert not any(action[0]=='delete' and action[1]==n for action in bot.events)
     assert await app.svc.welcome_message(100)==999
-    print('MENU_ACTIONS',{'admin':admin,'populated':populated,'history_route':route,'one_panel':True,
+    print('MENU_ACTIONS',{'admin':admin,'populated':populated,'history_route':route,'one_panel_per_section':True,
                           'aggregators':aggregates,'works':works,'balance':balance,'help':help_screen,
                           'ruble':ruble_screen,'failed_input_retained':True},
           flush=True)

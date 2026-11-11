@@ -1,8 +1,9 @@
 """Track only messages published by navigation, including reply keyboard carriers."""
 
 import asyncio
+import json
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from weakref import WeakValueDictionary
 
 from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest
@@ -15,6 +16,16 @@ class NavigationState:
     keyboard_id: int | None = None
     keyboard_labels: tuple[str, ...] = ()
     stale_ids: tuple[int, ...] = ()
+
+    active_panel: str | None = None
+    panel_ids: dict[str, int] = field(default_factory=dict)
+
+    def publish(self, message_id, animation, panel=None):
+        slot = panel or self.active_panel
+        previous = self.panel_ids.get(slot) if panel else self.active_id
+        panels = {**self.panel_ids, slot: message_id} if slot else self.panel_ids
+        return self.retire(previous, active_id=message_id, animation=animation,
+                           active_panel=slot, panel_ids=panels)
 
     def retire(self, message_id, **changes):
         ids = self.stale_ids if message_id is None or message_id in self.stale_ids else (*self.stale_ids, message_id)
@@ -51,23 +62,26 @@ class Navigation:
         if row is None:
             return NavigationState()
         return NavigationState(row['active_id'], row['animation'], row['keyboard_id'],
-                               tuple(row['keyboard_labels']), tuple(row['stale_ids']))
+                               tuple(row['keyboard_labels']), tuple(row['stale_ids']),
+                               row['active_panel'], json.loads(row['panel_ids']))
 
     async def save(self, chat, state):
         if self.pool is None:
             self.memory[chat] = state
             return
         await self.pool.execute("""
-            INSERT INTO telegram_navigation(chat_id,active_id,animation,keyboard_id,keyboard_labels,stale_ids)
-            VALUES($1,$2,$3,$4,$5,$6)
+            INSERT INTO telegram_navigation(chat_id,active_id,animation,keyboard_id,keyboard_labels,stale_ids,active_panel,panel_ids)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
             ON CONFLICT(chat_id) DO UPDATE SET active_id=excluded.active_id,animation=excluded.animation,
-                keyboard_id=excluded.keyboard_id,keyboard_labels=excluded.keyboard_labels,stale_ids=excluded.stale_ids
-            """, chat, state.active_id, state.animation, state.keyboard_id, state.keyboard_labels, state.stale_ids)
+                keyboard_id=excluded.keyboard_id,keyboard_labels=excluded.keyboard_labels,stale_ids=excluded.stale_ids,
+                active_panel=excluded.active_panel,panel_ids=excluded.panel_ids
+            """, chat, state.active_id, state.animation, state.keyboard_id, state.keyboard_labels, state.stale_ids,
+                 state.active_panel, json.dumps(state.panel_ids))
 
     async def cleanup(self, chat, state):
         remaining = []
         for message_id in state.stale_ids:
-            if message_id in (state.active_id, state.keyboard_id):
+            if message_id in (state.active_id, state.keyboard_id) or message_id in state.panel_ids.values():
                 continue
             try:
                 if await self.bot.delete_message(chat, message_id):

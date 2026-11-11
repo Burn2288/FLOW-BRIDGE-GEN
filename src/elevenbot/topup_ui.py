@@ -24,8 +24,8 @@ class TopupUI:
         self.app,self.keyboard=app,keyboard
         self.payments=app.topups
 
-    async def screen(self,chat,text,rows,*,fresh=False):
-        await self.app.catalogue_screen(chat,text,self.keyboard(rows),fresh_panel=fresh)
+    async def screen(self,chat,text,rows,*,panel=None):
+        await self.app.catalogue_screen(chat,text,self.keyboard(rows),panel=panel)
 
     async def authorize(self,user,chat):
         await self.app.tariffs.authorize(user,chat)
@@ -59,7 +59,7 @@ class TopupUI:
             text+='\nТестовый кошелёк. Зачисления отдельно от общего баланса.'
         if not rate:text+='\nСтоимость токенов бота пока не настроена.'
         if self.app.cfg.topup_mode=='off':text+='\nПодключение оплаты готовится.'
-        await self.screen(chat,text,rows,fresh=fresh)
+        await self.screen(chat,text,rows,panel='topup' if fresh else None)
 
     async def order(self,user,chat,order):
         row=await self.payments.owned(user,order)
