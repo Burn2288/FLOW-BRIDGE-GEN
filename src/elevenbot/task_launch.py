@@ -24,7 +24,7 @@ class ExecutionAdapter(Protocol):
 class TaskLaunch:
     def __init__(self,pricing,adapters,*,authorize=None):
         self.pricing,self.adapters = pricing,adapters
-        self.authorize = authorize or self.authorize_pilot
+        self.authorize = authorize
 
     async def authorize_pilot(self,conn,user,external):
         # Paid pilot eligibility is independent of the Admin Edition session.
@@ -32,6 +32,24 @@ class TaskLaunch:
         if cfg.access_mode!='private' or cfg.payments_enabled or external not in cfg.admin_ids:
             raise Rejected('Тестовый запуск для этого аккаунта недоступен.')
         await self.pricing.admin(conn,user,external)
+
+    async def authorize_request(self, conn, user, external, request):
+        if self.authorize is not None:
+            await self.authorize(conn, user, external)
+            return
+        cfg = self.pricing.config
+        model_key = f'{request.provider}:{request.model}'
+        if request.operation == 'images.generate' and model_key in cfg.public_image_models:
+            from .core import Service
+            await Service(self.pricing.pool, cfg).authorize(conn, user)
+            linked = await conn.fetchval(
+                "SELECT user_id FROM identities WHERE platform='telegram' AND external_id=$1", external
+            )
+            halted = await conn.fetchval("SELECT halted FROM settings WHERE id=1 FOR SHARE")
+            if linked != user or not cfg.generation_enabled or halted is not False:
+                raise Rejected('Запуск изображения пока недоступен.')
+            return
+        await self.authorize_pilot(conn, user, external)
 
     async def confirm(self,user,external,quote_id,update_id,*,progress,background):
         pool = self.pricing.pool
@@ -44,7 +62,7 @@ class TaskLaunch:
 
         async def prepare(conn,quote):
             nonlocal adapter,prepared
-            await self.authorize(conn,user,external)
+            await self.authorize_request(conn,user,external,quote.request)
             adapter = self.adapters.get(quote.request.provider)
             if adapter is None:
                 raise Rejected('Агрегатор недоступен.')

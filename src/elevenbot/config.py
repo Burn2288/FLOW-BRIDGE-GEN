@@ -11,6 +11,7 @@ class Config:
     migration_dsn: str = ''
     generation_enabled: bool = False
     payments_enabled: bool = False
+    public_image_models: tuple[str, ...] = ()
     payment_backend: str = 'platega'
     telegram_api_base: str = ''
     catalogue_enabled: bool = False
@@ -81,6 +82,8 @@ class Config:
         c=cls(dsn=os.getenv('DATABASE_URL',cls.dsn),mode=os.getenv('PROVIDER_MODE','mock'),
               access_mode=os.getenv('ACCESS_MODE','public'),migration_dsn=os.getenv('DATABASE_MIGRATION_URL',''),
               generation_enabled=flag('GENERATION_ENABLED'),payments_enabled=flag('PAYMENTS_ENABLED'),
+              public_image_models=tuple(filter(None, (item.strip() for item in
+                  os.getenv('PUBLIC_IMAGE_MODELS', '').split(',')))),
               payment_backend=os.getenv('PAYMENT_BACKEND','platega'),telegram_api_base=os.getenv('TELEGRAM_API_BASE',''),
               catalogue_enabled=flag('CATALOGUE_ENABLED'),catalogue_path=local(os.getenv('CATALOGUE_PATH','data/catalogue/models.json')),catalogue_profile=local(os.getenv('CATALOGUE_PROFILE','')),
               budget=int(budget) if budget else None,
