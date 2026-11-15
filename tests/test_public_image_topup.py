@@ -1,10 +1,13 @@
+import asyncio
 import base64
+import time
 import json
 from dataclasses import replace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
+import pytest
 
 from elevenbot.aggregate import make_snapshot
 from elevenbot.discovery import SnapshotStore
@@ -16,7 +19,8 @@ from test_topups import fixture
 from test_ui import Bot
 
 
-async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path):
+@pytest.mark.parametrize('deferred', [False, True])
+async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path, deferred):
     pool, cfg, admin, payments, gateway = await fixture(env)
     model_id = 'flux-schnell'
     cfg = replace(cfg, mode='clodex', generation_enabled=True, economy_verified=True,
@@ -30,6 +34,9 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path):
     SnapshotStore(cfg.catalogue_path).write(snapshot)
     assert await pool.fetchval("SELECT 1 FROM approved_models WHERE provider='clodex' AND model_id=$1 AND operation='images.generate'",model_id)
     posts = []
+    provider_started = asyncio.Event()
+    provider_release = asyncio.Event()
+    provider_timing = []
 
     async def transport(req):
         if req.url.host == 'clodex.xyz':
@@ -37,6 +44,13 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path):
             assert json.loads(req.content)['model'] == model_id
             assert await wallet() == (400, 600)
             posts.append(req.url.path)
+            started = time.monotonic()
+            provider_started.set()
+            if deferred:
+                await asyncio.wait_for(provider_release.wait(),3)
+            else:
+                await asyncio.sleep(.35)
+            provider_timing.append(round((time.monotonic()-started)*1000))
             return httpx.Response(200,json={'data':[{'b64_json':base64.b64encode(MOCK_IMAGE).decode()}]})
         if req.url.path == '/transaction/process':
             payload = json.loads(req.content)
@@ -62,10 +76,10 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path):
                                  basis='request',unit='darkflow_token',amount='600',
                                  expires=None,evidence='fixture',temporary=False)
     n = 500
-    async def press(text=None, callback=None, target=None):
+    async def press(text=None, callback=None, target=None, *, inbox=False):
         nonlocal n
         n += 1
-        await (target or app).handle(event(n,text,chat=101,callback=callback))
+        await (target or app).handle(event(n,text,chat=101,callback=callback),from_inbox=inbox)
     def route(prefix):
         return next(b.callback_data for _, markup in reversed(bot.sent) if hasattr(markup,'inline_keyboard')
                     for row in markup.inline_keyboard for b in row if (b.callback_data or '').startswith(prefix))
@@ -88,8 +102,20 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path):
         await press(callback=route('srun:'))
         await press('Проверка изображения')
         confirm = route('amconfirm:')
-        await press(callback=confirm)
-        await press(callback=confirm)
+        submission = asyncio.create_task(press(callback=confirm,inbox=deferred))
+        await asyncio.wait_for(provider_started.wait(),2)
+        begin = time.monotonic()
+        await asyncio.wait_for(press('/menu'),2)
+        menu_ms = round((time.monotonic()-begin)*1000)
+        if deferred:
+            assert provider_timing == []
+            await press(callback=confirm,inbox=True)
+            await asyncio.sleep(.35)
+            provider_release.set()
+            await asyncio.gather(*tuple(app.running_tasks))
+        await submission
+        if not deferred:
+            await press(callback=confirm)
         assert await wallet() == (400,0) and len(posts)==1 and len(gateway.orders)==1, [text for text, _ in bot.sent]
         assert await pool.fetchval("SELECT status FROM payments WHERE user_id=$1",user)=='succeeded'
         assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1",user)==3
@@ -99,7 +125,8 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path):
         assert bot.send_photo.await_count==2
         assert all(call.args[1].data == MOCK_IMAGE for call in bot.send_photo.await_args_list)
         assert len(posts)==1 and (await restarted.svc.wallet(user))['available']==400
-        print('wallet=0->1000->400 payment=succeeded posts=1 debit=1 reopened=1')
+        print('wallet=0->1000->400 payment=succeeded posts=1 debit=1 reopened=1',
+              f'deferred={deferred} menu_ms={menu_ms} provider_ms={provider_timing[0]}')
     finally:
         await app.topups.client.close()
         await payments.client.close()

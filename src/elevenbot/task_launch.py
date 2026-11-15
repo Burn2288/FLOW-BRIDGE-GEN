@@ -50,7 +50,7 @@ class TaskLaunch:
             return
         await self.authorize_pilot(conn, user, external)
 
-    async def confirm(self,user,external,quote_id,update_id,*,progress,background):
+    async def confirm(self,user,external,quote_id,update_id,*,progress,background,defer=None):
         pool = self.pricing.pool
 
         adapter = prepared = None
@@ -96,11 +96,16 @@ class TaskLaunch:
                 await settle_task_tokens(conn,quote.id)
             return result
 
-        if kind:
-            return quote,True,await dispatch(lambda job:background(request,kind,job))
-        async with progress(request):
-            result = await dispatch()
-        return quote,True,result
+        async def run():
+            if kind:
+                return await dispatch(lambda job:background(request,kind,job))
+            async with progress(request):
+                return await dispatch()
+
+        if defer is not None:
+            defer(quote, run)
+            return quote,True,None
+        return quote,True,await run()
 
 
 async def recover_interrupted(pool):
@@ -125,7 +130,8 @@ async def recover_interrupted(pool):
 
 
 async def notify_interrupted(pool,bot):
-    from aiogram.exceptions import TelegramAPIError
+    import asyncio
+    from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramRetryAfter
     rows = await pool.fetch("""
         SELECT d.quote_id,d.state,i.external_id,q.request->>'title' AS title
         FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id
@@ -136,8 +142,19 @@ async def notify_interrupted(pool,bot):
     for row in rows:
         detail = ('Задача остановлена до отправки после перезапуска.' if row['state']=='interrupted'
                   else 'Исход запуска после перезапуска неизвестен.')
-        try:
-            await bot.send_message(row['external_id'],f"⚠️ {row['title']} · {detail} Автоповтора нет.")
-        except TelegramAPIError:
+        claimed = await pool.fetchval("""
+            UPDATE task_dispatch SET recovery_notice=false WHERE quote_id=$1 AND recovery_notice
+            RETURNING true
+            """,row['quote_id'])
+        if not claimed:
             continue
-        await pool.execute("UPDATE task_dispatch SET recovery_notice=false WHERE quote_id=$1",row['quote_id'])
+        try:
+            async with asyncio.timeout(8):
+                await bot.send_message(row['external_id'],f"⚠️ {row['title']} · {detail} Автоповтора нет.")
+        except TelegramRetryAfter as error:
+            await pool.execute("UPDATE task_dispatch SET recovery_notice=true WHERE quote_id=$1",row['quote_id'])
+            await asyncio.sleep(max(error.retry_after, 1))
+            return
+        except (ClientDecodeError, TelegramAPIError, TimeoutError):
+            # Telegram may have received the message. The task state remains in PostgreSQL.
+            pass

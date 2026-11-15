@@ -14,7 +14,8 @@ from .broadcasts import Broadcasts, BroadcastUI, ROUTES as BROADCAST_ROUTES
 from .topups import Topups
 from .topup_ui import TopupUI, TOPUP_MENU, ADMIN_TITLE as TOPUP_ADMIN_TITLE, ROUTES as TOPUP_ROUTES, ADMIN_ROUTES as TOPUP_ADMIN_ROUTES
 from .core import ConsentRequired,Service,Rejected,uid
-from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError
+from .inbox import InboxDispatcher, navigation_obsolete
+from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramNetworkError, TelegramRetryAfter, TelegramServerError
 from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
 from .video import DEFAULT_VIDEO_MODELS,VIDEO_PARAMS,VideoPilot,catalogue_video_ids,video_modes
@@ -127,6 +128,7 @@ class TelegramApp:
         self.admin_access=AdminAccess()
         self.navigation = Navigation(pool,bot)
         self.pending_speech = {}
+        self.running_tasks = set()
         self.progress = TaskProgress(bot,pool)
         self.video = VideoPilot(pool,cfg)
         self.music = MusicPilot(pool,cfg)
@@ -217,6 +219,8 @@ class TelegramApp:
     async def catalogue_screen(self, chat, text, markup=None, *, animation=None,
                                keyboard_text=None, fresh_panel=False, panel=None):
         async with self.navigation.serial(chat):
+            if navigation_obsolete():
+                return
             state=await self.navigation.read(chat)
             source=self.panel_source.get()
             if panel is None and source is not None and source != state.active_id:
@@ -232,6 +236,7 @@ class TelegramApp:
             if not fresh_panel and await self.edit_panel(chat,state,text,markup,animation_key):
                 return
 
+            send_started=time.monotonic()
             hint=None
             keyboard_changes={}
             if keyboard_text is not None:
@@ -264,6 +269,17 @@ class TelegramApp:
                         pass
                 raise
 
+            send_ms=round((time.monotonic()-send_started)*1000)
+            if send_ms>=500:
+                print(json.dumps({'event':'telegram_panel_send_timing','send_ms':send_ms}),flush=True)
+            if navigation_obsolete():
+                for sent in (message,hint):
+                    if sent is not None:
+                        try:
+                            await self.bot.delete_message(chat,sent.message_id)
+                        except (ClientDecodeError,TelegramAPIError):
+                            pass
+                return
             if panel=='chooser' and state.active_panel=='main' and state.animation in (
                     str(AGGREGATORS_ANIMATION), str(AGGREGATORS_ANIMATION.with_name('darkflow-energy-strip.gif'))):
                 state=state.adopt_legacy_chooser()
@@ -432,11 +448,11 @@ class TelegramApp:
             try:
                 event=update.message or update.callback_query or update.pre_checkout_query
                 if event is not None and event.from_user:
-                    async with self.navigation.serial(event.from_user.id):
+                    async with asyncio.timeout(8):
                         handled=await self.intercept_admin_update(update)
                 else:
                     handled=False
-            except (ClientDecodeError,TelegramAPIError):
+            except (ClientDecodeError,TelegramAPIError,TimeoutError):
                 # Auth events never enter the inbox, including when the response fails.
                 handled=True
             if not handled:
@@ -477,8 +493,10 @@ class TelegramApp:
                 return
             if update.message and update.message.successful_payment:
                 e=update.message.successful_payment
-                await self.svc.payment(u,e.invoice_payload,e.total_amount,e.currency,e.telegram_payment_charge_id)
-                await self.say(ext,'Оплата получена, кредиты зачислены.',menu());return
+                credited=await self.svc.payment(u,e.invoice_payload,e.total_amount,e.currency,e.telegram_payment_charge_id)
+                if credited:
+                    await self.say(ext,'Оплата получена, кредиты зачислены.',menu())
+                return
             if update.message and update.message.refunded_payment:
                 # External refund notification needs local order match, never user-provided charge.
                 e=update.message.refunded_payment
@@ -520,7 +538,10 @@ class TelegramApp:
                 catalogue_callback = data=='accept' or data=='providers' or data.partition(':')[0] in SCREEN_CALLBACKS
                 source = self.panel_source.set(e.message.message_id if e.message else None)
                 try:
-                    await self.callback(u,ext,data,request_id=update.update_id)
+                    if from_inbox and data.startswith('amconfirm:'):
+                        await self.callback(u,ext,data,request_id=update.update_id,defer_tasks=True)
+                    else:
+                        await self.callback(u,ext,data,request_id=update.update_id)
                 finally:
                     self.panel_source.reset(source)
                 return
@@ -768,7 +789,7 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),panel='balance' if section==2 else 'help')
 
-    async def callback(self,u,ext,data,*,request_id=None):
+    async def callback(self,u,ext,data,*,request_id=None,defer_tasks=False):
         route=data.partition(':')[0]
         if admin_callback(data) and not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
@@ -792,7 +813,7 @@ class TelegramApp:
         if route in ('amconfirm','amcancel'):
             quote_id=uid(data.partition(':')[2])
             if route=='amconfirm' and request_id is not None:
-                await self.confirm_price(u,ext,quote_id,request_id);return
+                await self.confirm_price(u,ext,quote_id,request_id,defer_tasks=defer_tasks);return
             if route=='amcancel':
                 if not await self.pricing.cancel(u,quote_id):
                     raise Rejected('Оценка уже закрыта.')
@@ -2126,13 +2147,50 @@ class TelegramApp:
             return model
         return None
 
-    async def confirm_price(self,u,ext,quote_id,update_id):
+    async def confirm_price(self,u,ext,quote_id,update_id,*,defer_tasks=False):
+        if defer_tasks and await self.pool.fetchval(
+                "SELECT 1 FROM task_price_quotes WHERE id=$1 AND user_id=$2 AND state='accepted'",quote_id,u):
+            return
+        if defer_tasks and len(self.running_tasks)>=16:
+            raise Rejected('Очередь занята. Подтвердите оценку чуть позже.')
+
+        def defer(quote, run):
+            task = asyncio.create_task(self.deliver_task(u,ext,quote,run))
+            self.running_tasks.add(task)
+            task.add_done_callback(self.running_tasks.discard)
+
         quote,accepted,result=await self.launch.confirm(u,ext,quote_id,update_id,
             progress=lambda req:self.progress.track(ext,req.title,req.operation),
-            background=lambda req,kind,job:self.progress.start(ext,req.title,req.operation,**{kind+'_id':job}))
+            background=lambda req,kind,job:self.progress.start(ext,req.title,req.operation,**{kind+'_id':job}),
+            defer=defer if defer_tasks else None)
         if not accepted:
             await self.show_price(ext,quote)
             return
+        await self.show_task_result(u,ext,quote,result)
+
+    async def deliver_task(self,u,ext,quote,run):
+        try:
+            result = await run()
+            try:
+                async with asyncio.timeout(15):
+                    await self.show_task_result(u,ext,quote,result)
+            except TelegramRetryAfter as error:
+                if error.retry_after > 15:
+                    raise
+                await asyncio.sleep(max(error.retry_after,1))
+                async with asyncio.timeout(15):
+                    await self.show_task_result(u,ext,quote,result,update_history=False)
+        except ReportedTaskError:
+            return
+        except Rejected as error:
+            try:
+                await self.bot.send_message(ext,str(error),request_timeout=8)
+            except (TelegramAPIError,ClientDecodeError):
+                pass
+        except Exception as error:
+            trace_interaction(None,'task_delivery_failed',error_type=type(error).__name__)
+
+    async def show_task_result(self,u,ext,quote,result,*,update_history=True):
         if result is None:
             return
         req=quote.request
@@ -2144,12 +2202,14 @@ class TelegramApp:
             await self.open_work(u,ext,'image',str(result.value),show_prompt=True)
         else:
             reply=result.value
-            context=await self.svc.aggregate_context(u)
-            if context and (context.get('provider'),context.get('interaction'),context.get('model_id'),
-                            context.get('history',[]))==(req.provider,'chat',req.model,req.history):
-                context['history']=[*req.history,{'role':'user','content':req.prompt[:2000]},
-                                    {'role':'assistant','content':reply[:2000]}][-6:]
-                await self.svc.aggregate_context(u,context)
+            if update_history:
+                async with self.navigation.serial(ext):
+                    context=await self.svc.aggregate_context(u)
+                    if context and (context.get('provider'),context.get('interaction'),context.get('model_id'),
+                                    context.get('history',[]))==(req.provider,'chat',req.model,req.history):
+                        context['history']=[*req.history,{'role':'user','content':req.prompt[:2000]},
+                                            {'role':'assistant','content':reply[:2000]}][-6:]
+                        await self.svc.aggregate_context(u,context)
             await self.send_chat_answer(ext,(result.label+'\n' if result.label and self.has_admin_session(ext) else '')+reply)
 
     async def send_chat_answer(self,ext,reply):
@@ -2247,39 +2307,92 @@ async def poll(pool,cfg,bot,*,app=None):
     # Session-level lock prevents two polling consumers of the same deployment.
     async with pool.acquire() as lock:
         if not await lock.fetchval('SELECT pg_try_advisory_lock(921183)'):raise RuntimeError('Polling already running')
-        if cfg.access_mode=='private':
-            await register_commands(bot,cfg.admin_ids)
-        try:
-            async with asyncio.timeout(10):
-                await register_command_menu(bot)
-        except (ClientDecodeError, TelegramAPIError, TimeoutError) as error:
-            print(json.dumps({'event':'telegram_command_menu_failed',
-                              'error_type':type(error).__name__}),flush=True)
         await recover_interrupted(pool)
-        while True:
-            await settle_task_tokens(pool)
-            await notify_interrupted(pool,bot)
-            async with pool.acquire() as c:
-                pending=await c.fetch('SELECT update_id,payload FROM inbox WHERE NOT done ORDER BY update_id LIMIT 100')
-            for r in pending:
-                try:await app.handle(Update.model_validate_json(r['payload']),from_inbox=True)
-                except (ValueError,TypeError,IndexError):
-                    # malformed stale callback cannot poison inbox; safe generic response
-                    pass
-                except Exception:
-                    print(json.dumps({'event':'update_failed','update_id':r['update_id']}),flush=True)
-                    await asyncio.sleep(2);break
-                async with pool.acquire() as c:await c.execute('UPDATE inbox SET done=true WHERE update_id=$1',r['update_id'])
-            else:
-                async with pool.acquire() as c:offset=await c.fetchval('SELECT offset_id FROM poll_state WHERE id=1')
-                await app.refresh_speech_results()
-                try:updates=await bot.get_updates(offset=offset,timeout=2 if app.pending_speech else 20,allowed_updates=['message','callback_query','pre_checkout_query'])
-                except TelegramNetworkError:
-                    print(json.dumps({'event':'telegram_network_retry'}),flush=True)
-                    await asyncio.sleep(5);continue
-                if updates:
-                    await app.enqueue_updates(updates)
-            async with pool.acquire() as c:await c.execute("INSERT INTO heartbeat VALUES('bot',now()) ON CONFLICT(component) DO UPDATE SET seen_at=now()")
+        dispatcher = InboxDispatcher(pool,app,is_navigation_update)
+        setup = asyncio.create_task(configure_telegram_menu(cfg,bot))
+        loops = [
+            asyncio.create_task(dispatch_inbox(dispatcher)),
+            asyncio.create_task(maintain_inbox(pool,app,bot)),
+            asyncio.create_task(receive_updates(pool,app,bot)),
+        ]
+        try:
+            finished,_ = await asyncio.wait(loops,return_when=asyncio.FIRST_COMPLETED)
+            for loop in finished:
+                loop.result()
+        finally:
+            for loop in [setup,*loops]:
+                loop.cancel()
+            await asyncio.gather(setup,*loops,return_exceptions=True)
+            await dispatcher.close()
+            tasks = tuple(app.running_tasks)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks,return_exceptions=True)
+
+
+async def configure_telegram_menu(cfg,bot):
+    if cfg.access_mode=='private':
+        await register_commands(bot,cfg.admin_ids)
+    try:
+        async with asyncio.timeout(10):
+            await register_command_menu(bot)
+    except (ClientDecodeError, TelegramAPIError, TimeoutError) as error:
+        print(json.dumps({'event':'telegram_command_menu_failed',
+                          'error_type':type(error).__name__}),flush=True)
+
+
+def is_navigation_update(update):
+    if update.callback_query:
+        return update.callback_query.data in ('home','providers','section:1','section:2','section:3','history:0','topups:0')
+    message = update.message
+    if not message or message.successful_payment or message.refunded_payment:
+        return False
+    text = message.text or ''
+    command = text.lstrip().partition(' ')[0].lower().partition('@')[0]
+    return command=='/menu' or text in (*MENU,TOPUP_MENU,'Главное меню') or bool(BALANCE_BUTTON.fullmatch(text))
+
+
+async def dispatch_inbox(dispatcher):
+    while True:
+        await dispatcher.schedule()
+        await asyncio.sleep(.25)
+
+
+async def maintain_inbox(pool,app,bot):
+    while True:
+        await settle_task_tokens(pool)
+        await notify_interrupted(pool,bot)
+        await app.refresh_speech_results()
+        await asyncio.sleep(2)
+
+
+async def receive_updates(pool,app,bot):
+    backoff = 1
+    while True:
+        offset=await pool.fetchval('SELECT offset_id FROM poll_state WHERE id=1')
+        poll_started=time.monotonic()
+        try:
+            updates=await bot.get_updates(offset=offset,timeout=20,request_timeout=28,
+                allowed_updates=['message','callback_query','pre_checkout_query'])
+        except TelegramRetryAfter as error:
+            await asyncio.sleep(max(1,error.retry_after))
+        except (TelegramNetworkError,TelegramServerError,ClientDecodeError) as error:
+            print(json.dumps({'event':'telegram_network_retry','error_type':type(error).__name__,
+                              'delay':backoff}),flush=True)
+            await asyncio.sleep(backoff)
+            backoff = min(backoff*2,15)
+        else:
+            if updates:
+                poll_ms=round((time.monotonic()-poll_started)*1000)
+                ingest_started=time.monotonic()
+                await app.enqueue_updates(updates)
+                ingest_ms=round((time.monotonic()-ingest_started)*1000)
+                if ingest_ms>=500:
+                    print(json.dumps({'event':'telegram_ingest_timing','poll_ms':poll_ms,
+                                      'ingest_ms':ingest_ms,'updates':len(updates)}),flush=True)
+            backoff = 1
+            await pool.execute("INSERT INTO heartbeat VALUES('bot',now()) ON CONFLICT(component) DO UPDATE SET seen_at=now()")
+
 
 async def reconcile_stars(pool,bot,max_pages=100):
     """Read-only bounded statement comparison. Never invent credits from statement data."""
