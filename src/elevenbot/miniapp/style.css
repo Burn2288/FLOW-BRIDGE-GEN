@@ -1,0 +1,7 @@
+:root { color-scheme: dark light; font: 16px system-ui, sans-serif; }
+body { margin: 0; background: var(--tg-theme-bg-color, Canvas); color: var(--tg-theme-text-color, CanvasText); }
+main { max-width: 42rem; margin: 0 auto; padding: 1rem; }
+section { padding: 1rem; margin-block: 1rem; border: 1px solid #8a7cab; border-radius: .65rem; }
+h2 { margin-top: 0; }
+li { margin-block: .55rem; overflow-wrap: anywhere; }
+button { padding: .5rem .8rem; margin: .25rem; cursor: pointer; }

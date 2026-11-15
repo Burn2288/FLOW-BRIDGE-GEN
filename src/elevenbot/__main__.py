@@ -4,7 +4,7 @@ from .db import connect,migrate
 from .core import Service,uid,Rejected
 
 async def main():
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['migrate','bot','worker','health','metrics','reconcile','release-uncertain','reconcile-stars','platega-webhook','catalog-refresh','anymodel-catalog-refresh','doctor','speech-pilot-credit','voice-candidates'])
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['migrate','bot','worker','health','metrics','reconcile','release-uncertain','reconcile-stars','platega-webhook','miniapp','catalog-refresh','anymodel-catalog-refresh','doctor','speech-pilot-credit','voice-candidates'])
     p.add_argument('--component',default='worker');p.add_argument('--job');p.add_argument('--reason');p.add_argument('--telegram-id',type=int);p.add_argument('--credits',type=int,default=300)
     p.add_argument('--env-file',help='Explicit UTF-8 KEY=value file; exported environment takes priority')
     a=p.parse_args();cfg=Config.env(a.env_file)
@@ -70,6 +70,9 @@ async def main():
         from .providers import MockProvider,ClodexProvider,DisabledProvider
         from .worker import Worker
         from .telegram import poll,reconcile_stars,make_bot,buttons
+        if a.command=='miniapp':
+            from .miniapp_web import serve
+            await serve(pool,cfg);return
         if a.command=='platega-webhook':
             from .platega_web import serve
             await serve(pool,cfg);return
