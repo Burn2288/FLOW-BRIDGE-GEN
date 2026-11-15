@@ -11,6 +11,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from elevenbot.aggregate import make_snapshot
 from elevenbot.anymodel import model_store
 from elevenbot.discovery import SnapshotStore
+from elevenbot.core import Service
 from elevenbot.interaction import MOCK_IMAGE
 from elevenbot.miniapp_web import create_app
 
@@ -22,10 +23,12 @@ def signed(token, user, age=0):
     return urlencode(fields | {'hash': hmac.new(key, data.encode(), hashlib.sha256).hexdigest()})
 
 
-async def test_miniapp_shared_wallet_library_and_session(env):
+async def test_miniapp_shared_wallet_library_and_session(env, confirmed_credit):
     pool, cfg, service, owner = env
     cfg = replace(cfg, token='fixture', interaction_mode='mock', access_mode='private',
                   anymodel_test_enabled=True, catalogue_path=str(cfg.storage.parent / 'catalogue.json'))
+    service = Service(pool, cfg)
+    await confirmed_credit(pool, cfg, owner, 1200)
     models = [{'provider': 'clodex', 'id': name, 'title': name,
                'availability': 'key_available', 'operations': ['images.generate']}
               for name in ('fixture/image', 'fixture/unapproved')]
