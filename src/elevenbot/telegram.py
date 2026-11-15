@@ -8,7 +8,7 @@ from uuid import uuid4
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice,BotCommand,
-                           BotCommandScopeDefault,BotCommandScopeChat,ForceReply,MenuButtonWebApp,WebAppInfo)
+                           BotCommandScopeDefault,BotCommandScopeChat,ForceReply,MenuButtonCommands,WebAppInfo)
 from .admin_access import AdminAccess, PASSWORD_PROMPT, digest
 from .broadcasts import Broadcasts, BroadcastUI, ROUTES as BROADCAST_ROUTES
 from .topups import Topups
@@ -102,11 +102,24 @@ KEYBOARD_REVISION = 1
 CHOOSER_HINT = 'Выберите агрегатор ниже.'
 
 
-def menu(*,admin_rates=False,balance=None):
+def menu(*,admin_rates=False,balance=None,miniapp_url=""):
     labels=[MENU[0],MENU[1],balance or MENU[2],MENU[3]]
     labels.insert(3,TOPUP_MENU)
     if admin_rates:labels.insert(4,RUBLE_MENU)
-    return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in labels],resize_keyboard=True,is_persistent=False,one_time_keyboard=False)
+    rows = [[KeyboardButton(text=label)] for label in labels]
+    if miniapp_url:
+        rows.insert(0, [KeyboardButton(text='Приложение', web_app=WebAppInfo(url=miniapp_url))])
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=False,
+                               one_time_keyboard=False)
+
+
+def keyboard_signature(markup):
+    return tuple(
+        button.text if button.web_app is None else
+        button.text + ':' + hashlib.sha256(button.web_app.url.encode()).hexdigest()
+        for row in markup.keyboard for button in row
+    )
+
 
 class TelegramApp:
     def __init__(self,pool,cfg,bot,*,providers=None):
@@ -161,12 +174,13 @@ class TelegramApp:
 
     def role_keyboard(self,chat,balance=None):
         return menu(admin_rates=self.has_admin_session(chat) and self.pool is not None
-                    and self.cfg.access_mode=='private',balance=balance)
+                    and self.cfg.access_mode=='private',balance=balance,
+                    miniapp_url=self.cfg.miniapp_url if chat is not None and chat>0 else '')
 
     async def navigation_keyboard(self,chat,text,markup,*,force=False):
         async with self.navigation.serial(chat):
             state=await self.navigation.read(chat)
-            labels=tuple(row[0].text for row in markup.keyboard)
+            labels=keyboard_signature(markup)
             if not force and state.keyboard_revision==KEYBOARD_REVISION and state.keyboard_labels==labels:
                 return
             try:
@@ -222,7 +236,7 @@ class TelegramApp:
             keyboard_changes={}
             if keyboard_text is not None:
                 keyboard=await self.reply_menu(chat)
-                labels=tuple(row[0].text for row in keyboard.keyboard)
+                labels=keyboard_signature(keyboard)
                 if state.keyboard_revision!=KEYBOARD_REVISION or state.keyboard_labels!=labels:
                     hint=await self.bot.send_message(chat,keyboard_text,reply_markup=keyboard)
                     keyboard_changes=dict(keyboard_id=hint.message_id,keyboard_labels=labels,
@@ -494,7 +508,7 @@ class TelegramApp:
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
-                        or command in RATE_COMMANDS)
+                        or command in RATE_COMMANDS or command=='/miniapp')
             await self.svc.rate(u,navigation=navigation)
             if update.callback_query:
                 e=update.callback_query
@@ -509,6 +523,16 @@ class TelegramApp:
                     await self.callback(u,ext,data,request_id=update.update_id)
                 finally:
                     self.panel_source.reset(source)
+                return
+            if command=='/miniapp':
+                if not self.cfg.miniapp_url:
+                    await self.say(ext,'Приложение временно недоступно.')
+                else:
+                    await self.say(ext,'Откройте каталог, чтобы войти в аккаунт.',
+                                   InlineKeyboardMarkup(inline_keyboard=[[
+                                       InlineKeyboardButton(text='Открыть каталог',
+                                                            web_app=WebAppInfo(url=self.cfg.miniapp_url))
+                                   ]]))
                 return
             if text==OPEN_CATALOGUE:
                 await self.svc.conversation(u,'home')
@@ -960,7 +984,7 @@ class TelegramApp:
                     return
             await self.svc.save_welcome_message(ext,message.message_id)
             if keyboard_on_welcome:
-                labels=tuple(row[0].text for row in markup.keyboard)
+                labels=keyboard_signature(markup)
                 await self.navigation.save(ext,state.retire(state.keyboard_id,keyboard_id=None,
                                                            keyboard_labels=labels,keyboard_revision=KEYBOARD_REVISION))
             else:
@@ -2214,9 +2238,8 @@ async def register_commands(bot, admin_ids):
             break
 
 
-async def register_miniapp_menu(bot, url):
-    await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(
-        text='Приложение', web_app=WebAppInfo(url=url)))
+async def register_command_menu(bot):
+    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
 
 async def poll(pool,cfg,bot,*,app=None):
@@ -2226,12 +2249,12 @@ async def poll(pool,cfg,bot,*,app=None):
         if not await lock.fetchval('SELECT pg_try_advisory_lock(921183)'):raise RuntimeError('Polling already running')
         if cfg.access_mode=='private':
             await register_commands(bot,cfg.admin_ids)
-        if cfg.miniapp_url:
-            try:
-                await register_miniapp_menu(bot,cfg.miniapp_url)
-            except TelegramAPIError as error:
-                print(json.dumps({'event':'miniapp_menu_registration_failed',
-                                  'error_type':type(error).__name__}),flush=True)
+        try:
+            async with asyncio.timeout(10):
+                await register_command_menu(bot)
+        except (ClientDecodeError, TelegramAPIError, TimeoutError) as error:
+            print(json.dumps({'event':'telegram_command_menu_failed',
+                              'error_type':type(error).__name__}),flush=True)
         await recover_interrupted(pool)
         while True:
             await settle_task_tokens(pool)

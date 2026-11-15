@@ -139,12 +139,40 @@ async def test_miniapp_shared_wallet_library_and_session(account_db):
         assert (await client.get('/api/v1/wallet', headers=other)).status == 401
 
 
-async def test_telegram_menu_button():
-    from elevenbot.telegram import register_miniapp_menu
+async def test_telegram_menu_button(account_db, monkeypatch):
+    from dataclasses import replace
 
+    from elevenbot.tariff_admin import RUBLE_MENU
+    from elevenbot.telegram import MENU, TelegramApp, keyboard_signature, register_command_menu
+
+    pool, cfg = account_db
     bot = AsyncMock()
-    await register_miniapp_menu(bot, 'https://miniapp.example.test/')
-    button = bot.set_chat_menu_button.await_args.kwargs['menu_button']
-    assert button.type == 'web_app'
-    assert button.text == 'Приложение'
-    assert button.web_app.url == 'https://miniapp.example.test/'
+    await register_command_menu(bot)
+    assert bot.set_chat_menu_button.await_args.kwargs['menu_button'].type == 'commands'
+    assert bot.set_chat_menu_button.await_count == 1
+
+    url = 'https://miniapp.example.test/'
+    app = TelegramApp(pool, replace(cfg, miniapp_url=url, admin_ids=(100,)), bot)
+    unconfigured = TelegramApp(pool, cfg, bot)
+    assert (await unconfigured.reply_menu(100)).keyboard[0][0].text == MENU[0]
+    for admin in (False, True):
+        monkeypatch.setattr(app, 'has_admin_session', lambda chat: admin)
+        markup = await app.reply_menu(100)
+        assert len(markup.keyboard[0]) == 1
+        button = markup.keyboard[0][0]
+        assert button.text == 'Приложение' and button.web_app.url == url
+        assert markup.keyboard[1][0].text == MENU[0]
+        assert any(row[0].text == RUBLE_MENU for row in markup.keyboard) == admin
+        assert markup.resize_keyboard and not markup.is_persistent and not markup.one_time_keyboard
+        before = keyboard_signature(markup)
+        app.cfg = replace(app.cfg, miniapp_url=url + 'new')
+        assert before != keyboard_signature(await app.reply_menu(100))
+        app.cfg = replace(app.cfg, miniapp_url=url)
+        from aiogram.types import Update
+        message = Update.model_validate({'update_id': 911, 'message': {
+            'message_id': 911, 'date': int(time.time()), 'chat': {'id': 100, 'type': 'private'},
+            'from': {'id': 100, 'is_bot': False, 'first_name': 'Fixture'}, 'text': '/miniapp'
+        }})
+        await app.handle(message)
+        inline = bot.send_message.await_args.kwargs['reply_markup'].inline_keyboard[0][0]
+        assert inline.web_app.url == url and inline.text == 'Открыть каталог'

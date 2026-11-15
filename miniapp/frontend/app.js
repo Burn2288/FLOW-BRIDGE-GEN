@@ -61,7 +61,13 @@ async function showWorks(target) {
 
 async function start() {
   telegram?.ready();
-  if (!telegram?.initData) throw Error('Откройте Mini App из личного чата с ботом.');
+  if (!telegram?.initData) {
+    const hint = telegram?.sendData
+      ? 'Для входа закройте окно, отправьте /miniapp и нажмите «Открыть каталог».'
+      : 'Для входа отправьте /miniapp в личном чате с ботом и нажмите «Открыть каталог».';
+    status.textContent = hint;
+    return;
+  }
   const session = await request('/api/v1/session', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ initData: telegram.initData }),
