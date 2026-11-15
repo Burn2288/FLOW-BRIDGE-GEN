@@ -8,7 +8,7 @@ from uuid import uuid4
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice,BotCommand,
-                           BotCommandScopeDefault,BotCommandScopeChat,ForceReply)
+                           BotCommandScopeDefault,BotCommandScopeChat,ForceReply,MenuButtonWebApp,WebAppInfo)
 from .admin_access import AdminAccess, PASSWORD_PROMPT, digest
 from .broadcasts import Broadcasts, BroadcastUI, ROUTES as BROADCAST_ROUTES
 from .topups import Topups
@@ -2214,6 +2214,11 @@ async def register_commands(bot, admin_ids):
             break
 
 
+async def register_miniapp_menu(bot, url):
+    await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(
+        text='Приложение', web_app=WebAppInfo(url=url)))
+
+
 async def poll(pool,cfg,bot,*,app=None):
     app=app or TelegramApp(pool,cfg,bot)
     # Session-level lock prevents two polling consumers of the same deployment.
@@ -2221,6 +2226,12 @@ async def poll(pool,cfg,bot,*,app=None):
         if not await lock.fetchval('SELECT pg_try_advisory_lock(921183)'):raise RuntimeError('Polling already running')
         if cfg.access_mode=='private':
             await register_commands(bot,cfg.admin_ids)
+        if cfg.miniapp_url:
+            try:
+                await register_miniapp_menu(bot,cfg.miniapp_url)
+            except TelegramAPIError as error:
+                print(json.dumps({'event':'miniapp_menu_registration_failed',
+                                  'error_type':type(error).__name__}),flush=True)
         await recover_interrupted(pool)
         while True:
             await settle_task_tokens(pool)

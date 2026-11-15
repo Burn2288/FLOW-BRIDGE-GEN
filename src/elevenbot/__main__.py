@@ -71,7 +71,7 @@ async def main():
         from .worker import Worker
         from .telegram import poll,reconcile_stars,make_bot,buttons
         if a.command=='miniapp':
-            from .miniapp_web import serve
+            from miniapp.backend.web import serve
             await serve(pool,cfg);return
         if a.command=='platega-webhook':
             from .platega_web import serve

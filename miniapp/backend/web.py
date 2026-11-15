@@ -7,16 +7,17 @@ import json
 import os
 import secrets
 import time
-from importlib.resources import files
+from pathlib import Path
 from urllib.parse import parse_qsl
 from uuid import UUID
 
 from aiohttp import web
 
-from .core import Rejected, Service
+from elevenbot.core import Rejected, Service
 
 INIT_MAX_AGE = 300
 SESSION_SECONDS = 600
+WEB_ROOT = Path(__file__).resolve().parents[1] / "frontend"
 
 
 def verified_identity(raw, bot_token, *, now):
@@ -60,14 +61,14 @@ async def headers(request, handler):
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Content-Security-Policy'] = (
         "default-src 'none'; script-src 'self' https://telegram.org; connect-src 'self'; "
-        "style-src 'self'; base-uri 'none'; form-action 'none'"
+        "style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"
     )
     return response
 
 
 def create_app(pool, cfg):
     service = Service(pool, cfg)
-    from .telegram import TelegramApp, STORE_SECTIONS, anymodel_available
+    from elevenbot.telegram import TelegramApp, STORE_SECTIONS, anymodel_available
     view = TelegramApp(pool, cfg, None)
     app = web.Application(client_max_size=12 * 1024, middlewares=[headers])
 
@@ -196,13 +197,35 @@ def create_app(pool, cfg):
                            token_hash(request.headers['Authorization'][7:]))
         return web.Response(status=204)
 
+    async def settings(request):
+        user = await account(request)
+        if request.method == 'PUT':
+            try:
+                body = await request.json()
+            except ValueError:
+                raise web.HTTPBadRequest() from None
+            if not isinstance(body, dict) or set(body) != {'theme'} or body['theme'] not in ('dark', 'light'):
+                raise web.HTTPBadRequest()
+            theme = await pool.fetchval(
+                'UPDATE users SET miniapp_theme=$2 WHERE id=$1 AND NOT blocked RETURNING miniapp_theme',
+                user, body['theme'])
+        else:
+            theme = await pool.fetchval(
+                'SELECT miniapp_theme FROM users WHERE id=$1 AND NOT blocked', user)
+        if theme is None:
+            raise web.HTTPForbidden()
+        return web.json_response({'theme': theme})
+
     async def asset(request):
         name = request.match_info.get('asset', 'index.html')
-        mime = {'index.html': 'text/html', 'app.js': 'text/javascript', 'style.css': 'text/css'}
+        mime = {'index.html': ('index.html', 'text/html'), 'app.js': ('app.js', 'text/javascript'),
+                'style.css': ('style.css', 'text/css'),
+                'darkflow-banner.png': ('assets/darkflow-banner.png', 'image/png')}
         if name not in mime:
             raise web.HTTPNotFound()
-        return web.Response(body=files('elevenbot').joinpath('miniapp', name).read_bytes(),
-                            content_type=mime[name], charset='utf-8')
+        path, content_type = mime[name]
+        return web.Response(body=await asyncio.to_thread((WEB_ROOT / path).read_bytes),
+                            content_type=content_type)
 
     app.router.add_get('/', asset)
     app.router.add_get('/assets/{asset}', asset)
@@ -210,6 +233,8 @@ def create_app(pool, cfg):
     app.router.add_delete('/api/v1/session', logout)
     app.router.add_get('/api/v1/catalogue', catalogue)
     app.router.add_get('/api/v1/wallet', wallet)
+    app.router.add_get('/api/v1/settings', settings)
+    app.router.add_put('/api/v1/settings', settings)
     app.router.add_get('/api/v1/works', history)
     app.router.add_get('/api/v1/works/{kind}/{id}', result)
     return app

@@ -1,10 +1,18 @@
 import hashlib
 import hmac
 import json
+import os
 import time
-from dataclasses import replace
 from types import SimpleNamespace
 from urllib.parse import urlencode
+from uuid import uuid4
+from unittest.mock import AsyncMock
+
+import asyncpg
+import pytest
+
+from elevenbot.config import Config
+from elevenbot.db import migrate
 
 from aiohttp.test_utils import TestClient, TestServer
 
@@ -13,7 +21,7 @@ from elevenbot.anymodel import model_store
 from elevenbot.discovery import SnapshotStore
 from elevenbot.core import Service
 from elevenbot.interaction import MOCK_IMAGE
-from elevenbot.miniapp_web import create_app
+from miniapp.backend.web import create_app
 
 
 def signed(token, user, age=0):
@@ -23,12 +31,31 @@ def signed(token, user, age=0):
     return urlencode(fields | {'hash': hmac.new(key, data.encode(), hashlib.sha256).hexdigest()})
 
 
-async def test_miniapp_shared_wallet_library_and_session(env, confirmed_credit):
-    pool, cfg, service, owner = env
-    cfg = replace(cfg, token='fixture', interaction_mode='mock', access_mode='private',
-                  anymodel_test_enabled=True, catalogue_path=str(cfg.storage.parent / 'catalogue.json'))
+@pytest.fixture
+async def account_db(tmp_path):
+    dsn = os.getenv('TEST_DATABASE_URL')
+    if not dsn:
+        pytest.skip('Separate PostgreSQL TEST_DATABASE_URL is required')
+    schema = 'miniapp_' + uuid4().hex
+    async with await asyncpg.connect(dsn) as connection:
+        await connection.execute(f'CREATE SCHEMA {schema}')
+        try:
+            async with asyncpg.create_pool(dsn, server_settings={'search_path': schema}) as pool:
+                await migrate(pool)
+                cfg = Config(token='fixture', interaction_mode='mock', access_mode='private',
+                             anymodel_test_enabled=True, catalogue_path=str(tmp_path / 'catalogue.json'))
+                yield pool, cfg
+        finally:
+            await connection.execute(f'DROP SCHEMA {schema} CASCADE')
+
+
+async def test_miniapp_shared_wallet_library_and_session(account_db):
+    pool, cfg = account_db
     service = Service(pool, cfg)
-    await confirmed_credit(pool, cfg, owner, 1200)
+    owner = await service.identity(100)
+    await service.accept(owner)
+    async with pool.acquire() as conn, conn.transaction():
+        await service.movement(conn, owner, 'live', 'miniapp-test-credit', 'pilot_grant', 1200, 0)
     models = [{'provider': 'clodex', 'id': name, 'title': name,
                'availability': 'key_available', 'operations': ['images.generate']}
               for name in ('fixture/image', 'fixture/unapproved')]
@@ -52,6 +79,15 @@ async def test_miniapp_shared_wallet_library_and_session(env, confirmed_credit):
             if status == 200:
                 return {'Authorization': 'Bearer ' + (await response.json())['token']}
 
+        for path, marker in (
+            ('/', 'data-panel="catalogue"'), ('/assets/app.js', 'applyTheme'),
+            ('/assets/style.css', 'data-theme="light"')
+        ):
+            response = await client.get(path)
+            assert response.status == 200 and marker in await response.text()
+        banner = await client.get('/assets/darkflow-banner.png')
+        assert banner.status == 200 and (await banner.read()).startswith(b'\x89PNG')
+
         raw = signed(cfg.token, 100)
         await login(signed('wrong', 100), 401)
         await login(signed(cfg.token, 100, age=360), 401)
@@ -59,6 +95,18 @@ async def test_miniapp_shared_wallet_library_and_session(env, confirmed_credit):
         main = await login(raw)
         await login(raw, 401)
         other = await login(signed(cfg.token, 101))
+        settings = '/api/v1/settings'
+        assert await (await client.get(settings, headers=main)).json() == {'theme': 'dark'}
+        response = await client.put(settings, headers=main, json={'theme': 'light'})
+        assert await response.json() == {'theme': 'light'}
+        assert (await client.put(settings, headers=other, json={'theme': 'auto'})).status == 400
+        assert (await client.put(settings, headers=other, json={'theme': 'light', 'user': 100})).status == 400
+        assert (await client.put(settings, json={'theme': 'light'})).status == 401
+        assert await (await client.get(settings, headers=other)).json() == {'theme': 'dark'}
+        second_device = await login(signed(cfg.token, 100, age=1))
+        assert await (await client.get(settings, headers=second_device)).json() == {'theme': 'light'}
+        assert (await client.put(settings, headers=second_device, json={'theme': 'dark'})).status == 200
+        assert await (await client.get(settings, headers=main)).json() == {'theme': 'dark'}
         response = await client.get('/api/v1/wallet', headers=main)
         row = await service.wallet(owner)
         assert await response.json() == {key: str(row[key]) for key in ('available', 'reserved')}
@@ -86,3 +134,14 @@ async def test_miniapp_shared_wallet_library_and_session(env, confirmed_credit):
         await login(raw, 401)
         await pool.execute("UPDATE miniapp_sessions SET expires_at=now()")
         assert (await client.get('/api/v1/wallet', headers=other)).status == 401
+
+
+async def test_telegram_menu_button():
+    from elevenbot.telegram import register_miniapp_menu
+
+    bot = AsyncMock()
+    await register_miniapp_menu(bot, 'https://miniapp.example.test/')
+    button = bot.set_chat_menu_button.await_args.kwargs['menu_button']
+    assert button.type == 'web_app'
+    assert button.text == 'Приложение'
+    assert button.web_app.url == 'https://miniapp.example.test/'
