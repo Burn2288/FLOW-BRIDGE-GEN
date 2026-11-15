@@ -20,3 +20,7 @@
 ## Реализация и доказательства
 
 Основной инженерный метод: FACT → EVIDENCE → ROOT CAUSE → CHANGE → PHYSICAL PROOF → REGRESSION → ACCEPTANCE. Первым продуктовым доказательством остаётся реальная E2E генерация изображения с сохранением, библиотекой, доставкой и контролем списания. Новые контракты имеют статус DESIGN_DRAFT до решения владельца и независимой проверки реализации. Детали старого стартового пакета: [план AS-IS аудита](docs/audit/AS_IS_ARCHITECTURE.md), [базовая матрица проверок](docs/acceptance/TEST_MATRIX.md).
+
+## Повторное использование реального кода коллеги
+
+См. [инвентаризацию vankhu21 на точном SHA](docs/audit/VANKHU21_IMPLEMENTATION_BASELINE.md), [регламент PR и локальной синхронизации](docs/coordination/BRANCH_INTEGRATION_PROTOCOL.md), [конструктор задания Codex](docs/codex/PROMPT_FACTORY.md) и [готовые промпты срезов](docs/codex/NEXT_TASK_PROMPTS.md). Эти документы отражают **кандидатную рабочую ветку PR #17, а не принятый main**. Платёжная совместимость с правилами Telegram: [Stars для цифровых услуг](docs/contracts/TELEGRAM_STARS_CHANNEL.md).

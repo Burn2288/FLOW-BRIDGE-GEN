@@ -1,8 +1,8 @@
 # C-008 — Wallet, Ledger and internal accounting
-Status: DESIGN_DRAFT. Fundamental paid generation and referral invariant.
+Status: DESIGN_DRAFT for TARGET; partial SOURCE_PRESENT in unmerged PR #17 SHA d691d54e. Fundamental paid generation and referral invariant.
 
 ## Units and ownership
-One Wallet per canonical User and currency. Currency and whether funds are fiat-denominated credits or non-withdrawable units require owner approval; initially propose RUB integer kopecks. Never use float for monetary amounts. Snapshot account balances are derived or transactionally maintained projections, not uncontrolled source of truth. Only Billing service may mutate wallet/ledger.
+CURRENT UNMERGED SOURCE: PostgreSQL `wallets` with `available`/`reserved`, modes `demo`/`live`, internal DarkFlow tokens, ledger movements in `src/elevenbot/core.py`, `task_wallet.py`, `pricing.py`, migrations 026/034. A Platega payment is RUB in kopecks with a pinned RUB→tokens conversion; existing Telegram Stars charges use XTR. TARGET: one canonical Wallet per user/account/mode and explicit token semantics; do not treat internal tokens, RUB and XTR as interchangeable currencies. Any change to wallet unit requires ADR, migration, pricing/reconciliation tests and owner approval. Never use float for monetary amounts. Snapshot account balances are derived or transactionally maintained projections, not uncontrolled source of truth. Only Billing service may mutate wallet/ledger.
 
 Ledger events include TOPUP_CREDIT, RESERVE, CAPTURE, RELEASE, REFUND, REFERRAL_CREDIT, REFERRAL_REVERSAL, ADMIN_ADJUSTMENT, CHARGEBACK_REVIEW. Each has unique event ID, user/account ID, source entity ID, amount_minor, currency, idempotency_key, created_at, actor/source, status and audit correlation. Ledger entries immutable; corrections are compensating operations with explicit reason and actor. For stronger accounting, use balanced postings / double-entry across user liability, reserved funds, payment clearing and expenses, with sum-zero per currency.
 

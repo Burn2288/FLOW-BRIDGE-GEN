@@ -12,7 +12,7 @@
 2. BASE_DIRECTIVE — DARKFLOW GEN MASTER ENGINEERING DIRECTIVE (база 5601faa), предоставленная владельцем: проверочный метод, инварианты безопасности, S0–S8.
 3. SOURCE_AI_SHOP — извлечённые повторно используемые решения из приватного Burn2288/AI-SHOP-BOT, main SHA 494ab81f5552be836a37ec3aa685e6be8308076c. Это референс переноса, не состояние FLOW-BRIDGE-GEN.
 4. DESIGN_PROPOSAL — предложенная архитектура и значения по умолчанию; до утверждения владельцем не выдавать за согласованную функцию.
-5. AS_IMPLEMENTED — разрешается только после отдельного аудита исходников FLOW-BRIDGE-GEN, зафиксированного SHA и проверок. На этом этапе отсутствует.
+5. SOURCE_PRESENT_UNMERGED — наблюдаемый исходный код в PR #17 SHA d691d54e..., не являющийся принятой main; CI этого SHA успешен. AS_IMPLEMENTED_IN_MAIN подтверждается только после merge и повторной проверки HEAD.
 
 Работы, выполненные vankhu21 в FLOW-BRIDGE-GEN, и личные рабочие планы двух разработчиков намеренно не оцениваются и не используются как доказательства в этом пакете. Документы не заменяют прежнюю историю или код.
 
@@ -36,6 +36,10 @@
 | Администраторы | [ADMIN_CONTROL](contracts/ADMIN_CONTROL.md) | Telegram admin, Mini App admin, RBAC |
 | Backend | [API_FOUNDATION](contracts/API_FOUNDATION.md) | Общий API, auth, версии и ошибки |
 | Наследование | [AI_SHOP_REUSE](reference/AI_SHOP_REUSE.md) | Точные пути кодовой базы-донора |
+| Существующий код | [VANKHU21_IMPLEMENTATION_BASELINE](audit/VANKHU21_IMPLEMENTATION_BASELINE.md) | Реально присутствующие модули, тесты и ограничения по SHA PR #17 |
+| Ветки | [BRANCH_INTEGRATION_PROTOCOL](coordination/BRANCH_INTEGRATION_PROTOCOL.md) | Ревью, зависимости PR, синхронизация и запрет автослияния |
+| Промпты Codex | [PROMPT_FACTORY](codex/PROMPT_FACTORY.md), [NEXT_TASK_PROMPTS](codex/NEXT_TASK_PROMPTS.md) | Антидублирование существующего кода и последовательные задачи |
+| Stars / compliance | [TELEGRAM_STARS_CHANNEL](contracts/TELEGRAM_STARS_CHANNEL.md) | Правило цифровых услуг и существующие Stars-механизмы |
 | Настройки | [ENV_CONTRACT](operations/ENV_CONTRACT.md) | Секреты, allowlist админов, флаги |
 | Приёмка | [FOUNDATION_TEST_MATRIX](acceptance/FOUNDATION_TEST_MATRIX.md) | Требование → контракт → проверка |
 | Состояние | [PROJECT_STATE](PROJECT_STATE.md) | Срез реальной доказанности |

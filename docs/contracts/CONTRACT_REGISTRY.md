@@ -40,6 +40,13 @@
 | C-028 | Observability | correlation/job/provider/payment ID и явные стадии | оператор видит причину без SQL |
 | C-029 | Feature Flags | разрешённые динамические изменения | выключение провайдера не рушит каталог |
 | C-030 | User Data Retention | media/data retention, deletion/legal hold | истечение срока безопасно обработано |
+| C-031 | Telegram Stars / payment channel | compliant XTR checkout, backend verified event, common ledger | no third-party digital checkout inside Telegram; refunds, race |
+
+## Source-aware implementation gate (2026-11-15)
+
+Ряд модулей существует в открытом PR #17: ProviderRegistry, TaskLaunch, Pricing, Ledger, Telegram Admin Edition, Platega, Stars и Mini App read-mostly. См. [инвентаризацию](../audit/VANKHU21_IMPLEMENTATION_BASELINE.md). Новые контракты задают TARGET, но не дают оснований повторно создавать эти модули. Состояние PR: UNMERGED, CI_PASS указанного SHA, LIVE_NOT_PROVEN.
+
+Система внутренних средств на текущем кодовом срезе — токены DarkFlow; рубли фигурируют во внешней оплате с фиксацией курса, Stars — XTR. Не путать эти денежные единицы. Применимость Platega для продаж цифрового контента внутри Telegram ограничена C-031.
 
 ## Что детализировать во втором и последующих прогонах
 
