@@ -1,4 +1,6 @@
 # C-012/C-018 — Generation, billing authorization, job and delivery lifecycle
+
+> **Новая сверка с фактическим кодом (PR #17, SHA d691d54e…; 2026-11-15):** Уже существует `TaskLaunch` с `task_dispatch`, PriceQuote, reserve/capture/release и механика восстановления; Telegram даёт update_id. Критический GAP — transport-neutral job ID для Mini App, текущие переходы согласовывать с кодом/миграциями, не вводить дубль таблиц. Состояние этого кода — SOURCE_PRESENT_UNMERGED + CI_PASS, не принятая main. [Полная инвентаризация](../audit/VANKHU21_IMPLEMENTATION_BASELINE.md).
 Status: DESIGN_DRAFT, BASE_DIRECTIVE.
 
 ## Generation types

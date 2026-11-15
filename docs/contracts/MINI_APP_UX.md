@@ -1,4 +1,6 @@
 # C-005/C-020 — Telegram Mini App UX and administrator entry
+
+> **Новая сверка с фактическим кодом (PR #17, SHA d691d54e…; 2026-11-15):** Mini App уже существует в `miniapp/backend/web.py` и `miniapp/frontend/*`: Telegram initData подписано и ограничено 300 с, bearer-сессия 600 с; доступны каталог, кошелёк, работы, файлы и изменение темы. Нет HTTP создания генераций/платежей и Mini App admin. Ниже приведён TARGET расширения, не требование переписать приложение. Состояние этого кода — SOURCE_PRESENT_UNMERGED + CI_PASS, не принятая main. [Полная инвентаризация](../audit/VANKHU21_IMPLEMENTATION_BASELINE.md).
 Status: DESIGN_DRAFT. Source: OWNER_REQUIREMENT. No reference image provided; visual specification is a proposal, not an exact reproduction.
 
 ## Core rule

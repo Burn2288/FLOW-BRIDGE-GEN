@@ -1,4 +1,6 @@
 # C-013/C-014 — Universal Provider Integration Contract
+
+> **Новая сверка с фактическим кодом (PR #17, SHA d691d54e…; 2026-11-15):** Реализованы `aggregate.py:ProviderRegistry`, `task_launch.py:ExecutionAdapter`, `provider_execution.py` и тест третьего fixture-агрегатора. Новый manifesto/onboarding workflow должен расширить существующие контракты, а не создавать параллельный реестр или глобальный switch по каждому бренду. Состояние этого кода — SOURCE_PRESENT_UNMERGED + CI_PASS, не принятая main. [Полная инвентаризация](../audit/VANKHU21_IMPLEMENTATION_BASELINE.md).
 Status: DESIGN_DRAFT. Critical architectural requirement: register AI aggregators with divergent sync/async/request formats without rewriting platform core.
 
 ## Supported integration categories

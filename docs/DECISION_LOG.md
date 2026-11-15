@@ -19,3 +19,16 @@ Decision ID, date, reason, affected contracts, current proven state, alternative
 
 ## No implicit code tasks
 These are architectural choices pending approval, not assigned to either developer. Personal plans and work branches remain untouched.
+
+## Новые решения / риски после сверки кандидатного кода
+
+| ID | Решение / риск | Основание | Статус |
+| --- | --- | --- | --- |
+| D-011 | Применять существующую реализацию vankhu21 (ProviderRegistry, Ledger, TaskLaunch, Mini App) как исходный кандидат, не переписывать | PR #17 d691d54e; inventory | PENDING_OWNER_INTEGRATION |
+| D-012 | Соблюсти порядок исторического стэка PR #8–#17, сначала ревью, CI, затем merge и sync | CONTRIBUTING.md / BRANCH_INTEGRATION_PROTOCOL | PENDING_OWNER |
+| D-013 | Telegram digital-service checkout через Stars; Platega не включать внутри Telegram для продажи цифровых услуг | Telegram developer TOS §6.2; C-031 | PLATFORM_REQUIREMENT / IMPLEMENTATION_PENDING |
+| D-014 | Внутренние токены DarkFlow, RUB и XTR различаются; курс фиксируется в платёжном заказе | code pricing.py, topups.py, wallet | PENDING_OWNER_FINAL_ACCOUNTING |
+| D-015 | Для Mini App admin beta использовать уже существующий `ADMIN_TELEGRAM_IDS` как eligibility и отдельный server role | Config source and ADMIN_CONTROL | PENDING_OWNER |
+| D-016 | Сохранять Mini App read-mostly как основу, наращивать узкие endpoints вместо второго API | web.py + miniapp tests | PENDING_OWNER |
+
+Следующие документы: [инвентаризация](audit/VANKHU21_IMPLEMENTATION_BASELINE.md), [протокол веток](coordination/BRANCH_INTEGRATION_PROTOCOL.md), [конструктор Codex](codex/PROMPT_FACTORY.md). Ни одна запись PENDING не является разрешением менять рабочий код или проводить реальные платежи.

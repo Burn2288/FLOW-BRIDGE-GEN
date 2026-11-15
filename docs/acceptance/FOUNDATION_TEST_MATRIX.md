@@ -29,3 +29,14 @@ S7/S8 Pilot criteria aligned to master directive: Ubuntu deployment, backup reco
 
 ## Evidence requirement per test
 contract_id, test_id, scenario, environment, repository+commit_sha, configuration redacted, command/method, timestamps, expected and actual results, evidence artifact link, reviewer, status. PASS requires independently inspectable artifact; MOCK_PASS is not LIVE_PASS; if no access use BLOCKED_EXTERNAL; software success without physical proof → SOFTWARE_PASS/LIVE_NOT_PROVEN. Test omitted → NOT_TESTED.
+
+## Source-aware acceptance gates after vankhu21 code inspection
+
+| Source-backed scenario | Current evidence | Remaining acceptance |
+| --- | --- | --- |
+| Mini App initData/session/catalogue/wallet/library/theme | CODE_PRESENT in PR #17, two success Actions at exact SHA | HTTPS Telegram client physical E2E and production auth/session review |
+| Mini App paid generation, referral, payment, web-admin | No endpoints in checked `miniapp/backend/web.py` | Transport-neutral API, RBAC, client UI and regression tests |
+| Provider registry, third adapter | Code/test fixture exists; CI success | Approved manifest/onboarding and provider-live proof |
+| Telegram Stars XTR and refunds | Source paths exist | Contract C-031; one-config synthetic and authorized Stars test payment |
+| Platega topups/ledger | Source paths and mock test suite exist | No Platega checkout for digital in-Telegram product; authorized separate integration proof |
+| Shared accepted build and local machine sync | PR #8–#17 all open; origin/main README-only | Peer review/merge gates, CI current SHA, then full clone FF and regression |

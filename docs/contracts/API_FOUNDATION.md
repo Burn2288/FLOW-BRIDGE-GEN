@@ -1,4 +1,6 @@
 # C-024/C-025 — HTTP API v1 and event contracts
+
+> **Новая сверка с фактическим кодом (PR #17, SHA d691d54e…; 2026-11-15):** В `miniapp/backend/web.py` уже есть `POST /api/v1/session`, `DELETE /api/v1/session`, `GET /api/v1/catalogue`, `GET /api/v1/wallet`, `GET/PUT /api/v1/settings` и `GET /api/v1/works[/{kind}/{id}]`. Иные перечисленные ниже endpoints — TARGET, ещё не реализованы; расширять существующий API, а не создавать второй. Состояние этого кода — SOURCE_PRESENT_UNMERGED + CI_PASS, не принятая main. [Полная инвентаризация](../audit/VANKHU21_IMPLEMENTATION_BASELINE.md).
 Status: DESIGN_DRAFT; next run must produce executable OpenAPI 3.1 and JSON schemas. Mini App requires genuine backend API; Telegram presentation may call the same application services directly in monolith, with identical permissions and output semantics.
 
 ## API baseline

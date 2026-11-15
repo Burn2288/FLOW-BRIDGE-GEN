@@ -1,4 +1,6 @@
 # C-004 — Telegram DM UX navigation contract
+
+> **Новая сверка с фактическим кодом (PR #17, SHA d691d54e…; 2026-11-15):** Сейчас `telegram.py` строит меню «🌐 Агрегаторы», «📁 Мои работы», «💳 Баланс», «❓ Помощь», а `navigation.py` уже хранит панели, `progress.py` ведёт сообщения статуса. Предлагаемая ниже UX-карта отличается от существующей и требует миграции без потери Admin Edition, callbacks и медиа. Состояние этого кода — SOURCE_PRESENT_UNMERGED + CI_PASS, не принятая main. [Полная инвентаризация](../audit/VANKHU21_IMPLEMENTATION_BASELINE.md).
 Status: DESIGN_DRAFT. Primary source: OWNER_REQUIREMENT. Additional nodes explicitly DESIGN_PROPOSAL.
 
 ## Navigation principles

@@ -1,4 +1,6 @@
 # C-019/C-020/C-021 — Unified administration
+
+> **Новая сверка с фактическим кодом (PR #17, SHA d691d54e…; 2026-11-15):** Telegram Admin Edition реально существует в `admin_access.py`, `telegram.py`, `model_policy.py`, `tariff_admin.py`, `topup_ui.py`. Сессия пароля process-local, конфигурация `ADMIN_TELEGRAM_IDS`; не переносить в Mini App как веб-роль. Ниже — согласуемая архитектура HTTP admin и UX выбора. Состояние этого кода — SOURCE_PRESENT_UNMERGED + CI_PASS, не принятая main. [Полная инвентаризация](../audit/VANKHU21_IMPLEMENTATION_BASELINE.md).
 Status: DESIGN_DRAFT. Source: OWNER_REQUIREMENT + BASE_DIRECTIVE. Existing Telegram admin implementations must be inventoried and preserved in later AS-IS audit, not assumed here.
 
 ## Two administrative clients
