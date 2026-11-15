@@ -37,7 +37,8 @@ async def account_db(tmp_path):
     if not dsn:
         pytest.skip('Separate PostgreSQL TEST_DATABASE_URL is required')
     schema = 'miniapp_' + uuid4().hex
-    async with await asyncpg.connect(dsn) as connection:
+    connection = await asyncpg.connect(dsn)
+    try:
         await connection.execute(f'CREATE SCHEMA {schema}')
         try:
             async with asyncpg.create_pool(dsn, server_settings={'search_path': schema}) as pool:
@@ -47,6 +48,8 @@ async def account_db(tmp_path):
                 yield pool, cfg
         finally:
             await connection.execute(f'DROP SCHEMA {schema} CASCADE')
+    finally:
+        await connection.close()
 
 
 async def test_miniapp_shared_wallet_library_and_session(account_db):
