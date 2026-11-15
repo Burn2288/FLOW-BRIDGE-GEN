@@ -7,7 +7,7 @@
 1. **[Фундаментальная карта проекта и статусы документов](docs/FOUNDATION_INDEX.md)** — единый индекс, источники требований и реестр.
 2. [Продуктовая модель и сценарии](docs/product/PRODUCT_BLUEPRINT.md).
 3. [Модульная система служб и процессов](docs/architecture/MODULAR_SYSTEM.md).
-4. [Реестр базовых контрактов C-001—C-030](docs/contracts/CONTRACT_REGISTRY.md).
+4. [Реестр базовых контрактов C-001—C-031](docs/contracts/CONTRACT_REGISTRY.md).
 5. [Telegram-меню](docs/contracts/TELEGRAM_UX.md) и [Mini App](docs/contracts/MINI_APP_UX.md).
 6. [Донорская база AI-SHOP-BOT](docs/reference/AI_SHOP_REUSE.md) для Platega и реферальной системы.
 7. [Матрица требований и приёмки](docs/acceptance/FOUNDATION_TEST_MATRIX.md).
