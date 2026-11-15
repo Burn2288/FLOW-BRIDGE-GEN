@@ -67,6 +67,8 @@ async def headers(request, handler):
 
 def create_app(pool, cfg):
     service = Service(pool, cfg)
+    from .telegram import TelegramApp, STORE_SECTIONS, anymodel_available
+    view = TelegramApp(pool, cfg, None)
     app = web.Application(client_max_size=12 * 1024, middlewares=[headers])
 
     async def login(request):
@@ -118,34 +120,38 @@ def create_app(pool, cfg):
 
     async def catalogue(request):
         await account(request)
-        from .discovery import SnapshotStore
-        from .anymodel import model_store
-        from .interaction import is_disabled_model
-        from .model_policy import canonical
-
-        snapshots = {'clodex': SnapshotStore(cfg.catalogue_path).read()}
-        if cfg.anymodel_test_enabled:
-            snapshots['anymodel'] = model_store(cfg).read()
-        approved = {(row['provider'], row['model_id'], row['operation']): row['title']
-                    for row in await pool.fetch('SELECT provider,model_id,operation,title FROM approved_models')}
+        # The HTTP account is read-only and has no Admin Edition session.
         rows = []
         availability = {}
-        for number, (provider, snapshot) in enumerate(snapshots.items(), 1):
-            ready = bool(snapshot and snapshot['fresh_until'] > time.time() and not snapshot.get('refresh_error')
-                         and any(source['provider'] == provider and source['scope'] == 'key_available'
-                                 for source in snapshot['sources']))
-            label = f'Агрегатор {number}'
+        try:
+            snap = view.catalogue_snapshot()
+        except Rejected:
+            snap = None
+        label = view.provider_title(None, 'clodex')
+        availability[label] = snap is not None
+        if snap is not None:
+            for section, (_, operation) in STORE_SECTIONS.items():
+                for index in await view.store_models(snap, section, None):
+                    item = snap['models'][index]
+                    rows.append(dict(aggregator=label,id=item['id'],title=item['title'],operation=operation))
+
+        if anymodel_available(cfg):
+            label = view.provider_title(None, 'anymodel')
+            try:
+                snap = view.anymodel_snapshot(None)
+            except Rejected:
+                snap = None
+            ready = view.anymodel_catalogue_ready(snap)
             availability[label] = ready
-            if not ready:
-                continue
-            for model in snapshot['models']:
-                if (model['provider'] != provider or model['availability'] != 'key_available'
-                        or is_disabled_model(model)):
-                    continue
-                for operation in model['operations']:
-                    title = approved.get((provider, canonical(provider, model['id'], operation), operation))
-                    if title:
-                        rows.append({'aggregator': label, 'id': model['id'], 'title': title, 'operation': operation})
+            if ready:
+                approved = {(row['model_id'], row['operation']) for row in await view.models.list('anymodel')}
+                for item in snap['models']:
+                    if item['availability'] == 'key_available':
+                        for operation in item['operations']:
+                            if (item['id'], operation) in approved:
+                                rows.append(dict(aggregator=label,id=item['id'],title=item['title'],operation=operation))
+        # fal is restricted in the bot to its owner's active Admin Edition.
+        # A regular HTTP session never inherits that privilege.
         return web.json_response({'models': rows, 'availability': availability})
 
     async def history(request):

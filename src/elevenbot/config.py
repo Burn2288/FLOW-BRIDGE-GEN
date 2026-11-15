@@ -59,6 +59,9 @@ class Config:
     platega_failed: str = ''
     platega_method: int = 2
 
+    def allows_public_image(self, provider, model, operation):
+        return (operation == 'images.generate' and f'{provider}:{model}' in self.public_image_models)
+
     @property
     def wallet_mode(self): return 'demo' if self.mode == 'mock' else 'live'
 

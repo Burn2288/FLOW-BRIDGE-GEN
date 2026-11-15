@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 from aiohttp.test_utils import TestClient, TestServer
 
 from elevenbot.aggregate import make_snapshot
+from elevenbot.anymodel import model_store
 from elevenbot.discovery import SnapshotStore
 from elevenbot.interaction import MOCK_IMAGE
 from elevenbot.miniapp_web import create_app
@@ -23,7 +24,8 @@ def signed(token, user, age=0):
 
 async def test_miniapp_shared_wallet_library_and_session(env):
     pool, cfg, service, owner = env
-    cfg = replace(cfg, token='fixture', catalogue_path=str(cfg.storage.parent / 'catalogue.json'))
+    cfg = replace(cfg, token='fixture', interaction_mode='mock', access_mode='private',
+                  anymodel_test_enabled=True, catalogue_path=str(cfg.storage.parent / 'catalogue.json'))
     models = [{'provider': 'clodex', 'id': name, 'title': name,
                'availability': 'key_available', 'operations': ['images.generate']}
               for name in ('fixture/image', 'fixture/unapproved')]
@@ -31,6 +33,10 @@ async def test_miniapp_shared_wallet_library_and_session(env):
         {'provider': 'clodex', 'scope': 'key_available'}
     ]))
     await pool.execute("INSERT INTO approved_models VALUES('clodex','fixture/image','images.generate','Image')")
+    model_store(cfg).write(make_snapshot([
+        {'provider': 'anymodel', 'id': 'anymedia/fibo-2', 'title': 'FIBO 2',
+         'availability': 'key_available', 'operations': ['images.generate']}
+    ], [], [{'provider': 'anymodel', 'scope': 'key_available'}]))
     stranger = await service.identity(101)
     await service.accept(stranger)
     work = await service.save_image_work(owner, -501, 'fixture/image', 'Fixture',
@@ -60,9 +66,15 @@ async def test_miniapp_shared_wallet_library_and_session(env):
         ]
         response = await client.get('/api/v1/catalogue', headers=main)
         assert response.status == 200
-        assert [m['id'] for m in (await response.json())['models']] == ['fixture/image']
+        assert [m['id'] for m in (await response.json())['models']] == ['fixture/image', 'anymedia/fibo-2']
         response = await client.get(f'/api/v1/works/image/{work}', headers=main)
         assert response.status == 200 and await response.read() == MOCK_IMAGE
+        response = await client.get('/api/v1/wallet', headers=other)
+        other_wallet = await service.wallet(stranger)
+        assert await response.json() == {key: str(other_wallet[key]) for key in ('available', 'reserved')}
+        assert await (await client.get('/api/v1/works', headers=other)).json() == {'works': []}
+        assert await (await client.get('/api/v1/catalogue', headers=other)).json() == await (
+            await client.get('/api/v1/catalogue', headers=main)).json()
         response = await client.get(f'/api/v1/works/image/{work}', headers=other)
         assert response.status == 404
         response = await client.delete('/api/v1/session', headers=main)

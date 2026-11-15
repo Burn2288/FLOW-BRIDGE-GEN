@@ -38,8 +38,7 @@ class TaskLaunch:
             await self.authorize(conn, user, external)
             return
         cfg = self.pricing.config
-        model_key = f'{request.provider}:{request.model}'
-        if request.operation == 'images.generate' and model_key in cfg.public_image_models:
+        if cfg.allows_public_image(request.provider, request.model, request.operation):
             from .core import Service
             await Service(self.pricing.pool, cfg).authorize(conn, user)
             linked = await conn.fetchval(

@@ -1144,6 +1144,11 @@ class TelegramApp:
             raise Rejected('AnyModel: каталог обновился. Откройте раздел заново.')
         return data
 
+    @staticmethod
+    def anymodel_catalogue_ready(data):
+        return bool(data and data['fresh_until']>time.time() and not data.get('refresh_error')
+                    and any(source.get('scope')=='key_available' for source in data.get('sources',[])))
+
     def anymodel_status(self,data):
         if data['sources'][0]['scope']=='public_only':
             lines=['Публичный каталог. Доступ по ключу не подтверждён.']
@@ -1227,10 +1232,7 @@ class TelegramApp:
         admin=self.has_admin_session(ext)
         title=f"{self.provider_title(ext,'anymodel')} · {ANYMODEL_SECTIONS[section]}"
         back=[('← К агрегатору','am')]
-        if not admin and (
-            not data or data['fresh_until']<=time.time() or data.get('refresh_error')
-            or not any(source.get('scope')=='key_available' for source in data.get('sources',[]))
-        ):
+        if not admin and not self.anymodel_catalogue_ready(data):
             await self.catalogue_screen(ext,title+'\n'+CATALOGUE_UNAVAILABLE,buttons([back]))
             return
         voices_unavailable=False
@@ -1620,7 +1622,8 @@ class TelegramApp:
         from .model_policy import canonical
         operation=STORE_SECTIONS[section][1]
         admin=self.has_admin_session(ext)
-        if not admin and self.cfg.interaction_mode=='live' and snapshot['fresh_until']<=time.time():
+        if not admin and snapshot['fresh_until']<=time.time() and (
+                self.cfg.interaction_mode=='live' or operation==IMAGE_OP and self.cfg.public_image_models):
             return []
         approved={row['model_id'] for row in await self.models.list('clodex',operation,snapshot=snapshot)} if self.pool else set()
         return [index for index,model in enumerate(snapshot['models'])
@@ -1850,6 +1853,11 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,'Выберите модель для проверки формы. Совместимость с операцией ещё нужно подтвердить.',buttons(rows))
 
+    def public_clodex_image(self, model, operation):
+        return (self.cfg.mode == 'clodex' and self.cfg.generation_enabled
+                and self.cfg.economy_verified and bool(self.cfg.clodex_key)
+                and self.cfg.allows_public_image('clodex', model, operation))
+
     def model_can_run(self,model,operation):
         if is_disabled_model(model):return False
         if operation=='audio.speech':
@@ -1862,6 +1870,8 @@ class TelegramApp:
                 and (self.cfg.speech_pilot or bool(catalog(self.cfg)))
             )
         from .interaction import supports
+        if self.public_clodex_image(model['id'],operation):
+            return supports(model,operation,live=True)
         mode=self.cfg.interaction_mode
         return mode in ('mock','live') and supports(model,operation,live=mode=='live')
 
@@ -1924,8 +1934,9 @@ class TelegramApp:
         if (not model or not self.model_can_run(model,operation)
                 or not await self.models.allowed('clodex',model['id'],operation)):
             raise Rejected('Модель больше не доступна. Откройте каталог.')
-        mode=self.cfg.interaction_mode
-        if mode=='live' and (self.cfg.access_mode!='private' or snapshot['fresh_until']<time.time()):
+        public = self.public_clodex_image(model['id'],operation)
+        mode='live' if public else self.cfg.interaction_mode
+        if mode=='live' and ((not public and self.cfg.access_mode!='private') or snapshot['fresh_until']<time.time()):
             raise Rejected('Запуск недоступен. Проверьте доступ и обновите каталог.')
         message=update.message
         prompt=message.text
@@ -2073,7 +2084,8 @@ class TelegramApp:
         snapshot=self.catalogue_snapshot()
         if snapshot['fresh_until']<=time.time():
             return None
-        if req.operation!='audio.speech' and self.cfg.interaction_mode!='live':
+        if (req.operation!='audio.speech' and self.cfg.interaction_mode!='live'
+                and not self.public_clodex_image(req.model,req.operation)):
             return None
         if req.operation=='video':
             return {'id':req.model} if req.model in self.clodex_video_ids(snapshot) else None

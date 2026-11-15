@@ -1,79 +1,105 @@
+import base64
+import json
 from dataclasses import replace
-import httpx
-from elevenbot.topups import Topups
-from elevenbot.pricing import Request
-from test_topups import fixture
-from test_provider_extensibility import FixtureAggregator, app_with_fixture
 from unittest.mock import AsyncMock
+from uuid import uuid4
+
+import httpx
+
+from elevenbot.aggregate import make_snapshot
+from elevenbot.discovery import SnapshotStore
 from elevenbot.interaction import MOCK_IMAGE
-from elevenbot.task_launch import Outcome
-from types import SimpleNamespace
-from test_ui import Bot
+from elevenbot.telegram import TelegramApp
+from elevenbot.topup_ui import TOPUP_MENU
 from test_admin_access import event
+from test_topups import fixture
+from test_ui import Bot
 
-async def test_funded_regular_user_with_one_config(env, monkeypatch):
-    pool,cfg,admin,payments,gateway=await fixture(env)
-    cfg=replace(cfg,topup_mode='live',payments_enabled=True,platega_enabled=True,
-                public_image_models=('fixture:fixture/image',))
-    gateway_original=gateway.handler
-    def checkout(req):
-        if req.url.path=='/transaction/process':
-            import json
-            from uuid import uuid4
-            payload=json.loads(req.content)
-            key=payload['payload']
-            assert payload['metadata']['userId']=='101'
-            remote=str(uuid4())
-            gateway.orders[key]={'remote':remote,'payload':payload}
-            return httpx.Response(200,json={'transactionId':remote,'redirect':'https://pay.platega.io/test','expiresIn':'00:15:00','merchantId':payments.client.cfg.merchant})
-        return gateway_original(req)
-    async with httpx.AsyncClient(transport=httpx.MockTransport(checkout)) as payment_http:
-        from elevenbot.topups import CheckoutClient
-        posts=[]
-        def generation(req):
-            if req.method=='GET': return httpx.Response(200,json={'amount':600})
-            posts.append(req.method)
-            return httpx.Response(200,content=MOCK_IMAGE)
-        async def prepare(self, conn, user, external, quote, request_id):
-            assert quote.request.operation=='images.generate' and external==101
 
-        async def run(self, user, quote, request_id, prepared, on_accepted):
-            response=await self.client.post('/generate',json={'model':quote.request.model})
-            work=await app.svc.save_image_work(user,request_id,quote.request.model,quote.request.prompt,
-                                               SimpleNamespace(image=response.content,filename='test.png'))
-            return Outcome('image',work)
+async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path):
+    pool, cfg, admin, payments, gateway = await fixture(env)
+    model_id = 'flux-schnell'
+    cfg = replace(cfg, mode='clodex', generation_enabled=True, economy_verified=True,
+                  topup_mode='live', payments_enabled=True, platega_enabled=True,
+                  public_image_models=(f'clodex:{model_id}',), clodex_key='fixture',
+                  interaction_mode='off', interaction_limit=1, catalogue_path=str(tmp_path/'catalogue.json'))
+    model = {'provider':'clodex','id':model_id,'title':'FLUX Schnell',
+             'operations':['images.generate'],'protocols':['image-generation'],
+             'availability':'key_available'}
+    snapshot = make_snapshot([model], [], [{'provider':'clodex','scope':'key_available'}])
+    SnapshotStore(cfg.catalogue_path).write(snapshot)
+    assert await pool.fetchval("SELECT 1 FROM approved_models WHERE provider='clodex' AND model_id=$1 AND operation='images.generate'",model_id)
+    posts = []
 
-        monkeypatch.setattr(FixtureAggregator,'prepare',prepare)
-        monkeypatch.setattr(FixtureAggregator,'run',run)
-        async with httpx.AsyncClient(base_url='https://fixture.invalid',transport=httpx.MockTransport(generation)) as c:
-            bot=Bot()
-            bot.send_photo=AsyncMock()
-            app=app_with_fixture(pool,cfg,bot,c)
-            app.topups=Topups(pool,app.cfg,CheckoutClient(payments.client.cfg,payment_http))
-            user=await app.svc.identity(101)
-            await app.svc.accept(user)
-            async def wallet():
-                return tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))
-            before=await wallet()
-            order=await app.topups.quote(user,101,10000,'abcdef123456')
-            await app.topups.create(user,order['id'])
-            await app.topups.check(user,order['id'])
-            await app.topups.check(user,order['id'])
-            funded=await wallet()
-            await app.pricing.set_rate(admin,100,'fixture_token','1',provider='fixture')
-            await pool.execute("INSERT INTO approved_models VALUES('fixture','fixture/image','images.generate','Image')")
-            q=await app.pricing.quote(user,Request('fixture','fixture/image','images.generate','Image','Hello'))
-            await app.handle(event(550,chat=101,callback='amconfirm:'+str(q.id)))
-            await app.handle(event(551,chat=101,callback='amconfirm:'+str(q.id)))
-            after=await wallet()
-            ledger=await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1",user)
-            status=await pool.fetchval("SELECT status FROM payments WHERE id=$1",order['id'])
-            print('ORDER',status,'LEDGER',ledger)
-            print('FIXED_CONFIG',before,funded,after,'posts',len(posts),'payments',app.cfg.payments_enabled,'responses',[x[0] for x in bot.sent])
-            works=await app.svc.history(user)
-            assert before==(0,0) and funded==(1000,0) and after==(400,0)
-            assert len(posts)==1 and status=='succeeded' and ledger==3
-            assert len(works)==1 and works[0]['kind']=='image'
-            assert (await app.svc.image_work(user,works[0]['id']))['image']==MOCK_IMAGE
-            assert bot.send_photo.await_count==1 and app.cfg.payments_enabled
-    await payments.client.close()
+    async def transport(req):
+        if req.url.host == 'clodex.xyz':
+            assert req.method == 'POST' and req.url.path == '/v1/images/generations'
+            assert json.loads(req.content)['model'] == model_id
+            assert await wallet() == (400, 600)
+            posts.append(req.url.path)
+            return httpx.Response(200,json={'data':[{'b64_json':base64.b64encode(MOCK_IMAGE).decode()}]})
+        if req.url.path == '/transaction/process':
+            payload = json.loads(req.content)
+            assert payload['metadata']['userId'] == '101'
+            remote = str(uuid4())
+            gateway.orders[payload['payload']] = {'remote':remote,'payload':payload}
+            return httpx.Response(200,json={'transactionId':remote,'redirect':'https://pay.platega.io/test',
+                                          'expiresIn':'00:15:00','merchantId':payments.client.cfg.merchant})
+        return gateway.handler(req)
+
+    make_client = httpx.AsyncClient
+    def client_with_transport(*args, **kwargs):
+        return make_client(*args, **(kwargs | {'transport':httpx.MockTransport(transport)}))
+    monkeypatch.setattr(httpx,'AsyncClient',client_with_transport)
+    bot = Bot()
+    bot.send_photo = AsyncMock(return_value=type('Message',(),{'message_id':300})())
+    app = TelegramApp(pool,cfg,bot)
+    # Keep the real checkout adapter and simulate only HTTP.
+    app.topups.client.cfg = payments.client.cfg
+    user = await app.svc.identity(101)
+    await app.svc.accept(user)
+    await app.pricing.set_tariff(admin,100,'clodex',model_id,'images.generate',{'n':1},
+                                 basis='request',unit='darkflow_token',amount='600',
+                                 expires=None,evidence='fixture',temporary=False)
+    n = 500
+    async def press(text=None, callback=None, target=None):
+        nonlocal n
+        n += 1
+        await (target or app).handle(event(n,text,chat=101,callback=callback))
+    def route(prefix):
+        return next(b.callback_data for _, markup in reversed(bot.sent) if hasattr(markup,'inline_keyboard')
+                    for row in markup.inline_keyboard for b in row if (b.callback_data or '').startswith(prefix))
+    async def wallet():
+        row = await app.svc.wallet(user)
+        return row['available'],row['reserved']
+
+    try:
+        assert await wallet() == (0,0)
+        await press(TOPUP_MENU)
+        menu = next(markup for text,markup in reversed(bot.sent) if 'Пополнение баланса' in text)
+        preset = next(b.callback_data for row in menu.inline_keyboard for b in row if b.text.startswith('100 ₽'))
+        await press(callback=preset)
+        await press(callback=route('tucreate:'))
+        check = route('tucheck:')
+        await press(callback=check)
+        await press(callback=check)
+        assert await wallet() == (1000,0)
+        await press(callback=f'smodel:{snapshot["version"]}:image:0:0')
+        await press(callback=route('srun:'))
+        await press('Проверка изображения')
+        confirm = route('amconfirm:')
+        await press(callback=confirm)
+        await press(callback=confirm)
+        assert await wallet() == (400,0) and len(posts)==1 and len(gateway.orders)==1, [text for text, _ in bot.sent]
+        assert await pool.fetchval("SELECT status FROM payments WHERE user_id=$1",user)=='succeeded'
+        assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1",user)==3
+        restarted = TelegramApp(pool,cfg,bot)
+        await press(callback='history:0',target=restarted)
+        await press(callback=route('image:'),target=restarted)
+        assert bot.send_photo.await_count==2
+        assert all(call.args[1].data == MOCK_IMAGE for call in bot.send_photo.await_args_list)
+        assert len(posts)==1 and (await restarted.svc.wallet(user))['available']==400
+        print('wallet=0->1000->400 payment=succeeded posts=1 debit=1 reopened=1')
+    finally:
+        await app.topups.client.close()
+        await payments.client.close()
