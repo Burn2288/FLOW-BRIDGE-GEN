@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "task_id": "IN-01",
+  "developer": "Burn2288",
+  "reviewer": "vankhu21",
+  "contract_ids": [
+    "C-027"
+  ],
+  "base_branch": "planning/team-workplans-v1",
+  "base_sha": "ce97300166b7b14166a9563d6d92897bb7156001",
+  "head_branch": "work/burn2288/IN-01",
+  "head_sha": "ce97300166b7b14166a9563d6d92897bb7156001",
+  "main_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+  "pr_url": null,
+  "dependent_prs": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/18",
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19"
+  ],
+  "changed_files": [
+    "docs/planning/integration/pr-graph.json"
+  ],
+  "migration_files": [],
+  "test_environment": "Windows Python 3.12; repository clone; no application runtime",
+  "test_commands": [
+    "python docs/planning/integration/check_pr_graph.py",
+    "python .github/check_docs.py",
+    "python .github/check_planning.py",
+    "git diff --check"
+  ],
+  "test_results": [
+    {
+      "name": "Pending commit-bound checks",
+      "type": "documentation",
+      "status": "NOT_TESTED",
+      "source_sha": "ce97300166b7b14166a9563d6d92897bb7156001",
+      "passed": null,
+      "failed": null,
+      "skipped": null,
+      "details": "Source preservation and semantic review incomplete; CI pending."
+    }
+  ],
+  "ci_run_urls": [],
+  "evidence_paths": [
+    "docs/planning/integration/github-snapshot.json",
+    "docs/planning/integration/pr-graph.json",
+    "docs/planning/integration/preservation-evidence.json",
+    "docs/planning/integration/migration-blobs.json"
+  ],
+  "evidence_hashes": {
+    "docs/planning/integration/github-snapshot.json": "cb606f7255d4aacf2be639fbd43d7b9ab0673a4c3d340db6b12b7c6b45fb5364",
+    "docs/planning/integration/pr-graph.json": "997687fbd985f00b63ef626aab4016d474d3688ec46b954eee18d3e409f0d457",
+    "docs/planning/integration/preservation-evidence.json": "cab6dd656462e33232af648af68b98415d5f9f5bc2abea92697db73a9e182023",
+    "docs/planning/integration/migration-blobs.json": "c4b008ea4a9506bcf87752c63b8290836d4c005eb48e53723c6805c0e4d16578"
+  },
+  "external_operations": [
+    "Read-only GitHub metadata, branch and CI inspection; no production or merge"
+  ],
+  "known_limitations": [
+    "Semantic preservation of changed blobs NOT_PROVEN",
+    "vankhu21 review NOT_PROVEN",
+    "Database integration NOT_TESTED",
+    "Archive pending"
+  ],
+  "local_sync_status": "NOT_PERFORMED",
+  "publication_status": "LOCAL_ONLY",
+  "ready_for_audit": false
+}

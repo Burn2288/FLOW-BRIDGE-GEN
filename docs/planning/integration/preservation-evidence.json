@@ -1,0 +1,3004 @@
+[
+  {
+    "pr": 2,
+    "head": "9568c96769f2936f0be3387f9d772db16793ec44",
+    "ancestry": true,
+    "files": [
+      {
+        "path": ".dockerignore",
+        "source_blob": "ee7dd18f5caa9effabed8cf2f0bc65b93dd9aa06",
+        "candidate_blob": "ee7dd18f5caa9effabed8cf2f0bc65b93dd9aa06",
+        "same": true
+      },
+      {
+        "path": ".env.example",
+        "source_blob": "4a43781b84b2ad5fb33895d10dc89977712e8576",
+        "candidate_blob": "e77de3fd4b863b3a7fc522177390c3813b4e5c9e",
+        "same": false
+      },
+      {
+        "path": ".gitattributes",
+        "source_blob": "dfdb8b771ce07609491fa2e83698969fd917a135",
+        "candidate_blob": "dfdb8b771ce07609491fa2e83698969fd917a135",
+        "same": true
+      },
+      {
+        "path": ".github/workflows/test.yml",
+        "source_blob": "867500b51f7430d0a54a96171650331e83093d7d",
+        "candidate_blob": "867500b51f7430d0a54a96171650331e83093d7d",
+        "same": true
+      },
+      {
+        "path": ".gitignore",
+        "source_blob": "53e0cd83dea9c6e57a7c8a90e9d61276a7a3add1",
+        "candidate_blob": "53e0cd83dea9c6e57a7c8a90e9d61276a7a3add1",
+        "same": true
+      },
+      {
+        "path": "AUDIT_FOLLOWUP_RU.md",
+        "source_blob": "0c5be3fb965d9c47f0853e707bf4371e4aaf36ec",
+        "candidate_blob": "0c5be3fb965d9c47f0853e707bf4371e4aaf36ec",
+        "same": true
+      },
+      {
+        "path": "Dockerfile",
+        "source_blob": "65e337b56f72bd8ef9afbb166d95d413ab91b7e7",
+        "candidate_blob": "6402732228780e471a1a2a7c29160b4b19ced756",
+        "same": false
+      },
+      {
+        "path": "Dockerfile.test",
+        "source_blob": "6e0a90aadd2abadbe2f21ba94d3522758b8d3630",
+        "candidate_blob": "6e0a90aadd2abadbe2f21ba94d3522758b8d3630",
+        "same": true
+      },
+      {
+        "path": "ELEVENLABS_PILOT_RU.md",
+        "source_blob": "cd46cd81507c10cacd61ef778cb432b028d44cd0",
+        "candidate_blob": "cd46cd81507c10cacd61ef778cb432b028d44cd0",
+        "same": true
+      },
+      {
+        "path": "INTERACTION_PILOT_RU.md",
+        "source_blob": "c676980a9b1ab2579034af39ecfc39c2442101cb",
+        "candidate_blob": "94633c25102fb0a08f19a72d4c16ad44739d4a00",
+        "same": false
+      },
+      {
+        "path": "POSTGRESQL_ACCEPTANCE_RU.md",
+        "source_blob": "260d8329e857c09cdaead65fa9e66070b3da780b",
+        "candidate_blob": "260d8329e857c09cdaead65fa9e66070b3da780b",
+        "same": true
+      },
+      {
+        "path": "README.md",
+        "source_blob": "f28720814062163786a250bff5cb648cc61aa7b7",
+        "candidate_blob": "f28720814062163786a250bff5cb648cc61aa7b7",
+        "same": true
+      },
+      {
+        "path": "README_UBUNTU_RU.md",
+        "source_blob": "5afbefff4eb9a88e8efa26b9e3b5c5c1eb70cb00",
+        "candidate_blob": "5afbefff4eb9a88e8efa26b9e3b5c5c1eb70cb00",
+        "same": true
+      },
+      {
+        "path": "RELEASE_METADATA.json",
+        "source_blob": "34b3b707e8cc3eb6a320cbde451727112da60026",
+        "candidate_blob": "34b3b707e8cc3eb6a320cbde451727112da60026",
+        "same": true
+      },
+      {
+        "path": "SERVICE_RUNBOOK_RU.md",
+        "source_blob": "65e5a37fad347cec2ce99fcf658a370e75482058",
+        "candidate_blob": "65e5a37fad347cec2ce99fcf658a370e75482058",
+        "same": true
+      },
+      {
+        "path": "START_DARKFLOW.sh",
+        "source_blob": "122bcf657629fa3e93919fd8cb67f176d0be98f5",
+        "candidate_blob": "122bcf657629fa3e93919fd8cb67f176d0be98f5",
+        "same": true
+      },
+      {
+        "path": "assets/demo.mp3",
+        "source_blob": "ec3b46b8bf131294a49c9386a7af43f1b23c26ed",
+        "candidate_blob": "ec3b46b8bf131294a49c9386a7af43f1b23c26ed",
+        "same": true
+      },
+      {
+        "path": "catalogue-profile.example.json",
+        "source_blob": "0c9d048e09e147f4f61f3f1995fb1f06fbe55c10",
+        "candidate_blob": "0c9d048e09e147f4f61f3f1995fb1f06fbe55c10",
+        "same": true
+      },
+      {
+        "path": "compose.test.yaml",
+        "source_blob": "634bc22e95cb7786db612fc2591ba1b17902b5b1",
+        "candidate_blob": "634bc22e95cb7786db612fc2591ba1b17902b5b1",
+        "same": true
+      },
+      {
+        "path": "compose.yaml",
+        "source_blob": "230232e261f7b58a559e91cffd3e4e9aba349e95",
+        "candidate_blob": "230232e261f7b58a559e91cffd3e4e9aba349e95",
+        "same": true
+      },
+      {
+        "path": "deploy/systemd/darkflow-bot.service",
+        "source_blob": "3daf71f35ecf7239bc5d0b193c6f7dcfd0555a80",
+        "candidate_blob": "3daf71f35ecf7239bc5d0b193c6f7dcfd0555a80",
+        "same": true
+      },
+      {
+        "path": "deploy/systemd/darkflow-migrate.service",
+        "source_blob": "6eec7e8d2a4d417f9a8b27e7c51c29c5c1659f66",
+        "candidate_blob": "6eec7e8d2a4d417f9a8b27e7c51c29c5c1659f66",
+        "same": true
+      },
+      {
+        "path": "deploy/systemd/darkflow-worker.service",
+        "source_blob": "811a017731ee7b7dc183931527db820b3f5645f9",
+        "candidate_blob": "811a017731ee7b7dc183931527db820b3f5645f9",
+        "same": true
+      },
+      {
+        "path": "deploy/ubuntu/backup.sh",
+        "source_blob": "da303453983ef1823584134c23f1e6f71b78be3d",
+        "candidate_blob": "da303453983ef1823584134c23f1e6f71b78be3d",
+        "same": true
+      },
+      {
+        "path": "deploy/ubuntu/check.sh",
+        "source_blob": "5e58c7182ccf8c229a2f037f45318661200675b4",
+        "candidate_blob": "5e58c7182ccf8c229a2f037f45318661200675b4",
+        "same": true
+      },
+      {
+        "path": "deploy/ubuntu/configure.sh",
+        "source_blob": "ec58cded99a04348522c187a33242b98b92e72ec",
+        "candidate_blob": "ec58cded99a04348522c187a33242b98b92e72ec",
+        "same": true
+      },
+      {
+        "path": "deploy/ubuntu/install.sh",
+        "source_blob": "54654cd6fe74a78becddf57922f603b09a4453ab",
+        "candidate_blob": "54654cd6fe74a78becddf57922f603b09a4453ab",
+        "same": true
+      },
+      {
+        "path": "docs/README.md",
+        "source_blob": "891709f59167f0118c673a0882f5fd1f832fe2d9",
+        "candidate_blob": "891709f59167f0118c673a0882f5fd1f832fe2d9",
+        "same": true
+      },
+      {
+        "path": "docs/ROADMAP.md",
+        "source_blob": "55e752846c9aa50638809a3973685d510a15cdae",
+        "candidate_blob": "55e752846c9aa50638809a3973685d510a15cdae",
+        "same": true
+      },
+      {
+        "path": "docs/acceptance/EVIDENCE.md",
+        "source_blob": "2f91321cc2900ee0f1bd773be13a655d6596a599",
+        "candidate_blob": "2f91321cc2900ee0f1bd773be13a655d6596a599",
+        "same": true
+      },
+      {
+        "path": "docs/acceptance/KNOWN_LIMITATIONS.md",
+        "source_blob": "3c7d085067d33fb546d9ceb0df7a7e06a89719dc",
+        "candidate_blob": "3c7d085067d33fb546d9ceb0df7a7e06a89719dc",
+        "same": true
+      },
+      {
+        "path": "docs/audit/AS_IS_ARCHITECTURE.md",
+        "source_blob": "a230cb9bd95a98ab3efa8917031573cdfd81ed2c",
+        "candidate_blob": "a230cb9bd95a98ab3efa8917031573cdfd81ed2c",
+        "same": true
+      },
+      {
+        "path": "docs/operations/DEPLOYMENT.md",
+        "source_blob": "b17655c963257afe8bd9dff9496b1c1f72f85483",
+        "candidate_blob": "589cdacbcfc72fc10b4e3ab3dc34f2e8a635d1dc",
+        "same": false
+      },
+      {
+        "path": "docs/reference/METHOD_CORE_RU.md",
+        "source_blob": "c248cf48479fa2074dc4651a491e08a12d413dbe",
+        "candidate_blob": "c248cf48479fa2074dc4651a491e08a12d413dbe",
+        "same": true
+      },
+      {
+        "path": "migrations/001_initial.sql",
+        "source_blob": "f05394f69be9cd1ca8be4d4741a8d94f1606f87a",
+        "candidate_blob": "f05394f69be9cd1ca8be4d4741a8d94f1606f87a",
+        "same": true
+      },
+      {
+        "path": "migrations/002_hardening.sql",
+        "source_blob": "52f1b66c511b865fb52d608e777cbcf02dbbe591",
+        "candidate_blob": "52f1b66c511b865fb52d608e777cbcf02dbbe591",
+        "same": true
+      },
+      {
+        "path": "migrations/003_financial_guards.sql",
+        "source_blob": "c15c3d7dd6dd2955f1f76c47802163d4500a0aa4",
+        "candidate_blob": "c15c3d7dd6dd2955f1f76c47802163d4500a0aa4",
+        "same": true
+      },
+      {
+        "path": "migrations/004_provider_evidence.sql",
+        "source_blob": "ce05200dbe0d6995bf9cad5ed35e732f8fc1194b",
+        "candidate_blob": "ce05200dbe0d6995bf9cad5ed35e732f8fc1194b",
+        "same": true
+      },
+      {
+        "path": "migrations/005_platega.sql",
+        "source_blob": "dd37b13cd95b1381eaa9db8209248cd7c7d6eb65",
+        "candidate_blob": "dd37b13cd95b1381eaa9db8209248cd7c7d6eb65",
+        "same": true
+      },
+      {
+        "path": "migrations/006_aggregate_conversations.sql",
+        "source_blob": "5306f78e9cf55a6c8e34ff4dfc009c60182ff69e",
+        "candidate_blob": "5306f78e9cf55a6c8e34ff4dfc009c60182ff69e",
+        "same": true
+      },
+      {
+        "path": "migrations/007_delivery_uncertainty.sql",
+        "source_blob": "6e005838527d0d46470e41d69313259c929e577c",
+        "candidate_blob": "6e005838527d0d46470e41d69313259c929e577c",
+        "same": true
+      },
+      {
+        "path": "migrations/008_interaction_pilot.sql",
+        "source_blob": "966fc8713d086abdecc1adbdd2a07ee217649dc2",
+        "candidate_blob": "966fc8713d086abdecc1adbdd2a07ee217649dc2",
+        "same": true
+      },
+      {
+        "path": "migrations/009_catalogue_rate_limit.sql",
+        "source_blob": "1ad25a3d5971f825d8d3f6ef80210fda41827daf",
+        "candidate_blob": "1ad25a3d5971f825d8d3f6ef80210fda41827daf",
+        "same": true
+      },
+      {
+        "path": "migrations/010_pilot_credit.sql",
+        "source_blob": "7be58587e37c0c7dadf8ad6ccec0d9891f9ad686",
+        "candidate_blob": "7be58587e37c0c7dadf8ad6ccec0d9891f9ad686",
+        "same": true
+      },
+      {
+        "path": "migrations/011_work_library.sql",
+        "source_blob": "2bda915b4e4f60f5268e4a60e9da986dc9c782f2",
+        "candidate_blob": "2bda915b4e4f60f5268e4a60e9da986dc9c782f2",
+        "same": true
+      },
+      {
+        "path": "migrations/012_nano_banana_attempts.sql",
+        "source_blob": "fe0e56828946ed34fde5141078d161b962f58ab5",
+        "candidate_blob": "fe0e56828946ed34fde5141078d161b962f58ab5",
+        "same": true
+      },
+      {
+        "path": "pyproject.toml",
+        "source_blob": "25655aae04a7f0d2368abb287835f7392b0372cb",
+        "candidate_blob": "2efcd6b0f2559e591d38b3d20edcb7f65fe748ab",
+        "same": false
+      },
+      {
+        "path": "reference/.env.example",
+        "source_blob": "7026889386e406833ac6703f96d21e434fc8b152",
+        "candidate_blob": "7026889386e406833ac6703f96d21e434fc8b152",
+        "same": true
+      },
+      {
+        "path": "reference/01_PRODUCT.md",
+        "source_blob": "3a50334c36c1e331cc10d901f66cda07be2e6298",
+        "candidate_blob": "3a50334c36c1e331cc10d901f66cda07be2e6298",
+        "same": true
+      },
+      {
+        "path": "reference/02_ARCHITECTURE.md",
+        "source_blob": "4f13d77a3b1ca0dd62ce1d1a67511ac778fe3d71",
+        "candidate_blob": "4f13d77a3b1ca0dd62ce1d1a67511ac778fe3d71",
+        "same": true
+      },
+      {
+        "path": "reference/03_DATA_AND_MONEY.md",
+        "source_blob": "0f2d2e5ee95c72108e2d32fa99a47c49d28313b9",
+        "candidate_blob": "0f2d2e5ee95c72108e2d32fa99a47c49d28313b9",
+        "same": true
+      },
+      {
+        "path": "reference/04_JOBS_AND_FAILURES.md",
+        "source_blob": "cf42b314d66e1df356908101274ae270df63f23d",
+        "candidate_blob": "cf42b314d66e1df356908101274ae270df63f23d",
+        "same": true
+      },
+      {
+        "path": "reference/05_PROVIDER_CONTRACT.md",
+        "source_blob": "b5719e78365766daf6e2b07798a6bf8e13d40625",
+        "candidate_blob": "b5719e78365766daf6e2b07798a6bf8e13d40625",
+        "same": true
+      },
+      {
+        "path": "reference/06_SECURITY.md",
+        "source_blob": "5654d6ded6dd8c7f3b2726e774226af5ae743671",
+        "candidate_blob": "5654d6ded6dd8c7f3b2726e774226af5ae743671",
+        "same": true
+      },
+      {
+        "path": "reference/07_TELEGRAM_PAYMENTS.md",
+        "source_blob": "6b54e2de8100f9bdc0e8a4fa250593a189a4028d",
+        "candidate_blob": "6b54e2de8100f9bdc0e8a4fa250593a189a4028d",
+        "same": true
+      },
+      {
+        "path": "reference/08_MAX.md",
+        "source_blob": "170543668cbdd7082b84168472cb3ab90c119251",
+        "candidate_blob": "170543668cbdd7082b84168472cb3ab90c119251",
+        "same": true
+      },
+      {
+        "path": "reference/09_DEPLOYMENT.md",
+        "source_blob": "ab639df718451d30982f01b41b607abcce9f110e",
+        "candidate_blob": "ab639df718451d30982f01b41b607abcce9f110e",
+        "same": true
+      },
+      {
+        "path": "reference/10_ACCEPTANCE.md",
+        "source_blob": "32cb7b76d161a2112c0535670558ccbcc1be7d8a",
+        "candidate_blob": "32cb7b76d161a2112c0535670558ccbcc1be7d8a",
+        "same": true
+      },
+      {
+        "path": "reference/11_IMPLEMENTATION_PLAN.md",
+        "source_blob": "308360cadef44f9a789013c889df52741027f3e6",
+        "candidate_blob": "308360cadef44f9a789013c889df52741027f3e6",
+        "same": true
+      },
+      {
+        "path": "reference/AGENT_HANDOFF.md",
+        "source_blob": "017f2c2f54d4f2fe9a91acda968c6796471eaf9e",
+        "candidate_blob": "017f2c2f54d4f2fe9a91acda968c6796471eaf9e",
+        "same": true
+      },
+      {
+        "path": "reference/README.md",
+        "source_blob": "b09afc925842717043f95e437d123d0d73cff6dd",
+        "candidate_blob": "b09afc925842717043f95e437d123d0d73cff6dd",
+        "same": true
+      },
+      {
+        "path": "reference/SHA256SUMS.txt",
+        "source_blob": "14e253555af628e2d40c757521433f2c0e4f1051",
+        "candidate_blob": "14e253555af628e2d40c757521433f2c0e4f1051",
+        "same": true
+      },
+      {
+        "path": "reference/SOURCES.md",
+        "source_blob": "946ad46545a54402687a2f961bc169728277c233",
+        "candidate_blob": "946ad46545a54402687a2f961bc169728277c233",
+        "same": true
+      },
+      {
+        "path": "reference/capabilities.example.json",
+        "source_blob": "13a22d68512a4cce098f31a9915721c0d34a27d7",
+        "candidate_blob": "13a22d68512a4cce098f31a9915721c0d34a27d7",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/.env.example",
+        "source_blob": "0dad4e4934e35f7b008248ed0e9549d6f1eb21a2",
+        "candidate_blob": "0dad4e4934e35f7b008248ed0e9549d6f1eb21a2",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/01_AUDIT.md",
+        "source_blob": "4e49e1dd814838cf0837ef13eba45ea3f24d8fae",
+        "candidate_blob": "4e49e1dd814838cf0837ef13eba45ea3f24d8fae",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/02_INTEGRATION_GUIDE.md",
+        "source_blob": "5b03024acb5bfebf39426d0a2c43434982228d01",
+        "candidate_blob": "5b03024acb5bfebf39426d0a2c43434982228d01",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/03_API_TEST_MATRIX.md",
+        "source_blob": "ba90b2e44e39ada55714f3c8e6fe9f2ee337455c",
+        "candidate_blob": "ba90b2e44e39ada55714f3c8e6fe9f2ee337455c",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/04_AGENT_HANDOFF.md",
+        "source_blob": "9c6643187fb0d909c3c3a5ad74a85e5629ee67c0",
+        "candidate_blob": "9c6643187fb0d909c3c3a5ad74a85e5629ee67c0",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/README.md",
+        "source_blob": "a251ad8f9630d48bd52ee3fe558e848d905705ea",
+        "candidate_blob": "a251ad8f9630d48bd52ee3fe558e848d905705ea",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/probe_clodex.py",
+        "source_blob": "a978b5c9f1ded02ed69d215d6cdd9c32db907d60",
+        "candidate_blob": "a978b5c9f1ded02ed69d215d6cdd9c32db907d60",
+        "same": true
+      },
+      {
+        "path": "reference/schema.sql",
+        "source_blob": "0d232e1b8debdb5269fa21386abd447768614fb0",
+        "candidate_blob": "0d232e1b8debdb5269fa21386abd447768614fb0",
+        "same": true
+      },
+      {
+        "path": "requirements-acceptance.txt",
+        "source_blob": "427109a6005d677db0f98f9d30519e60d029fc1e",
+        "candidate_blob": "258eeed525b9167ff4f19c44bb31ed1a1099e9a4",
+        "same": false
+      },
+      {
+        "path": "requirements-demo.txt",
+        "source_blob": "d2c6965ca832589e053dabcb0b1c8c5a82043932",
+        "candidate_blob": "50eed9f8543ae5e781b8069207da699d9bc98ba8",
+        "same": false
+      },
+      {
+        "path": "requirements-service.txt",
+        "source_blob": "e7b5acb0895c80481c6ae1aacc9968d6ca88083b",
+        "candidate_blob": "6602ac53e2d178c98b6d3cc709307c9aab1b4d2b",
+        "same": false
+      },
+      {
+        "path": "scripts/backup.sh",
+        "source_blob": "e7f92ebc0da0a7aced57fcb60beeaf9d276712e8",
+        "candidate_blob": "e7f92ebc0da0a7aced57fcb60beeaf9d276712e8",
+        "same": true
+      },
+      {
+        "path": "scripts/generation_monitor.py",
+        "source_blob": "011c7a4801d8c705f6cc59f6800a7bd112de69f1",
+        "candidate_blob": "011c7a4801d8c705f6cc59f6800a7bd112de69f1",
+        "same": true
+      },
+      {
+        "path": "scripts/init-runtime-role.sh",
+        "source_blob": "4a443d8e7dd99946a953c0a2b030df5dcaa4878e",
+        "candidate_blob": "4a443d8e7dd99946a953c0a2b030df5dcaa4878e",
+        "same": true
+      },
+      {
+        "path": "scripts/probe_environment.py",
+        "source_blob": "fac39ffd03dfd96ebe6bd8fea49ebe78f27af689",
+        "candidate_blob": "fac39ffd03dfd96ebe6bd8fea49ebe78f27af689",
+        "same": true
+      },
+      {
+        "path": "scripts/restore.sh",
+        "source_blob": "ab5b3e911462090e4ca7ed01467e0e66eec7eb16",
+        "candidate_blob": "ab5b3e911462090e4ca7ed01467e0e66eec7eb16",
+        "same": true
+      },
+      {
+        "path": "scripts/run_native_acceptance.py",
+        "source_blob": "8c0e9b6f234ea78423bb35892731d1d2aac62d6d",
+        "candidate_blob": "8c0e9b6f234ea78423bb35892731d1d2aac62d6d",
+        "same": true
+      },
+      {
+        "path": "scripts/run_s2.py",
+        "source_blob": "b9801c52ee13cbb65f557bbf02cd268ea6df3427",
+        "candidate_blob": "b9801c52ee13cbb65f557bbf02cd268ea6df3427",
+        "same": true
+      },
+      {
+        "path": "scripts/test.sh",
+        "source_blob": "024be3f0fcd2c611a1688e57ce9671ceb35284ee",
+        "candidate_blob": "024be3f0fcd2c611a1688e57ce9671ceb35284ee",
+        "same": true
+      },
+      {
+        "path": "scripts/verify_runtime_settings.py",
+        "source_blob": "adbf560a24b02d0ce90aaaf11f557ab1b4f16775",
+        "candidate_blob": "adbf560a24b02d0ce90aaaf11f557ab1b4f16775",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__init__.py",
+        "source_blob": "80d54e8bb593831179c01a3acb98d5a7c0bbec98",
+        "candidate_blob": "80d54e8bb593831179c01a3acb98d5a7c0bbec98",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "596ffeba1fa3f2fe4eb62214a2f34b2456a2c213",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/aggregate.py",
+        "source_blob": "c4c818edaad058fd36fef0e01bea6137effe6b34",
+        "candidate_blob": "45e261e30e32acac9192ff17f80da875f3323822",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "e530d76f1cb350d4b85b441c372d4c535d3332e8",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/core.py",
+        "source_blob": "77693e764bae005b49783081f7c4d29214930474",
+        "candidate_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/database_setup.py",
+        "source_blob": "b0766ee04ed2581c62d17a7f61b7966859a364bd",
+        "candidate_blob": "b0766ee04ed2581c62d17a7f61b7966859a364bd",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/db.py",
+        "source_blob": "3ffa6d52f10bc4bdceb5de078f9b283f0966f34a",
+        "candidate_blob": "3ffa6d52f10bc4bdceb5de078f9b283f0966f34a",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/demo.py",
+        "source_blob": "f48feea06d064d59fb35343423dd849e5b3e3d7e",
+        "candidate_blob": "aee236976c5256b2c15eb904395e485993b6c3b7",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/discovery.py",
+        "source_blob": "8483ea0905c72e16ff80dcd264d3db8641a5a9e4",
+        "candidate_blob": "8483ea0905c72e16ff80dcd264d3db8641a5a9e4",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/interaction.py",
+        "source_blob": "54d259cd1755ace80cd8827f1a9e0e4a732506ba",
+        "candidate_blob": "47514671da5431d1741ae9f9e19941b24b787cc2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/platega.py",
+        "source_blob": "127a357723c62c46bc89da03d66c7a734e01174a",
+        "candidate_blob": "a710e0d5ced487743d26ca3acd666ff9489a8958",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/platega_web.py",
+        "source_blob": "663a473d2c6de89b937f5b6bb481e08009d448b8",
+        "candidate_blob": "d4a79f514f8750ae019ff582a5a4c101fdd36f7b",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/providers.py",
+        "source_blob": "8e70b2901ab9a39f1c000a6925e6e8b513d7b61d",
+        "candidate_blob": "ecebfecc0ba647a1b4bbb583da68f8bca202e961",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/runtime_config.py",
+        "source_blob": "bea20c12912e3892a475abb0026aabd09f416bf9",
+        "candidate_blob": "bea20c12912e3892a475abb0026aabd09f416bf9",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/setup_service.py",
+        "source_blob": "07a819855ec0ce322fd5e94fb95139ebd441ba3a",
+        "candidate_blob": "07a819855ec0ce322fd5e94fb95139ebd441ba3a",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/snapshot.py",
+        "source_blob": "673b7499c469012ff9b22fb520a51f55200e520c",
+        "candidate_blob": "673b7499c469012ff9b22fb520a51f55200e520c",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/storage.py",
+        "source_blob": "7f22c7fd64ad8203cc11ecb02e7793124a83fb91",
+        "candidate_blob": "7f22c7fd64ad8203cc11ecb02e7793124a83fb91",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/supervisor.py",
+        "source_blob": "6a72b2da6cf8cc5c10a30bac5f6cdf9c256514d0",
+        "candidate_blob": "6a72b2da6cf8cc5c10a30bac5f6cdf9c256514d0",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "2d12266a3e5725c8a223f1ed8f71dfcfde999bb3",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/worker.py",
+        "source_blob": "2f6a66eb11bacc303813f1d075e4e773195f5896",
+        "candidate_blob": "5b85fb8d832d404a72ea40c4eb32c02d16173d53",
+        "same": false
+      },
+      {
+        "path": "tests/conftest.py",
+        "source_blob": "91bd782c578181408192c926701e7fca7f8266a2",
+        "candidate_blob": "9e8261b8d74c65db00a47cd62acf81e89f2cec1c",
+        "same": false
+      },
+      {
+        "path": "tests/fixtures/clodex_public/docs-v2.json",
+        "source_blob": "da232f1be66f6de3623d388c667838e184508a8c",
+        "candidate_blob": "da232f1be66f6de3623d388c667838e184508a8c",
+        "same": true
+      },
+      {
+        "path": "tests/fixtures/clodex_public/pricing.json",
+        "source_blob": "e77fad94cd929ad921876c4286af9507b17d11e1",
+        "candidate_blob": "e77fad94cd929ad921876c4286af9507b17d11e1",
+        "same": true
+      },
+      {
+        "path": "tests/required_s2_cases.json",
+        "source_blob": "58e7e09d35d22d23f78cb63c18ef8ea8029125ef",
+        "candidate_blob": "58e7e09d35d22d23f78cb63c18ef8ea8029125ef",
+        "same": true
+      },
+      {
+        "path": "tests/test_aggregate.py",
+        "source_blob": "61b704a6827362337e84cd521eaeb0c740d5cf2a",
+        "candidate_blob": "b340c4fc78397fcab36368056b4cf54d64223ae2",
+        "same": false
+      },
+      {
+        "path": "tests/test_database_setup.py",
+        "source_blob": "c1c0b613126d5cd782f93f9f0e574379f0062504",
+        "candidate_blob": "c1c0b613126d5cd782f93f9f0e574379f0062504",
+        "same": true
+      },
+      {
+        "path": "tests/test_demo.py",
+        "source_blob": "79c1a45d3eafdded8a9e4ac74a7df044cfca6ceb",
+        "candidate_blob": "4b61a0c02c2cf1aef219ec825dbc6519dad4dd06",
+        "same": false
+      },
+      {
+        "path": "tests/test_discovery.py",
+        "source_blob": "550c6d337902bd2e623141920f2065c327570ba2",
+        "candidate_blob": "8c2ee3d0071dc00132e0292d59a1124f0a837e4a",
+        "same": false
+      },
+      {
+        "path": "tests/test_financial.py",
+        "source_blob": "e8ef5cc917a75ee775542b7509c3188f973eaba6",
+        "candidate_blob": "e8ef5cc917a75ee775542b7509c3188f973eaba6",
+        "same": true
+      },
+      {
+        "path": "tests/test_http_stub.py",
+        "source_blob": "6930b219d0e861a07eea786ce75a7a04ff3a684c",
+        "candidate_blob": "6930b219d0e861a07eea786ce75a7a04ff3a684c",
+        "same": true
+      },
+      {
+        "path": "tests/test_platega_db.py",
+        "source_blob": "23caf186ae64463badedff3aef7efcf96a3c633b",
+        "candidate_blob": "23caf186ae64463badedff3aef7efcf96a3c633b",
+        "same": true
+      },
+      {
+        "path": "tests/test_platega_unit.py",
+        "source_blob": "958426a5d1d0636ec9bea088e16811f2f07b63b7",
+        "candidate_blob": "958426a5d1d0636ec9bea088e16811f2f07b63b7",
+        "same": true
+      },
+      {
+        "path": "tests/test_process_e2e.py",
+        "source_blob": "333e0a3d7fe0ad8bf9fa0e0ca08e0765bd27d51c",
+        "candidate_blob": "8aa5b072c59be1404c547749df7a2fd213fcbbbc",
+        "same": false
+      },
+      {
+        "path": "tests/test_restore.py",
+        "source_blob": "781cbbd46f8244a6ee7b1f24ad363202357afd2f",
+        "candidate_blob": "781cbbd46f8244a6ee7b1f24ad363202357afd2f",
+        "same": true
+      },
+      {
+        "path": "tests/test_runtime_role.py",
+        "source_blob": "0ee730a135558213f6810bcce81e5f0e60aa3d96",
+        "candidate_blob": "0ee730a135558213f6810bcce81e5f0e60aa3d96",
+        "same": true
+      },
+      {
+        "path": "tests/test_runtime_service.py",
+        "source_blob": "6af421387d6552fdc9808ff25f812e125ded9205",
+        "candidate_blob": "daa6cf5e6318230fd3265179bcff71a441aa5e41",
+        "same": false
+      },
+      {
+        "path": "tests/test_ubuntu_release.py",
+        "source_blob": "ef5e490b231ecac1c68d99ddd5dabb6da8dd4807",
+        "candidate_blob": "ef5e490b231ecac1c68d99ddd5dabb6da8dd4807",
+        "same": true
+      },
+      {
+        "path": "tests/test_ui.py",
+        "source_blob": "b95c7466e0e557b151572bdac760c87ca857acb0",
+        "candidate_blob": "e9618b89686ce40e98dbe661a7a9d3f8a49e0da7",
+        "same": false
+      },
+      {
+        "path": "tests/test_unit.py",
+        "source_blob": "ebf3e7a8ceced4715eaa2d6f393894f1f9f6c8c4",
+        "candidate_blob": "ebf3e7a8ceced4715eaa2d6f393894f1f9f6c8c4",
+        "same": true
+      },
+      {
+        "path": "tests/test_worker.py",
+        "source_blob": "757bb6ef1ca087df1dacec59a15472f1fbc5bb65",
+        "candidate_blob": "757bb6ef1ca087df1dacec59a15472f1fbc5bb65",
+        "same": true
+      },
+      {
+        "path": "uv.lock",
+        "source_blob": "d29d9df57b44d3d0daf51857285e625aa547077a",
+        "candidate_blob": "465e454c3299bd8175b4171cb6b9dfc97364e5e3",
+        "same": false
+      },
+      {
+        "path": "voices.example.json",
+        "source_blob": "b6ea720e7385c0306c098dea088589252daa0b8f",
+        "candidate_blob": "b6ea720e7385c0306c098dea088589252daa0b8f",
+        "same": true
+      }
+    ]
+  },
+  {
+    "pr": 4,
+    "head": "c1c3a0f7324d21ab2f6a0763847c548fc9c2b617",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "compose.dev.override.yaml",
+        "source_blob": "19b33b4bb22578d4761fe8c2b98301e5c91b40e0",
+        "candidate_blob": "19b33b4bb22578d4761fe8c2b98301e5c91b40e0",
+        "same": true
+      },
+      {
+        "path": "compose.dev.yaml",
+        "source_blob": "8cbd7d162655ba90d32f9433aa94598741103be1",
+        "candidate_blob": "8cbd7d162655ba90d32f9433aa94598741103be1",
+        "same": true
+      },
+      {
+        "path": "docs/operations/DEPLOYMENT.md",
+        "source_blob": "589cdacbcfc72fc10b4e3ab3dc34f2e8a635d1dc",
+        "candidate_blob": "589cdacbcfc72fc10b4e3ab3dc34f2e8a635d1dc",
+        "same": true
+      },
+      {
+        "path": "scripts/dev_bot.py",
+        "source_blob": "4bed8337b2d71f1ea151b7ba6bd124f17781688a",
+        "candidate_blob": "4bed8337b2d71f1ea151b7ba6bd124f17781688a",
+        "same": true
+      },
+      {
+        "path": "scripts/dev_db.sql",
+        "source_blob": "0f4d1a2310fc12bccc3064e3b465346040d3dff1",
+        "candidate_blob": "0f4d1a2310fc12bccc3064e3b465346040d3dff1",
+        "same": true
+      },
+      {
+        "path": "tests/test_image_recovery.py",
+        "source_blob": "bd0759909224716cf0e4fa6af57ef40016b834d6",
+        "candidate_blob": "e568f5c53c68df5512f7c9060541574f6e4c5c40",
+        "same": false
+      }
+    ]
+  },
+  {
+    "pr": 6,
+    "head": "4ebe400828913c44e56ef725ba679c3879edeede",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "pyproject.toml",
+        "source_blob": "be5d9b4510e8017afee2101c969d90b6da42727d",
+        "candidate_blob": "2efcd6b0f2559e591d38b3d20edcb7f65fe748ab",
+        "same": false
+      },
+      {
+        "path": "requirements-acceptance.txt",
+        "source_blob": "258eeed525b9167ff4f19c44bb31ed1a1099e9a4",
+        "candidate_blob": "258eeed525b9167ff4f19c44bb31ed1a1099e9a4",
+        "same": true
+      },
+      {
+        "path": "requirements-demo.txt",
+        "source_blob": "50eed9f8543ae5e781b8069207da699d9bc98ba8",
+        "candidate_blob": "50eed9f8543ae5e781b8069207da699d9bc98ba8",
+        "same": true
+      },
+      {
+        "path": "requirements-service.txt",
+        "source_blob": "6602ac53e2d178c98b6d3cc709307c9aab1b4d2b",
+        "candidate_blob": "6602ac53e2d178c98b6d3cc709307c9aab1b4d2b",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/interaction.py",
+        "source_blob": "05cf01c36666fce69e2782064d02ca6853d0c4b0",
+        "candidate_blob": "47514671da5431d1741ae9f9e19941b24b787cc2",
+        "same": false
+      },
+      {
+        "path": "tests/test_image_validation.py",
+        "source_blob": "f10cc1703d97c7999e6e53f5c1e7aaa85cbbbe24",
+        "candidate_blob": "6389e824d6792d3ad92990adf3a7c8b9c0b097c1",
+        "same": false
+      },
+      {
+        "path": "uv.lock",
+        "source_blob": "465e454c3299bd8175b4171cb6b9dfc97364e5e3",
+        "candidate_blob": "465e454c3299bd8175b4171cb6b9dfc97364e5e3",
+        "same": true
+      }
+    ]
+  },
+  {
+    "pr": 7,
+    "head": "c2370afb43825622f819419aac36c8cad0ad4c79",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "INTERACTION_PILOT_RU.md",
+        "source_blob": "3c299e3a70b9b89a8bc7247795402d6c580b8bdd",
+        "candidate_blob": "94633c25102fb0a08f19a72d4c16ad44739d4a00",
+        "same": false
+      },
+      {
+        "path": "compose.dev.override.yaml",
+        "source_blob": "19b33b4bb22578d4761fe8c2b98301e5c91b40e0",
+        "candidate_blob": "19b33b4bb22578d4761fe8c2b98301e5c91b40e0",
+        "same": true
+      },
+      {
+        "path": "compose.dev.yaml",
+        "source_blob": "8cbd7d162655ba90d32f9433aa94598741103be1",
+        "candidate_blob": "8cbd7d162655ba90d32f9433aa94598741103be1",
+        "same": true
+      },
+      {
+        "path": "docs/operations/DEPLOYMENT.md",
+        "source_blob": "589cdacbcfc72fc10b4e3ab3dc34f2e8a635d1dc",
+        "candidate_blob": "589cdacbcfc72fc10b4e3ab3dc34f2e8a635d1dc",
+        "same": true
+      },
+      {
+        "path": "pyproject.toml",
+        "source_blob": "be5d9b4510e8017afee2101c969d90b6da42727d",
+        "candidate_blob": "2efcd6b0f2559e591d38b3d20edcb7f65fe748ab",
+        "same": false
+      },
+      {
+        "path": "requirements-acceptance.txt",
+        "source_blob": "258eeed525b9167ff4f19c44bb31ed1a1099e9a4",
+        "candidate_blob": "258eeed525b9167ff4f19c44bb31ed1a1099e9a4",
+        "same": true
+      },
+      {
+        "path": "requirements-demo.txt",
+        "source_blob": "50eed9f8543ae5e781b8069207da699d9bc98ba8",
+        "candidate_blob": "50eed9f8543ae5e781b8069207da699d9bc98ba8",
+        "same": true
+      },
+      {
+        "path": "requirements-service.txt",
+        "source_blob": "6602ac53e2d178c98b6d3cc709307c9aab1b4d2b",
+        "candidate_blob": "6602ac53e2d178c98b6d3cc709307c9aab1b4d2b",
+        "same": true
+      },
+      {
+        "path": "scripts/dev_bot.py",
+        "source_blob": "4bed8337b2d71f1ea151b7ba6bd124f17781688a",
+        "candidate_blob": "4bed8337b2d71f1ea151b7ba6bd124f17781688a",
+        "same": true
+      },
+      {
+        "path": "scripts/dev_db.sql",
+        "source_blob": "0f4d1a2310fc12bccc3064e3b465346040d3dff1",
+        "candidate_blob": "0f4d1a2310fc12bccc3064e3b465346040d3dff1",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/interaction.py",
+        "source_blob": "05cf01c36666fce69e2782064d02ca6853d0c4b0",
+        "candidate_blob": "47514671da5431d1741ae9f9e19941b24b787cc2",
+        "same": false
+      },
+      {
+        "path": "tests/test_image_recovery.py",
+        "source_blob": "bd0759909224716cf0e4fa6af57ef40016b834d6",
+        "candidate_blob": "e568f5c53c68df5512f7c9060541574f6e4c5c40",
+        "same": false
+      },
+      {
+        "path": "tests/test_image_validation.py",
+        "source_blob": "f10cc1703d97c7999e6e53f5c1e7aaa85cbbbe24",
+        "candidate_blob": "6389e824d6792d3ad92990adf3a7c8b9c0b097c1",
+        "same": false
+      },
+      {
+        "path": "uv.lock",
+        "source_blob": "465e454c3299bd8175b4171cb6b9dfc97364e5e3",
+        "candidate_blob": "465e454c3299bd8175b4171cb6b9dfc97364e5e3",
+        "same": true
+      }
+    ]
+  },
+  {
+    "pr": 8,
+    "head": "eaadb892227e6b731e4cebccb071b23c1b209b3b",
+    "ancestry": true,
+    "files": [
+      {
+        "path": ".dockerignore",
+        "source_blob": "ee7dd18f5caa9effabed8cf2f0bc65b93dd9aa06",
+        "candidate_blob": "ee7dd18f5caa9effabed8cf2f0bc65b93dd9aa06",
+        "same": true
+      },
+      {
+        "path": ".env.example",
+        "source_blob": "4a43781b84b2ad5fb33895d10dc89977712e8576",
+        "candidate_blob": "e77de3fd4b863b3a7fc522177390c3813b4e5c9e",
+        "same": false
+      },
+      {
+        "path": ".gitattributes",
+        "source_blob": "dfdb8b771ce07609491fa2e83698969fd917a135",
+        "candidate_blob": "dfdb8b771ce07609491fa2e83698969fd917a135",
+        "same": true
+      },
+      {
+        "path": ".github/check_docs.py",
+        "source_blob": "a476b0e41da97ab6906fdbd136356f679f7853d8",
+        "candidate_blob": "a476b0e41da97ab6906fdbd136356f679f7853d8",
+        "same": true
+      },
+      {
+        "path": ".github/pull_request_template.md",
+        "source_blob": "ddb08a30df2054e8ca71ec5d8627a87cf366f77c",
+        "candidate_blob": "ddb08a30df2054e8ca71ec5d8627a87cf366f77c",
+        "same": true
+      },
+      {
+        "path": ".github/workflows/docs.yml",
+        "source_blob": "122fd9f88546f414d88a2b05459da8f320797dcf",
+        "candidate_blob": "122fd9f88546f414d88a2b05459da8f320797dcf",
+        "same": true
+      },
+      {
+        "path": ".github/workflows/test.yml",
+        "source_blob": "867500b51f7430d0a54a96171650331e83093d7d",
+        "candidate_blob": "867500b51f7430d0a54a96171650331e83093d7d",
+        "same": true
+      },
+      {
+        "path": ".gitignore",
+        "source_blob": "53e0cd83dea9c6e57a7c8a90e9d61276a7a3add1",
+        "candidate_blob": "53e0cd83dea9c6e57a7c8a90e9d61276a7a3add1",
+        "same": true
+      },
+      {
+        "path": "AGENTS.md",
+        "source_blob": "7b43ba5e729183668ee1fb41e5c41dacd4cf3e85",
+        "candidate_blob": "7b43ba5e729183668ee1fb41e5c41dacd4cf3e85",
+        "same": true
+      },
+      {
+        "path": "AUDIT_FOLLOWUP_RU.md",
+        "source_blob": "0c5be3fb965d9c47f0853e707bf4371e4aaf36ec",
+        "candidate_blob": "0c5be3fb965d9c47f0853e707bf4371e4aaf36ec",
+        "same": true
+      },
+      {
+        "path": "CONTRIBUTING.md",
+        "source_blob": "34bf2f0e34db9313d51d31d3f417e8aa508a5f62",
+        "candidate_blob": "34bf2f0e34db9313d51d31d3f417e8aa508a5f62",
+        "same": true
+      },
+      {
+        "path": "Dockerfile",
+        "source_blob": "65e337b56f72bd8ef9afbb166d95d413ab91b7e7",
+        "candidate_blob": "6402732228780e471a1a2a7c29160b4b19ced756",
+        "same": false
+      },
+      {
+        "path": "Dockerfile.test",
+        "source_blob": "6e0a90aadd2abadbe2f21ba94d3522758b8d3630",
+        "candidate_blob": "6e0a90aadd2abadbe2f21ba94d3522758b8d3630",
+        "same": true
+      },
+      {
+        "path": "ELEVENLABS_PILOT_RU.md",
+        "source_blob": "cd46cd81507c10cacd61ef778cb432b028d44cd0",
+        "candidate_blob": "cd46cd81507c10cacd61ef778cb432b028d44cd0",
+        "same": true
+      },
+      {
+        "path": "INTERACTION_PILOT_RU.md",
+        "source_blob": "94633c25102fb0a08f19a72d4c16ad44739d4a00",
+        "candidate_blob": "94633c25102fb0a08f19a72d4c16ad44739d4a00",
+        "same": true
+      },
+      {
+        "path": "POSTGRESQL_ACCEPTANCE_RU.md",
+        "source_blob": "260d8329e857c09cdaead65fa9e66070b3da780b",
+        "candidate_blob": "260d8329e857c09cdaead65fa9e66070b3da780b",
+        "same": true
+      },
+      {
+        "path": "README.md",
+        "source_blob": "f28720814062163786a250bff5cb648cc61aa7b7",
+        "candidate_blob": "f28720814062163786a250bff5cb648cc61aa7b7",
+        "same": true
+      },
+      {
+        "path": "README_UBUNTU_RU.md",
+        "source_blob": "5afbefff4eb9a88e8efa26b9e3b5c5c1eb70cb00",
+        "candidate_blob": "5afbefff4eb9a88e8efa26b9e3b5c5c1eb70cb00",
+        "same": true
+      },
+      {
+        "path": "RELEASE_METADATA.json",
+        "source_blob": "34b3b707e8cc3eb6a320cbde451727112da60026",
+        "candidate_blob": "34b3b707e8cc3eb6a320cbde451727112da60026",
+        "same": true
+      },
+      {
+        "path": "SERVICE_RUNBOOK_RU.md",
+        "source_blob": "65e5a37fad347cec2ce99fcf658a370e75482058",
+        "candidate_blob": "65e5a37fad347cec2ce99fcf658a370e75482058",
+        "same": true
+      },
+      {
+        "path": "START_DARKFLOW.sh",
+        "source_blob": "122bcf657629fa3e93919fd8cb67f176d0be98f5",
+        "candidate_blob": "122bcf657629fa3e93919fd8cb67f176d0be98f5",
+        "same": true
+      },
+      {
+        "path": "assets/demo.mp3",
+        "source_blob": "ec3b46b8bf131294a49c9386a7af43f1b23c26ed",
+        "candidate_blob": "ec3b46b8bf131294a49c9386a7af43f1b23c26ed",
+        "same": true
+      },
+      {
+        "path": "catalogue-profile.example.json",
+        "source_blob": "0c9d048e09e147f4f61f3f1995fb1f06fbe55c10",
+        "candidate_blob": "0c9d048e09e147f4f61f3f1995fb1f06fbe55c10",
+        "same": true
+      },
+      {
+        "path": "compose.dev.override.yaml",
+        "source_blob": "19b33b4bb22578d4761fe8c2b98301e5c91b40e0",
+        "candidate_blob": "19b33b4bb22578d4761fe8c2b98301e5c91b40e0",
+        "same": true
+      },
+      {
+        "path": "compose.dev.yaml",
+        "source_blob": "8cbd7d162655ba90d32f9433aa94598741103be1",
+        "candidate_blob": "8cbd7d162655ba90d32f9433aa94598741103be1",
+        "same": true
+      },
+      {
+        "path": "compose.test.yaml",
+        "source_blob": "634bc22e95cb7786db612fc2591ba1b17902b5b1",
+        "candidate_blob": "634bc22e95cb7786db612fc2591ba1b17902b5b1",
+        "same": true
+      },
+      {
+        "path": "compose.yaml",
+        "source_blob": "230232e261f7b58a559e91cffd3e4e9aba349e95",
+        "candidate_blob": "230232e261f7b58a559e91cffd3e4e9aba349e95",
+        "same": true
+      },
+      {
+        "path": "deploy/systemd/darkflow-bot.service",
+        "source_blob": "3daf71f35ecf7239bc5d0b193c6f7dcfd0555a80",
+        "candidate_blob": "3daf71f35ecf7239bc5d0b193c6f7dcfd0555a80",
+        "same": true
+      },
+      {
+        "path": "deploy/systemd/darkflow-migrate.service",
+        "source_blob": "6eec7e8d2a4d417f9a8b27e7c51c29c5c1659f66",
+        "candidate_blob": "6eec7e8d2a4d417f9a8b27e7c51c29c5c1659f66",
+        "same": true
+      },
+      {
+        "path": "deploy/systemd/darkflow-worker.service",
+        "source_blob": "811a017731ee7b7dc183931527db820b3f5645f9",
+        "candidate_blob": "811a017731ee7b7dc183931527db820b3f5645f9",
+        "same": true
+      },
+      {
+        "path": "deploy/ubuntu/backup.sh",
+        "source_blob": "da303453983ef1823584134c23f1e6f71b78be3d",
+        "candidate_blob": "da303453983ef1823584134c23f1e6f71b78be3d",
+        "same": true
+      },
+      {
+        "path": "deploy/ubuntu/check.sh",
+        "source_blob": "5e58c7182ccf8c229a2f037f45318661200675b4",
+        "candidate_blob": "5e58c7182ccf8c229a2f037f45318661200675b4",
+        "same": true
+      },
+      {
+        "path": "deploy/ubuntu/configure.sh",
+        "source_blob": "ec58cded99a04348522c187a33242b98b92e72ec",
+        "candidate_blob": "ec58cded99a04348522c187a33242b98b92e72ec",
+        "same": true
+      },
+      {
+        "path": "deploy/ubuntu/install.sh",
+        "source_blob": "54654cd6fe74a78becddf57922f603b09a4453ab",
+        "candidate_blob": "54654cd6fe74a78becddf57922f603b09a4453ab",
+        "same": true
+      },
+      {
+        "path": "docs/README.md",
+        "source_blob": "891709f59167f0118c673a0882f5fd1f832fe2d9",
+        "candidate_blob": "891709f59167f0118c673a0882f5fd1f832fe2d9",
+        "same": true
+      },
+      {
+        "path": "docs/ROADMAP.md",
+        "source_blob": "55e752846c9aa50638809a3973685d510a15cdae",
+        "candidate_blob": "55e752846c9aa50638809a3973685d510a15cdae",
+        "same": true
+      },
+      {
+        "path": "docs/acceptance/EVIDENCE.md",
+        "source_blob": "2f91321cc2900ee0f1bd773be13a655d6596a599",
+        "candidate_blob": "2f91321cc2900ee0f1bd773be13a655d6596a599",
+        "same": true
+      },
+      {
+        "path": "docs/acceptance/KNOWN_LIMITATIONS.md",
+        "source_blob": "3c7d085067d33fb546d9ceb0df7a7e06a89719dc",
+        "candidate_blob": "3c7d085067d33fb546d9ceb0df7a7e06a89719dc",
+        "same": true
+      },
+      {
+        "path": "docs/acceptance/TEST_MATRIX.md",
+        "source_blob": "0f1c1af947722ca08d7430c047d4f13ef49b032e",
+        "candidate_blob": "0f1c1af947722ca08d7430c047d4f13ef49b032e",
+        "same": true
+      },
+      {
+        "path": "docs/architecture/SYSTEM_OVERVIEW.md",
+        "source_blob": "1e011e2fe69bbe8ee63b5ed3dd0a1f0039ba5aea",
+        "candidate_blob": "1e011e2fe69bbe8ee63b5ed3dd0a1f0039ba5aea",
+        "same": true
+      },
+      {
+        "path": "docs/audit/AS_IS_ARCHITECTURE.md",
+        "source_blob": "a230cb9bd95a98ab3efa8917031573cdfd81ed2c",
+        "candidate_blob": "a230cb9bd95a98ab3efa8917031573cdfd81ed2c",
+        "same": true
+      },
+      {
+        "path": "docs/contracts/README.md",
+        "source_blob": "e4ddec181c2bb66f2c0f1cd53b1ba9bf08062c03",
+        "candidate_blob": "e4ddec181c2bb66f2c0f1cd53b1ba9bf08062c03",
+        "same": true
+      },
+      {
+        "path": "docs/operations/DEPLOYMENT.md",
+        "source_blob": "589cdacbcfc72fc10b4e3ab3dc34f2e8a635d1dc",
+        "candidate_blob": "589cdacbcfc72fc10b4e3ab3dc34f2e8a635d1dc",
+        "same": true
+      },
+      {
+        "path": "docs/product/PRODUCT_SCOPE.md",
+        "source_blob": "92a87f007544f0be89c4d6b1f6f61dcd5d8f02eb",
+        "candidate_blob": "92a87f007544f0be89c4d6b1f6f61dcd5d8f02eb",
+        "same": true
+      },
+      {
+        "path": "docs/reference/METHOD_CORE_RU.md",
+        "source_blob": "c248cf48479fa2074dc4651a491e08a12d413dbe",
+        "candidate_blob": "c248cf48479fa2074dc4651a491e08a12d413dbe",
+        "same": true
+      },
+      {
+        "path": "migrations/001_initial.sql",
+        "source_blob": "f05394f69be9cd1ca8be4d4741a8d94f1606f87a",
+        "candidate_blob": "f05394f69be9cd1ca8be4d4741a8d94f1606f87a",
+        "same": true
+      },
+      {
+        "path": "migrations/002_hardening.sql",
+        "source_blob": "52f1b66c511b865fb52d608e777cbcf02dbbe591",
+        "candidate_blob": "52f1b66c511b865fb52d608e777cbcf02dbbe591",
+        "same": true
+      },
+      {
+        "path": "migrations/003_financial_guards.sql",
+        "source_blob": "c15c3d7dd6dd2955f1f76c47802163d4500a0aa4",
+        "candidate_blob": "c15c3d7dd6dd2955f1f76c47802163d4500a0aa4",
+        "same": true
+      },
+      {
+        "path": "migrations/004_provider_evidence.sql",
+        "source_blob": "ce05200dbe0d6995bf9cad5ed35e732f8fc1194b",
+        "candidate_blob": "ce05200dbe0d6995bf9cad5ed35e732f8fc1194b",
+        "same": true
+      },
+      {
+        "path": "migrations/005_platega.sql",
+        "source_blob": "dd37b13cd95b1381eaa9db8209248cd7c7d6eb65",
+        "candidate_blob": "dd37b13cd95b1381eaa9db8209248cd7c7d6eb65",
+        "same": true
+      },
+      {
+        "path": "migrations/006_aggregate_conversations.sql",
+        "source_blob": "5306f78e9cf55a6c8e34ff4dfc009c60182ff69e",
+        "candidate_blob": "5306f78e9cf55a6c8e34ff4dfc009c60182ff69e",
+        "same": true
+      },
+      {
+        "path": "migrations/007_delivery_uncertainty.sql",
+        "source_blob": "6e005838527d0d46470e41d69313259c929e577c",
+        "candidate_blob": "6e005838527d0d46470e41d69313259c929e577c",
+        "same": true
+      },
+      {
+        "path": "migrations/008_interaction_pilot.sql",
+        "source_blob": "966fc8713d086abdecc1adbdd2a07ee217649dc2",
+        "candidate_blob": "966fc8713d086abdecc1adbdd2a07ee217649dc2",
+        "same": true
+      },
+      {
+        "path": "migrations/009_catalogue_rate_limit.sql",
+        "source_blob": "1ad25a3d5971f825d8d3f6ef80210fda41827daf",
+        "candidate_blob": "1ad25a3d5971f825d8d3f6ef80210fda41827daf",
+        "same": true
+      },
+      {
+        "path": "migrations/010_pilot_credit.sql",
+        "source_blob": "7be58587e37c0c7dadf8ad6ccec0d9891f9ad686",
+        "candidate_blob": "7be58587e37c0c7dadf8ad6ccec0d9891f9ad686",
+        "same": true
+      },
+      {
+        "path": "migrations/011_work_library.sql",
+        "source_blob": "2bda915b4e4f60f5268e4a60e9da986dc9c782f2",
+        "candidate_blob": "2bda915b4e4f60f5268e4a60e9da986dc9c782f2",
+        "same": true
+      },
+      {
+        "path": "migrations/012_nano_banana_attempts.sql",
+        "source_blob": "fe0e56828946ed34fde5141078d161b962f58ab5",
+        "candidate_blob": "fe0e56828946ed34fde5141078d161b962f58ab5",
+        "same": true
+      },
+      {
+        "path": "pyproject.toml",
+        "source_blob": "be5d9b4510e8017afee2101c969d90b6da42727d",
+        "candidate_blob": "2efcd6b0f2559e591d38b3d20edcb7f65fe748ab",
+        "same": false
+      },
+      {
+        "path": "reference/.env.example",
+        "source_blob": "7026889386e406833ac6703f96d21e434fc8b152",
+        "candidate_blob": "7026889386e406833ac6703f96d21e434fc8b152",
+        "same": true
+      },
+      {
+        "path": "reference/01_PRODUCT.md",
+        "source_blob": "3a50334c36c1e331cc10d901f66cda07be2e6298",
+        "candidate_blob": "3a50334c36c1e331cc10d901f66cda07be2e6298",
+        "same": true
+      },
+      {
+        "path": "reference/02_ARCHITECTURE.md",
+        "source_blob": "4f13d77a3b1ca0dd62ce1d1a67511ac778fe3d71",
+        "candidate_blob": "4f13d77a3b1ca0dd62ce1d1a67511ac778fe3d71",
+        "same": true
+      },
+      {
+        "path": "reference/03_DATA_AND_MONEY.md",
+        "source_blob": "0f2d2e5ee95c72108e2d32fa99a47c49d28313b9",
+        "candidate_blob": "0f2d2e5ee95c72108e2d32fa99a47c49d28313b9",
+        "same": true
+      },
+      {
+        "path": "reference/04_JOBS_AND_FAILURES.md",
+        "source_blob": "cf42b314d66e1df356908101274ae270df63f23d",
+        "candidate_blob": "cf42b314d66e1df356908101274ae270df63f23d",
+        "same": true
+      },
+      {
+        "path": "reference/05_PROVIDER_CONTRACT.md",
+        "source_blob": "b5719e78365766daf6e2b07798a6bf8e13d40625",
+        "candidate_blob": "b5719e78365766daf6e2b07798a6bf8e13d40625",
+        "same": true
+      },
+      {
+        "path": "reference/06_SECURITY.md",
+        "source_blob": "5654d6ded6dd8c7f3b2726e774226af5ae743671",
+        "candidate_blob": "5654d6ded6dd8c7f3b2726e774226af5ae743671",
+        "same": true
+      },
+      {
+        "path": "reference/07_TELEGRAM_PAYMENTS.md",
+        "source_blob": "6b54e2de8100f9bdc0e8a4fa250593a189a4028d",
+        "candidate_blob": "6b54e2de8100f9bdc0e8a4fa250593a189a4028d",
+        "same": true
+      },
+      {
+        "path": "reference/08_MAX.md",
+        "source_blob": "170543668cbdd7082b84168472cb3ab90c119251",
+        "candidate_blob": "170543668cbdd7082b84168472cb3ab90c119251",
+        "same": true
+      },
+      {
+        "path": "reference/09_DEPLOYMENT.md",
+        "source_blob": "ab639df718451d30982f01b41b607abcce9f110e",
+        "candidate_blob": "ab639df718451d30982f01b41b607abcce9f110e",
+        "same": true
+      },
+      {
+        "path": "reference/10_ACCEPTANCE.md",
+        "source_blob": "32cb7b76d161a2112c0535670558ccbcc1be7d8a",
+        "candidate_blob": "32cb7b76d161a2112c0535670558ccbcc1be7d8a",
+        "same": true
+      },
+      {
+        "path": "reference/11_IMPLEMENTATION_PLAN.md",
+        "source_blob": "308360cadef44f9a789013c889df52741027f3e6",
+        "candidate_blob": "308360cadef44f9a789013c889df52741027f3e6",
+        "same": true
+      },
+      {
+        "path": "reference/AGENT_HANDOFF.md",
+        "source_blob": "017f2c2f54d4f2fe9a91acda968c6796471eaf9e",
+        "candidate_blob": "017f2c2f54d4f2fe9a91acda968c6796471eaf9e",
+        "same": true
+      },
+      {
+        "path": "reference/README.md",
+        "source_blob": "b09afc925842717043f95e437d123d0d73cff6dd",
+        "candidate_blob": "b09afc925842717043f95e437d123d0d73cff6dd",
+        "same": true
+      },
+      {
+        "path": "reference/SHA256SUMS.txt",
+        "source_blob": "14e253555af628e2d40c757521433f2c0e4f1051",
+        "candidate_blob": "14e253555af628e2d40c757521433f2c0e4f1051",
+        "same": true
+      },
+      {
+        "path": "reference/SOURCES.md",
+        "source_blob": "946ad46545a54402687a2f961bc169728277c233",
+        "candidate_blob": "946ad46545a54402687a2f961bc169728277c233",
+        "same": true
+      },
+      {
+        "path": "reference/capabilities.example.json",
+        "source_blob": "13a22d68512a4cce098f31a9915721c0d34a27d7",
+        "candidate_blob": "13a22d68512a4cce098f31a9915721c0d34a27d7",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/.env.example",
+        "source_blob": "0dad4e4934e35f7b008248ed0e9549d6f1eb21a2",
+        "candidate_blob": "0dad4e4934e35f7b008248ed0e9549d6f1eb21a2",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/01_AUDIT.md",
+        "source_blob": "4e49e1dd814838cf0837ef13eba45ea3f24d8fae",
+        "candidate_blob": "4e49e1dd814838cf0837ef13eba45ea3f24d8fae",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/02_INTEGRATION_GUIDE.md",
+        "source_blob": "5b03024acb5bfebf39426d0a2c43434982228d01",
+        "candidate_blob": "5b03024acb5bfebf39426d0a2c43434982228d01",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/03_API_TEST_MATRIX.md",
+        "source_blob": "ba90b2e44e39ada55714f3c8e6fe9f2ee337455c",
+        "candidate_blob": "ba90b2e44e39ada55714f3c8e6fe9f2ee337455c",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/04_AGENT_HANDOFF.md",
+        "source_blob": "9c6643187fb0d909c3c3a5ad74a85e5629ee67c0",
+        "candidate_blob": "9c6643187fb0d909c3c3a5ad74a85e5629ee67c0",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/README.md",
+        "source_blob": "a251ad8f9630d48bd52ee3fe558e848d905705ea",
+        "candidate_blob": "a251ad8f9630d48bd52ee3fe558e848d905705ea",
+        "same": true
+      },
+      {
+        "path": "reference/original_clodex_audit/probe_clodex.py",
+        "source_blob": "a978b5c9f1ded02ed69d215d6cdd9c32db907d60",
+        "candidate_blob": "a978b5c9f1ded02ed69d215d6cdd9c32db907d60",
+        "same": true
+      },
+      {
+        "path": "reference/schema.sql",
+        "source_blob": "0d232e1b8debdb5269fa21386abd447768614fb0",
+        "candidate_blob": "0d232e1b8debdb5269fa21386abd447768614fb0",
+        "same": true
+      },
+      {
+        "path": "requirements-acceptance.txt",
+        "source_blob": "258eeed525b9167ff4f19c44bb31ed1a1099e9a4",
+        "candidate_blob": "258eeed525b9167ff4f19c44bb31ed1a1099e9a4",
+        "same": true
+      },
+      {
+        "path": "requirements-demo.txt",
+        "source_blob": "50eed9f8543ae5e781b8069207da699d9bc98ba8",
+        "candidate_blob": "50eed9f8543ae5e781b8069207da699d9bc98ba8",
+        "same": true
+      },
+      {
+        "path": "requirements-service.txt",
+        "source_blob": "6602ac53e2d178c98b6d3cc709307c9aab1b4d2b",
+        "candidate_blob": "6602ac53e2d178c98b6d3cc709307c9aab1b4d2b",
+        "same": true
+      },
+      {
+        "path": "scripts/backup.sh",
+        "source_blob": "e7f92ebc0da0a7aced57fcb60beeaf9d276712e8",
+        "candidate_blob": "e7f92ebc0da0a7aced57fcb60beeaf9d276712e8",
+        "same": true
+      },
+      {
+        "path": "scripts/dev_bot.py",
+        "source_blob": "4bed8337b2d71f1ea151b7ba6bd124f17781688a",
+        "candidate_blob": "4bed8337b2d71f1ea151b7ba6bd124f17781688a",
+        "same": true
+      },
+      {
+        "path": "scripts/dev_db.sql",
+        "source_blob": "0f4d1a2310fc12bccc3064e3b465346040d3dff1",
+        "candidate_blob": "0f4d1a2310fc12bccc3064e3b465346040d3dff1",
+        "same": true
+      },
+      {
+        "path": "scripts/generation_monitor.py",
+        "source_blob": "011c7a4801d8c705f6cc59f6800a7bd112de69f1",
+        "candidate_blob": "011c7a4801d8c705f6cc59f6800a7bd112de69f1",
+        "same": true
+      },
+      {
+        "path": "scripts/init-runtime-role.sh",
+        "source_blob": "4a443d8e7dd99946a953c0a2b030df5dcaa4878e",
+        "candidate_blob": "4a443d8e7dd99946a953c0a2b030df5dcaa4878e",
+        "same": true
+      },
+      {
+        "path": "scripts/probe_environment.py",
+        "source_blob": "fac39ffd03dfd96ebe6bd8fea49ebe78f27af689",
+        "candidate_blob": "fac39ffd03dfd96ebe6bd8fea49ebe78f27af689",
+        "same": true
+      },
+      {
+        "path": "scripts/restore.sh",
+        "source_blob": "ab5b3e911462090e4ca7ed01467e0e66eec7eb16",
+        "candidate_blob": "ab5b3e911462090e4ca7ed01467e0e66eec7eb16",
+        "same": true
+      },
+      {
+        "path": "scripts/run_native_acceptance.py",
+        "source_blob": "8c0e9b6f234ea78423bb35892731d1d2aac62d6d",
+        "candidate_blob": "8c0e9b6f234ea78423bb35892731d1d2aac62d6d",
+        "same": true
+      },
+      {
+        "path": "scripts/run_s2.py",
+        "source_blob": "b9801c52ee13cbb65f557bbf02cd268ea6df3427",
+        "candidate_blob": "b9801c52ee13cbb65f557bbf02cd268ea6df3427",
+        "same": true
+      },
+      {
+        "path": "scripts/test.sh",
+        "source_blob": "024be3f0fcd2c611a1688e57ce9671ceb35284ee",
+        "candidate_blob": "024be3f0fcd2c611a1688e57ce9671ceb35284ee",
+        "same": true
+      },
+      {
+        "path": "scripts/verify_runtime_settings.py",
+        "source_blob": "adbf560a24b02d0ce90aaaf11f557ab1b4f16775",
+        "candidate_blob": "adbf560a24b02d0ce90aaaf11f557ab1b4f16775",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__init__.py",
+        "source_blob": "80d54e8bb593831179c01a3acb98d5a7c0bbec98",
+        "candidate_blob": "80d54e8bb593831179c01a3acb98d5a7c0bbec98",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "596ffeba1fa3f2fe4eb62214a2f34b2456a2c213",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/aggregate.py",
+        "source_blob": "c4c818edaad058fd36fef0e01bea6137effe6b34",
+        "candidate_blob": "45e261e30e32acac9192ff17f80da875f3323822",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "e530d76f1cb350d4b85b441c372d4c535d3332e8",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/core.py",
+        "source_blob": "77693e764bae005b49783081f7c4d29214930474",
+        "candidate_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/database_setup.py",
+        "source_blob": "b0766ee04ed2581c62d17a7f61b7966859a364bd",
+        "candidate_blob": "b0766ee04ed2581c62d17a7f61b7966859a364bd",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/db.py",
+        "source_blob": "3ffa6d52f10bc4bdceb5de078f9b283f0966f34a",
+        "candidate_blob": "3ffa6d52f10bc4bdceb5de078f9b283f0966f34a",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/demo.py",
+        "source_blob": "f48feea06d064d59fb35343423dd849e5b3e3d7e",
+        "candidate_blob": "aee236976c5256b2c15eb904395e485993b6c3b7",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/discovery.py",
+        "source_blob": "8483ea0905c72e16ff80dcd264d3db8641a5a9e4",
+        "candidate_blob": "8483ea0905c72e16ff80dcd264d3db8641a5a9e4",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/interaction.py",
+        "source_blob": "a9723e10cde74679446f50d9576acd157bed4d07",
+        "candidate_blob": "47514671da5431d1741ae9f9e19941b24b787cc2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/platega.py",
+        "source_blob": "127a357723c62c46bc89da03d66c7a734e01174a",
+        "candidate_blob": "a710e0d5ced487743d26ca3acd666ff9489a8958",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/platega_web.py",
+        "source_blob": "663a473d2c6de89b937f5b6bb481e08009d448b8",
+        "candidate_blob": "d4a79f514f8750ae019ff582a5a4c101fdd36f7b",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/providers.py",
+        "source_blob": "8e70b2901ab9a39f1c000a6925e6e8b513d7b61d",
+        "candidate_blob": "ecebfecc0ba647a1b4bbb583da68f8bca202e961",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/runtime_config.py",
+        "source_blob": "bea20c12912e3892a475abb0026aabd09f416bf9",
+        "candidate_blob": "bea20c12912e3892a475abb0026aabd09f416bf9",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/setup_service.py",
+        "source_blob": "07a819855ec0ce322fd5e94fb95139ebd441ba3a",
+        "candidate_blob": "07a819855ec0ce322fd5e94fb95139ebd441ba3a",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/snapshot.py",
+        "source_blob": "673b7499c469012ff9b22fb520a51f55200e520c",
+        "candidate_blob": "673b7499c469012ff9b22fb520a51f55200e520c",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/storage.py",
+        "source_blob": "7f22c7fd64ad8203cc11ecb02e7793124a83fb91",
+        "candidate_blob": "7f22c7fd64ad8203cc11ecb02e7793124a83fb91",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/supervisor.py",
+        "source_blob": "6a72b2da6cf8cc5c10a30bac5f6cdf9c256514d0",
+        "candidate_blob": "6a72b2da6cf8cc5c10a30bac5f6cdf9c256514d0",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "30ee51e744e53eacd316dfe52635accf6ac90f9d",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/worker.py",
+        "source_blob": "2f6a66eb11bacc303813f1d075e4e773195f5896",
+        "candidate_blob": "5b85fb8d832d404a72ea40c4eb32c02d16173d53",
+        "same": false
+      },
+      {
+        "path": "tests/conftest.py",
+        "source_blob": "91bd782c578181408192c926701e7fca7f8266a2",
+        "candidate_blob": "9e8261b8d74c65db00a47cd62acf81e89f2cec1c",
+        "same": false
+      },
+      {
+        "path": "tests/fixtures/clodex_public/docs-v2.json",
+        "source_blob": "da232f1be66f6de3623d388c667838e184508a8c",
+        "candidate_blob": "da232f1be66f6de3623d388c667838e184508a8c",
+        "same": true
+      },
+      {
+        "path": "tests/fixtures/clodex_public/pricing.json",
+        "source_blob": "e77fad94cd929ad921876c4286af9507b17d11e1",
+        "candidate_blob": "e77fad94cd929ad921876c4286af9507b17d11e1",
+        "same": true
+      },
+      {
+        "path": "tests/required_s2_cases.json",
+        "source_blob": "58e7e09d35d22d23f78cb63c18ef8ea8029125ef",
+        "candidate_blob": "58e7e09d35d22d23f78cb63c18ef8ea8029125ef",
+        "same": true
+      },
+      {
+        "path": "tests/test_aggregate.py",
+        "source_blob": "61b704a6827362337e84cd521eaeb0c740d5cf2a",
+        "candidate_blob": "b340c4fc78397fcab36368056b4cf54d64223ae2",
+        "same": false
+      },
+      {
+        "path": "tests/test_database_setup.py",
+        "source_blob": "c1c0b613126d5cd782f93f9f0e574379f0062504",
+        "candidate_blob": "c1c0b613126d5cd782f93f9f0e574379f0062504",
+        "same": true
+      },
+      {
+        "path": "tests/test_demo.py",
+        "source_blob": "79c1a45d3eafdded8a9e4ac74a7df044cfca6ceb",
+        "candidate_blob": "4b61a0c02c2cf1aef219ec825dbc6519dad4dd06",
+        "same": false
+      },
+      {
+        "path": "tests/test_discovery.py",
+        "source_blob": "550c6d337902bd2e623141920f2065c327570ba2",
+        "candidate_blob": "8c2ee3d0071dc00132e0292d59a1124f0a837e4a",
+        "same": false
+      },
+      {
+        "path": "tests/test_financial.py",
+        "source_blob": "e8ef5cc917a75ee775542b7509c3188f973eaba6",
+        "candidate_blob": "e8ef5cc917a75ee775542b7509c3188f973eaba6",
+        "same": true
+      },
+      {
+        "path": "tests/test_http_stub.py",
+        "source_blob": "6930b219d0e861a07eea786ce75a7a04ff3a684c",
+        "candidate_blob": "6930b219d0e861a07eea786ce75a7a04ff3a684c",
+        "same": true
+      },
+      {
+        "path": "tests/test_image_catalogue.py",
+        "source_blob": "caf4a25acd897ace18d34fe202f3f5e7fe220140",
+        "candidate_blob": "ead8e2285bb2ee23933f34805e5b88e90d934721",
+        "same": false
+      },
+      {
+        "path": "tests/test_image_recovery.py",
+        "source_blob": "bd0759909224716cf0e4fa6af57ef40016b834d6",
+        "candidate_blob": "e568f5c53c68df5512f7c9060541574f6e4c5c40",
+        "same": false
+      },
+      {
+        "path": "tests/test_image_validation.py",
+        "source_blob": "b54c7285768eadb05e3ad9c4143b2359f4eec299",
+        "candidate_blob": "6389e824d6792d3ad92990adf3a7c8b9c0b097c1",
+        "same": false
+      },
+      {
+        "path": "tests/test_platega_db.py",
+        "source_blob": "23caf186ae64463badedff3aef7efcf96a3c633b",
+        "candidate_blob": "23caf186ae64463badedff3aef7efcf96a3c633b",
+        "same": true
+      },
+      {
+        "path": "tests/test_platega_unit.py",
+        "source_blob": "958426a5d1d0636ec9bea088e16811f2f07b63b7",
+        "candidate_blob": "958426a5d1d0636ec9bea088e16811f2f07b63b7",
+        "same": true
+      },
+      {
+        "path": "tests/test_process_e2e.py",
+        "source_blob": "333e0a3d7fe0ad8bf9fa0e0ca08e0765bd27d51c",
+        "candidate_blob": "8aa5b072c59be1404c547749df7a2fd213fcbbbc",
+        "same": false
+      },
+      {
+        "path": "tests/test_restore.py",
+        "source_blob": "781cbbd46f8244a6ee7b1f24ad363202357afd2f",
+        "candidate_blob": "781cbbd46f8244a6ee7b1f24ad363202357afd2f",
+        "same": true
+      },
+      {
+        "path": "tests/test_runtime_role.py",
+        "source_blob": "0ee730a135558213f6810bcce81e5f0e60aa3d96",
+        "candidate_blob": "0ee730a135558213f6810bcce81e5f0e60aa3d96",
+        "same": true
+      },
+      {
+        "path": "tests/test_runtime_service.py",
+        "source_blob": "6af421387d6552fdc9808ff25f812e125ded9205",
+        "candidate_blob": "daa6cf5e6318230fd3265179bcff71a441aa5e41",
+        "same": false
+      },
+      {
+        "path": "tests/test_ubuntu_release.py",
+        "source_blob": "ef5e490b231ecac1c68d99ddd5dabb6da8dd4807",
+        "candidate_blob": "ef5e490b231ecac1c68d99ddd5dabb6da8dd4807",
+        "same": true
+      },
+      {
+        "path": "tests/test_ui.py",
+        "source_blob": "b95c7466e0e557b151572bdac760c87ca857acb0",
+        "candidate_blob": "e9618b89686ce40e98dbe661a7a9d3f8a49e0da7",
+        "same": false
+      },
+      {
+        "path": "tests/test_unit.py",
+        "source_blob": "ebf3e7a8ceced4715eaa2d6f393894f1f9f6c8c4",
+        "candidate_blob": "ebf3e7a8ceced4715eaa2d6f393894f1f9f6c8c4",
+        "same": true
+      },
+      {
+        "path": "tests/test_worker.py",
+        "source_blob": "757bb6ef1ca087df1dacec59a15472f1fbc5bb65",
+        "candidate_blob": "757bb6ef1ca087df1dacec59a15472f1fbc5bb65",
+        "same": true
+      },
+      {
+        "path": "uv.lock",
+        "source_blob": "465e454c3299bd8175b4171cb6b9dfc97364e5e3",
+        "candidate_blob": "465e454c3299bd8175b4171cb6b9dfc97364e5e3",
+        "same": true
+      },
+      {
+        "path": "voices.example.json",
+        "source_blob": "b6ea720e7385c0306c098dea088589252daa0b8f",
+        "candidate_blob": "b6ea720e7385c0306c098dea088589252daa0b8f",
+        "same": true
+      }
+    ]
+  },
+  {
+    "pr": 9,
+    "head": "b5c1368cf9663bd0be43a1e9c0b65816c51fe61d",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "docs/operations/VEO_PILOT.md",
+        "source_blob": "184581f61684e5572f26a6366e632a15cfe4eac9",
+        "candidate_blob": "184581f61684e5572f26a6366e632a15cfe4eac9",
+        "same": true
+      },
+      {
+        "path": "migrations/013_video_jobs.sql",
+        "source_blob": "9fb2c2a5e727a4100654df6f414dbf886f947528",
+        "candidate_blob": "9fb2c2a5e727a4100654df6f414dbf886f947528",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "8c803b3270fe669df6d74b33253839ad5d58f439",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "a73f6e3fbe0533f9bcc07df2788a81826963fee4",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/core.py",
+        "source_blob": "2e05a9f32e65f08614b199cc619804275a9ccf2d",
+        "candidate_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "8689ce8406b2f5af48121e73047aa1fc3726b5c2",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/video.py",
+        "source_blob": "86f9084c6dc4d173c964abd9bcecd902f046438a",
+        "candidate_blob": "df394f69725b70cff77ac7e7bca892a9c5694453",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/worker.py",
+        "source_blob": "db8d045f7b81ac04c376c5eef79b3a74b449ba79",
+        "candidate_blob": "5b85fb8d832d404a72ea40c4eb32c02d16173d53",
+        "same": false
+      },
+      {
+        "path": "tests/test_video.py",
+        "source_blob": "949e6a630bd6110bb6965666514c3b8c81e68d2f",
+        "candidate_blob": "066c904fb5c86264d0e326060fa81272c1261908",
+        "same": false
+      }
+    ]
+  },
+  {
+    "pr": 10,
+    "head": "eaa1a6fdc6eb19ed61a231ad05c9eb412c0d2496",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "docs/operations/ANYMODEL_PILOT.md",
+        "source_blob": "eee9a07990c97b152d35ae9810840524c4eeec5d",
+        "candidate_blob": "7431bd32f16875ab7a9e8ce22ab3501999c2056a",
+        "same": false
+      },
+      {
+        "path": "docs/operations/anymodel-menu-preview.svg",
+        "source_blob": "940e3ac58f97cb8dceeef306d53ecb66500930ac",
+        "candidate_blob": "940e3ac58f97cb8dceeef306d53ecb66500930ac",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "3a680da54560f2b9eb26ebee755d0cd63ed22907",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel.py",
+        "source_blob": "1f66057bb1318bb1e51b32f4fab88f607024974a",
+        "candidate_blob": "2d0a1e3b4e8d4bab54c33fd45a3b153116f0d945",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "f9770f411f46f4acf8156a4463425045e62d9cfe",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "113f6a757754a19b8c43a0bb523d2eaca64b90ee",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel.py",
+        "source_blob": "b1bb84a2ae8a1789527f3919efd28335b74ae788",
+        "candidate_blob": "c427cdc4eb5173ba068523af324af45d9e8d509a",
+        "same": false
+      }
+    ]
+  },
+  {
+    "pr": 11,
+    "head": "99c091476de23d998a3101bb0e39d199552f8838",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "docs/operations/ANYMODEL_PILOT.md",
+        "source_blob": "35a51f8c3f10eb1b95fad64cc7d29a40a5fccb4c",
+        "candidate_blob": "7431bd32f16875ab7a9e8ce22ab3501999c2056a",
+        "same": false
+      },
+      {
+        "path": "migrations/014_anymodel_image_jobs.sql",
+        "source_blob": "25ff25dc939eca46e39f14b99b3c9c22530e3b2f",
+        "candidate_blob": "25ff25dc939eca46e39f14b99b3c9c22530e3b2f",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "143e3037aae24b720cbd9667c5c3029bedf3dce5",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel.py",
+        "source_blob": "b75e5b2b97a5bac669f475168ba8a223b497ecc8",
+        "candidate_blob": "2d0a1e3b4e8d4bab54c33fd45a3b153116f0d945",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel_image_jobs.py",
+        "source_blob": "2a8529c36d9b03ede2ac83875141806e0ea097ec",
+        "candidate_blob": "836d007b564d8a401d1e85eb23b223b1e5b5bc40",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "7d6a0c861a8cc3c9f12fcb450724e13381dcf31f",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/core.py",
+        "source_blob": "d7ba2427d5a54f5b6238c2ed4d541cc12106a603",
+        "candidate_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "67bb549caacd24df685f4fee0a911e012b00bd50",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/worker.py",
+        "source_blob": "30ee88e573a30a272c4c3596a38d2dd157a6d860",
+        "candidate_blob": "5b85fb8d832d404a72ea40c4eb32c02d16173d53",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel_fibo.py",
+        "source_blob": "1717abb02cee8aef023c6c45fdc4aebc2a0bb7cb",
+        "candidate_blob": "8b0b58d3554e0389cbdf1d047b3477ae2bd1fc17",
+        "same": false
+      }
+    ]
+  },
+  {
+    "pr": 12,
+    "head": "de4e5f1183ec9ee7b079977fda68f99e02d00dd7",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "docs/operations/ANYMODEL_PILOT.md",
+        "source_blob": "4e87afe5ce9c632eb356ecd8dd1eb8a98c49f4fd",
+        "candidate_blob": "7431bd32f16875ab7a9e8ce22ab3501999c2056a",
+        "same": false
+      },
+      {
+        "path": "migrations/015_anymodel_video_jobs.sql",
+        "source_blob": "a18c5ab0a68079bf0b3a53380b5e5202bddd02e2",
+        "candidate_blob": "a18c5ab0a68079bf0b3a53380b5e5202bddd02e2",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "a748f8ea096ef1be04a7d5dd250a76b24a5f378b",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel.py",
+        "source_blob": "fa8338af8fd662e766ab0ab8ee10e422254dad6e",
+        "candidate_blob": "2d0a1e3b4e8d4bab54c33fd45a3b153116f0d945",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel_video.py",
+        "source_blob": "6aeba2a194388992b31871509eba09f261657bfc",
+        "candidate_blob": "fd6e7647a17a225314351dd423188f021d693ee5",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "b2b48c9146dc7dc212e60bba3907036b90146bf6",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/core.py",
+        "source_blob": "6cb0ab6f16b439590809b66f5bd5b9537a2ebd02",
+        "candidate_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "095cd67fdf092eea1989a8e602b729294d0ee0fa",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/video.py",
+        "source_blob": "1e9d3826d698d9e2904c484a7fc3a51df3607db4",
+        "candidate_blob": "df394f69725b70cff77ac7e7bca892a9c5694453",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel_fibo.py",
+        "source_blob": "fc612d4e2112d5424a8b3d3b5fa087d0333a69af",
+        "candidate_blob": "8b0b58d3554e0389cbdf1d047b3477ae2bd1fc17",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel_video.py",
+        "source_blob": "6ea3c99a68d94e4920f19aef76ddc7b85a69787d",
+        "candidate_blob": "195ae03202cd999628ef88307db5519169761ad6",
+        "same": false
+      }
+    ]
+  },
+  {
+    "pr": 13,
+    "head": "6c82761c5e4c42e1129934884c5b23030df4e090",
+    "ancestry": true,
+    "files": [
+      {
+        "path": ".env.example",
+        "source_blob": "96624a0f434146998396a1b34a3ee01aaa734e3b",
+        "candidate_blob": "e77de3fd4b863b3a7fc522177390c3813b4e5c9e",
+        "same": false
+      },
+      {
+        "path": "docs/operations/ANYMODEL_PILOT.md",
+        "source_blob": "7431bd32f16875ab7a9e8ce22ab3501999c2056a",
+        "candidate_blob": "7431bd32f16875ab7a9e8ce22ab3501999c2056a",
+        "same": true
+      },
+      {
+        "path": "migrations/016_anymodel_speech.sql",
+        "source_blob": "74e1be8002a7b7a93facbcf5d8cb27f8ccf85eac",
+        "candidate_blob": "74e1be8002a7b7a93facbcf5d8cb27f8ccf85eac",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/anymodel.py",
+        "source_blob": "d7e9c11ec352f6bcb3e61b7c5931d8eb9441dae1",
+        "candidate_blob": "2d0a1e3b4e8d4bab54c33fd45a3b153116f0d945",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel_speech.py",
+        "source_blob": "b254344a5ac331fb112cab7ff9b504b37b597e1e",
+        "candidate_blob": "1025ad560e7a015daad0a108b13bb979b51ecefb",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "eb73a921ffe6d0fdb74817cb5bee698cf07a251f",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/core.py",
+        "source_blob": "8098a6146f92b96d1f717fc7a353eea96bb46348",
+        "candidate_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "1c49168fe760e9dbfd87ad6251c485433819d76b",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/worker.py",
+        "source_blob": "c7d7e764dcb22c12601acbfa52956c1ccb3418e2",
+        "candidate_blob": "5b85fb8d832d404a72ea40c4eb32c02d16173d53",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel_fibo.py",
+        "source_blob": "4eeafcf8fc1401eb293470269f17c6979b2252fb",
+        "candidate_blob": "8b0b58d3554e0389cbdf1d047b3477ae2bd1fc17",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel_speech.py",
+        "source_blob": "11d15abe9eda88594fd7f5fb03a6d30299d26259",
+        "candidate_blob": "c066f0ba734b075fc7ccb71ed745749e48ddcddb",
+        "same": false
+      }
+    ]
+  },
+  {
+    "pr": 14,
+    "head": "742db84eb8663d5a4b7a7e50b2c10825e7b18a87",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "migrations/017_telegram_welcome.sql",
+        "source_blob": "b2c85d25a98b50326aa4eeded13bbbe07863c02b",
+        "candidate_blob": "b2c85d25a98b50326aa4eeded13bbbe07863c02b",
+        "same": true
+      },
+      {
+        "path": "pyproject.toml",
+        "source_blob": "3b42156c43b47fa29c3584a8df1b4dc87251479b",
+        "candidate_blob": "2efcd6b0f2559e591d38b3d20edcb7f65fe748ab",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/core.py",
+        "source_blob": "ddd1d7da5ba721e6ee86f7da48e62921022f2dd9",
+        "candidate_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/darkflow-energy-strip.gif",
+        "source_blob": "4012648e4219e4ee13bc5acaa77a858c5b8feb1d",
+        "candidate_blob": null,
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/demo.py",
+        "source_blob": "6d63777c8380f52f4a7a39afc6da50d111cf6139",
+        "candidate_blob": "aee236976c5256b2c15eb904395e485993b6c3b7",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "6fd423fba8ae01d1a70b540c524c48cf9d122345",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/welcome.png",
+        "source_blob": "8bceea697ce45e777e7e844b3a56b980a40c6995",
+        "candidate_blob": "8bceea697ce45e777e7e844b3a56b980a40c6995",
+        "same": true
+      },
+      {
+        "path": "tests/test_aggregate.py",
+        "source_blob": "e1fa2b3394ac322b616699c97b96b1b8f94aff51",
+        "candidate_blob": "b340c4fc78397fcab36368056b4cf54d64223ae2",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel.py",
+        "source_blob": "782ea81d4adfde1886918da4a2a7586eeae2f7c2",
+        "candidate_blob": "c427cdc4eb5173ba068523af324af45d9e8d509a",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel_fibo.py",
+        "source_blob": "328cf5956ed3099f072f93d7b0ba474ed0040230",
+        "candidate_blob": "8b0b58d3554e0389cbdf1d047b3477ae2bd1fc17",
+        "same": false
+      },
+      {
+        "path": "tests/test_demo.py",
+        "source_blob": "4b61a0c02c2cf1aef219ec825dbc6519dad4dd06",
+        "candidate_blob": "4b61a0c02c2cf1aef219ec825dbc6519dad4dd06",
+        "same": true
+      },
+      {
+        "path": "tests/test_image_recovery.py",
+        "source_blob": "4b8943293001d9a34c0f5ea382d42e3013f0d2d6",
+        "candidate_blob": "e568f5c53c68df5512f7c9060541574f6e4c5c40",
+        "same": false
+      },
+      {
+        "path": "tests/test_process_e2e.py",
+        "source_blob": "122b016a92a34ebb84187679c993998b5ecb37a7",
+        "candidate_blob": "8aa5b072c59be1404c547749df7a2fd213fcbbbc",
+        "same": false
+      },
+      {
+        "path": "tests/test_ui.py",
+        "source_blob": "2b67bbea90fc7f1cf8de4911738dc87ac4eceab3",
+        "candidate_blob": "e9618b89686ce40e98dbe661a7a9d3f8a49e0da7",
+        "same": false
+      }
+    ]
+  },
+  {
+    "pr": 15,
+    "head": "5162e8e58ba91564c7989617567e24a18aa5f3da",
+    "ancestry": true,
+    "files": [
+      {
+        "path": "migrations/018_task_progress.sql",
+        "source_blob": "fbb1d95979c03898c4b131e0920ed0a64b828484",
+        "candidate_blob": "fbb1d95979c03898c4b131e0920ed0a64b828484",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "2745b84e91aa85176351962763636e72b89e4cf6",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel_image_jobs.py",
+        "source_blob": "91ccdd25dc28f5dd9905d1568df66ef3c6bf3bb9",
+        "candidate_blob": "836d007b564d8a401d1e85eb23b223b1e5b5bc40",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel_speech.py",
+        "source_blob": "468dfeaae19b944e2cb2de0e7b157c0a5eb948c3",
+        "candidate_blob": "1025ad560e7a015daad0a108b13bb979b51ecefb",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/anymodel_video.py",
+        "source_blob": "a199b59f4a7f916cc63cadfbefc396a171602041",
+        "candidate_blob": "fd6e7647a17a225314351dd423188f021d693ee5",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/interaction.py",
+        "source_blob": "45c454a54377c4822d551ea6815a40003819e695",
+        "candidate_blob": "47514671da5431d1741ae9f9e19941b24b787cc2",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/progress.py",
+        "source_blob": "a64e8683d4175ed93f192b661f9b854129f03187",
+        "candidate_blob": "be60af02266245963ee3a0fada1ddc8a01b2e4a7",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "745334faa606548e0524ee5b42ed168842e29b2b",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/video.py",
+        "source_blob": "68cf07edf84dd2295478ffdcb94a70cc5c382cb2",
+        "candidate_blob": "df394f69725b70cff77ac7e7bca892a9c5694453",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel.py",
+        "source_blob": "f89b3d28e67751d8a8989bd8e4e534cb8cf5c23e",
+        "candidate_blob": "c427cdc4eb5173ba068523af324af45d9e8d509a",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel_fibo.py",
+        "source_blob": "083f57eccba82b54e18c6747627e86adbaf798c5",
+        "candidate_blob": "8b0b58d3554e0389cbdf1d047b3477ae2bd1fc17",
+        "same": false
+      },
+      {
+        "path": "tests/test_anymodel_video.py",
+        "source_blob": "c63a4c1b41748babe059c3b583717816401ddf0b",
+        "candidate_blob": "195ae03202cd999628ef88307db5519169761ad6",
+        "same": false
+      },
+      {
+        "path": "tests/test_image_validation.py",
+        "source_blob": "6f33db5b7569370ef6676e6d91142f4ea57f2bb1",
+        "candidate_blob": "6389e824d6792d3ad92990adf3a7c8b9c0b097c1",
+        "same": false
+      },
+      {
+        "path": "tests/test_progress.py",
+        "source_blob": "7d9428e9f1a9bb34e1c9cf01d23232ad90dba79d",
+        "candidate_blob": "7d9428e9f1a9bb34e1c9cf01d23232ad90dba79d",
+        "same": true
+      },
+      {
+        "path": "tests/test_ui.py",
+        "source_blob": "3c7d90a077492225f0d29eb7bea7b0ebbd9c0052",
+        "candidate_blob": "e9618b89686ce40e98dbe661a7a9d3f8a49e0da7",
+        "same": false
+      }
+    ]
+  },
+  {
+    "pr": 16,
+    "head": "76a030a5dc32ccf79b9c9a8393f1807d7df9d791",
+    "ancestry": true,
+    "files": [
+      {
+        "path": ".env.example",
+        "source_blob": "240a72740169c3068dcf1ae5ccf3549f4f14bc08",
+        "candidate_blob": "e77de3fd4b863b3a7fc522177390c3813b4e5c9e",
+        "same": false
+      },
+      {
+        "path": "compose.payments.yaml",
+        "source_blob": "46740f9a346d40806a2a5c32cc006a68323d4b14",
+        "candidate_blob": "46740f9a346d40806a2a5c32cc006a68323d4b14",
+        "same": true
+      },
+      {
+        "path": "docs/audit/DARKFLOW_STAND_AUDIT.md",
+        "source_blob": "9f6e643c786e2b21eff8e18374e18e469c8efdef",
+        "candidate_blob": "9f6e643c786e2b21eff8e18374e18e469c8efdef",
+        "same": true
+      },
+      {
+        "path": "docs/operations/PLATEGA_TOPUPS.md",
+        "source_blob": "4277fa382de4113b084896b51da7fed21a050748",
+        "candidate_blob": "4277fa382de4113b084896b51da7fed21a050748",
+        "same": true
+      },
+      {
+        "path": "migrations/019_task_pricing.sql",
+        "source_blob": "62cba8321cabefeffa47b0f48721956d024632d9",
+        "candidate_blob": "62cba8321cabefeffa47b0f48721956d024632d9",
+        "same": true
+      },
+      {
+        "path": "migrations/020_admin_edition.sql",
+        "source_blob": "1a7ff5b7c5a658f0e11b79f2f66fecf51ea6804b",
+        "candidate_blob": "1a7ff5b7c5a658f0e11b79f2f66fecf51ea6804b",
+        "same": true
+      },
+      {
+        "path": "migrations/021_manual_tariff_units.sql",
+        "source_blob": "6fab6e1d4483b0f8d6178a120f30e519d7166a33",
+        "candidate_blob": "6fab6e1d4483b0f8d6178a120f30e519d7166a33",
+        "same": true
+      },
+      {
+        "path": "migrations/022_tariff_validity.sql",
+        "source_blob": "ed94aad20c3f2b710c7995ee2e9ee3df9413ef06",
+        "candidate_blob": "ed94aad20c3f2b710c7995ee2e9ee3df9413ef06",
+        "same": true
+      },
+      {
+        "path": "migrations/023_task_dispatch.sql",
+        "source_blob": "8b23b7477308632bba800d3990ae53c8ace6ef0d",
+        "candidate_blob": "8b23b7477308632bba800d3990ae53c8ace6ef0d",
+        "same": true
+      },
+      {
+        "path": "migrations/024_approved_models.sql",
+        "source_blob": "be19fb12d84cefdbf4ce059114d6bb0dcf55c76d",
+        "candidate_blob": "be19fb12d84cefdbf4ce059114d6bb0dcf55c76d",
+        "same": true
+      },
+      {
+        "path": "migrations/025_scoped_price_rates.sql",
+        "source_blob": "fb7868ac21d1f0ccac22e1ec51f7c8ae9641b95b",
+        "candidate_blob": "fb7868ac21d1f0ccac22e1ec51f7c8ae9641b95b",
+        "same": true
+      },
+      {
+        "path": "migrations/026_task_wallet.sql",
+        "source_blob": "54dad6cc81d7d74dabe0516a6f2c02d35759c524",
+        "candidate_blob": "54dad6cc81d7d74dabe0516a6f2c02d35759c524",
+        "same": true
+      },
+      {
+        "path": "migrations/027_task_refusal.sql",
+        "source_blob": "1a97611c41a63ecf4a193f01e7c58175b9a93b46",
+        "candidate_blob": "1a97611c41a63ecf4a193f01e7c58175b9a93b46",
+        "same": true
+      },
+      {
+        "path": "migrations/028_telegram_navigation.sql",
+        "source_blob": "06a34cc6b661a000f7db9bcef46be147bf69c081",
+        "candidate_blob": "06a34cc6b661a000f7db9bcef46be147bf69c081",
+        "same": true
+      },
+      {
+        "path": "migrations/029_telegram_broadcasts.sql",
+        "source_blob": "6f949bac5f27252af68321a73fdd356b147dc9e0",
+        "candidate_blob": "6f949bac5f27252af68321a73fdd356b147dc9e0",
+        "same": true
+      },
+      {
+        "path": "migrations/030_system_notifications.sql",
+        "source_blob": "3f14bddae29f3e62500e44596e01d89f8cdc0ae8",
+        "candidate_blob": "3f14bddae29f3e62500e44596e01d89f8cdc0ae8",
+        "same": true
+      },
+      {
+        "path": "migrations/031_broadcast_media.sql",
+        "source_blob": "f40dd741f2c0721d84836aa2b6d34a7a9a4d4d84",
+        "candidate_blob": "f40dd741f2c0721d84836aa2b6d34a7a9a4d4d84",
+        "same": true
+      },
+      {
+        "path": "migrations/032_clodex_music.sql",
+        "source_blob": "af0f708d1b34409857ccbceca35d4b8ffde79a4e",
+        "candidate_blob": "af0f708d1b34409857ccbceca35d4b8ffde79a4e",
+        "same": true
+      },
+      {
+        "path": "migrations/033_music_providers.sql",
+        "source_blob": "e2b8ec306c708b884b569372b08fe9f69c347271",
+        "candidate_blob": "e2b8ec306c708b884b569372b08fe9f69c347271",
+        "same": true
+      },
+      {
+        "path": "migrations/034_topups.sql",
+        "source_blob": "0b1d02bad437049a419a5ed01bf4051080e6aeba",
+        "candidate_blob": "0b1d02bad437049a419a5ed01bf4051080e6aeba",
+        "same": true
+      },
+      {
+        "path": "migrations/035_telegram_panel_slots.sql",
+        "source_blob": "80d4a1fcd01ccd1be465abcf3c7f42a3f6812005",
+        "candidate_blob": "80d4a1fcd01ccd1be465abcf3c7f42a3f6812005",
+        "same": true
+      },
+      {
+        "path": "migrations/036_telegram_keyboard_revision.sql",
+        "source_blob": "5496ab5b53d3e5b3c0763b9bd858ca26f30ff13d",
+        "candidate_blob": "5496ab5b53d3e5b3c0763b9bd858ca26f30ff13d",
+        "same": true
+      },
+      {
+        "path": "pyproject.toml",
+        "source_blob": "3e122f7444d5d28a7cd59c1f5dd0c14e68ca2850",
+        "candidate_blob": "2efcd6b0f2559e591d38b3d20edcb7f65fe748ab",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "d3d283c1a4c8ae1a0c05c063ebdb6b5cdb64e0ab",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/admin_access.py",
+        "source_blob": "c9914c39807d251aad6282d064383adb4dc4b90d",
+        "candidate_blob": "c9914c39807d251aad6282d064383adb4dc4b90d",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/aggregate.py",
+        "source_blob": "45e261e30e32acac9192ff17f80da875f3323822",
+        "candidate_blob": "45e261e30e32acac9192ff17f80da875f3323822",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/anymodel.py",
+        "source_blob": "2d0a1e3b4e8d4bab54c33fd45a3b153116f0d945",
+        "candidate_blob": "2d0a1e3b4e8d4bab54c33fd45a3b153116f0d945",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/anymodel_image_jobs.py",
+        "source_blob": "836d007b564d8a401d1e85eb23b223b1e5b5bc40",
+        "candidate_blob": "836d007b564d8a401d1e85eb23b223b1e5b5bc40",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/anymodel_pricing.py",
+        "source_blob": "3e32cb5584ac25e616076c7ff3a3e091818ee1c9",
+        "candidate_blob": "3e32cb5584ac25e616076c7ff3a3e091818ee1c9",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/anymodel_speech.py",
+        "source_blob": "1025ad560e7a015daad0a108b13bb979b51ecefb",
+        "candidate_blob": "1025ad560e7a015daad0a108b13bb979b51ecefb",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/anymodel_video.py",
+        "source_blob": "fd6e7647a17a225314351dd423188f021d693ee5",
+        "candidate_blob": "fd6e7647a17a225314351dd423188f021d693ee5",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/broadcasts.py",
+        "source_blob": "f4b7ac75e924964a75de9fa7e5a21552bb697be1",
+        "candidate_blob": "f4b7ac75e924964a75de9fa7e5a21552bb697be1",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/clodex_music.py",
+        "source_blob": "e7f7bb9c7894a04b366927aa5130028b35ad9e2c",
+        "candidate_blob": "e7f7bb9c7894a04b366927aa5130028b35ad9e2c",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/clodex_pricing.py",
+        "source_blob": "69245e86b48e236f467495ca7fdedbe8aa4e7e95",
+        "candidate_blob": "69245e86b48e236f467495ca7fdedbe8aa4e7e95",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "6b1280d574f440e6f9e77411e239face20ba405e",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/core.py",
+        "source_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "candidate_blob": "ce449aa2125bf2ef5b43259b01732b5be3f45ff2",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/darkflow-energy-strip-1200x80-2x.mp4",
+        "source_blob": "0fe654b0d3d34908a4c7b5367a85b1b1958cb2ec",
+        "candidate_blob": "0fe654b0d3d34908a4c7b5367a85b1b1958cb2ec",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/darkflow-energy-strip.gif",
+        "source_blob": null,
+        "candidate_blob": null,
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/demo.py",
+        "source_blob": "aee236976c5256b2c15eb904395e485993b6c3b7",
+        "candidate_blob": "aee236976c5256b2c15eb904395e485993b6c3b7",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/fal.py",
+        "source_blob": "1aab1a66fb3b2b792b325398ab831dd73757c870",
+        "candidate_blob": "1aab1a66fb3b2b792b325398ab831dd73757c870",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/interaction.py",
+        "source_blob": "47514671da5431d1741ae9f9e19941b24b787cc2",
+        "candidate_blob": "47514671da5431d1741ae9f9e19941b24b787cc2",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/model_policy.py",
+        "source_blob": "c8e09c9aec4dc4c3766e5517a22e5713999f0124",
+        "candidate_blob": "c8e09c9aec4dc4c3766e5517a22e5713999f0124",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/navigation.py",
+        "source_blob": "c8644c1c77ff65ddbf2b78eb5a2968bebdc68c0e",
+        "candidate_blob": "c8644c1c77ff65ddbf2b78eb5a2968bebdc68c0e",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/platega.py",
+        "source_blob": "a710e0d5ced487743d26ca3acd666ff9489a8958",
+        "candidate_blob": "a710e0d5ced487743d26ca3acd666ff9489a8958",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/platega_web.py",
+        "source_blob": "d4a79f514f8750ae019ff582a5a4c101fdd36f7b",
+        "candidate_blob": "d4a79f514f8750ae019ff582a5a4c101fdd36f7b",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/pricing.py",
+        "source_blob": "c2a70a6a5315e35fa0ff478e6d8d09d437771e4e",
+        "candidate_blob": "c2a70a6a5315e35fa0ff478e6d8d09d437771e4e",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/progress.py",
+        "source_blob": "be60af02266245963ee3a0fada1ddc8a01b2e4a7",
+        "candidate_blob": "be60af02266245963ee3a0fada1ddc8a01b2e4a7",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/provider_execution.py",
+        "source_blob": "5f07be3324ad12b7b9932bbc37e8415019c64c98",
+        "candidate_blob": "5f07be3324ad12b7b9932bbc37e8415019c64c98",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/providers.py",
+        "source_blob": "ecebfecc0ba647a1b4bbb583da68f8bca202e961",
+        "candidate_blob": "ecebfecc0ba647a1b4bbb583da68f8bca202e961",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/submission.py",
+        "source_blob": "2bb0493c5c3a4c2076072b65e36ac670d34aade8",
+        "candidate_blob": "2bb0493c5c3a4c2076072b65e36ac670d34aade8",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/tariff_admin.py",
+        "source_blob": "d6ed2d515b45ff80736c08a858ffa6384b1872b3",
+        "candidate_blob": "d6ed2d515b45ff80736c08a858ffa6384b1872b3",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/task_launch.py",
+        "source_blob": "434797e3516dd7a36a647d48b8b689f258271232",
+        "candidate_blob": "632233653b9a7fa3137dff8f23e008e9799dcd84",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/task_wallet.py",
+        "source_blob": "af870271366dde244b7c09c52a953d407fed51b3",
+        "candidate_blob": "af870271366dde244b7c09c52a953d407fed51b3",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "3439a264b5cfd3ade74d8f69eb079badf08e9f9e",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": false
+      },
+      {
+        "path": "src/elevenbot/topup_ui.py",
+        "source_blob": "6b05736d2679df794be6ddfea1b868e0211e4dca",
+        "candidate_blob": "6b05736d2679df794be6ddfea1b868e0211e4dca",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/topups.py",
+        "source_blob": "6a44a70a8390eadfa4e5a4ae75fc972ee1843d93",
+        "candidate_blob": "6a44a70a8390eadfa4e5a4ae75fc972ee1843d93",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/video.py",
+        "source_blob": "df394f69725b70cff77ac7e7bca892a9c5694453",
+        "candidate_blob": "df394f69725b70cff77ac7e7bca892a9c5694453",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/worker.py",
+        "source_blob": "5b85fb8d832d404a72ea40c4eb32c02d16173d53",
+        "candidate_blob": "5b85fb8d832d404a72ea40c4eb32c02d16173d53",
+        "same": true
+      },
+      {
+        "path": "tests/conftest.py",
+        "source_blob": "9e8261b8d74c65db00a47cd62acf81e89f2cec1c",
+        "candidate_blob": "9e8261b8d74c65db00a47cd62acf81e89f2cec1c",
+        "same": true
+      },
+      {
+        "path": "tests/test_admin_access.py",
+        "source_blob": "99448807dd0a9eb081a942be66b03f41b6f7462e",
+        "candidate_blob": "99448807dd0a9eb081a942be66b03f41b6f7462e",
+        "same": true
+      },
+      {
+        "path": "tests/test_admin_edition.py",
+        "source_blob": "67fd529bd546614014d9f498e1c20bc71e15dadd",
+        "candidate_blob": "67fd529bd546614014d9f498e1c20bc71e15dadd",
+        "same": true
+      },
+      {
+        "path": "tests/test_aggregate.py",
+        "source_blob": "b340c4fc78397fcab36368056b4cf54d64223ae2",
+        "candidate_blob": "b340c4fc78397fcab36368056b4cf54d64223ae2",
+        "same": true
+      },
+      {
+        "path": "tests/test_aggregator_menu.py",
+        "source_blob": "bb60b60d64cf3f32393470a5a704f05d586f6157",
+        "candidate_blob": "bb60b60d64cf3f32393470a5a704f05d586f6157",
+        "same": true
+      },
+      {
+        "path": "tests/test_anymodel.py",
+        "source_blob": "c427cdc4eb5173ba068523af324af45d9e8d509a",
+        "candidate_blob": "c427cdc4eb5173ba068523af324af45d9e8d509a",
+        "same": true
+      },
+      {
+        "path": "tests/test_anymodel_catalogue_launch.py",
+        "source_blob": "e70127191a90dc41dc242d6036f93e380f553fad",
+        "candidate_blob": "e70127191a90dc41dc242d6036f93e380f553fad",
+        "same": true
+      },
+      {
+        "path": "tests/test_anymodel_fibo.py",
+        "source_blob": "8b0b58d3554e0389cbdf1d047b3477ae2bd1fc17",
+        "candidate_blob": "8b0b58d3554e0389cbdf1d047b3477ae2bd1fc17",
+        "same": true
+      },
+      {
+        "path": "tests/test_anymodel_speech.py",
+        "source_blob": "c066f0ba734b075fc7ccb71ed745749e48ddcddb",
+        "candidate_blob": "c066f0ba734b075fc7ccb71ed745749e48ddcddb",
+        "same": true
+      },
+      {
+        "path": "tests/test_anymodel_video.py",
+        "source_blob": "195ae03202cd999628ef88307db5519169761ad6",
+        "candidate_blob": "195ae03202cd999628ef88307db5519169761ad6",
+        "same": true
+      },
+      {
+        "path": "tests/test_broadcasts.py",
+        "source_blob": "3c8eef95a82ca36e35128b125653fa8749670600",
+        "candidate_blob": "3c8eef95a82ca36e35128b125653fa8749670600",
+        "same": true
+      },
+      {
+        "path": "tests/test_chat_isolation.py",
+        "source_blob": "70c81c5bd08d264b2409f85d3bf0523969ce56b4",
+        "candidate_blob": "70c81c5bd08d264b2409f85d3bf0523969ce56b4",
+        "same": true
+      },
+      {
+        "path": "tests/test_clodex_music.py",
+        "source_blob": "e0898a5cb40f5b3b2f1aee653b994fa1956aa29d",
+        "candidate_blob": "e0898a5cb40f5b3b2f1aee653b994fa1956aa29d",
+        "same": true
+      },
+      {
+        "path": "tests/test_discovery.py",
+        "source_blob": "8c2ee3d0071dc00132e0292d59a1124f0a837e4a",
+        "candidate_blob": "8c2ee3d0071dc00132e0292d59a1124f0a837e4a",
+        "same": true
+      },
+      {
+        "path": "tests/test_fal.py",
+        "source_blob": "750549cc312e7b18509c6a2286ee1b0a15aca844",
+        "candidate_blob": "750549cc312e7b18509c6a2286ee1b0a15aca844",
+        "same": true
+      },
+      {
+        "path": "tests/test_image_catalogue.py",
+        "source_blob": "ead8e2285bb2ee23933f34805e5b88e90d934721",
+        "candidate_blob": "ead8e2285bb2ee23933f34805e5b88e90d934721",
+        "same": true
+      },
+      {
+        "path": "tests/test_image_recovery.py",
+        "source_blob": "e568f5c53c68df5512f7c9060541574f6e4c5c40",
+        "candidate_blob": "e568f5c53c68df5512f7c9060541574f6e4c5c40",
+        "same": true
+      },
+      {
+        "path": "tests/test_image_validation.py",
+        "source_blob": "6389e824d6792d3ad92990adf3a7c8b9c0b097c1",
+        "candidate_blob": "6389e824d6792d3ad92990adf3a7c8b9c0b097c1",
+        "same": true
+      },
+      {
+        "path": "tests/test_model_policy.py",
+        "source_blob": "8da1ff3ed5b5c6cad6b6234b7b1e5ac8e7d20021",
+        "candidate_blob": "8da1ff3ed5b5c6cad6b6234b7b1e5ac8e7d20021",
+        "same": true
+      },
+      {
+        "path": "tests/test_navigation.py",
+        "source_blob": "c169ba7bded3c8416d27fd24fd7554e40bc2fe11",
+        "candidate_blob": "c169ba7bded3c8416d27fd24fd7554e40bc2fe11",
+        "same": true
+      },
+      {
+        "path": "tests/test_process_e2e.py",
+        "source_blob": "8aa5b072c59be1404c547749df7a2fd213fcbbbc",
+        "candidate_blob": "8aa5b072c59be1404c547749df7a2fd213fcbbbc",
+        "same": true
+      },
+      {
+        "path": "tests/test_provider_extensibility.py",
+        "source_blob": "dc77b78688d1e73c776f92cb95aaae8dbae9ffae",
+        "candidate_blob": "dc77b78688d1e73c776f92cb95aaae8dbae9ffae",
+        "same": true
+      },
+      {
+        "path": "tests/test_runtime_service.py",
+        "source_blob": "daa6cf5e6318230fd3265179bcff71a441aa5e41",
+        "candidate_blob": "daa6cf5e6318230fd3265179bcff71a441aa5e41",
+        "same": true
+      },
+      {
+        "path": "tests/test_scoped_price_rates.py",
+        "source_blob": "8383e31420019179014bc349cb168f99c3721d0a",
+        "candidate_blob": "8383e31420019179014bc349cb168f99c3721d0a",
+        "same": true
+      },
+      {
+        "path": "tests/test_tariff_catalogue.py",
+        "source_blob": "21b465fa7839620dfa0f9b3533a43e3963229d45",
+        "candidate_blob": "21b465fa7839620dfa0f9b3533a43e3963229d45",
+        "same": true
+      },
+      {
+        "path": "tests/test_task_pricing.py",
+        "source_blob": "205ff0510d32db80326585e01499577b528e306c",
+        "candidate_blob": "205ff0510d32db80326585e01499577b528e306c",
+        "same": true
+      },
+      {
+        "path": "tests/test_task_refusal.py",
+        "source_blob": "8f9311c3c0a2b4dd44d22f312e3f53ef790d272d",
+        "candidate_blob": "8f9311c3c0a2b4dd44d22f312e3f53ef790d272d",
+        "same": true
+      },
+      {
+        "path": "tests/test_task_wallet.py",
+        "source_blob": "b5510a4602149aa539e24452388db146a259f61f",
+        "candidate_blob": "b5510a4602149aa539e24452388db146a259f61f",
+        "same": true
+      },
+      {
+        "path": "tests/test_topups.py",
+        "source_blob": "b96f9389a593005af19943dad0c073d1bf191f63",
+        "candidate_blob": "b96f9389a593005af19943dad0c073d1bf191f63",
+        "same": true
+      },
+      {
+        "path": "tests/test_ui.py",
+        "source_blob": "e9618b89686ce40e98dbe661a7a9d3f8a49e0da7",
+        "candidate_blob": "e9618b89686ce40e98dbe661a7a9d3f8a49e0da7",
+        "same": true
+      },
+      {
+        "path": "tests/test_video.py",
+        "source_blob": "066c904fb5c86264d0e326060fa81272c1261908",
+        "candidate_blob": "066c904fb5c86264d0e326060fa81272c1261908",
+        "same": true
+      }
+    ]
+  },
+  {
+    "pr": 17,
+    "head": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "ancestry": true,
+    "files": [
+      {
+        "path": ".env.example",
+        "source_blob": "e77de3fd4b863b3a7fc522177390c3813b4e5c9e",
+        "candidate_blob": "e77de3fd4b863b3a7fc522177390c3813b4e5c9e",
+        "same": true
+      },
+      {
+        "path": "Dockerfile",
+        "source_blob": "6402732228780e471a1a2a7c29160b4b19ced756",
+        "candidate_blob": "6402732228780e471a1a2a7c29160b4b19ced756",
+        "same": true
+      },
+      {
+        "path": "compose.miniapp.yaml",
+        "source_blob": "b9780d9e506d96cd1f15b2cfe5ac32eb26b58a3e",
+        "candidate_blob": "b9780d9e506d96cd1f15b2cfe5ac32eb26b58a3e",
+        "same": true
+      },
+      {
+        "path": "migrations/037_miniapp_sessions.sql",
+        "source_blob": "6a0d34a670db6e45d30ffd6c4689775a21db0f97",
+        "candidate_blob": "6a0d34a670db6e45d30ffd6c4689775a21db0f97",
+        "same": true
+      },
+      {
+        "path": "migrations/038_miniapp_theme.sql",
+        "source_blob": "b9940d3e4bc50bd350d995089bec00f4395cd846",
+        "candidate_blob": "b9940d3e4bc50bd350d995089bec00f4395cd846",
+        "same": true
+      },
+      {
+        "path": "migrations/039_inbox_unprocessed.sql",
+        "source_blob": "b793dfa5e389ad990c26fff17d300427d7009fea",
+        "candidate_blob": "b793dfa5e389ad990c26fff17d300427d7009fea",
+        "same": true
+      },
+      {
+        "path": "miniapp/README.md",
+        "source_blob": "f93874ba38f483709f92d3050a5448b3ac445232",
+        "candidate_blob": "f93874ba38f483709f92d3050a5448b3ac445232",
+        "same": true
+      },
+      {
+        "path": "miniapp/__init__.py",
+        "source_blob": "30f3eaafc6179d7db32862ee3875764488c09b1f",
+        "candidate_blob": "30f3eaafc6179d7db32862ee3875764488c09b1f",
+        "same": true
+      },
+      {
+        "path": "miniapp/backend/__init__.py",
+        "source_blob": "03b1af69257390484035829c6299a8960944cf4d",
+        "candidate_blob": "03b1af69257390484035829c6299a8960944cf4d",
+        "same": true
+      },
+      {
+        "path": "miniapp/backend/web.py",
+        "source_blob": "34daf1c8bf84ba045efd5ef9f87ea63be1f892a4",
+        "candidate_blob": "34daf1c8bf84ba045efd5ef9f87ea63be1f892a4",
+        "same": true
+      },
+      {
+        "path": "miniapp/frontend/app.js",
+        "source_blob": "9a1b57d85bebac5e1d036c828f97f3a6cc8f02f2",
+        "candidate_blob": "9a1b57d85bebac5e1d036c828f97f3a6cc8f02f2",
+        "same": true
+      },
+      {
+        "path": "miniapp/frontend/assets/darkflow-banner.png",
+        "source_blob": "8bceea697ce45e777e7e844b3a56b980a40c6995",
+        "candidate_blob": "8bceea697ce45e777e7e844b3a56b980a40c6995",
+        "same": true
+      },
+      {
+        "path": "miniapp/frontend/index.html",
+        "source_blob": "bf6c9f3cd22295b0744c59dbb6b682e926db9f39",
+        "candidate_blob": "bf6c9f3cd22295b0744c59dbb6b682e926db9f39",
+        "same": true
+      },
+      {
+        "path": "miniapp/frontend/style.css",
+        "source_blob": "32705e0ad0919653af1d3946ce9b771b3ac5657c",
+        "candidate_blob": "32705e0ad0919653af1d3946ce9b771b3ac5657c",
+        "same": true
+      },
+      {
+        "path": "miniapp/tests/test_miniapp.py",
+        "source_blob": "856a6349b64886b5324083b09ab5022028ace8e5",
+        "candidate_blob": "856a6349b64886b5324083b09ab5022028ace8e5",
+        "same": true
+      },
+      {
+        "path": "pyproject.toml",
+        "source_blob": "2efcd6b0f2559e591d38b3d20edcb7f65fe748ab",
+        "candidate_blob": "2efcd6b0f2559e591d38b3d20edcb7f65fe748ab",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/__main__.py",
+        "source_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "candidate_blob": "88aa86a8512af35bdca1a10bbcdbfcadde2c49e3",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/config.py",
+        "source_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "candidate_blob": "93bd2cb08af5495a87d6432c0b7007ba84e980d4",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/inbox.py",
+        "source_blob": "f971a5c604a53bb906c006e6dceae428a1146b39",
+        "candidate_blob": "f971a5c604a53bb906c006e6dceae428a1146b39",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/task_launch.py",
+        "source_blob": "632233653b9a7fa3137dff8f23e008e9799dcd84",
+        "candidate_blob": "632233653b9a7fa3137dff8f23e008e9799dcd84",
+        "same": true
+      },
+      {
+        "path": "src/elevenbot/telegram.py",
+        "source_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "candidate_blob": "c138da0b515d7647a2afd9e36292b46e866a7a31",
+        "same": true
+      },
+      {
+        "path": "tests/test_inbox_dispatch.py",
+        "source_blob": "817c994eb8581295f9d47f380bb99bc0ae06aecc",
+        "candidate_blob": "817c994eb8581295f9d47f380bb99bc0ae06aecc",
+        "same": true
+      },
+      {
+        "path": "tests/test_public_image_topup.py",
+        "source_blob": "81f4c9c249dd8910e3b4712cbc178c7c8832f5d3",
+        "candidate_blob": "81f4c9c249dd8910e3b4712cbc178c7c8832f5d3",
+        "same": true
+      }
+    ]
+  }
+]
