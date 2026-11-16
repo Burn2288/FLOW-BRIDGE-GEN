@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "task_id": "IN-01-FINAL-VERIFICATION",
+  "developer": "Burn2288",
+  "reviewer": "vankhu21",
+  "contract_ids": [
+    "C-001",
+    "C-002",
+    "C-008",
+    "C-022"
+  ],
+  "base_branch": "main",
+  "base_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+  "head_branch": "work/burn2288/IN-01-final-verification",
+  "head_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+  "main_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+  "pr_url": null,
+  "dependent_prs": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20"
+  ],
+  "changed_files": [
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/SUMMARY.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/CHANGES.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/TEST_RESULTS.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/EVIDENCE.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/REGRESSION.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/BRANCH_SYNC.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/AUDIT_REQUEST.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/PR_INVENTORY.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/pr-inventory.json",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/migrations.json",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/EARLY_PRESERVATION.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/CONFLICT_SIMULATION.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/MANIFEST.json"
+  ],
+  "migration_files": [],
+  "test_environment": "Windows; read-only Git, no application runtime",
+  "test_commands": [
+    "git merge-tree --write-tree <planning-sha> <candidate-sha>",
+    "git diff --check",
+    "python .github/check_docs.py (not available on main)",
+    "python .github/check_planning.py (not available on main)"
+  ],
+  "test_results": [
+    {
+      "name": "Independent branch docs CI",
+      "type": "documentation",
+      "status": "NOT_TESTED",
+      "source_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+      "passed": null,
+      "failed": null,
+      "skipped": null,
+      "details": "main has no documentation workflow or checker scripts; no CI claimed."
+    }
+  ],
+  "ci_run_urls": [],
+  "evidence_paths": [
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/PR_INVENTORY.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/pr-inventory.json",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/migrations.json",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/EARLY_PRESERVATION.md",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/CONFLICT_SIMULATION.md"
+  ],
+  "evidence_hashes": {
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/PR_INVENTORY.md": "2acd2e036cd6c28d1a85f2a6d47cc113acf8959ca2fa69efd8f2b4eec03ecf8e",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/pr-inventory.json": "d7625687ce0c11d37e0c818942f24bd8f276f85cd885a4f6111d71458217a596",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/migrations.json": "9dcddd439a6cf0b5f60ab59c32ff489aa918e3ddbc53a3edb96ed1f448332ac7",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/EARLY_PRESERVATION.md": "1e34f9e3c19afbb213ec4c62c0eca6b3b62ab50f11f24f4fc0257fb294eccbc5",
+    "docs/audit/handoffs/IN-01-FINAL-VERIFICATION/CONFLICT_SIMULATION.md": "29b42fec133f8f2a38e5feecbd07dc82a78480f0e28ae8ed6fb8cad15cc2a092"
+  },
+  "external_operations": [
+    "Read-only GitHub PR metadata and historical workflow status"
+  ],
+  "known_limitations": [
+    "main lacks documentation checks and Actions workflow; independent PR CI NOT_PROVEN",
+    "PEER_REVIEW_PENDING",
+    "historical changed semantics and S2 test registry NOT_PROVEN",
+    "merged runtime and PostgreSQL NOT_TESTED"
+  ],
+  "local_sync_status": "NOT_PERFORMED",
+  "publication_status": "LOCAL_ONLY",
+  "ready_for_audit": false
+}
