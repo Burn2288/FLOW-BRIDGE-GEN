@@ -6,4 +6,4 @@
 
 Рабочий индекс не является архивным подтверждением. Archive index append-only: TASK_ID, H content SHA, A artifact SHA, archive revision/commit SHA, code/docs PR и archive PR, manifest path/hash, reviewer, independent verdict URL/status и supersedes. Протокол: [EVIDENCE_PUBLICATION_PROTOCOL](../../planning/EVIDENCE_PUBLICATION_PROTOCOL.md). Старые отрицательные verdict сохраняются.
 
-| TASK-PLAN-001-FIX-01 | Burn2288 / vankhu21 | [MANIFEST](TASK-PLAN-001-FIX-01/MANIFEST.json) | PARTIAL, final CI pending | ARCHIVE_PENDING | PENDING_CHATGPT |
+| TASK-PLAN-001-FIX-01 | Burn2288 / vankhu21 | [MANIFEST](TASK-PLAN-001-FIX-01/MANIFEST.json) | READY_FOR_AUDIT; final CI in PR | ARCHIVE_PENDING | PENDING_CHATGPT |
