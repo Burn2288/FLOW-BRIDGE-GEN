@@ -1,10 +1,10 @@
 # DECISIONS REQUIRED
 
-Это открытые решения, не вопросы с молчаливым согласием. Предлагаемые назначения вступают в силу после approval плана владельцем; second developer review обязателен. Принятые ограничения single backend/no blind paid retry не пересматриваются ради удобства.
+Статус каждой строки указан отдельно; решения не считаются принятыми молчаливо. D-01 утверждён только как будущий план. Предлагаемые назначения вступают в силу после approval плана владельцем; second developer review обязателен. Принятые ограничения single backend/no blind paid retry не пересматриваются ради удобства.
 
 | ID | Решение и предлагаемый безопасный вариант | Кто решает / reviewer | Что блокирует | Независимая работа до ответа |
 | --- | --- | --- | --- | --- |
-| D-01 | Порядок #1/#8–#18, docs stacked exception и разрешение merge каждой ступени. Предпочтение: сохранить ancestry и старые PR, отдельный retarget после каждого accepted main. | Burn2288 + vankhu21; ChatGPT audit | IN-01/18, интеграция; approval этой планировочной PR не разрешает auto-merge | Read-only graph, profiles, документальные предложения |
+| D-01 | OWNER_APPROVED_AS_PLAN: PR #1 — общий фундамент; затем код #8–#17 и документация #18–#20. [Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6924608933). Ни merge, ни retarget не разрешены. | Burn2288 + vankhu21; ChatGPT audit | Будущая интеграция требует отдельного разрешения и проверок каждого шага | Документация и аудит |
 | D-02 | DarkFlow tokens как внутренняя единица; XTR и RUB только внешние settlement units. Prices, rates, deterministic rounding, quote max cost; никакой конверсии единиц без ADR/миграции. | Burn2288; vankhu21 finance author | PC-01/02, PY-01, MU-01, RL-01 | Existing price fixtures, schema draft |
 | D-03 | Refund/capture timing, disputed/chargeback/debt/manual compensation; Platega только отдельно допустимый внешний канал, не Telegram digital checkout. | Burn2288; vankhu21 | WL-02/PY-02/RL-01 | Synthetic failure/reconciliation tests |
 | D-04 | Сохранить ADMIN_TELEGRAM_IDS или вводить documented alias ADMIN_TELEGRAM_USER_IDS; server roles и sensitive-action policy. | Burn2288; vankhu21 | AD-01 | Existing auth inventory и deny fixtures |

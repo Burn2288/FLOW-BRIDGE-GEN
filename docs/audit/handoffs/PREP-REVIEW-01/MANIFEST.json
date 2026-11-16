@@ -57,10 +57,10 @@
     "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43905436877"
   ],
   "evidence_paths": [
-    "docs/planning/PRE_DEVELOPMENT_READINESS.md"
+    "docs/planning/PRE_DEVELOPMENT_READINESS_PREP_REVIEW_01.md"
   ],
   "evidence_hashes": {
-    "docs/planning/PRE_DEVELOPMENT_READINESS.md": "84a4b62b0faf71710fbdfe0c156516c9fde1cd12aa55559fd74bbe4bdc339294"
+    "docs/planning/PRE_DEVELOPMENT_READINESS_PREP_REVIEW_01.md": "84a4b62b0faf71710fbdfe0c156516c9fde1cd12aa55559fd74bbe4bdc339294"
   },
   "external_operations": [
     "Read-only GitHub PR, review, permissions and private evidence revision checks"
@@ -69,7 +69,8 @@
     "DEVELOPMENT_NOT_AUTHORIZED until explicit owner instruction",
     "REVIEWER_ACCESS_PENDING; PEER_REVIEW_PENDING; substantive review absent",
     "Independent audit and merge approvals pending",
-    "Runtime, donor and PostgreSQL NOT_TESTED"
+    "Runtime, donor and PostgreSQL NOT_TESTED",
+    "Historical evidence snapshot relocated without changing its content; original manifest preserved in prior commit ecc9d0a."
   ],
   "local_sync_status": "NOT_PERFORMED",
   "publication_status": "LOCAL_ONLY",
