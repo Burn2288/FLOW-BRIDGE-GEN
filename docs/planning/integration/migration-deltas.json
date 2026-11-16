@@ -1,0 +1,110 @@
+[
+  {
+    "pr": 8,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/001_initial.sql",
+      "migrations/002_hardening.sql",
+      "migrations/003_financial_guards.sql",
+      "migrations/004_provider_evidence.sql",
+      "migrations/005_platega.sql",
+      "migrations/006_aggregate_conversations.sql",
+      "migrations/007_delivery_uncertainty.sql",
+      "migrations/008_interaction_pilot.sql",
+      "migrations/009_catalogue_rate_limit.sql",
+      "migrations/010_pilot_credit.sql",
+      "migrations/011_work_library.sql",
+      "migrations/012_nano_banana_attempts.sql"
+    ]
+  },
+  {
+    "pr": 9,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/013_video_jobs.sql"
+    ]
+  },
+  {
+    "pr": 10,
+    "modified_existing": [],
+    "removed": [],
+    "added": []
+  },
+  {
+    "pr": 11,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/014_anymodel_image_jobs.sql"
+    ]
+  },
+  {
+    "pr": 12,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/015_anymodel_video_jobs.sql"
+    ]
+  },
+  {
+    "pr": 13,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/016_anymodel_speech.sql"
+    ]
+  },
+  {
+    "pr": 14,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/017_telegram_welcome.sql"
+    ]
+  },
+  {
+    "pr": 15,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/018_task_progress.sql"
+    ]
+  },
+  {
+    "pr": 16,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/019_task_pricing.sql",
+      "migrations/020_admin_edition.sql",
+      "migrations/021_manual_tariff_units.sql",
+      "migrations/022_tariff_validity.sql",
+      "migrations/023_task_dispatch.sql",
+      "migrations/024_approved_models.sql",
+      "migrations/025_scoped_price_rates.sql",
+      "migrations/026_task_wallet.sql",
+      "migrations/027_task_refusal.sql",
+      "migrations/028_telegram_navigation.sql",
+      "migrations/029_telegram_broadcasts.sql",
+      "migrations/030_system_notifications.sql",
+      "migrations/031_broadcast_media.sql",
+      "migrations/032_clodex_music.sql",
+      "migrations/033_music_providers.sql",
+      "migrations/034_topups.sql",
+      "migrations/035_telegram_panel_slots.sql",
+      "migrations/036_telegram_keyboard_revision.sql"
+    ]
+  },
+  {
+    "pr": 17,
+    "modified_existing": [],
+    "removed": [],
+    "added": [
+      "migrations/037_miniapp_sessions.sql",
+      "migrations/038_miniapp_theme.sql",
+      "migrations/039_inbox_unprocessed.sql"
+    ]
+  }
+]

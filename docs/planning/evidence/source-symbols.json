@@ -1,0 +1,1819 @@
+[
+  {
+    "path": "src/elevenbot/aggregate.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "b659197140a7febf58393352eca91737cfa4f7864005331d0cd7ce83db5c9259",
+    "line_count": 257,
+    "symbols": [
+      {
+        "line": 15,
+        "text": "class Operation:"
+      },
+      {
+        "line": 45,
+        "text": "class Adapter(Protocol):"
+      },
+      {
+        "line": 46,
+        "text": "async def collect(self)->dict: ..."
+      },
+      {
+        "line": 48,
+        "text": "class ProviderRegistry:"
+      },
+      {
+        "line": 49,
+        "text": "def __init__(self):"
+      },
+      {
+        "line": 55,
+        "text": "def register(self,provider,adapter=None,*,price=None,launch=None,title=None):"
+      },
+      {
+        "line": 68,
+        "text": "async def collect(self,provider=None,*,refresh=False):"
+      },
+      {
+        "line": 83,
+        "text": "def safe_string(value,limit=256):"
+      },
+      {
+        "line": 87,
+        "text": "def public_metadata(pricing):"
+      },
+      {
+        "line": 110,
+        "text": "def documented_functions(docs,pricing):"
+      },
+      {
+        "line": 162,
+        "text": "def make_snapshot(models,functions,sources):"
+      },
+      {
+        "line": 172,
+        "text": "class ClodexAdapter:"
+      },
+      {
+        "line": 173,
+        "text": "def __init__(self,key='',profile=None,client=None):"
+      },
+      {
+        "line": 176,
+        "text": "async def get_json(self,path,authenticated=False):"
+      },
+      {
+        "line": 191,
+        "text": "async def collect(self):"
+      },
+      {
+        "line": 220,
+        "text": "async def refresh(self,store):"
+      },
+      {
+        "line": 223,
+        "text": "async def close(self):await self.client.aclose()"
+      },
+      {
+        "line": 225,
+        "text": "async def refresh_aggregate(cfg,once=False):"
+      },
+      {
+        "line": 240,
+        "text": "def prepare_request(data,provider,operation,model,fields):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/task_launch.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "cea301bd5d7aec6e76d7f246573a330167b19800a82f688330f125db19daf125",
+    "line_count": 160,
+    "symbols": [
+      {
+        "line": 12,
+        "text": "class Outcome:"
+      },
+      {
+        "line": 18,
+        "text": "class ExecutionAdapter(Protocol):"
+      },
+      {
+        "line": 19,
+        "text": "def background(self, operation): ..."
+      },
+      {
+        "line": 20,
+        "text": "async def prepare(self,conn,user,external,quote,update_id): ..."
+      },
+      {
+        "line": 21,
+        "text": "async def run(self,user,quote,update_id,prepared,on_accepted): ..."
+      },
+      {
+        "line": 24,
+        "text": "class TaskLaunch:"
+      },
+      {
+        "line": 25,
+        "text": "def __init__(self,pricing,adapters,*,authorize=None):"
+      },
+      {
+        "line": 29,
+        "text": "async def authorize_pilot(self,conn,user,external):"
+      },
+      {
+        "line": 36,
+        "text": "async def authorize_request(self, conn, user, external, request):"
+      },
+      {
+        "line": 53,
+        "text": "async def confirm(self,user,external,quote_id,update_id,*,progress,background,defer=None):"
+      },
+      {
+        "line": 111,
+        "text": "async def recover_interrupted(pool):"
+      },
+      {
+        "line": 132,
+        "text": "async def notify_interrupted(pool,bot):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/task_wallet.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "a1c932174bd675d53fd864482fc365298d889d51123605bcec53837727cabb21",
+    "line_count": 55,
+    "symbols": [
+      {
+        "line": 6,
+        "text": "async def check_task_balance(conn, user, amount):"
+      },
+      {
+        "line": 17,
+        "text": "async def reserve_task_tokens(conn, user, quote_id, amount):"
+      },
+      {
+        "line": 25,
+        "text": "async def settle_task_tokens(conn, quote_id=None):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/provider_execution.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "aabaf433815451b4a9e3401363d0069a4c519179b5875030ddade96d767dd95f",
+    "line_count": 109,
+    "symbols": [
+      {
+        "line": 13,
+        "text": "class AnyModelExecution:"
+      },
+      {
+        "line": 14,
+        "text": "def __init__(self,app,chat_factory):"
+      },
+      {
+        "line": 17,
+        "text": "def background(self,operation):"
+      },
+      {
+        "line": 20,
+        "text": "async def prepare(self,conn,user,external,quote,update_id):"
+      },
+      {
+        "line": 37,
+        "text": "async def run(self,user,quote,update_id,prepared,on_accepted):"
+      },
+      {
+        "line": 59,
+        "text": "class ClodexExecution:"
+      },
+      {
+        "line": 60,
+        "text": "def __init__(self,app):"
+      },
+      {
+        "line": 63,
+        "text": "def background(self,operation):"
+      },
+      {
+        "line": 66,
+        "text": "async def prepare(self,conn,user,external,quote,update_id):"
+      },
+      {
+        "line": 80,
+        "text": "async def run(self,user,quote,update_id,model,on_accepted):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/telegram.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "af3a4fcc96d23cbad2f9cd130dce0bc420e7d4a588bced21e744164806488ad0",
+    "line_count": 2424,
+    "symbols": [
+      {
+        "line": 83,
+        "text": "def admin_callback(data):"
+      },
+      {
+        "line": 93,
+        "text": "def buttons(rows):"
+      },
+      {
+        "line": 96,
+        "text": "def store_rows():"
+      },
+      {
+        "line": 106,
+        "text": "def menu(*,admin_rates=False,balance=None,miniapp_url=\"\"):"
+      },
+      {
+        "line": 117,
+        "text": "def keyboard_signature(markup):"
+      },
+      {
+        "line": 125,
+        "text": "class TelegramApp:"
+      },
+      {
+        "line": 126,
+        "text": "def __init__(self,pool,cfg,bot,*,providers=None):"
+      },
+      {
+        "line": 153,
+        "text": "async def say(self,chat,text,markup=None):"
+      },
+      {
+        "line": 159,
+        "text": "def balance_label(row):"
+      },
+      {
+        "line": 165,
+        "text": "async def reply_menu(self,chat):"
+      },
+      {
+        "line": 177,
+        "text": "def role_keyboard(self,chat,balance=None):"
+      },
+      {
+        "line": 182,
+        "text": "async def navigation_keyboard(self,chat,text,markup,*,force=False):"
+      },
+      {
+        "line": 197,
+        "text": "async def refresh_balance_keyboard(self,chat):"
+      },
+      {
+        "line": 200,
+        "text": "async def edit_panel(self,chat,state,text,markup,animation_key):"
+      },
+      {
+        "line": 219,
+        "text": "async def catalogue_screen(self, chat, text, markup=None, *, animation=None,"
+      },
+      {
+        "line": 293,
+        "text": "async def open_work(self,u,ext,kind,job,*,prompt_only=False,show_prompt=False):"
+      },
+      {
+        "line": 310,
+        "text": "async def work_rows(self,ext,section,model_id,snapshot=None):"
+      },
+      {
+        "line": 328,
+        "text": "async def refresh_speech_results(self):"
+      },
+      {
+        "line": 351,
+        "text": "def has_admin_session(self,ext):"
+      },
+      {
+        "line": 354,
+        "text": "async def delete_input_message(self,message):"
+      },
+      {
+        "line": 360,
+        "text": "async def intercept_admin_update(self,update,*,allow_login=True):"
+      },
+      {
+        "line": 440,
+        "text": "def admin_denial(self,ext):"
+      },
+      {
+        "line": 445,
+        "text": "async def enqueue_updates(self,updates):"
+      },
+      {
+        "line": 469,
+        "text": "async def handle(self,update,*,from_inbox=False):"
+      },
+      {
+        "line": 476,
+        "text": "async def handle_chat(self,update,ext,*,from_inbox):"
+      },
+      {
+        "line": 708,
+        "text": "async def external(self,u):"
+      },
+      {
+        "line": 711,
+        "text": "async def load_pilot_voices(self):"
+      },
+      {
+        "line": 720,
+        "text": "def voice_version(voices):"
+      },
+      {
+        "line": 723,
+        "text": "async def voices(self,ext,page=0):"
+      },
+      {
+        "line": 738,
+        "text": "async def history(self,u,ext,page=0,*,model=None,panel=None):"
+      },
+      {
+        "line": 775,
+        "text": "async def menu_section(self,u,ext,section):"
+      },
+      {
+        "line": 792,
+        "text": "async def callback(self,u,ext,data,*,request_id=None,defer_tasks=False):"
+      },
+      {
+        "line": 977,
+        "text": "def catalogue_snapshot(self,version=None):"
+      },
+      {
+        "line": 984,
+        "text": "async def show_home(self,ext,*,replace_welcome=False,open_panel=False):"
+      },
+      {
+        "line": 988,
+        "text": "async def update_home(self,ext,*,replace_welcome,open_panel):"
+      },
+      {
+        "line": 1026,
+        "text": "def provider_title(self,ext,key):"
+      },
+      {
+        "line": 1033,
+        "text": "async def open_aggregators(self,user,ext):"
+      },
+      {
+        "line": 1037,
+        "text": "async def delete_keyboard_input(self,message):"
+      },
+      {
+        "line": 1042,
+        "text": "async def show_providers(self,ext,*,keyboard_text=None,panel='chooser'):"
+      },
+      {
+        "line": 1069,
+        "text": "def registered_pilot(self,ext,key):"
+      },
+      {
+        "line": 1075,
+        "text": "def check_registered_launch(self,ext,key):"
+      },
+      {
+        "line": 1082,
+        "text": "async def registered_pilot_callback(self,u,ext,route,key,job,request_id):"
+      },
+      {
+        "line": 1101,
+        "text": "async def registered_callback(self,u,ext,route,parts):"
+      },
+      {
+        "line": 1177,
+        "text": "def registered_operations(model,admitted,selected=None):"
+      },
+      {
+        "line": 1182,
+        "text": "def anymodel_snapshot(self,ext,version=None):"
+      },
+      {
+        "line": 1193,
+        "text": "def anymodel_catalogue_ready(data):"
+      },
+      {
+        "line": 1197,
+        "text": "def anymodel_status(self,data):"
+      },
+      {
+        "line": 1211,
+        "text": "async def anymodel_callback(self,u,ext,value,*,request_id=None):"
+      },
+      {
+        "line": 1270,
+        "text": "async def anymodel_section(self,ext,section):"
+      },
+      {
+        "line": 1302,
+        "text": "def anymodel_work_rows(section,data,approvals,*,available_only=False):"
+      },
+      {
+        "line": 1324,
+        "text": "async def anymodel_speech_callback(self,u,ext,route,arg,request_id):"
+      },
+      {
+        "line": 1369,
+        "text": "def anyvoice_id(voices,key):"
+      },
+      {
+        "line": 1375,
+        "text": "async def anyvoice_picker(self,u,ext,route,arg):"
+      },
+      {
+        "line": 1441,
+        "text": "async def anyvoice_save_tariff(self,u,ext,args):"
+      },
+      {
+        "line": 1469,
+        "text": "async def anymodel_video_card(self,u,ext,*,start):"
+      },
+      {
+        "line": 1483,
+        "text": "async def price_admin(self,u,ext,command,args):"
+      },
+      {
+        "line": 1540,
+        "text": "async def provider_detail(self,u,ext,version,index):"
+      },
+      {
+        "line": 1567,
+        "text": "async def aggregator_callback(self,u,ext,route,parts,*,snapshot=None):"
+      },
+      {
+        "line": 1652,
+        "text": "async def show_store(self,ext):"
+      },
+      {
+        "line": 1659,
+        "text": "def clodex_video_ids(self,snapshot):"
+      },
+      {
+        "line": 1664,
+        "text": "async def store_models(self,snapshot,section,ext):"
+      },
+      {
+        "line": 1679,
+        "text": "async def admitted_veo_modes(self,snapshot):"
+      },
+      {
+        "line": 1685,
+        "text": "async def show_store_models(self,ext,version,section,page):"
+      },
+      {
+        "line": 1721,
+        "text": "async def veo_mode(self,ext,version,mode):"
+      },
+      {
+        "line": 1727,
+        "text": "async def show_veo(self,ext,version):"
+      },
+      {
+        "line": 1734,
+        "text": "async def video_prompt(self,u,ext,text,context):"
+      },
+      {
+        "line": 1749,
+        "text": "async def show_store_model(self,ext,snapshot,section,page,index):"
+      },
+      {
+        "line": 1766,
+        "text": "def catalogue_groups(data):"
+      },
+      {
+        "line": 1773,
+        "text": "async def show_models(self,ext,version=None,group=None,page=0):"
+      },
+      {
+        "line": 1794,
+        "text": "async def catalogue_page(self,ext,data,models,title,page,list_prefix,detail_prefix,parent,status='',group=None):"
+      },
+      {
+        "line": 1809,
+        "text": "async def model_detail(self,ext,version,index,origin=()):"
+      },
+      {
+        "line": 1823,
+        "text": "async def render_model_detail(self,ext,model,back,actions,provider=None):"
+      },
+      {
+        "line": 1843,
+        "text": "async def show_functions(self,ext,version=None,page=0,provider_index=None,*,snapshot=None,provider=None):"
+      },
+      {
+        "line": 1874,
+        "text": "async def function_detail(self,ext,version,index,*,snapshot=None,provider=None):"
+      },
+      {
+        "line": 1888,
+        "text": "async def choose_function_model(self,ext,version,index,page=0):"
+      },
+      {
+        "line": 1901,
+        "text": "def public_clodex_image(self, model, operation):"
+      },
+      {
+        "line": 1906,
+        "text": "def model_can_run(self,model,operation):"
+      },
+      {
+        "line": 1923,
+        "text": "async def begin_interaction(self,u,ext,version,index,operation,*,request_id=None,quality=None):"
+      },
+      {
+        "line": 1970,
+        "text": "async def interaction_input(self,u,ext,update,context):"
+      },
+      {
+        "line": 2042,
+        "text": "async def anymodel_params(self,u,ext,parts):"
+      },
+      {
+        "line": 2066,
+        "text": "async def anymodel_input(self,u,ext,prompt,context):"
+      },
+      {
+        "line": 2077,
+        "text": "async def show_price(self,ext,quote):"
+      },
+      {
+        "line": 2088,
+        "text": "def music_access(self,ext):"
+      },
+      {
+        "line": 2091,
+        "text": "async def music_callback(self,u,ext,route,value,request_id):"
+      },
+      {
+        "line": 2128,
+        "text": "def clodex_launch_model(self,ext,req):"
+      },
+      {
+        "line": 2150,
+        "text": "async def confirm_price(self,u,ext,quote_id,update_id,*,defer_tasks=False):"
+      },
+      {
+        "line": 2171,
+        "text": "async def deliver_task(self,u,ext,quote,run):"
+      },
+      {
+        "line": 2193,
+        "text": "async def show_task_result(self,u,ext,quote,result,*,update_history=True):"
+      },
+      {
+        "line": 2215,
+        "text": "async def send_chat_answer(self,ext,reply):"
+      },
+      {
+        "line": 2221,
+        "text": "async def begin_aggregate(self,u,ext,version,fi,mi):"
+      },
+      {
+        "line": 2231,
+        "text": "async def aggregate_input(self,u,ext,value,*,request_id=None):"
+      },
+      {
+        "line": 2255,
+        "text": "async def make_quote(self,u,ext,text,voice,speed):"
+      },
+      {
+        "line": 2274,
+        "text": "async def register_commands(bot, admin_ids):"
+      },
+      {
+        "line": 2301,
+        "text": "async def register_command_menu(bot):"
+      },
+      {
+        "line": 2305,
+        "text": "async def poll(pool,cfg,bot,*,app=None):"
+      },
+      {
+        "line": 2333,
+        "text": "async def configure_telegram_menu(cfg,bot):"
+      },
+      {
+        "line": 2344,
+        "text": "def is_navigation_update(update):"
+      },
+      {
+        "line": 2355,
+        "text": "async def dispatch_inbox(dispatcher):"
+      },
+      {
+        "line": 2361,
+        "text": "async def maintain_inbox(pool,app,bot):"
+      },
+      {
+        "line": 2369,
+        "text": "async def receive_updates(pool,app,bot):"
+      },
+      {
+        "line": 2397,
+        "text": "async def reconcile_stars(pool,bot,max_pages=100):"
+      },
+      {
+        "line": 2420,
+        "text": "def make_bot(cfg):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/inbox.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "af89036ff6b169d5b4dcc29673c735f26f8418a5ea4c71737b2904b24e781e27",
+    "line_count": 155,
+    "symbols": [
+      {
+        "line": 15,
+        "text": "def navigation_obsolete():"
+      },
+      {
+        "line": 20,
+        "text": "class InboxDispatcher:"
+      },
+      {
+        "line": 21,
+        "text": "def __init__(self, pool, app, is_navigation):"
+      },
+      {
+        "line": 29,
+        "text": "async def schedule(self):"
+      },
+      {
+        "line": 72,
+        "text": "def decode(row):"
+      },
+      {
+        "line": 78,
+        "text": "async def drain(self, chat, batch):"
+      },
+      {
+        "line": 137,
+        "text": "async def retry_later(self, update_id, delay):"
+      },
+      {
+        "line": 148,
+        "text": "async def done(self, update_id):"
+      },
+      {
+        "line": 151,
+        "text": "async def close(self):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/worker.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "dfd23c8e77d8c2eeb4b538698593bac7367e2935c96351fa1c7976dfe9effd0f",
+    "line_count": 173,
+    "symbols": [
+      {
+        "line": 9,
+        "text": "class Worker:"
+      },
+      {
+        "line": 10,
+        "text": "def __init__(self,pool,cfg,provider,sender=None):"
+      },
+      {
+        "line": 14,
+        "text": "async def claim(self):"
+      },
+      {
+        "line": 27,
+        "text": "async def uncertain(self,j,fence,code):"
+      },
+      {
+        "line": 30,
+        "text": "async def run_one(self,fault=None):"
+      },
+      {
+        "line": 76,
+        "text": "async def recover(self):"
+      },
+      {
+        "line": 80,
+        "text": "async def reconcile_saved(self):"
+      },
+      {
+        "line": 99,
+        "text": "async def delivery_one(self):"
+      },
+      {
+        "line": 122,
+        "text": "async def cleanup(self):"
+      },
+      {
+        "line": 146,
+        "text": "async def _poll_work(self, operation):"
+      },
+      {
+        "line": 151,
+        "text": "async def _maintenance(self):"
+      },
+      {
+        "line": 164,
+        "text": "async def loop(self):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/interaction.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "e5d9f0d6aa352b5e1c76f2dd22a089c5663dbc82bf2bbd30ce0f971634c060d0",
+    "line_count": 377,
+    "symbols": [
+      {
+        "line": 25,
+        "text": "IMAGE_LIMIT = 5 * 1024 * 1024"
+      },
+      {
+        "line": 48,
+        "text": "class Result:"
+      },
+      {
+        "line": 54,
+        "text": "def is_disabled_model(model):"
+      },
+      {
+        "line": 58,
+        "text": "def supports(model, operation, *, live):"
+      },
+      {
+        "line": 69,
+        "text": "def decode_result(operation, payload):"
+      },
+      {
+        "line": 83,
+        "text": "def _check_image_size(width, height, frames=1):"
+      },
+      {
+        "line": 90,
+        "text": "def _png_scanline_bytes(width, height, bits_per_pixel, interlaced):"
+      },
+      {
+        "line": 101,
+        "text": "def _verify_png_streams(image, canvas, bits_per_pixel, interlaced, frames_left):"
+      },
+      {
+        "line": 148,
+        "text": "def _verify_png(image):"
+      },
+      {
+        "line": 165,
+        "text": "def image_result(image):"
+      },
+      {
+        "line": 184,
+        "text": "def image_url(payload):"
+      },
+      {
+        "line": 193,
+        "text": "class _ImageDownloadError(ValueError):"
+      },
+      {
+        "line": 194,
+        "text": "def __init__(self, reason):"
+      },
+      {
+        "line": 199,
+        "text": "async def download_image(http, url, request_id):"
+      },
+      {
+        "line": 264,
+        "text": "def trace_interaction(request_id, stage, **fields):"
+      },
+      {
+        "line": 269,
+        "text": "def response_shape(payload):"
+      },
+      {
+        "line": 293,
+        "text": "async def execute(operation, model, prompt, history, *, mode, key='', client=None, request_id=None, quality=None):"
+      },
+      {
+        "line": 312,
+        "text": "async def call(http):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/anymodel_image_jobs.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "22a4625b6f2afac9525435a5cdb224cd2d10e13ad238a3a60887381ae0d8aae0",
+    "line_count": 148,
+    "symbols": [
+      {
+        "line": 16,
+        "text": "class AnyModelImageJobs:"
+      },
+      {
+        "line": 17,
+        "text": "def __init__(self,pool,cfg,*,adapter=None):"
+      },
+      {
+        "line": 22,
+        "text": "async def submit(self,user,update_id,prompt,*,on_accepted=None):"
+      },
+      {
+        "line": 31,
+        "text": "async def prepare(self,conn,user,update_id,prompt,model):"
+      },
+      {
+        "line": 37,
+        "text": "async def dispatch(self,user,update_id,prompt,model,*,params=None,on_accepted=None):"
+      },
+      {
+        "line": 64,
+        "text": "async def save(self,update_id,user,prompt,result,lease=None):"
+      },
+      {
+        "line": 75,
+        "text": "async def poll_one(self,bot):"
+      },
+      {
+        "line": 80,
+        "text": "AND (status='pending' OR (status='ready' AND notify_attempts<3))"
+      },
+      {
+        "line": 110,
+        "text": "async def reschedule(self,update_id,lease,delay):"
+      },
+      {
+        "line": 116,
+        "text": "async def notify(self,bot,update_id,user,lease):"
+      },
+      {
+        "line": 137,
+        "text": "async def loop(self,bot):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/pricing.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "40ee930e7ca17599dfbf4a2c14ef43e57382ceb38080c7d7e77e4bde73355075",
+    "line_count": 565,
+    "symbols": [
+      {
+        "line": 24,
+        "text": "class PriceUnavailable(Rejected):"
+      },
+      {
+        "line": 25,
+        "text": "def __init__(self):"
+      },
+      {
+        "line": 29,
+        "text": "class NoProviderPrice(PriceUnavailable):"
+      },
+      {
+        "line": 33,
+        "text": "class MissingTariff(PriceUnavailable):"
+      },
+      {
+        "line": 37,
+        "text": "class MissingRate(PriceUnavailable):"
+      },
+      {
+        "line": 38,
+        "text": "def __init__(self, provider, cost):"
+      },
+      {
+        "line": 43,
+        "text": "def number(value):"
+      },
+      {
+        "line": 61,
+        "text": "def chat_token_estimate(request):"
+      },
+      {
+        "line": 70,
+        "text": "def manual_amount(request,basis,amount,output_amount):"
+      },
+      {
+        "line": 96,
+        "text": "def validate_manual_tariff(provider,models,operation,*,basis,unit,amount,expires,evidence,temporary=False):"
+      },
+      {
+        "line": 123,
+        "text": "def display(amount):"
+      },
+      {
+        "line": 127,
+        "text": "def decimal_text(amount):"
+      },
+      {
+        "line": 133,
+        "text": "def ruble_value(total, rate):"
+      },
+      {
+        "line": 139,
+        "text": "def source_line(amount, unit, source):"
+      },
+      {
+        "line": 144,
+        "text": "def cost_lines(price):"
+      },
+      {
+        "line": 151,
+        "text": "def total_text(price):"
+      },
+      {
+        "line": 157,
+        "text": "class Request:"
+      },
+      {
+        "line": 168,
+        "text": "class ProviderCost:"
+      },
+      {
+        "line": 176,
+        "text": "class PriceAdapter(Protocol):"
+      },
+      {
+        "line": 177,
+        "text": "async def cost(self, request: Request) -> ProviderCost: ..."
+      },
+      {
+        "line": 181,
+        "text": "class Quote:"
+      },
+      {
+        "line": 186,
+        "text": "def card(self, *, admin=False):"
+      },
+      {
+        "line": 196,
+        "text": "class Pricing:"
+      },
+      {
+        "line": 197,
+        "text": "def __init__(self, pool, config, adapters):"
+      },
+      {
+        "line": 202,
+        "text": "async def cost(self, request):"
+      },
+      {
+        "line": 211,
+        "text": "async def manual_row(self, conn, request):"
+      },
+      {
+        "line": 218,
+        "text": "async def inspect_tariff(self, user, external, request):"
+      },
+      {
+        "line": 232,
+        "text": "async def manual_cost(self, conn, request):"
+      },
+      {
+        "line": 238,
+        "text": "def active_manual(self,request,row):"
+      },
+      {
+        "line": 243,
+        "text": "def manual_price(request,row):"
+      },
+      {
+        "line": 250,
+        "text": "async def markup_rule(self,conn,provider,model):"
+      },
+      {
+        "line": 259,
+        "text": "async def preview_price(self,request):"
+      },
+      {
+        "line": 264,
+        "text": "async def set_markup_mode(self,user,external,provider,model,mode):"
+      },
+      {
+        "line": 279,
+        "text": "async def calculate(self, conn, request, cost):"
+      },
+      {
+        "line": 314,
+        "text": "async def insert(self, conn, user, request, price):"
+      },
+      {
+        "line": 323,
+        "text": "async def quote(self, user, request):"
+      },
+      {
+        "line": 334,
+        "text": "async def confirm(self, user, quote_id, update_id, prepare, *, live_wallet=False, validate=None,"
+      },
+      {
+        "line": 345,
+        "text": "async def confirm_once(self, user, quote_id, update_id, prepare, *, live_wallet, validate, track_interaction):"
+      },
+      {
+        "line": 384,
+        "text": "async def invalidate(self, user, provider, model, operation):"
+      },
+      {
+        "line": 392,
+        "text": "async def cancel(self, user, quote_id, *, music=False, provider=None):"
+      },
+      {
+        "line": 401,
+        "text": "async def admin(self, conn, user, external):"
+      },
+      {
+        "line": 410,
+        "text": "async def preview_manual(self,user,external,provider,models,operation,params,fields):"
+      },
+      {
+        "line": 422,
+        "text": "async def set_tariff(self, user, external, provider, model, operation, params, *,"
+      },
+      {
+        "line": 427,
+        "text": "async def set_tariffs(self, user, external, provider, models, operation, params, *,"
+      },
+      {
+        "line": 470,
+        "text": "async def set_rule(self, user, external, provider, model, kind, amount=None):"
+      },
+      {
+        "line": 490,
+        "text": "async def rate(self, conn, provider, unit):"
+      },
+      {
+        "line": 497,
+        "text": "def convert(amount,rate):"
+      },
+      {
+        "line": 502,
+        "text": "async def set_rate(self, user, external, unit, amount, *, provider=None, source_amount='1'):"
+      },
+      {
+        "line": 518,
+        "text": "async def set_ruble_rate(self,user,external,bot_amount,rubles):"
+      },
+      {
+        "line": 528,
+        "text": "async def ruble_amount(conn,total):"
+      },
+      {
+        "line": 533,
+        "text": "async def reconcile(self, user, external, quote_id, debit, refund, provider_cost, reference):"
+      },
+      {
+        "line": 552,
+        "text": "async def report(self, user, external):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/model_policy.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "ea001cd5b0612bbbe0d5976d2cd8bb5fd3e23ef538f4eafe6bc6dedbf593779b",
+    "line_count": 206,
+    "symbols": [
+      {
+        "line": 14,
+        "text": "def canonical(provider,model,operation):"
+      },
+      {
+        "line": 20,
+        "text": "async def admitted(conn,provider,model,operation):"
+      },
+      {
+        "line": 26,
+        "text": "def rule_label(kind,amount):"
+      },
+      {
+        "line": 33,
+        "text": "class ModelPolicy:"
+      },
+      {
+        "line": 34,
+        "text": "def __init__(self,app,keyboard):"
+      },
+      {
+        "line": 37,
+        "text": "async def list(self,provider,operation=None,*,snapshot=None):"
+      },
+      {
+        "line": 52,
+        "text": "async def allowed(self,provider,model,operation):"
+      },
+      {
+        "line": 59,
+        "text": "async def change_admission(self,user,ext,args):"
+      },
+      {
+        "line": 66,
+        "text": "async def command(self,user,ext,command,args):"
+      },
+      {
+        "line": 104,
+        "text": "async def callback(self,user,ext,route,parts):"
+      },
+      {
+        "line": 142,
+        "text": "async def show(self,user,ext,provider,page):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/admin_access.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "4c4862b34fb68268e39b2895c4118db45649bfe104f598ac4f082f5e6f5bf309",
+    "line_count": 62,
+    "symbols": [
+      {
+        "line": 7,
+        "text": "SESSION_SECONDS = 8 * 60 * 60"
+      },
+      {
+        "line": 14,
+        "text": "def digest(password):"
+      },
+      {
+        "line": 18,
+        "text": "class AdminAccess:"
+      },
+      {
+        "line": 19,
+        "text": "def __init__(self):"
+      },
+      {
+        "line": 24,
+        "text": "def active(self, chat, password):"
+      },
+      {
+        "line": 31,
+        "text": "def locked(self, chat):"
+      },
+      {
+        "line": 38,
+        "text": "def challenge(self, chat, message_id):"
+      },
+      {
+        "line": 41,
+        "text": "def verify(self, chat, password, candidate, reply_id):"
+      },
+      {
+        "line": 57,
+        "text": "self.sessions[chat]=(monotonic()+SESSION_SECONDS,expected)"
+      },
+      {
+        "line": 60,
+        "text": "def logout(self, chat):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/topups.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "7c61d1a24272fc6c24b47472de23ae7cf388606efdd5a5537de69ae00f5a0669",
+    "line_count": 344,
+    "symbols": [
+      {
+        "line": 26,
+        "text": "def amount(text):"
+      },
+      {
+        "line": 35,
+        "text": "def rubles(minor):"
+      },
+      {
+        "line": 39,
+        "text": "def client_config(cfg):"
+      },
+      {
+        "line": 45,
+        "text": "class CheckoutClient(PlategaClient):"
+      },
+      {
+        "line": 46,
+        "text": "async def checkout(self,order,chat,minor):"
+      },
+      {
+        "line": 57,
+        "text": "async def find(self,order,created):"
+      },
+      {
+        "line": 70,
+        "text": "class Topups:"
+      },
+      {
+        "line": 71,
+        "text": "def __init__(self,pool,cfg,client=None):"
+      },
+      {
+        "line": 76,
+        "text": "def enabled(self):"
+      },
+      {
+        "line": 81,
+        "text": "async def settings(self):"
+      },
+      {
+        "line": 84,
+        "text": "async def quote(self,user,chat,minor,key,*,test_session=False):"
+      },
+      {
+        "line": 120,
+        "text": "async def owned(self,user,order):"
+      },
+      {
+        "line": 126,
+        "text": "async def create(self,user,order,*,test_session=False):"
+      },
+      {
+        "line": 162,
+        "text": "async def check(self,user,order):"
+      },
+      {
+        "line": 170,
+        "text": "async def recover(self,row):"
+      },
+      {
+        "line": 176,
+        "text": "async def sync(self,remote,event=None):"
+      },
+      {
+        "line": 248,
+        "text": "async def repay(self,conn,row):"
+      },
+      {
+        "line": 256,
+        "text": "async def reverse(self,conn,row,returned,credited):"
+      },
+      {
+        "line": 272,
+        "text": "async def callback(self,headers,body):"
+      },
+      {
+        "line": 287,
+        "text": "async def tick(self):"
+      },
+      {
+        "line": 305,
+        "text": "async def notify(self,bot,keyboard=None):"
+      },
+      {
+        "line": 334,
+        "text": "async def loop(self,bot,keyboard):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/platega_web.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "8134e9fdb1b219c1d8253f655adcd8a24e7a86ffa753d8e378ae85fb872d5e0a",
+    "line_count": 69,
+    "symbols": [
+      {
+        "line": 14,
+        "text": "def create_app(payments):"
+      },
+      {
+        "line": 16,
+        "text": "async def callback(request):"
+      },
+      {
+        "line": 32,
+        "text": "app.router.add_post('/payments/platega/callback',callback)"
+      },
+      {
+        "line": 36,
+        "text": "class PaymentRouter:"
+      },
+      {
+        "line": 37,
+        "text": "def __init__(self,pool,cfg,client):"
+      },
+      {
+        "line": 42,
+        "text": "async def callback(self,headers,body):"
+      },
+      {
+        "line": 56,
+        "text": "async def serve(pool,cfg):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/anymodel_speech.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "5a6fb50957943c3fc9e7516a05281755965d3ac1a19666accea14a83ac0181f5",
+    "line_count": 102,
+    "symbols": [
+      {
+        "line": 22,
+        "text": "def validate_mp3(audio):"
+      },
+      {
+        "line": 37,
+        "text": "def voice_key(model):"
+      },
+      {
+        "line": 41,
+        "text": "class SpeechPilot:"
+      },
+      {
+        "line": 42,
+        "text": "def __init__(self, pool, cfg, *, api=None):"
+      },
+      {
+        "line": 46,
+        "text": "def enabled(self, external):"
+      },
+      {
+        "line": 51,
+        "text": "async def get(self, path, params=None):"
+      },
+      {
+        "line": 54,
+        "text": "async def catalogue(self, path, params=None):"
+      },
+      {
+        "line": 61,
+        "text": "async def voices(self):"
+      },
+      {
+        "line": 65,
+        "text": "def voice_title(voice):"
+      },
+      {
+        "line": 68,
+        "text": "async def title(self, model):"
+      },
+      {
+        "line": 79,
+        "text": "async def prepare(self, conn, user, quote):"
+      },
+      {
+        "line": 86,
+        "text": "async def synthesize(self, quote, model, prompt, title, *, track=None):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/clodex_music.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "ac7fc30da76d06b9159c5feaeec7b74c39337ae35f3f781f7ae857752c5235aa",
+    "line_count": 296,
+    "symbols": [
+      {
+        "line": 29,
+        "text": "class MusicAPI(VideoAPI):"
+      },
+      {
+        "line": 31,
+        "text": "def payload(prompt):"
+      },
+      {
+        "line": 34,
+        "text": "async def cost(self, request):"
+      },
+      {
+        "line": 52,
+        "text": "async def create(self, prompt):"
+      },
+      {
+        "line": 75,
+        "text": "async def status(self, task):"
+      },
+      {
+        "line": 85,
+        "text": "async def download(self, task):"
+      },
+      {
+        "line": 102,
+        "text": "def request(prompt):"
+      },
+      {
+        "line": 106,
+        "text": "class MusicPilot:"
+      },
+      {
+        "line": 114,
+        "text": "def __init__(self, pool, cfg, *, api=None):"
+      },
+      {
+        "line": 118,
+        "text": "def owner(self, chat):"
+      },
+      {
+        "line": 123,
+        "text": "def enabled(self):"
+      },
+      {
+        "line": 126,
+        "text": "async def validate_model(self, conn, request):"
+      },
+      {
+        "line": 129,
+        "text": "async def used(self, user, conn=None):"
+      },
+      {
+        "line": 134,
+        "text": "async def balance(self, user, conn=None):"
+      },
+      {
+        "line": 140,
+        "text": "async def grant(self, user, chat, quote_id):"
+      },
+      {
+        "line": 158,
+        "text": "async def confirm(self, pricing, user, chat, quote_id, update_id, session):"
+      },
+      {
+        "line": 185,
+        "text": "async def work(self, user, job):"
+      },
+      {
+        "line": 193,
+        "text": "async def settle(self, job, status, audio=None):"
+      },
+      {
+        "line": 205,
+        "text": "async def send(self, bot, chat, audio):"
+      },
+      {
+        "line": 209,
+        "text": "async def tick(self, bot):"
+      },
+      {
+        "line": 280,
+        "text": "async def reschedule(self, job, code=None):"
+      },
+      {
+        "line": 285,
+        "text": "async def unknown(self, progress, row, message, code):"
+      },
+      {
+        "line": 289,
+        "text": "async def loop(self, bot):"
+      }
+    ]
+  },
+  {
+    "path": "src/elevenbot/fal.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "0a78227593d7b8204e08e366ea6b18f86a9dddc5112b3c6e17351430de9a4f8e",
+    "line_count": 298,
+    "symbols": [
+      {
+        "line": 35,
+        "text": "class FalProvider:"
+      },
+      {
+        "line": 36,
+        "text": "def __init__(self, key, *, transport=None, catalogue_path=None):"
+      },
+      {
+        "line": 44,
+        "text": "def client(self, *, authenticated=True):"
+      },
+      {
+        "line": 49,
+        "text": "async def json(self, method, url, **kwargs):"
+      },
+      {
+        "line": 63,
+        "text": "async def collect(self, *, refresh=False):"
+      },
+      {
+        "line": 90,
+        "text": "async def refresh(self):"
+      },
+      {
+        "line": 93,
+        "text": "async def collect_pages(self):"
+      },
+      {
+        "line": 124,
+        "text": "async def catalogue_page(self, params):"
+      },
+      {
+        "line": 143,
+        "text": "def model(self, entry):"
+      },
+      {
+        "line": 160,
+        "text": "def supports(self, model, operation):"
+      },
+      {
+        "line": 164,
+        "text": "def usd(value):"
+      },
+      {
+        "line": 175,
+        "text": "async def unit_price(self, endpoint):"
+      },
+      {
+        "line": 192,
+        "text": "async def cost(self, request):"
+      },
+      {
+        "line": 216,
+        "text": "def allows_manual(row):"
+      },
+      {
+        "line": 220,
+        "text": "async def create(self, prompt):"
+      },
+      {
+        "line": 232,
+        "text": "async def status(self, task):"
+      },
+      {
+        "line": 241,
+        "text": "async def download(self, task):"
+      },
+      {
+        "line": 275,
+        "text": "class FalMusicPilot(MusicPilot):"
+      },
+      {
+        "line": 283,
+        "text": "def __init__(self,pool,cfg,*,api=None):"
+      },
+      {
+        "line": 286,
+        "text": "def owner(self,chat):"
+      },
+      {
+        "line": 291,
+        "text": "def enabled(self):"
+      },
+      {
+        "line": 294,
+        "text": "async def validate_model(self,conn,request):"
+      }
+    ]
+  },
+  {
+    "path": "miniapp/backend/web.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "dc7553cd29e4a5821a106a3d473160f4b8c990a486497ba6afd7a3d50db50828",
+    "line_count": 252,
+    "symbols": [
+      {
+        "line": 18,
+        "text": "INIT_MAX_AGE = 300"
+      },
+      {
+        "line": 19,
+        "text": "SESSION_SECONDS = 600"
+      },
+      {
+        "line": 23,
+        "text": "def verified_identity(raw, bot_token, *, now):"
+      },
+      {
+        "line": 40,
+        "text": "if not -30 <= age <= INIT_MAX_AGE:"
+      },
+      {
+        "line": 49,
+        "text": "def token_hash(token):"
+      },
+      {
+        "line": 54,
+        "text": "async def headers(request, handler):"
+      },
+      {
+        "line": 69,
+        "text": "def create_app(pool, cfg):"
+      },
+      {
+        "line": 75,
+        "text": "async def login(request):"
+      },
+      {
+        "line": 94,
+        "text": "token_hash(token), signed, user, SESSION_SECONDS"
+      },
+      {
+        "line": 98,
+        "text": "return web.json_response({'token': token, 'expires_in': SESSION_SECONDS})"
+      },
+      {
+        "line": 100,
+        "text": "async def account(request):"
+      },
+      {
+        "line": 117,
+        "text": "async def wallet(request):"
+      },
+      {
+        "line": 122,
+        "text": "async def catalogue(request):"
+      },
+      {
+        "line": 158,
+        "text": "async def history(request):"
+      },
+      {
+        "line": 173,
+        "text": "async def result(request):"
+      },
+      {
+        "line": 194,
+        "text": "async def logout(request):"
+      },
+      {
+        "line": 200,
+        "text": "async def settings(request):"
+      },
+      {
+        "line": 219,
+        "text": "async def asset(request):"
+      },
+      {
+        "line": 230,
+        "text": "app.router.add_get('/', asset)"
+      },
+      {
+        "line": 231,
+        "text": "app.router.add_get('/assets/{asset}', asset)"
+      },
+      {
+        "line": 232,
+        "text": "app.router.add_post('/api/v1/session', login)"
+      },
+      {
+        "line": 233,
+        "text": "app.router.add_delete('/api/v1/session', logout)"
+      },
+      {
+        "line": 234,
+        "text": "app.router.add_get('/api/v1/catalogue', catalogue)"
+      },
+      {
+        "line": 235,
+        "text": "app.router.add_get('/api/v1/wallet', wallet)"
+      },
+      {
+        "line": 236,
+        "text": "app.router.add_get('/api/v1/settings', settings)"
+      },
+      {
+        "line": 237,
+        "text": "app.router.add_put('/api/v1/settings', settings)"
+      },
+      {
+        "line": 238,
+        "text": "app.router.add_get('/api/v1/works', history)"
+      },
+      {
+        "line": 239,
+        "text": "app.router.add_get('/api/v1/works/{kind}/{id}', result)"
+      },
+      {
+        "line": 243,
+        "text": "async def serve(pool, cfg):"
+      }
+    ]
+  },
+  {
+    "path": "miniapp/frontend/app.js",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "906fd27356f5516e24155fa4029ddee3c1e2c582a8f84c586ab8f349e440cb01",
+    "line_count": 139,
+    "symbols": []
+  },
+  {
+    "path": "tests/test_provider_extensibility.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "d873f4a9d22c43ec8d0bc38ccdf736b64896627b782c3f0a50a7f84ff9189ce6",
+    "line_count": 327,
+    "symbols": [
+      {
+        "line": 26,
+        "text": "class FixtureAggregator:"
+      },
+      {
+        "line": 29,
+        "text": "def __init__(self,pool,client):"
+      },
+      {
+        "line": 32,
+        "text": "async def collect(self):"
+      },
+      {
+        "line": 37,
+        "text": "async def cost(self,request):"
+      },
+      {
+        "line": 46,
+        "text": "def background(self,operation):"
+      },
+      {
+        "line": 49,
+        "text": "async def prepare(self,conn,user,external,quote,update_id):"
+      },
+      {
+        "line": 53,
+        "text": "async def run(self,user,quote,update_id,prepared,on_accepted):"
+      },
+      {
+        "line": 61,
+        "text": "def app_with_fixture(pool,cfg,bot,client):"
+      },
+      {
+        "line": 69,
+        "text": "async def test_third_provider_catalogue_and_tariff_preview(funded_env):"
+      },
+      {
+        "line": 74,
+        "text": "def respond(req):"
+      },
+      {
+        "line": 141,
+        "text": "async def test_confirmation_load_and_provider_failures(funded_env):"
+      },
+      {
+        "line": 151,
+        "text": "async def respond(req):"
+      },
+      {
+        "line": 247,
+        "text": "async def run():"
+      },
+      {
+        "line": 267,
+        "text": "async def progress(request):"
+      },
+      {
+        "line": 279,
+        "text": "async def test_process_restart_after_acceptance_before_post(funded_env,boundary,terminal,notice):"
+      },
+      {
+        "line": 284,
+        "text": "def respond(req):"
+      }
+    ]
+  },
+  {
+    "path": "tests/test_public_image_topup.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "10b8d0120cba8d35eeaa8324cc3a00d3cae00115505c12cde4b18ff7226c6272",
+    "line_count": 132,
+    "symbols": [
+      {
+        "line": 23,
+        "text": "async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path, deferred):"
+      },
+      {
+        "line": 41,
+        "text": "async def transport(req):"
+      },
+      {
+        "line": 65,
+        "text": "def client_with_transport(*args, **kwargs):"
+      },
+      {
+        "line": 79,
+        "text": "async def press(text=None, callback=None, target=None, *, inbox=False):"
+      },
+      {
+        "line": 83,
+        "text": "def route(prefix):"
+      },
+      {
+        "line": 86,
+        "text": "async def wallet():"
+      }
+    ]
+  },
+  {
+    "path": ".github/workflows/test.yml",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "df0645dc68bf85b872206821eba8861b2eda77e52f85af32d2a290641dfdb868",
+    "line_count": 28,
+    "symbols": []
+  },
+  {
+    "path": "compose.yaml",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "5dfcb573a302f1c53202ded03a8ddbe2b2b5e9dccede9e879c3ee8fde7546c9c",
+    "line_count": 64,
+    "symbols": []
+  },
+  {
+    "path": "src/elevenbot/__main__.py",
+    "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+    "sha256": "7f20ecd2a7f827e095f4ac20150c0338bff796c7f548d88d2ba5945088d69d79",
+    "line_count": 135,
+    "symbols": [
+      {
+        "line": 6,
+        "text": "async def main():"
+      }
+    ]
+  }
+]

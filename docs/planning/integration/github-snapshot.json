@@ -1,0 +1,990 @@
+{
+  "date": "2026-11-16",
+  "prs": [
+    {
+      "number": 1,
+      "title": "Стартовая документация и правила совместной работы",
+      "base": "main",
+      "base_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+      "head": "docs/bootstrap",
+      "head_sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/1"
+    },
+    {
+      "number": 2,
+      "title": "S0: импорт тестового стенда и проверка доставки изображений",
+      "base": "docs/bootstrap",
+      "base_sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "head": "work/vankhu21/s0-baseline",
+      "head_sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/2"
+    },
+    {
+      "number": 4,
+      "title": "S1-TG-RECOVERY: повторная выдача сохранённого изображения",
+      "base": "work/vankhu21/s0-baseline",
+      "base_sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "head": "work/vankhu21/s1-tg-recovery",
+      "head_sha": "c1c3a0f7324d21ab2f6a0763847c548fc9c2b617",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/4"
+    },
+    {
+      "number": 6,
+      "title": "P0: проверка целостности PNG и JPEG до сохранения",
+      "base": "work/vankhu21/s0-baseline",
+      "base_sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "head": "work/vankhu21/s1-image-validation",
+      "head_sha": "4ebe400828913c44e56ef725ba679c3879edeede",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/6"
+    },
+    {
+      "number": 7,
+      "title": "P0 smoke: combined image recovery and validation",
+      "base": "work/vankhu21/s0-baseline",
+      "base_sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "head": "work/vankhu21/p0-smoke",
+      "head_sha": "c2370afb43825622f819419aac36c8cad0ad4c79",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/7"
+    },
+    {
+      "number": 8,
+      "title": "Интеграция генерации и восстановления изображений",
+      "base": "main",
+      "base_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+      "head": "work/vankhu21/main-image-integration",
+      "head_sha": "eaadb892227e6b731e4cebccb071b23c1b209b3b",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/8"
+    },
+    {
+      "number": 9,
+      "title": "Veo 3.1: текст в видео с подтверждением стоимости",
+      "base": "work/vankhu21/main-image-integration",
+      "base_sha": "eaadb892227e6b731e4cebccb071b23c1b209b3b",
+      "head": "work/vankhu21/veo-video",
+      "head_sha": "b5c1368cf9663bd0be43a1e9c0b65816c51fe61d",
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/9"
+    },
+    {
+      "number": 10,
+      "title": "Подключить отдельный тестовый агрегатор AnyModel",
+      "base": "work/vankhu21/veo-video",
+      "base_sha": "b5c1368cf9663bd0be43a1e9c0b65816c51fe61d",
+      "head": "work/vankhu21/anymodel-pilot",
+      "head_sha": "eaa1a6fdc6eb19ed61a231ad05c9eb412c0d2496",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/10"
+    },
+    {
+      "number": 11,
+      "title": "Добавить FIBO 2 и разделы AnyModel",
+      "base": "work/vankhu21/anymodel-pilot",
+      "base_sha": "eaa1a6fdc6eb19ed61a231ad05c9eb412c0d2496",
+      "head": "work/vankhu21/anymodel-fibo-pilot",
+      "head_sha": "99c091476de23d998a3101bb0e39d199552f8838",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/11"
+    },
+    {
+      "number": 12,
+      "title": "Подключить закрытый видеопилот Grok 1.5 через AnyModel",
+      "base": "work/vankhu21/anymodel-fibo-pilot",
+      "base_sha": "99c091476de23d998a3101bb0e39d199552f8838",
+      "head": "work/vankhu21/anymodel-video-pilot",
+      "head_sha": "de4e5f1183ec9ee7b079977fda68f99e02d00dd7",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/12"
+    },
+    {
+      "number": 13,
+      "title": "Add closed AnyModel text-to-speech pilot",
+      "base": "work/vankhu21/anymodel-video-pilot",
+      "base_sha": "de4e5f1183ec9ee7b079977fda68f99e02d00dd7",
+      "head": "work/vankhu21/anymodel-tts",
+      "head_sha": "6c82761c5e4c42e1129934884c5b23030df4e090",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/13"
+    },
+    {
+      "number": 14,
+      "title": "Add DarkFlow | Gen Telegram welcome screen",
+      "base": "work/vankhu21/anymodel-tts",
+      "base_sha": "6c82761c5e4c42e1129934884c5b23030df4e090",
+      "head": "work/vankhu21/welcome-screen",
+      "head_sha": "742db84eb8663d5a4b7a7e50b2c10825e7b18a87",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/14"
+    },
+    {
+      "number": 15,
+      "title": "Показывать отдельный статус выполнения задач в Telegram",
+      "base": "work/vankhu21/welcome-screen",
+      "base_sha": "742db84eb8663d5a4b7a7e50b2c10825e7b18a87",
+      "head": "work/vankhu21/task-progress",
+      "head_sha": "5162e8e58ba91564c7989617567e24a18aa5f3da",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/15"
+    },
+    {
+      "number": 16,
+      "title": "Admin Edition: общая оценка AnyModel и CLODEX, ручные тарифы",
+      "base": "work/vankhu21/task-progress",
+      "base_sha": "5162e8e58ba91564c7989617567e24a18aa5f3da",
+      "head": "work/vankhu21/anymodel-pricing",
+      "head_sha": "76a030a5dc32ccf79b9c9a8393f1807d7df9d791",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16"
+    },
+    {
+      "number": 17,
+      "title": "Mini App на чтение и проверка пополнения с единым конфигом",
+      "base": "work/vankhu21/anymodel-pricing",
+      "base_sha": "76a030a5dc32ccf79b9c9a8393f1807d7df9d791",
+      "head": "work/vankhu21/miniapp-read",
+      "head_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17"
+    },
+    {
+      "number": 18,
+      "title": "docs: foundation architecture, product UX and extensible contracts v0.1",
+      "base": "docs/bootstrap",
+      "base_sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "head": "docs/foundation-contracts-v1",
+      "head_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/18"
+    },
+    {
+      "number": 19,
+      "title": "docs: TASK-PLAN-001 — source-aware team workplans and audit artifacts",
+      "base": "docs/foundation-contracts-v1",
+      "base_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "head": "planning/team-workplans-v1",
+      "head_sha": "ce97300166b7b14166a9563d6d92897bb7156001",
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19"
+    }
+  ],
+  "runs": [
+    {
+      "pr": 1,
+      "sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "runs": [
+        {
+          "id": 42276337227,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 6,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276337227/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276337227/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "pr": 2,
+      "sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "runs": [
+        {
+          "id": 42276360594,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 3,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276360594/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276360594/logs",
+          "workflow_id": 409664096
+        },
+        {
+          "id": 42276360715,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 7,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276360715/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276360715/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "pr": 4,
+      "sha": "c1c3a0f7324d21ab2f6a0763847c548fc9c2b617",
+      "runs": [
+        {
+          "id": 42289628774,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 8,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628774/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628774/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42289628798,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 4,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628798/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628798/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 6,
+      "sha": "4ebe400828913c44e56ef725ba679c3879edeede",
+      "runs": [
+        {
+          "id": 42295027842,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 6,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42295027842/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42295027842/logs",
+          "workflow_id": 409664096
+        },
+        {
+          "id": 42295027861,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 10,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42295027861/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42295027861/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "pr": 7,
+      "sha": "c2370afb43825622f819419aac36c8cad0ad4c79",
+      "runs": [
+        {
+          "id": 42302812394,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 12,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42302812394/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42302812394/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42302812489,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 8,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42302812489/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42302812489/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 8,
+      "sha": "eaadb892227e6b731e4cebccb071b23c1b209b3b",
+      "runs": [
+        {
+          "id": 42309353468,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 13,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353468/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353468/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42309353362,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 9,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353362/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353362/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 9,
+      "sha": "b5c1368cf9663bd0be43a1e9c0b65816c51fe61d",
+      "runs": [
+        {
+          "id": 42311728248,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 15,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728248/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728248/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42311728186,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 10,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728186/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728186/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 10,
+      "sha": "eaa1a6fdc6eb19ed61a231ad05c9eb412c0d2496",
+      "runs": [
+        {
+          "id": 42375378734,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 11,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42375378734/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42375378734/logs",
+          "workflow_id": 409664096
+        },
+        {
+          "id": 42375378766,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 17,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42375378766/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42375378766/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "pr": 11,
+      "sha": "99c091476de23d998a3101bb0e39d199552f8838",
+      "runs": [
+        {
+          "id": 42384930718,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 23,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42384930718/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42384930718/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42384930737,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 14,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42384930737/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42384930737/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 12,
+      "sha": "de4e5f1183ec9ee7b079977fda68f99e02d00dd7",
+      "runs": [
+        {
+          "id": 42387418838,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 25,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42387418838/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42387418838/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42387418804,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 15,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42387418804/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42387418804/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 13,
+      "sha": "6c82761c5e4c42e1129934884c5b23030df4e090",
+      "runs": [
+        {
+          "id": 42407956974,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 27,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956974/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956974/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42407956970,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 16,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956970/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956970/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 14,
+      "sha": "742db84eb8663d5a4b7a7e50b2c10825e7b18a87",
+      "runs": [
+        {
+          "id": 42420216674,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 39,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42420216674/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42420216674/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42420216580,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 22,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42420216580/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42420216580/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 15,
+      "sha": "5162e8e58ba91564c7989617567e24a18aa5f3da",
+      "runs": [
+        {
+          "id": 42488799397,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 41,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799397/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799397/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42488799411,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 23,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799411/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799411/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 16,
+      "sha": "76a030a5dc32ccf79b9c9a8393f1807d7df9d791",
+      "runs": [
+        {
+          "id": 43738760767,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 129,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43738760767/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43738760767/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 43738760752,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 68,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43738760752/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43738760752/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 17,
+      "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "runs": [
+        {
+          "id": 43759469627,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 138,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469627/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469627/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 43759469582,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 76,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469582/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469582/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "pr": 18,
+      "sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "runs": [
+        {
+          "id": 43760707794,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 144,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43760707794/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43760707794/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "pr": 19,
+      "sha": "ce97300166b7b14166a9563d6d92897bb7156001",
+      "runs": [
+        {
+          "id": 43880647233,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 148,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43880647233/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43880647233/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    }
+  ],
+  "review_timeline": [
+    {
+      "pr": 1,
+      "comments": []
+    },
+    {
+      "pr": 2,
+      "comments": []
+    },
+    {
+      "pr": 4,
+      "comments": []
+    },
+    {
+      "pr": 6,
+      "comments": []
+    },
+    {
+      "pr": 7,
+      "comments": []
+    },
+    {
+      "pr": 8,
+      "comments": []
+    },
+    {
+      "pr": 9,
+      "comments": []
+    },
+    {
+      "pr": 10,
+      "comments": []
+    },
+    {
+      "pr": 11,
+      "comments": []
+    },
+    {
+      "pr": 12,
+      "comments": []
+    },
+    {
+      "pr": 13,
+      "comments": []
+    },
+    {
+      "pr": 14,
+      "comments": []
+    },
+    {
+      "pr": 15,
+      "comments": []
+    },
+    {
+      "pr": 16,
+      "comments": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6725454506",
+          "user": "vankhu21",
+          "body": "## Приёмка CLODEX на `flowbridge-live-smoke`\n\nSHA работающего образа `bb81345bcda71f73d1b3092f302bdfc00769696f`. Перед сборкой 63 файла из Docker-контекста сверены с Git. Отключение `core.autocrlf` при подготовке архива сохранило канонические байты SQL, и итоговый `doctor` вернул `migration_mismatches=[]`. Пересоздан только `bot`; `worker` оставлен в исходном остановленном состоянии. Блокировка `halted=true` подтверждена до и после проверки.\n\nШтатный `TelegramApp.handle(Update)` запущен внутри р",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6725969327",
+          "user": "vankhu21",
+          "body": "## Admin Edition · исходная себестоимость, курс и итог\n\nНа `flowbridge-live-smoke` работает `4669f3fe35fa7f5ad26be00872263d2e86d75b7b`. Миграция `025_scoped_price_rates.sql` применена, `doctor` вернул `migration_mismatches=[]`, bot и PostgreSQL здоровы, `halted=true`. Курсы **1 токен AnyModel = 1 токен бота** и **1 USD CLODEX = 20 000 000 токенов бота** перенесены из прежних настроек. У стенда пока нет настроенного рублёвого эквивалента. Временные настройки для приёмки использовались только в из",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6726531861",
+          "user": "vankhu21",
+          "body": "## Приёмка меню агрегаторов · Admin Edition\n\nНа `flowbridge-live-smoke` развёрнут `e147db36a4fefb531e30016407bb4616dfa315d0`. Пересоздан один контейнер bot. PostgreSQL и bot здоровы, `doctor` не обнаружил расхождений миграций.\n\nШтатный `TelegramApp.handle(Update)` получил события с кнопок предыдущего ответа. Тестовый транспорт записал тексты, порядок кнопок и маршруты. У обоих провайдеров пройдены рабочие разделы и путь «Управление агрегатором → Наши модели / Курс и калькулятор → К управлению → ",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6726815222",
+          "user": "vankhu21",
+          "body": "## Баланс на нижней клавиатуре Admin Edition\n\nКоммит `e3cc8ee639103b72d2a84f885449a84286d21c22`. Третья кнопка остаётся на отдельной строке и показывает доступный остаток из того же кошелька, что и экран баланса. Рублёвый эквивалент рассчитывается по настройке «Стоимость токенов бота». Клавиатура пересобирается при показе, а цикл опроса обновляет её после изменения остатка или курса. Нажатие старой подписи открывает текущий баланс.\n\nПорядок проверен целиком: «🌐 Агрегаторы» → «📁 Мои работы» → к",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6726890969",
+          "user": "vankhu21",
+          "body": "## Баланс на нижней клавиатуре · приёмка на стенде\n\nНа `flowbridge-live-smoke` пересобран и пересоздан только контейнер `bot` из `e3cc8ee639103b72d2a84f885449a84286d21c22` с текущим окружением стенда. Метка SHA проверена у образа работающего контейнера. `bot` и PostgreSQL здоровы, `doctor` подтвердил `migration_mismatches=[]`, в PostgreSQL проверено `halted=true`.\n\nШтатный `TelegramApp.handle(Update)` внутри контейнера получил события нижней клавиатуры через тестовый транспорт. Третья строка сод",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727060177",
+          "user": "vankhu21",
+          "body": "## Карточки моделей и порядок нижней клавиатуры\n\nНа `flowbridge-live-smoke` развёрнут `eff7bdce9a03246be244d10040c17f97d221213d`. Пересоздан только `bot`, PostgreSQL и `bot` здоровы, `halted=true`.\n\nШтатный обработчик получил события через тестовый транспорт. У FIBO 2 остались «Генерировать изображение» и один возврат в список изображений AnyModel. У Veo 3.1 остались обычный режим, Fast и один возврат на исходную страницу видео CLODEX. В обоих случаях текст и кнопки исходного списка совпали посл",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727218079",
+          "user": "vankhu21",
+          "body": "## Команды Telegram при запуске Admin Edition\n\nНа `flowbridge-live-smoke` развёрнут `dd94f9dcfa83eabb78eb01b7a43899542ef6984a`. Бот регистрирует команды через `setMyCommands` после получения блокировки polling. Для общего списка используется `BotCommandScopeDefault`, для личных чатов настроенных администраторов — `BotCommandScopeChat`. Один повтор предусмотрен для временной сетевой ошибки или таймаута. Серверная проверка `/price_report` сохранена и проверена тестом. [Контракт Telegram Bot API](h",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727313874",
+          "user": "vankhu21",
+          "body": "## Маршрут /menu · приёмка на стенде\n\nНа `flowbridge-live-smoke` развёрнут `c3bc7b8a2eada6bddb1697b0c29ea4123f88f3e1`. Бот и PostgreSQL здоровы, `halted=true`. Проверка `getMyCommands` подтвердила подпись «Главное меню».\n\nИз карточки FIBO 2 в штатный `TelegramApp.handle(Update)` поданы нажатие «🌐 Агрегаторы», `/menu` и `/menu@имя_бота` с фактическим именем тестового бота. Тестовый транспорт зафиксировал одинаковый `sendAnimation`, SHA-256 GIF, текст и кнопки экрана «Выберите агрегатор». В каждо",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727500236",
+          "user": "vankhu21",
+          "body": "## Вход в DarkFlow | Gen Admin Edition\n\nНа `flowbridge-live-smoke` развёрнут `0b1ac9a8b1d2e9f22d511eced71ac2210ed199db`. Вход в личном чате через `/admin` требует одновременно разрешённый Telegram ID и правильный пароль. Сессия действует 8 часов, `/admin_logout` завершает её, а пересоздание процесса завершает все сессии. До входа команды и кнопки админки закрыты на сервере. Пять неверных попыток за 15 минут блокируют последующие попытки до окончания окна. [OWASP о лимите попыток](https://cheatsh",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727786126",
+          "user": "vankhu21",
+          "body": "### Пользовательский режим и Admin Edition\n\nСборка `77385db69f9b14c57998a01e47284b4b75657de0` развёрнута на `flowbridge-live-smoke`. `bot` и PostgreSQL healthy, `halted=true`. Один контейнер бота, один Telegram-токен. Живых запросов на генерацию: **0**.\n\n| Проверка штатными обработчиками | Результат |\n| --- | --- |\n| Разрешённый ID без сессии и после неверного пароля | «Агрегатор 1» и «Агрегатор 2». Нижняя клавиатура: «Агрегаторы» → «Мои работы» → фактический баланс → «Помощь». Кнопки управления",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6727904221",
+          "user": "vankhu21",
+          "body": "### Вкладки пользовательского каталога\n\nСборка `a84526303e7613d953f814ad2af7eeea813a7bfb` развёрнута на `flowbridge-live-smoke`. Оба меню проверены штатными обработчиками с тестовым транспортом Telegram, без админ-сессии.\n\nОдинаковый порядок для обоих агрегаторов: **Генерировать видео → Генерировать изображение → Озвучить текст → Классический чат → Мои работы**.\n\n| Раздел | Агрегатор 1 | Агрегатор 2 |\n| --- | --- | --- |\n| Видео | Veo 3.1 | Grok Imagine Video 1.5 |\n| Изображения | FLUX Schnell, ",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6728256601",
+          "user": "vankhu21",
+          "body": "### Выпуск на flowbridge-live-smoke\n\n- Предыдущий SHA `a84526303e7613d953f814ad2af7eeea813a7bfb`. Резервная копия PostgreSQL в локальном хранилище, формат custom, 11 650 197 байт, 256 строк оглавления `pg_restore -l`. SHA-256 `95ebca5c4799b63c08bffe053a6a40b2410982268c61bb137ba8c002f5eaa0cc`. Контрольные суммы копии и архива в контейнере совпали.\n- Запущен SHA `e2a2a0754af91a6b474f5ce15e57321e651781d8`. Bot и PostgreSQL healthy, сервис migrate завершился с кодом 0. Применены 26 миграций, последн",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6728368392",
+          "user": "vankhu21",
+          "body": "### Возврат резерва при подтверждённом отказе\n\nSHA `4735591f75024fd127f082fd53a860e8286378df`. Миграция `027_task_refusal.sql` добавляет конечное состояние `rejected`. Запись состояния и возврат происходят в одной транзакции. HTTP-статус сверяется с документированным кодом ответа, а тело ошибки не пишется в логи. В частности, `output_budget_exhausted` может тарифицироваться и не считается отклонением до начала работы. [Контракт AnyModel](https://anymodel.org/api-docs.md#errors)\n\nПрогон в изолиро",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6728451307",
+          "user": "vankhu21",
+          "body": "### Выпуск возврата резерва на flowbridge-live-smoke\n\nРазвёрнут `4735591f75024fd127f082fd53a860e8286378df` вместо `e2a2a0754af91a6b474f5ce15e57321e651781d8`. SHA проверен по работающему контейнеру. PostgreSQL и бот healthy, heartbeat записан после запуска контейнера. Миграция `027_task_refusal.sql` применена, всего 27 миграций, `doctor` не обнаружил расхождений. Перед обновлением сохранён проверенный локальный архив PostgreSQL (SHA-256 `2ce8b5f6e5dc515f40f31dabdf6776680abb7a90086df490494324bc5b7",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6728600507",
+          "user": "vankhu21",
+          "body": "### AnyModel: свежесть каталога и четыре пользовательские вкладки\n\nФоновый процесс обновления работал. В очередном цикле он записал сетевую ошибку и выставил `fresh_until=0`. При повторном воспроизведении `GET /v1/models` TLS-соединение оборвалось до HTTP-ответа. Цепочка: `connect_error → ConnectError → EndOfStream → SSLEOFError`. В успешном прогоне три авторизованных GET вернули HTTP 200: общий список 109, видео 20, озвучка 1. Старый обработчик показывал одинаковое сообщение для просроченного с",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6739905251",
+          "user": "vankhu21",
+          "body": "### Публичный пользовательский вход на flowbridge-live-smoke\n\n**Ссылка для публикации** — [@DarkFlowGen_Bot](https://t.me/DarkFlowGen_Bot), подтверждена через `getMe` работающего бота.\n\nРаботает проверенный SHA `3b1421d0362cbcd64712b4d843f9abe93cb4e24c`. Запущены bot и PostgreSQL, heartbeat свежий, миграция `027_task_refusal.sql`. `halted=true`, платежи и флаги живых запусков выключены, worker остановлен.\n\n| Проверка | Результат |\n| --- | --- |\n| Реальный вход с нового обычного Telegram-аккаунта",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6740668461",
+          "user": "vankhu21",
+          "body": "### Одна навигационная панель на личный чат\n\nНа `flowbridge-live-smoke` работает `4e409a4f74c9294823ff94fe773d07e4b68cfa38`. Применена миграция `028_telegram_navigation.sql`, всего 28 миграций. Bot и PostgreSQL healthy, `halted=true`. Перед обновлением сохранена проверенная локальная копия PostgreSQL.\n\nВ одном синтетическом личном чате через штатные обработчики и тестовый транспорт проверена последовательность **`/menu` → повторный `/menu` → Агрегатор 1 → назад → Агрегатор 2 → `/admin` → CLODEX ",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6741574503",
+          "user": "vankhu21",
+          "body": "### Нижняя клавиатура и возврат из «Моих работ»\n\nНа `flowbridge-live-smoke` работает `2b183ca5631b0fd98861bf2e7b6af1adfc809756`. Контейнеры `bot` и PostgreSQL в состоянии healthy, последняя миграция `028_telegram_navigation.sql`, `halted=true`. Проверка штатных обработчиков с тестовым транспортом Telegram, четырьмя синтетическими чатами и откатом данных после каждого сценария. POST генерации — 0.\n\nНа предыдущем SHA `4e409a4f74c9294823ff94fe773d07e4b68cfa38` нажал фактическую кнопку из списка раб",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6741965579",
+          "user": "vankhu21",
+          "body": "### Новая панель по нижней кнопке «🌐 Агрегаторы»\n\nСтенд `flowbridge-live-smoke` работает на `68017ef8cf8ea45d978a4e5b826d469eff206da8`. Бот и PostgreSQL healthy. `doctor` подтверждает совпадение контрольных сумм миграций и выключенные генерации и платежи. `halted=true`, POST генерации — 0.\n\nНа предыдущей сборке `2b183ca5631b0fd98861bf2e7b6af1adfc809756` воспроизведена последовательность «Агрегаторы → /start → Агрегаторы» с фактическим обработчиком и тестовым транспортом. В пользовательском режи",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6742602548",
+          "user": "vankhu21",
+          "body": "### 📣 Рассылки в Admin Edition\n\n`flowbridge-live-smoke` работает на `7e25f28faccb065faf03503fb46db3a4a87c89ee`, миграция `029_telegram_broadcasts.sql` применена, бот и PostgreSQL healthy. `getMe` подтвердил `@DarkFlowGen_Bot`. Генерации и платежи выключены, `halted=true`.\n\n- Через штатные обработчики и тестовый транспорт на стенде проверены оба режима. «📣 Рассылки» сразу после «Тарифы моделей» только в активной админ-сессии. «← Назад» возвращает на выбор агрегатора. После `/admin_logout` кнопк",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6742892315",
+          "user": "vankhu21",
+          "body": "### Системные уведомления в Admin Edition\n\nНа `flowbridge-live-smoke` работает `d4de6f3e81e7713966779514ba4405c7a438a05d`. Применена миграция `030_system_notifications.sql`, колонка прежней отписки удалена. Контейнеры здоровы, `doctor` не нашёл расхождений по миграциям, `getMe` подтвердил `@DarkFlowGen_Bot`, `halted=true`.\n\n- В активной админ-сессии отдельная строка «📣 Рассылки» идёт сразу после «Тарифы моделей» и открывает «Системные уведомления». «← Назад» возвращает к выбору агрегатора. В по",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6743300281",
+          "user": "vankhu21",
+          "body": "### Медиа в системных уведомлениях\n\nНа `flowbridge-live-smoke` работает `eb79dcdf386ecaa51acfb32ed25cd6d49c1d83d7` с миграцией `031_broadcast_media.sql`. Бот и PostgreSQL healthy, `doctor` без расхождений, `halted=true`. Миграция сохранила ранее отправленный пост с фото.\n\nОдин пост принимает текст или одно вложение Telegram: фото, GIF/анимацию, видео, аудио, голосовое, документ, стикер или видеокружок. Подпись и её форматирование передаются в том же сообщении для типов, где Telegram поддерживает",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6743914593",
+          "user": "vankhu21",
+          "body": "### Изоляция Telegram-чатов от действий Admin Edition\n\nНа `flowbridge-live-smoke` работает `d9a0b35d5be31e867c7f44049210d6bd2adfe83c`. Бот и PostgreSQL healthy, последняя миграция `031_broadcast_media.sql`, `doctor` без расхождений. `halted=true`, платёжные функции и живые генерации выключены. Пересоздан только контейнер бота.\n\n**Причины и исправления**\n\n- Idle-цикл `poll` вызывал `refresh_balance_keyboards()` для ранее открытых чатов и ID из конфигурации. Изменение рублёвого курса меняло подпис",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6744172623",
+          "user": "vankhu21",
+          "body": "### Раздельные advisory-блокировки рассылок и Pricing\n\n`BroadcastWorker` теперь захватывает и освобождает одну и ту же пару `(921190, 0)` через двухаргументные функции PostgreSQL. Проверены все места захвата в проекте. Миграции `921181`, worker `921182`, Telegram poller `921183`, резервирование `921186` и Pricing `921189` используют один `bigint`. Идентификация, платежи и Platega используют вычисляемые ключи `bigint`. Пространства `bigint` и двух `integer` разделены. [Документация PostgreSQL](ht",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6752571452",
+          "user": "vankhu21",
+          "body": "### AnyModel · музыкальные треки и цена API · 10.11.2026\n\n**Вердикт: в каталоге нашего ключа не найдено.** Из работающего контейнера `bot` на `flowbridge-live-smoke` авторизованный `GET /v1/models` дважды вернул HTTP 200 и 108 записей. Ни одна не заявляет генерацию музыкального трека. Проверены типы и возможности моделей, а для неоднозначных ID — `GET /v1/models/info?id=…`. В актуальной официальной документации нет маршрута генерации музыки и схемы её тарифа. [Контракт AnyModel](https://anymodel",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6752760981",
+          "user": "vankhu21",
+          "body": "### CLODEX · музыкальные треки и цена по ключу · 10.11.2026\n\nПроверка из работающего контейнера `bot` на `flowbridge-live-smoke` с текущим ключом. Авторизованный `GET /v1/models` — **HTTP 200**, 158 моделей. Из свежих метаданных найдены два ID с отдельным аудиовыходом через `/v1/audios`. Остальные записи с выходом только audio указывают `/v1/audio/speech`. Видеомодели с аудиодорожкой исключены из кандидатов на самостоятельный трек. [Документация CLODEX V2](https://clodex.xyz/docs-v2.md#audio)\n\n|",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6753207317",
+          "user": "vankhu21",
+          "body": "### Закрытый пилот Leonardo Music\n\nНа `flowbridge-live-smoke` работает `b0aa56e916f789a1acca2a9b8306dab6479573dd`. Бот и PostgreSQL healthy, применена `032_clodex_music.sql`, расхождений миграций нет. `halted=true`, общие генерации и платежи выключены.\n\n- Авторизованный каталог CLODEX вернул HTTP 200 и модель `clodex-video/music-v1`. В метаданных есть поля `model`, `prompt`, `n` и необязательный `private_mode`. Пилот явно передаёт `n=1`. Отдельные параметры длительности, инструментала, вокала и ",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6753283391",
+          "user": "vankhu21",
+          "body": "**Итог подготовки живого прогона.** CI Documentation и Isolated acceptance зелёные, полный локальный прогон — 361 тест. Во время наблюдения подтверждение в Telegram не поступило, создано 0 заданий и резерв 0. Окно на одну попытку остаётся доступно только владельцу при активной админ-сессии. Доставка и повторное открытие живого MP3, длительность и наличие вокала пока не подтверждены. [Isolated acceptance](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42712175215).",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6753435243",
+          "user": "vankhu21",
+          "body": "### Leonardo Music — разбор живой попытки 10 ноября, 01:39 МСК\n\nСтенд `flowbridge-live-smoke`, SHA `b0aa56e916f789a1acca2a9b8306dab6479573dd`. Запись задания создана в 01:39:14 МСК.\n\n| Проверка | Результат |\n| --- | --- |\n| Создание | CLODEX принял запрос. `task_id` сохранён в PostgreSQL. Код создания был 2xx по пути обработки в боте, точный HTTP-статус в журнале не сохранился. |\n| Опрос | Сбой на этапе опроса. Контрольный `GET /v1/audios/{task_id}` вернул **HTTP 200**, конечный статус **`failed",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6753892036",
+          "user": "vankhu21",
+          "body": "### fal и закрытый пилот Lyria 3.5\n\nНа `flowbridge-live-smoke` работает `393026550653147c4a07cd5b19bfdcabfb2c5b3e`. Бот и PostgreSQL healthy, миграция `033_music_providers.sql` применена без расхождений, `halted=true`.\n\n- fal зарегистрирован в общем реестре с каталогом, адаптером Pricing и фоновой очередью. В Admin Edition — **fal**, в пользовательском меню — **Агрегатор 3**. «Наши модели», «Курс и калькулятор» и «Все модели» используют штатные экраны. Допуск рабочего маршрута реализован только ",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6753907707",
+          "user": "vankhu21",
+          "body": "**Дополнение к приёмке fal.** Повторный публичный обход из работающего `bot` на `393026550653147c4a07cd5b19bfdcabfb2c5b3e` завершился успешно: **HTTP 200, 15 страниц, 1 459 уникальных моделей**. При повторе дополнительно повторялись безопасные GET после краткого транспортного сбоя. Авторизованный тариф и доступ к запуску остаются непроверенными, `FAL_KEY` пуст. Живых генераций — 0.",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6754123372",
+          "user": "vankhu21",
+          "body": "### fal · сохранение полного каталога после сбоя\n\nРазвёрнуто на `flowbridge-live-smoke`: `8e018662dad25a04fc8633a4def3061521ae5b53`. Проверка прошла через штатные обработчики Telegram с тестовым транспортом и откатом тестового чата в PostgreSQL.\n\n| Сценарий | Результат |\n| --- | --- |\n| До правки, `/admin → fal → Управление агрегатором` | Страница API 12 вернула HTTP 429, повтор завершился `httpx.ConnectError`. |\n| До правки, «Все модели» | Новый обход прервался на странице API 9 с `httpx.Connec",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6781685042",
+          "user": "vankhu21",
+          "body": "### Пополнение баланса через Platega подготовлено к подключению магазина\n\nНа `flowbridge-live-smoke` развёрнут `a4f3cf5902a7979ec879a8b06ddfc12222a6c4a6`, миграция `034_topups.sql` применена. Бот и PostgreSQL healthy, расхождений миграций нет. `TOPUP_MODE=off`, `PLATEGA_ENABLED=false`, `PAYMENTS_ENABLED=false`, `halted=true`. Действующие кошельки сверены с контрольной суммой до обновления и не изменились.\n\nКнопка **«➕ Пополнить»** добавлена после широкой кнопки баланса. «Агрегаторы», «Мои работы",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6781726230",
+          "user": "vankhu21",
+          "body": "Дополнение к границам восстановления Platega. Если ответ создания потерян, экспорт позволяет найти ID и проверить статус, но документация GET транзакции не обещает повторную выдачу исходного checkout URL. Для найденного PENDING без сохранённой ссылки новый платёж автоматически не создаётся. Получение ссылки потребуется подтвердить с магазином или поддержкой при подключении. На заглушке проверено восстановление потерянного ответа с уже подтверждённой оплатой.",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6800009815",
+          "user": "vankhu21",
+          "body": "### Навигация Telegram\n\nНа `flowbridge-live-smoke` развёрнут `1e00658efec88ab137947113c414fccb51857d5a`. Миграция `035_telegram_panel_slots.sql` применена, bot и PostgreSQL healthy, `halted=true`, `TOPUP_MODE=off`.\n\n- На предыдущей сборке регрессионный тест воспроизвёл повторное использование прежнего ID и с GIF, и с текстовым запасным экраном. `/menu` и «Главное меню» могли отредактировать старую панель выше в чате. Оптимизация по одинаковым подписям пропускала повторную отправку нижней клавиат",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6800288549",
+          "user": "vankhu21",
+          "body": "### Повторное открытие выбора агрегатора\n\nСтенд `flowbridge-live-smoke` работает на `dba7719354c4a6f04361133b0eac7b56c1b435ad`. Бот и PostgreSQL healthy, `halted=true`.\n\nПричина была в том, что внутренний экран агрегатора мог занять сохранённый слот экрана выбора. Подсказка хранилась в общем указателе клавиатуры. Теперь обе точки входа записывают ID карточки и подсказки в отдельные слоты. Переход внутрь агрегатора сохраняет эту пару. Замена сначала публикует новую пару, затем сохраняет её ID и о",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6801664427",
+          "user": "vankhu21",
+          "body": "Полоска экрана выбора агрегатора переведена на приложенный MP4. На `flowbridge-live-smoke` работает `4bc1cbdcad3f1b45048e35a66a19f44d8797490f`, бот и БД healthy, `halted=true`.\n\n- `sendAnimation` сохранили. Bot API вернул `video/mp4`, **1200 × 80 px, 6 с**. Файл из `getFile` совпал с оригиналом байт в байт. На тестовом аккаунте зарегистрирована открытая панель с MP4.\n- Оба входа, оба режима и замена предыдущей панели проверены. 33 целевых теста и 390 тестов полного локального прогона прошли.\n- A",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6802087720",
+          "user": "vankhu21",
+          "body": "На `flowbridge-live-smoke` развёрнут `733c66e3005f4a85abb4c1d1d494749994565cdf`, миграция 036 применена, бот и БД healthy, `halted=true`.\n\n`reply_menu` формирует `is_persistent=False`, `one_time_keyboard=False`, `resize_keyboard=True`. Старая разметка обновляется один раз при следующем открытии меню. При неизменном наборе кнопок повторный /menu и переходы сохраняют действующее сообщение с клавиатурой. Изменения роли или подписи баланса по-прежнему обновляют её.\n\nШтатные обработчики в обычном реж",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16#issuecomment-6802250312",
+          "user": "vankhu21",
+          "body": "Коммит `5601faa0481a52a67e0ada43a8a48f07bd3d1968` добавляет одну отдельную отправку нижней клавиатуры после баннера при `/start`. Если баннер не отправился, клавиатура прикрепляется к текстовому приветствию. Обычный повторный `/menu` и переходы с неизменными кнопками клавиатуру повторно не отправляют. Флаги ручного сворачивания сохранены. Целевой прогон на отдельной PostgreSQL — 33 passed, проверены обычный режим и Admin Edition. Автоматическое раскрытие на Android после этого изменения ожидает ",
+          "review": null
+        }
+      ]
+    },
+    {
+      "pr": 17,
+      "comments": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17#issuecomment-6899378438",
+          "user": "vankhu21",
+          "body": "Изолированная проверка приложением из Docker-образа прошла после ожидания готовности HTTP. Миграции применились, `GET /`, CSS и JS вернули 200, а `GET /api/v1/wallet` без сессии вернул 401. Тестовый процесс и БД остановлены. Версия flowbridge-live-smoke остаётся 5601faa.",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17#issuecomment-6899703811",
+          "user": "vankhu21",
+          "body": "## Приёмка после 6504bd1\n\nКод `0453995e19991e9b9d4f3965dcedeff1cf0a8558`. Действующий flowbridge-live-smoke остаётся на `5601faa0481a52a67e0ada43a8a48f07bd3d1968`; контейнер bot healthy. В действующем Compose нет сервиса Mini App и опубликованного HTTPS, слушатель 443 на машине не обнаружен. Подтверждённого домена и двух живых аккаунтов для приёмки пока нет.\n\n**HTTP, отдельная PostgreSQL, 2 passed.** Аккаунт A видит остаток 1200 / резерв 0 и одну свою работу. Аккаунт B — 0 / 0 и пустой список. О",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17#issuecomment-6899716691",
+          "user": "vankhu21",
+          "body": "Полный регрессионный прогон на SHA `0453995e19991e9b9d4f3965dcedeff1cf0a8558` и отдельной PostgreSQL завершён: **392 passed, 0 failed, 0 skipped**. [Запись приёмки в auditor](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/62feeff2e06ab811e9a9cc31db72587e44cd90f1/MINI_APP_ACCEPTANCE_0453995.md).",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17#issuecomment-6900301622",
+          "user": "vankhu21",
+          "body": "### Интерфейс DarkFlow | Gen и кнопка Telegram\n\nSHA `7ef45c2dc8fb6cc79ceedd46e270297b4bb78c3a`, база `0453995`. **`miniapp/` — основная папка Telegram Mini App DarkFlow | Gen.** В ней `frontend/`, `backend/`, `tests/` и [инструкция](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/7ef45c2dc8fb6cc79ceedd46e270297b4bb78c3a/miniapp/README.md). Общие модули остались в `src/elevenbot/`, миграция 038 — в `migrations/`.\n\nЛокальный контейнер отдаёт страницу, CSS, JS и фирменный PNG. Headless Chrome при ",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17#issuecomment-6900326362",
+          "user": "vankhu21",
+          "body": "Полный прогон на `7ef45c2dc8fb6cc79ceedd46e270297b4bb78c3a` с отдельной PostgreSQL: **393 passed, 0 failed, 0 skipped**. Пересобранный контейнер вернул HTTP 200 для страницы, JavaScript, CSS и баннера. [Итог в auditor](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/a694b82fea6297556ba55656669f81dfdccb7c77/MINI_APP_STRUCTURE_AND_THEMES_7ef45c2.md).",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17#issuecomment-6900358456",
+          "user": "vankhu21",
+          "body": "Следующий шаг по просьбе владельца — запустить Mini App на действующем тестовом стенде `flowbridge-live-smoke`. Возьми актуальный SHA PR, проверь состав Compose и сделай резервную копию БД перед миграциями 037/038. Обнови бот и подключи сервис Mini App в том же Compose-проекте с существующей PostgreSQL и томами. Проверь HTTPS-адрес, настрой `MINIAPP_URL` и кнопку «Приложение» у текущего тестового бота. Проверь health, открытие из Telegram, четыре вкладки, сохранение темы после повторного входа, ",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17#issuecomment-6901065862",
+          "user": "vankhu21",
+          "body": "### Задержки Telegram и восстановление\n\nКоммит `d691d54e0266c3d519d66575555fa45895ef40ac`. На `f69fd5c` зафиксированы семь рестартов и серия TelegramServerError. Старый poll ждал app.handle() до следующего getUpdates, а обработчик держал блокировку чата во время запроса провайдера. Сравнение на одинаковой заглушке штатного CLODEX: `7ef45c2` — провайдер 352 мс, /menu 405 мс; `f69fd5c` — 352 и 404 мс; исправленный путь inbox — 361 и 7 мс. Значит, основная задержка существовала до последних изменен",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17#issuecomment-6901102456",
+          "user": "vankhu21",
+          "body": "Развёртывание проверено на `flowbridge-live-smoke`. SHA `d691d54e0266c3d519d66575555fa45895ef40ac`, образ `sha256:d07fa636709a73a8cd89841a8c62049a457082ad3ef6447afb43749be2f42596`. Перед миграцией создан дамп PostgreSQL. Миграция `039_inbox_unprocessed.sql` применена. Бот и PostgreSQL healthy, heartbeat 6 с, очередь 0, записей RETRY_REVIEW 0. `halted=true`, генерация и платежи выключены.\n\nПолный локальный прогон на отдельной PostgreSQL: **397 passed in 127.62s**. Ручной прогон Telegram и замедле",
+          "review": null
+        }
+      ]
+    },
+    {
+      "pr": 18,
+      "comments": []
+    },
+    {
+      "pr": 19,
+      "comments": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19#issuecomment-6917957969",
+          "user": "Burn2288",
+          "body": "## Independent audit — TASK-PLAN-001 (2026-11-16)\n\n**Verdict: PARTIAL — CHANGES REQUIRED before owner approval/merge.** Audited PR #19 final head `0f9de7ae24741cd5c09ea099eb66f46a88b09fa8`; content/tested commit `6e0b7a63241f2eeb14204ec48f2592b64e908f90` (direct parent). Docs CI at final SHA `43874615233` is successful. This is a planning/doc audit, **not** approval of application functionality, live payments, or the stacked code PRs.\n\n### Confirmed\n- Machine registry has **81 distinct tasks / 2",
+          "review": null
+        },
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19#issuecomment-6918518614",
+          "user": "Burn2288",
+          "body": "## Independent re-audit — TASK-PLAN-001-FIX-01 (2026-11-16)\n\n**Verdict: PASS for the requested planning/documentation corrections at exact SHA `ce97300166b7b14166a9563d6d92897bb7156001`.** This closes independent audit findings HIGH-01 and MEDIUM-01 from [the previous PARTIAL verdict](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19#issuecomment-6917957969), *not* product-live acceptance or permission to merge.\n\n### Verified against source and GitHub\n- PR #19 is still OPEN/DRAFT, base `docs/f",
+          "review": null
+        }
+      ]
+    }
+  ]
+}

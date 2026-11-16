@@ -1,0 +1,7 @@
+# Audit evidence and raw historical blobs must retain exact bytes on all platforms.
+docs/planning/evidence/* -text
+docs/planning/history/*-original.txt -text
+docs/planning/integration/*.json text eol=lf
+docs/planning/PRE_DEVELOPMENT_READINESS.md text eol=lf
+docs/planning/PRE_DEVELOPMENT_READINESS_PREP_REVIEW_01.md text eol=lf
+docs/reference/REUSE_FUNCTIONAL_PLAN.md text eol=lf

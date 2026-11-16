@@ -1,0 +1,151 @@
+[
+  {
+    "pr": 2,
+    "path": "tests/conftest.py",
+    "old_count": 0,
+    "current_count": 0,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_aggregate.py",
+    "old_count": 13,
+    "current_count": 13,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_database_setup.py",
+    "old_count": 7,
+    "current_count": 7,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_demo.py",
+    "old_count": 6,
+    "current_count": 6,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_discovery.py",
+    "old_count": 13,
+    "current_count": 13,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_financial.py",
+    "old_count": 14,
+    "current_count": 14,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_http_stub.py",
+    "old_count": 1,
+    "current_count": 1,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_platega_db.py",
+    "old_count": 6,
+    "current_count": 6,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_platega_unit.py",
+    "old_count": 10,
+    "current_count": 10,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_process_e2e.py",
+    "old_count": 1,
+    "current_count": 1,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_restore.py",
+    "old_count": 1,
+    "current_count": 1,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_runtime_role.py",
+    "old_count": 1,
+    "current_count": 1,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_runtime_service.py",
+    "old_count": 11,
+    "current_count": 11,
+    "missing_names": [
+      "test_private_access_denied_before_registration"
+    ]
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_ubuntu_release.py",
+    "old_count": 8,
+    "current_count": 8,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_ui.py",
+    "old_count": 7,
+    "current_count": 14,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_unit.py",
+    "old_count": 11,
+    "current_count": 11,
+    "missing_names": []
+  },
+  {
+    "pr": 2,
+    "path": "tests/test_worker.py",
+    "old_count": 9,
+    "current_count": 9,
+    "missing_names": []
+  },
+  {
+    "pr": 4,
+    "path": "tests/test_image_recovery.py",
+    "old_count": 1,
+    "current_count": 1,
+    "missing_names": []
+  },
+  {
+    "pr": 6,
+    "path": "tests/test_image_validation.py",
+    "old_count": 11,
+    "current_count": 12,
+    "missing_names": []
+  },
+  {
+    "pr": 7,
+    "path": "tests/test_image_recovery.py",
+    "old_count": 1,
+    "current_count": 1,
+    "missing_names": []
+  },
+  {
+    "pr": 7,
+    "path": "tests/test_image_validation.py",
+    "old_count": 11,
+    "current_count": 12,
+    "missing_names": []
+  }
+]
