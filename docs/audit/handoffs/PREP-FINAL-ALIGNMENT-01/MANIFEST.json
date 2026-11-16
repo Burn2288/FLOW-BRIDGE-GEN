@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "task_id": "PREP-FINAL-ALIGNMENT-01",
+  "developer": "Burn2288",
+  "reviewer": "vankhu21",
+  "contract_ids": [
+    "C-001",
+    "C-002",
+    "C-008",
+    "C-010",
+    "C-011",
+    "C-022",
+    "C-031"
+  ],
+  "base_branch": "work/burn2288/IN-01",
+  "base_sha": "ecc9d0aca4751cd74f7c46548a4f4b967e2f56b6",
+  "head_branch": "work/burn2288/IN-01",
+  "head_sha": "ecc9d0aca4751cd74f7c46548a4f4b967e2f56b6",
+  "main_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+  "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20",
+  "dependent_prs": [],
+  "changed_files": [
+    "docs/planning/PRE_DEVELOPMENT_READINESS.md",
+    "docs/planning/DECISIONS_REQUIRED.md",
+    "docs/planning/integration/INTEGRATION_EXECUTION_PLAN.md",
+    "docs/planning/integration/TEAM_APPROVAL.md",
+    "docs/planning/PARALLEL_WORK_MATRIX.md",
+    "docs/planning/CONTRACT_OWNERSHIP.md",
+    "docs/workplans/burn2288.md",
+    "docs/workplans/vankhu21.md",
+    "docs/audit/handoffs/INDEX.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/SUMMARY.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/EVIDENCE.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/CHANGES.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/REGRESSION.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/BRANCH_SYNC.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/TEST_RESULTS.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/AUDIT_REQUEST.md",
+    "docs/audit/handoffs/PREP-FINAL-ALIGNMENT-01/MANIFEST.json",
+    "docs/planning/PRE_DEVELOPMENT_READINESS_PREP_REVIEW_01.md",
+    "docs/audit/handoffs/PREP-REVIEW-01/MANIFEST.json"
+  ],
+  "migration_files": [],
+  "test_environment": "Windows; documentation only",
+  "test_commands": [
+    "python .github/check_docs.py",
+    "python .github/check_planning.py",
+    "git diff --check"
+  ],
+  "test_results": [
+    {
+      "name": "Prior documentation CI",
+      "type": "documentation",
+      "status": "PASS",
+      "source_sha": "ecc9d0aca4751cd74f7c46548a4f4b967e2f56b6",
+      "passed": null,
+      "failed": 0,
+      "skipped": null,
+      "details": "Run 43906950149 success; new revision CI pending."
+    }
+  ],
+  "ci_run_urls": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43906950149"
+  ],
+  "evidence_paths": [
+    "docs/planning/PRE_DEVELOPMENT_READINESS_PREP_FINAL_ALIGNMENT_01.md"
+  ],
+  "evidence_hashes": {
+    "docs/planning/PRE_DEVELOPMENT_READINESS_PREP_FINAL_ALIGNMENT_01.md": "0500b0015c2c4f33f5b89d2a8f8a5ce5cbbd1b56de0ac00ce633012da37d83a5"
+  },
+  "external_operations": [
+    "Read-only GitHub audits/PR and peer permissions",
+    "Request written acknowledgments on PR #20"
+  ],
+  "known_limitations": [
+    "DEVELOPMENT_NOT_AUTHORIZED / MERGE_NOT_AUTHORIZED",
+    "ACKNOWLEDGMENTS_PENDING and FORMAL_PR_REVIEW_PENDING",
+    "Runtime, PostgreSQL, donor tests NOT_TESTED",
+    "New exact SHA CI pending",
+    "Historical evidence relocated byte-for-byte; original manifest is preserved at source PR #20 SHA 3815642."
+  ],
+  "local_sync_status": "NOT_PERFORMED",
+  "publication_status": "ARCHIVE_PENDING",
+  "ready_for_audit": true
+}

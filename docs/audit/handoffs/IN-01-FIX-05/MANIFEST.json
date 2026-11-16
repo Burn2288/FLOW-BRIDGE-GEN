@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "task_id": "IN-01-FIX-05",
+  "developer": "Burn2288",
+  "reviewer": "vankhu21",
+  "contract_ids": [
+    "C-008",
+    "C-010",
+    "C-011",
+    "C-022",
+    "C-031"
+  ],
+  "base_branch": "work/burn2288/IN-01",
+  "base_sha": "3bd8afcd5c4c884bd662dfc74627550157752032",
+  "head_branch": "work/burn2288/IN-01",
+  "head_sha": "37258f3ab03366d50e70d84dba95f2c4c264ec0e",
+  "main_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+  "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20",
+  "dependent_prs": [],
+  "changed_files": [
+    "docs/audit/handoffs/IN-01-FIX-05/SUMMARY.md",
+    "docs/audit/handoffs/IN-01-FIX-05/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/IN-01-FIX-05/BRANCH_SYNC.md",
+    "docs/audit/handoffs/IN-01-FIX-05/CHANGES.md",
+    "docs/audit/handoffs/IN-01-FIX-05/EVIDENCE.md",
+    "docs/audit/handoffs/IN-01-FIX-05/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/IN-01-FIX-05/REGRESSION.md",
+    "docs/audit/handoffs/IN-01-FIX-05/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/IN-01-FIX-05/TEST_RESULTS.md",
+    "docs/audit/handoffs/IN-01-FIX-05/AUDIT_REQUEST.md",
+    "docs/audit/handoffs/IN-01-FIX-05/MANIFEST.json"
+  ],
+  "migration_files": [],
+  "test_environment": "Windows; documentation only",
+  "test_commands": [
+    "python .github/check_docs.py",
+    "python .github/check_planning.py",
+    "git diff --check"
+  ],
+  "test_results": [
+    {
+      "name": "Documentation CI on previous published package",
+      "type": "documentation",
+      "status": "PASS",
+      "source_sha": "37258f3ab03366d50e70d84dba95f2c4c264ec0e",
+      "passed": null,
+      "failed": 0,
+      "skipped": null,
+      "details": "Run 43903923898 success; subsequent revision requires its own CI."
+    }
+  ],
+  "ci_run_urls": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43903923898"
+  ],
+  "evidence_paths": [
+    "docs/reference/REUSE_FUNCTIONAL_PLAN.md"
+  ],
+  "evidence_hashes": {
+    "docs/reference/REUSE_FUNCTIONAL_PLAN.md": "c8b69bebdce8722937070c912f72fae178e72771dcc4fbca143aa5c96d9fcf08"
+  },
+  "external_operations": [
+    "Read-only GitHub metadata and permission checks"
+  ],
+  "known_limitations": [
+    "PEER_REVIEW_PENDING; REVIEWER_ACCESS_PENDING",
+    "Auditor reads via owner connection; separate GitHub identity not applicable; access not isolated from owner",
+    "Runtime and PostgreSQL NOT_TESTED",
+    "New revision CI pending"
+  ],
+  "local_sync_status": "NOT_PERFORMED",
+  "publication_status": "ARCHIVE_PENDING",
+  "ready_for_audit": true
+}

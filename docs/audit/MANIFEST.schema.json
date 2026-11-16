@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flow-bridge-gen.invalid/schemas/developer-handoff-v1.json",
+  "title": "Developer handoff manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "developer",
+    "reviewer",
+    "contract_ids",
+    "base_branch",
+    "base_sha",
+    "head_branch",
+    "head_sha",
+    "main_sha",
+    "pr_url",
+    "dependent_prs",
+    "changed_files",
+    "migration_files",
+    "test_environment",
+    "test_commands",
+    "test_results",
+    "ci_run_urls",
+    "evidence_paths",
+    "evidence_hashes",
+    "external_operations",
+    "known_limitations",
+    "local_sync_status",
+    "publication_status",
+    "ready_for_audit"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9-]+$"
+    },
+    "developer": {
+      "enum": [
+        "Burn2288",
+        "vankhu21"
+      ]
+    },
+    "reviewer": {
+      "enum": [
+        "Burn2288",
+        "vankhu21"
+      ]
+    },
+    "contract_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^C-(00[1-9]|0[12][0-9]|03[01])$"
+      }
+    },
+    "base_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "head_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "main_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "pr_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^https://github\\.com/Burn2288/FLOW-BRIDGE-GEN/(pull/[0-9]+|actions/runs/[0-9]+|blob/[0-9a-f]{40}/.+|commit/[0-9a-f]{40})$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dependent_prs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^https://github\\.com/Burn2288/FLOW-BRIDGE-GEN/(pull/[0-9]+|actions/runs/[0-9]+|blob/[0-9a-f]{40}/.+|commit/[0-9a-f]{40})$"
+      }
+    },
+    "changed_files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "migration_files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "test_environment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "test_commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "test_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "type",
+          "status",
+          "source_sha",
+          "passed",
+          "failed",
+          "skipped",
+          "details"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "enum": [
+              "documentation",
+              "unit",
+              "integration",
+              "contract",
+              "mock",
+              "live",
+              "physical",
+              "regression"
+            ]
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "PARTIAL",
+              "FAIL",
+              "BLOCKED",
+              "NOT_PROVEN",
+              "NOT_TESTED"
+            ]
+          },
+          "source_sha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "passed": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "failed": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "skipped": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "details": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "ci_run_urls": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^https://github\\.com/Burn2288/FLOW-BRIDGE-GEN/(pull/[0-9]+|actions/runs/[0-9]+|blob/[0-9a-f]{40}/.+|commit/[0-9a-f]{40})$"
+      }
+    },
+    "evidence_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence_hashes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "external_operations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "known_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "local_sync_status": {
+      "enum": [
+        "NOT_PERFORMED",
+        "ACCEPTED_MAIN_ONLY",
+        "FULL_ACCEPTED_SYNC",
+        "BLOCKED"
+      ]
+    },
+    "publication_status": {
+      "enum": [
+        "LOCAL_ONLY",
+        "PUBLISHED_WORK_PR",
+        "ARCHIVE_PENDING",
+        "ARCHIVED"
+      ]
+    },
+    "ready_for_audit": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ready_for_audit": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pr_url": {
+            "type": "string",
+            "pattern": "^https://github\\.com/Burn2288/FLOW-BRIDGE-GEN/(pull/[0-9]+|actions/runs/[0-9]+|blob/[0-9a-f]{40}/.+|commit/[0-9a-f]{40})$"
+          },
+          "ci_run_urls": {
+            "minItems": 1
+          },
+          "publication_status": {
+            "enum": [
+              "PUBLISHED_WORK_PR",
+              "ARCHIVE_PENDING",
+              "ARCHIVED"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

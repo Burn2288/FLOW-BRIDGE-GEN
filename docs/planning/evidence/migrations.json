@@ -1,0 +1,197 @@
+[
+  {
+    "path": "migrations/001_initial.sql",
+    "blob_sha": "f05394f69be9cd1ca8be4d4741a8d94f1606f87a",
+    "sha256": "1bf0fc90cd92457f943bb48420fcf3a0d65e5dcb2356512bcd0935f4f2aa62e0"
+  },
+  {
+    "path": "migrations/002_hardening.sql",
+    "blob_sha": "52f1b66c511b865fb52d608e777cbcf02dbbe591",
+    "sha256": "ece56ab4bb009fe09b1bf10144fe328e333fd872523d8efaf020e741bca9c914"
+  },
+  {
+    "path": "migrations/003_financial_guards.sql",
+    "blob_sha": "c15c3d7dd6dd2955f1f76c47802163d4500a0aa4",
+    "sha256": "d0e58ade7f498979608723f9e054020c1fbf13bdd2dffd49c3470ec4969e115d"
+  },
+  {
+    "path": "migrations/004_provider_evidence.sql",
+    "blob_sha": "ce05200dbe0d6995bf9cad5ed35e732f8fc1194b",
+    "sha256": "ca69e6bb0028e3ccc9b47ad79cbbf90f0c7719033d96756d1591e4f991a39ba9"
+  },
+  {
+    "path": "migrations/005_platega.sql",
+    "blob_sha": "dd37b13cd95b1381eaa9db8209248cd7c7d6eb65",
+    "sha256": "17cb00ca4828dcd792f3cd718af1b1919f32849f59c8dd8854a0ee3d6585cbfc"
+  },
+  {
+    "path": "migrations/006_aggregate_conversations.sql",
+    "blob_sha": "5306f78e9cf55a6c8e34ff4dfc009c60182ff69e",
+    "sha256": "e4bea20c5225aa5a09bbb2ed8e5cec5b73010bc9819013a046561b5f270016e4"
+  },
+  {
+    "path": "migrations/007_delivery_uncertainty.sql",
+    "blob_sha": "6e005838527d0d46470e41d69313259c929e577c",
+    "sha256": "72d8b8251f54d440648010f2e8fa8e441b666a1b39ece579f61127f474071eb8"
+  },
+  {
+    "path": "migrations/008_interaction_pilot.sql",
+    "blob_sha": "966fc8713d086abdecc1adbdd2a07ee217649dc2",
+    "sha256": "9ecce9070b3bc53003f707f0667e13ec060fdc2892ea5ee087c0e223f52b4b44"
+  },
+  {
+    "path": "migrations/009_catalogue_rate_limit.sql",
+    "blob_sha": "1ad25a3d5971f825d8d3f6ef80210fda41827daf",
+    "sha256": "26c5c1c96e19526455569ec7cfcb44c54e3aa916c9c71c2d305299693f2116b5"
+  },
+  {
+    "path": "migrations/010_pilot_credit.sql",
+    "blob_sha": "7be58587e37c0c7dadf8ad6ccec0d9891f9ad686",
+    "sha256": "468b0c3dd2da4640f8e040d9cc992feb4b218a4cfb91d3cb1ddaa5c480776e90"
+  },
+  {
+    "path": "migrations/011_work_library.sql",
+    "blob_sha": "2bda915b4e4f60f5268e4a60e9da986dc9c782f2",
+    "sha256": "834dd149442d8656a66c6a51fbc7e37691b61f9b1e7952d82d61f7562d703500"
+  },
+  {
+    "path": "migrations/012_nano_banana_attempts.sql",
+    "blob_sha": "fe0e56828946ed34fde5141078d161b962f58ab5",
+    "sha256": "efa6480bd809df288b0df50c2a28cea7e08e074fe97f36b4515a95ea07786f41"
+  },
+  {
+    "path": "migrations/013_video_jobs.sql",
+    "blob_sha": "9fb2c2a5e727a4100654df6f414dbf886f947528",
+    "sha256": "62d89beb61f40d2e175e802ecda6809f67eb5e2e03eef75c0c158586d21de4f0"
+  },
+  {
+    "path": "migrations/014_anymodel_image_jobs.sql",
+    "blob_sha": "25ff25dc939eca46e39f14b99b3c9c22530e3b2f",
+    "sha256": "a857eaf284ad1bce2e0ce909ec1ade95a8d5aed7360228e36698ae9d6efb5f06"
+  },
+  {
+    "path": "migrations/015_anymodel_video_jobs.sql",
+    "blob_sha": "a18c5ab0a68079bf0b3a53380b5e5202bddd02e2",
+    "sha256": "950682a3b0c6679fac15689f3a5d09e8a9a75d4ecd09caad87da5d1d201e1df1"
+  },
+  {
+    "path": "migrations/016_anymodel_speech.sql",
+    "blob_sha": "74e1be8002a7b7a93facbcf5d8cb27f8ccf85eac",
+    "sha256": "33f70caa0a38aa3ff553ce5d70897764ac0ae156b5db29e9cca74e10b09c239b"
+  },
+  {
+    "path": "migrations/017_telegram_welcome.sql",
+    "blob_sha": "b2c85d25a98b50326aa4eeded13bbbe07863c02b",
+    "sha256": "3e6decfa8d15d0ceceafd632582f39c78377118a3347aeef8d2f0398e31bfdd2"
+  },
+  {
+    "path": "migrations/018_task_progress.sql",
+    "blob_sha": "fbb1d95979c03898c4b131e0920ed0a64b828484",
+    "sha256": "a64b2ef9ce7ef86b80e0f66aa8c65aeb66d1f0066b57304d83d4bdd056beaf3a"
+  },
+  {
+    "path": "migrations/019_task_pricing.sql",
+    "blob_sha": "62cba8321cabefeffa47b0f48721956d024632d9",
+    "sha256": "9f99b8e5bf9221a729cf87f78a9a77301c7f4bbd1d8869dc5362e2148b76dc3a"
+  },
+  {
+    "path": "migrations/020_admin_edition.sql",
+    "blob_sha": "1a7ff5b7c5a658f0e11b79f2f66fecf51ea6804b",
+    "sha256": "930362e7b16ee35a2e68f84df7d9cd846bbd02ca0a4d9e0d31e8ba34c0ca898f"
+  },
+  {
+    "path": "migrations/021_manual_tariff_units.sql",
+    "blob_sha": "6fab6e1d4483b0f8d6178a120f30e519d7166a33",
+    "sha256": "334bd4fc3bc9cd5adfd21fe48f2c46a6ec058cd4e36b7bb29906167714b993a0"
+  },
+  {
+    "path": "migrations/022_tariff_validity.sql",
+    "blob_sha": "ed94aad20c3f2b710c7995ee2e9ee3df9413ef06",
+    "sha256": "288108a109c91f2592254b9cd5cfb83c12d814d27786d1f18565e68b48bd7ee2"
+  },
+  {
+    "path": "migrations/023_task_dispatch.sql",
+    "blob_sha": "8b23b7477308632bba800d3990ae53c8ace6ef0d",
+    "sha256": "be6d3ce9481698d04eeb15d66b5768eceba4dbecc04c630b9d8b4bece8a7b6f0"
+  },
+  {
+    "path": "migrations/024_approved_models.sql",
+    "blob_sha": "be19fb12d84cefdbf4ce059114d6bb0dcf55c76d",
+    "sha256": "1e1c178220a794a86d76bd74381b3a8b6fccb2d1c8c830fb952e3db0404f983a"
+  },
+  {
+    "path": "migrations/025_scoped_price_rates.sql",
+    "blob_sha": "fb7868ac21d1f0ccac22e1ec51f7c8ae9641b95b",
+    "sha256": "78eb015990396e5c168c69d202f256b09c08aa6b46dfc926478e1f7af4a67a7a"
+  },
+  {
+    "path": "migrations/026_task_wallet.sql",
+    "blob_sha": "54dad6cc81d7d74dabe0516a6f2c02d35759c524",
+    "sha256": "80fa0775947e3b42072f1efc6ae2a506f46ecbaf95b1a46c49e172f21c3b2977"
+  },
+  {
+    "path": "migrations/027_task_refusal.sql",
+    "blob_sha": "1a97611c41a63ecf4a193f01e7c58175b9a93b46",
+    "sha256": "e87c6cbd9a272c0dc787719e1144fd06638efd3f333188a1dab365f50bf2fa7b"
+  },
+  {
+    "path": "migrations/028_telegram_navigation.sql",
+    "blob_sha": "06a34cc6b661a000f7db9bcef46be147bf69c081",
+    "sha256": "6465b3276b7ab9260a7e9be7feed0814988da6d620854c74418ba38236bec427"
+  },
+  {
+    "path": "migrations/029_telegram_broadcasts.sql",
+    "blob_sha": "6f949bac5f27252af68321a73fdd356b147dc9e0",
+    "sha256": "5c22c082f8eed9983a89abc924789318f4a156ffd0b2ca8da166ad582fc9f8c3"
+  },
+  {
+    "path": "migrations/030_system_notifications.sql",
+    "blob_sha": "3f14bddae29f3e62500e44596e01d89f8cdc0ae8",
+    "sha256": "6ee17674c80f91df69b828b2863a910fbda869614ae97de486a7fe63382b3024"
+  },
+  {
+    "path": "migrations/031_broadcast_media.sql",
+    "blob_sha": "f40dd741f2c0721d84836aa2b6d34a7a9a4d4d84",
+    "sha256": "66e018ac2c20fed37ffbda4b07382577cef25219567a1238375d9f877e91e8c7"
+  },
+  {
+    "path": "migrations/032_clodex_music.sql",
+    "blob_sha": "af0f708d1b34409857ccbceca35d4b8ffde79a4e",
+    "sha256": "1bba2cf9c2592669e11683cae8d95cfe3f05f7db541d951476f41f46fe51e0aa"
+  },
+  {
+    "path": "migrations/033_music_providers.sql",
+    "blob_sha": "e2b8ec306c708b884b569372b08fe9f69c347271",
+    "sha256": "6d81c280d2ce349876a1d286b0dcac628ca346dc546cbddcc760f45afe41443b"
+  },
+  {
+    "path": "migrations/034_topups.sql",
+    "blob_sha": "0b1d02bad437049a419a5ed01bf4051080e6aeba",
+    "sha256": "e3aef89447ac25f0ecbcac6b024bacdea667a2d6eec62c9e37de8b8d05325ce7"
+  },
+  {
+    "path": "migrations/035_telegram_panel_slots.sql",
+    "blob_sha": "80d4a1fcd01ccd1be465abcf3c7f42a3f6812005",
+    "sha256": "aaf28c12255843cc0a9d8a2f7381194e1bada51663275dd2bb429832b2ebc262"
+  },
+  {
+    "path": "migrations/036_telegram_keyboard_revision.sql",
+    "blob_sha": "5496ab5b53d3e5b3c0763b9bd858ca26f30ff13d",
+    "sha256": "46c7a9f21e914e6eb101e2c922ada6596a49545987d873e55b60bd5205cc9624"
+  },
+  {
+    "path": "migrations/037_miniapp_sessions.sql",
+    "blob_sha": "6a0d34a670db6e45d30ffd6c4689775a21db0f97",
+    "sha256": "dec4939419991f05cbc008b2fa2b8c9ea3c369300212fbc2eae8914f42fe8e72"
+  },
+  {
+    "path": "migrations/038_miniapp_theme.sql",
+    "blob_sha": "b9940d3e4bc50bd350d995089bec00f4395cd846",
+    "sha256": "dbf245c3d4638e393fffba1ca110f6ee0539374fae27515310a15328da1c1c85"
+  },
+  {
+    "path": "migrations/039_inbox_unprocessed.sql",
+    "blob_sha": "b793dfa5e389ad990c26fff17d300427d7009fea",
+    "sha256": "40c4b0a11ee2befe3eec20e3e023c910a309c9836c296595366cd2c0481b8a26"
+  }
+]
