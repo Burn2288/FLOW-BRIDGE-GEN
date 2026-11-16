@@ -12,9 +12,9 @@
   "base_branch": "main",
   "base_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
   "head_branch": "work/burn2288/IN-01-final-verification",
-  "head_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+  "head_sha": "12de31614eabf43710ae0c2deed195d76fbd8be0",
   "main_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
-  "pr_url": null,
+  "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/21",
   "dependent_prs": [
     "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20"
   ],
@@ -76,11 +76,11 @@
   ],
   "known_limitations": [
     "main lacks documentation checks and Actions workflow; independent PR CI NOT_PROVEN",
-    "PEER_REVIEW_PENDING",
+    "PEER_REVIEW_REQUESTED_PENDING",
     "historical changed semantics and S2 test registry NOT_PROVEN",
     "merged runtime and PostgreSQL NOT_TESTED"
   ],
   "local_sync_status": "NOT_PERFORMED",
-  "publication_status": "LOCAL_ONLY",
+  "publication_status": "PUBLISHED_WORK_PR",
   "ready_for_audit": false
 }
