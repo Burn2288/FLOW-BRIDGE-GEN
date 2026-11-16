@@ -35,3 +35,9 @@
 
 ## Следующий безопасный шаг
 Согласовать документарный PR #18 с владельцем и вторым разработчиком. Отдельно выполнить read-only PROMPT-00: граф PR #1/#8–#17, последовательность приемки и регрессии. Не начинать разработку нового wallet/miniapp/providers поверх пустой main без интеграционной базы. После merge — сверка локального main целиком по CONTRIBUTING.md, с тестами на принятом SHA.
+
+## TASK-PLAN-001 — planning proposal, 2026-11-16
+
+Источник main `98d05504446458252ede2df35e8870b2e1bc63e2`, foundation `37337cc1538e26f91696be366908420d9dbb08d2`, candidate #17 `d691d54e0266c3d519d66575555fa45895ef40ac`, auditor `0ffeea007752b04c0e179229883bf662309e646d`. Fresh GitHub snapshot всех PR/CI и refs: [planning index](planning/README.md). 27 epics / 81 TASK_ID; назначения — предложения, личные ветки не изменены. Существующие ProviderRegistry, TaskLaunch, Wallet/Pricing/Stars/Platega/Admin Edition/Mini App reused. Current candidate CI: 397 passed, не historical body 392. Реальный deployed SHA и full commercial E2E NOT_PROVEN.
+
+Работа documentation only: Draft planning PR в foundation, audit schema/checker/protocol, два worklist и исторические snapshots. Нет application edits/merge/production/paid operations. Отсутствие исходников в первоначальной пустой родительской папке более не блокирует: репозиторий доступен в отдельном clone `source`; ранние handoff-файлы вне этого clone не являются репозиторным baseline. Следующий шаг — независимый аудит TASK-PLAN-001 и owner approval плана, затем NEXT_ACTIONS.

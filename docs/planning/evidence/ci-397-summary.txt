@@ -1,0 +1,8 @@
+GitHub connector: fetch_commit_workflow_runs(d691d54e0266c3d519d66575555fa45895ef40ac)
+Workflow: Isolated acceptance
+Run: https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469582
+Job: 132950793312, conclusion success
+fetch_workflow_job_logs selected non-sensitive result line:
+2026-11-15T20:44:22.3702385Z 397 passed in 128.65s (0:02:08)
+No failed/skipped count in this terminal summary; this is CI PostgreSQL/mock suite, not live proof.
+PR body count 392 is historical and differs from this current run.

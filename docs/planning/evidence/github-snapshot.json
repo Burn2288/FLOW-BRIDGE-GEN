@@ -1,0 +1,596 @@
+{
+  "observed_date": "2026-11-16",
+  "source": "GitHub connector get_pr_info + fetch_commit_workflow_runs; first-page PR-triggered runs only",
+  "prs": [
+    {
+      "number": 1,
+      "title": "Стартовая документация и правила совместной работы",
+      "state": "open",
+      "merged": false,
+      "draft": false,
+      "base": "main",
+      "base_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+      "head": "docs/bootstrap",
+      "head_sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/1"
+    },
+    {
+      "number": 2,
+      "title": "S0: импорт тестового стенда и проверка доставки изображений",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "docs/bootstrap",
+      "base_sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "head": "work/vankhu21/s0-baseline",
+      "head_sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/2"
+    },
+    {
+      "number": 4,
+      "title": "S1-TG-RECOVERY: повторная выдача сохранённого изображения",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/s0-baseline",
+      "base_sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "head": "work/vankhu21/s1-tg-recovery",
+      "head_sha": "c1c3a0f7324d21ab2f6a0763847c548fc9c2b617",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/4"
+    },
+    {
+      "number": 6,
+      "title": "P0: проверка целостности PNG и JPEG до сохранения",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/s0-baseline",
+      "base_sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "head": "work/vankhu21/s1-image-validation",
+      "head_sha": "4ebe400828913c44e56ef725ba679c3879edeede",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/6"
+    },
+    {
+      "number": 7,
+      "title": "P0 smoke: combined image recovery and validation",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/s0-baseline",
+      "base_sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "head": "work/vankhu21/p0-smoke",
+      "head_sha": "c2370afb43825622f819419aac36c8cad0ad4c79",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/7"
+    },
+    {
+      "number": 8,
+      "title": "Интеграция генерации и восстановления изображений",
+      "state": "open",
+      "merged": false,
+      "draft": false,
+      "base": "main",
+      "base_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+      "head": "work/vankhu21/main-image-integration",
+      "head_sha": "eaadb892227e6b731e4cebccb071b23c1b209b3b",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/8"
+    },
+    {
+      "number": 9,
+      "title": "Veo 3.1: текст в видео с подтверждением стоимости",
+      "state": "open",
+      "merged": false,
+      "draft": false,
+      "base": "work/vankhu21/main-image-integration",
+      "base_sha": "eaadb892227e6b731e4cebccb071b23c1b209b3b",
+      "head": "work/vankhu21/veo-video",
+      "head_sha": "b5c1368cf9663bd0be43a1e9c0b65816c51fe61d",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/9"
+    },
+    {
+      "number": 10,
+      "title": "Подключить отдельный тестовый агрегатор AnyModel",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/veo-video",
+      "base_sha": "b5c1368cf9663bd0be43a1e9c0b65816c51fe61d",
+      "head": "work/vankhu21/anymodel-pilot",
+      "head_sha": "eaa1a6fdc6eb19ed61a231ad05c9eb412c0d2496",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/10"
+    },
+    {
+      "number": 11,
+      "title": "Добавить FIBO 2 и разделы AnyModel",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/anymodel-pilot",
+      "base_sha": "eaa1a6fdc6eb19ed61a231ad05c9eb412c0d2496",
+      "head": "work/vankhu21/anymodel-fibo-pilot",
+      "head_sha": "99c091476de23d998a3101bb0e39d199552f8838",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/11"
+    },
+    {
+      "number": 12,
+      "title": "Подключить закрытый видеопилот Grok 1.5 через AnyModel",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/anymodel-fibo-pilot",
+      "base_sha": "99c091476de23d998a3101bb0e39d199552f8838",
+      "head": "work/vankhu21/anymodel-video-pilot",
+      "head_sha": "de4e5f1183ec9ee7b079977fda68f99e02d00dd7",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/12"
+    },
+    {
+      "number": 13,
+      "title": "Add closed AnyModel text-to-speech pilot",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/anymodel-video-pilot",
+      "base_sha": "de4e5f1183ec9ee7b079977fda68f99e02d00dd7",
+      "head": "work/vankhu21/anymodel-tts",
+      "head_sha": "6c82761c5e4c42e1129934884c5b23030df4e090",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/13"
+    },
+    {
+      "number": 14,
+      "title": "Add DarkFlow | Gen Telegram welcome screen",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/anymodel-tts",
+      "base_sha": "6c82761c5e4c42e1129934884c5b23030df4e090",
+      "head": "work/vankhu21/welcome-screen",
+      "head_sha": "742db84eb8663d5a4b7a7e50b2c10825e7b18a87",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/14"
+    },
+    {
+      "number": 15,
+      "title": "Показывать отдельный статус выполнения задач в Telegram",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/welcome-screen",
+      "base_sha": "742db84eb8663d5a4b7a7e50b2c10825e7b18a87",
+      "head": "work/vankhu21/task-progress",
+      "head_sha": "5162e8e58ba91564c7989617567e24a18aa5f3da",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/15"
+    },
+    {
+      "number": 16,
+      "title": "Admin Edition: общая оценка AnyModel и CLODEX, ручные тарифы",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/task-progress",
+      "base_sha": "5162e8e58ba91564c7989617567e24a18aa5f3da",
+      "head": "work/vankhu21/anymodel-pricing",
+      "head_sha": "76a030a5dc32ccf79b9c9a8393f1807d7df9d791",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/16"
+    },
+    {
+      "number": 17,
+      "title": "Mini App на чтение и проверка пополнения с единым конфигом",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "work/vankhu21/anymodel-pricing",
+      "base_sha": "76a030a5dc32ccf79b9c9a8393f1807d7df9d791",
+      "head": "work/vankhu21/miniapp-read",
+      "head_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17"
+    },
+    {
+      "number": 18,
+      "title": "docs: foundation architecture, product UX and extensible contracts v0.1",
+      "state": "open",
+      "merged": false,
+      "draft": true,
+      "base": "docs/bootstrap",
+      "base_sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "head": "docs/foundation-contracts-v1",
+      "head_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/18"
+    }
+  ],
+  "runs": [
+    {
+      "number": 1,
+      "sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "runs": [
+        {
+          "id": 42276337227,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 6,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276337227/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276337227/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "sha": "9568c96769f2936f0be3387f9d772db16793ec44",
+      "runs": [
+        {
+          "id": 42276360594,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 3,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276360594/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276360594/logs",
+          "workflow_id": 409664096
+        },
+        {
+          "id": 42276360715,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 7,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276360715/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42276360715/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "sha": "c1c3a0f7324d21ab2f6a0763847c548fc9c2b617",
+      "runs": [
+        {
+          "id": 42289628774,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 8,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628774/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628774/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42289628798,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 4,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628798/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42289628798/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "sha": "4ebe400828913c44e56ef725ba679c3879edeede",
+      "runs": [
+        {
+          "id": 42295027842,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 6,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42295027842/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42295027842/logs",
+          "workflow_id": 409664096
+        },
+        {
+          "id": 42295027861,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 10,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42295027861/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42295027861/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "sha": "c2370afb43825622f819419aac36c8cad0ad4c79",
+      "runs": [
+        {
+          "id": 42302812394,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 12,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42302812394/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42302812394/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42302812489,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 8,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42302812489/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42302812489/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "sha": "eaadb892227e6b731e4cebccb071b23c1b209b3b",
+      "runs": [
+        {
+          "id": 42309353468,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 13,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353468/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353468/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42309353362,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 9,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353362/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42309353362/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "sha": "b5c1368cf9663bd0be43a1e9c0b65816c51fe61d",
+      "runs": [
+        {
+          "id": 42311728248,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 15,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728248/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728248/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42311728186,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 10,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728186/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42311728186/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "sha": "eaa1a6fdc6eb19ed61a231ad05c9eb412c0d2496",
+      "runs": [
+        {
+          "id": 42375378734,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 11,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42375378734/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42375378734/logs",
+          "workflow_id": 409664096
+        },
+        {
+          "id": 42375378766,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 17,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42375378766/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42375378766/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "sha": "99c091476de23d998a3101bb0e39d199552f8838",
+      "runs": [
+        {
+          "id": 42384930718,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 23,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42384930718/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42384930718/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42384930737,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 14,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42384930737/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42384930737/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 12,
+      "sha": "de4e5f1183ec9ee7b079977fda68f99e02d00dd7",
+      "runs": [
+        {
+          "id": 42387418838,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 25,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42387418838/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42387418838/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42387418804,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 15,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42387418804/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42387418804/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 13,
+      "sha": "6c82761c5e4c42e1129934884c5b23030df4e090",
+      "runs": [
+        {
+          "id": 42407956974,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 27,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956974/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956974/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42407956970,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 16,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956970/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42407956970/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 14,
+      "sha": "742db84eb8663d5a4b7a7e50b2c10825e7b18a87",
+      "runs": [
+        {
+          "id": 42420216674,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 39,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42420216674/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42420216674/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42420216580,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 22,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42420216580/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42420216580/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 15,
+      "sha": "5162e8e58ba91564c7989617567e24a18aa5f3da",
+      "runs": [
+        {
+          "id": 42488799397,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 41,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799397/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799397/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 42488799411,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 23,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799411/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/42488799411/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 16,
+      "sha": "76a030a5dc32ccf79b9c9a8393f1807d7df9d791",
+      "runs": [
+        {
+          "id": 43738760767,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 129,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43738760767/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43738760767/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 43738760752,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 68,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43738760752/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43738760752/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 17,
+      "sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "runs": [
+        {
+          "id": 43759469627,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 138,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469627/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469627/logs",
+          "workflow_id": 409650926
+        },
+        {
+          "id": 43759469582,
+          "name": "Isolated acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 76,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469582/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469582/logs",
+          "workflow_id": 409664096
+        }
+      ]
+    },
+    {
+      "number": 18,
+      "sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "runs": [
+        {
+          "id": 43760707794,
+          "name": "Documentation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 144,
+          "jobs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43760707794/jobs",
+          "logs_url": "https://api.github.com/repos/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43760707794/logs",
+          "workflow_id": 409650926
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+TASK-PLAN-001 documentation proof, 2026-11-16 Europe/Kiev
+Tested published content commit: 6e0b7a63241f2eeb14204ec48f2592b64e908f90
+Base: 37337cc1538e26f91696be366908420d9dbb08d2
+Tree: ba85a4f70ab63c48ec4cb0214bf9d3875157ae8c
+Original local draft commit: cde419e96d643dc1827c6cba8a91ab7a9bbe097b
+Local/published trees matched exactly; all 51 uploaded blob SHA matched local Git blobs.
+Terminal push could not authenticate; GitHub connector created blobs/tree/commit/branch and Draft PR.
+Local draft branch preserved, not reset or rewritten.
+Draft PR: https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19
+Source branch: planning/team-workplans-v1
+Target: docs/foundation-contracts-v1
+
+Local exact published checkout, Python3.12.14, jsonschema4.25.1:
+python .github/check_docs.py
+Checked 65 Markdown files
+python .github/check_planning.py
+Planning: 81 tasks, 27 epics, acyclic DAG, two worklists, 31 contracts
+Evidence: 1 schema-valid packages, required files and hashes checked; 6 invalid fixtures rejected
+Task anchor links checked: 193
+git diff --check: exit0
+Source integrity: 261 task source paths resolve; two original workplans byte-identical to source blobs.
+git diff BASE HEAD -- src miniapp migrations compose.yaml: empty
+
+GitHub Documentation CI for content SHA:
+https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43873943770
+Job133321990145: completed/success
+pip install docs requirements: success
+check_docs.py: success
+check_planning.py: success
+
+Initial pre-publication checks did detect failures: raw historical .md snapshots had context-relative links after relocation; changed to exact-byte .txt provenance attachments with clickable original source refs. New raw evidence CRLF caused diff whitespace failures; normalized new evidence to LF and set exact-byte gitattributes. Corrected source links for RL tasks from code branch to foundation SHA. All final checks above rerun after correction.
+Python WindowsApps alias unavailable; bundled runtime used. Restricted process could not read pip-installed ACL files; schema check ran in approved environment with identical project content. No application defect inferred from tooling environment.
+
+Runtime unit/integration/mock/live/provider/payment/deployment tests of application: NOT_TESTED in this planning task.
+Historical candidate CI397 is read-only source evidence, not a new application run.
+Independent audit and peer review pending; archive bootstrap proposal only, no merge.
+Final artifact SHA and its CI are publication pointers in PR19 and final delivery, distinct from tested content H to avoid self-reference.
