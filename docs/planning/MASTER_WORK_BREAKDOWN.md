@@ -1645,7 +1645,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | TASK_ID | PY-02 |
 | EPIC_ID | PY |
 | Название | Проверить Platega callback/reconcile без Telegram checkout |
-| Описание | Сохранить topups/chargeback/debt; исправлять только подтверждённое; закрыть запрещённый digital checkout |
+| Описание | Проверить создание, callback, reconciliation, атомарный учёт, историю, пресеты и комиссии в рамках утверждённой политики. |
 | Приоритет | P1 |
 | Этап | S7 |
 | Исполнитель | vankhu21 |
@@ -1654,7 +1654,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Контракты | C-008, C-009, C-031; target DESIGN_DRAFT до approval |
 | Текущее состояние | SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN; exact CI baseline в github-snapshot.json, не future test PASS |
 | Существующий код | PR #17, `d691d54e0266c3d519d66575555fa45895ef40ac`; [src/elevenbot/telegram.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/telegram.py); [src/elevenbot/core.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/core.py); [src/elevenbot/topups.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/topups.py); [src/elevenbot/platega.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/platega.py); [src/elevenbot/platega_web.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/platega_web.py) |
-| Требуемые изменения | Сохранить topups/chargeback/debt; исправлять только подтверждённое; закрыть запрещённый digital checkout |
+| Требуемые изменения | Проверить создание, callback, reconciliation, атомарный учёт, историю, пресеты и комиссии в рамках утверждённой политики. |
 | Зависимости | IN-19 |
 | Owner decisions | D-03 |
 | Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
@@ -1705,7 +1705,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | TASK_ID | RF-01 |
 | EPIC_ID | RF |
 | Название | Адаптировать immutable attribution из донора |
-| Описание | Read-only donor 494ab81f: random code, first-registration binding; PostgreSQL canonical user, без SQLite transplant |
+| Описание | Адаптировать привязку приглашённых и коды с проверкой доступа и конкуренции. |
 | Приоритет | P1 |
 | Этап | S7 |
 | Исполнитель | Burn2288 |
@@ -1714,7 +1714,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Контракты | C-010, C-011, C-008; target DESIGN_DRAFT до approval |
 | Текущее состояние | NOT_STARTED; donor SOURCE_PRESENT, FLOW integration NOT_PROVEN; exact CI baseline в github-snapshot.json, не future test PASS |
 | Существующий код | PR #17, `d691d54e0266c3d519d66575555fa45895ef40ac`; [src/elevenbot/core.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/core.py); [src/elevenbot/task_wallet.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/task_wallet.py) |
-| Требуемые изменения | Read-only donor 494ab81f: random code, first-registration binding; PostgreSQL canonical user, без SQLite transplant |
+| Требуемые изменения | Адаптировать привязку приглашённых и коды с проверкой доступа и конкуренции. |
 | Зависимости | AR-01, SL-01 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
 | Допускаемый параллелизм | AD-03 |
@@ -1734,7 +1734,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | TASK_ID | RF-02 |
 | EPIC_ID | RF |
 | Название | Rewards на capture и reversal/debt |
-| Описание | Применить approved versioned reward base после captured successful durable generation; exclude promo/refund, unique event keys |
+| Описание | Адаптировать вознаграждения, откаты и долги согласно утверждённой финансовой политике. |
 | Приоритет | P1 |
 | Этап | S7 |
 | Исполнитель | Burn2288 |
@@ -1743,7 +1743,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Контракты | C-010, C-011, C-008; target DESIGN_DRAFT до approval |
 | Текущее состояние | NOT_STARTED; exact CI baseline в github-snapshot.json, не future test PASS |
 | Существующий код | PR #17, `d691d54e0266c3d519d66575555fa45895ef40ac`; [src/elevenbot/core.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/core.py); [src/elevenbot/task_wallet.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/task_wallet.py) |
-| Требуемые изменения | Применить approved versioned reward base после captured successful durable generation; exclude promo/refund, unique event keys |
+| Требуемые изменения | Адаптировать вознаграждения, откаты и долги согласно утверждённой финансовой политике. |
 | Зависимости | RF-01, WL-01 |
 | Owner decisions | D-07 |
 | Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
@@ -1763,7 +1763,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | TASK_ID | RF-03 |
 | EPIC_ID | RF |
 | Название | Реферальные экраны и API обоих клиентов |
-| Описание | Личная ссылка, invitees, reward history/terms через общий service; только разрешённые данные |
+| Описание | Подключить реферальные интерфейсы обоих клиентов к общему сервису и разрешённой истории. |
 | Приоритет | P1 |
 | Этап | S7 |
 | Исполнитель | vankhu21 |
@@ -1772,7 +1772,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Контракты | C-010, C-011, C-008; target DESIGN_DRAFT до approval |
 | Текущее состояние | NOT_STARTED; exact CI baseline в github-snapshot.json, не future test PASS |
 | Существующий код | PR #17, `d691d54e0266c3d519d66575555fa45895ef40ac`; [src/elevenbot/core.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/core.py); [src/elevenbot/task_wallet.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/task_wallet.py) |
-| Требуемые изменения | Личная ссылка, invitees, reward history/terms через общий service; только разрешённые данные |
+| Требуемые изменения | Подключить реферальные интерфейсы обоих клиентов к общему сервису и разрешённой истории. |
 | Зависимости | RF-02, AP-01 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
 | Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
@@ -1823,7 +1823,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | TASK_ID | SL-02 |
 | EPIC_ID | SL |
 | Название | Общий support ticket и operator workflow |
-| Описание | Поверх help/contact добавить missing ticket query/command/reply/status, owner and role checks |
+| Описание | Адаптировать общий support backend, маршрутизацию ответов и целостность медиагрупп с восстановлением. |
 | Приоритет | P1 |
 | Этап | S6 |
 | Исполнитель | Burn2288 |
@@ -1832,7 +1832,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Контракты | C-001, C-002, C-022, C-030; target DESIGN_DRAFT до approval |
 | Текущее состояние | PARTIAL; help SOURCE_PRESENT, ticket lifecycle NOT_STARTED; exact CI baseline в github-snapshot.json, не future test PASS |
 | Существующий код | PR #17, `d691d54e0266c3d519d66575555fa45895ef40ac`; [src/elevenbot/core.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/core.py); [src/elevenbot/config.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/config.py); [src/elevenbot/telegram.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/telegram.py) |
-| Требуемые изменения | Поверх help/contact добавить missing ticket query/command/reply/status, owner and role checks |
+| Требуемые изменения | Адаптировать общий support backend, маршрутизацию ответов и целостность медиагрупп с восстановлением. |
 | Зависимости | AD-01 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
 | Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
@@ -1852,7 +1852,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | TASK_ID | SL-03 |
 | EPIC_ID | SL |
 | Название | Support/legal/profile в двух клиентах |
-| Описание | Подключить документы, профиль и историю обращений к общему API без второго account store |
+| Описание | Подключить обращения, вложения, статус и историю обоих клиентов к общему backend. |
 | Приоритет | P1 |
 | Этап | S6 |
 | Исполнитель | vankhu21 |
@@ -1861,7 +1861,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Контракты | C-001, C-002, C-022, C-030; target DESIGN_DRAFT до approval |
 | Текущее состояние | SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN; exact CI baseline в github-snapshot.json, не future test PASS |
 | Существующий код | PR #17, `d691d54e0266c3d519d66575555fa45895ef40ac`; [src/elevenbot/core.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/core.py); [src/elevenbot/config.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/config.py); [src/elevenbot/telegram.py](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/d691d54e0266c3d519d66575555fa45895ef40ac/src/elevenbot/telegram.py) |
-| Требуемые изменения | Подключить документы, профиль и историю обращений к общему API без второго account store |
+| Требуемые изменения | Подключить обращения, вложения, статус и историю обоих клиентов к общему backend. |
 | Зависимости | SL-01, SL-02, MA-01 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
 | Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |

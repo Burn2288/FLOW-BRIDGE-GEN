@@ -35,3 +35,7 @@
 ## Граница SOURCE_PRESENT и отсутствие реализации
 
 Mini App: session/catalogue/wallet/settings/works есть; jobs/quotes/payments/referrals/support/admin endpoints отсутствуют в проверенном route table. ProviderRegistry/TaskLaunch/Wallet/Stars/Platega/Admin Edition нельзя ставить на создание с нуля. Реферальный donor — private SHA 494ab81f5552be836a37ec3aa685e6be8308076c: ссылки и абстрактные паттерны, никакой публикации приватных исходников. Chat/text также SOURCE_PRESENT: preserve regression в IN-16/TQ-02, коммерческое расширение за пределами четырёх студий требует отдельного scope decision. Voice cloning/transcription/image-edit — обнаруженные protocol descriptors, не обещанные продаваемые возможности; capability-specific план после owner approval, не скрытая часть release.
+
+## IN-01-FIX-04: функциональный охват
+
+Рефералы RF-01/02/03, платежи PY-02 и поддержка SL-02/03 описаны в [плане адаптации](../reference/REUSE_FUNCTIONAL_PLAN.md). Статусы runtime сохраняются прежними; закрытые доказательства недоступны аудитору до проверки прав.

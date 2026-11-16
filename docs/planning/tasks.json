@@ -1954,7 +1954,7 @@
       "dependencies": [
         "IN-19"
       ],
-      "change": "Сохранить topups/chargeback/debt; исправлять только подтверждённое; закрыть запрещённый digital checkout",
+      "change": "Проверить создание, callback, reconciliation, атомарный учёт, историю, пресеты и комиссии в рамках утверждённой политики.",
       "test": "Auth callback, mismatch, duplicate/out-of-order, create_unknown, restart mid-credit",
       "proof": "Изолированная HTTP/DB failure matrix; отдельный approved sandbox если доступен",
       "acceptance": "Ровно один credit; unknown не повторяется; Platega не обход Stars",
@@ -2033,7 +2033,7 @@
         "AR-01",
         "SL-01"
       ],
-      "change": "Read-only donor 494ab81f: random code, first-registration binding; PostgreSQL canonical user, без SQLite transplant",
+      "change": "Адаптировать привязку приглашённых и коды с проверкой доступа и конкуренции.",
       "test": "Self-referral, repeated /start, code collision, concurrent signup",
       "proof": "DB fixture attribution переживает restart и switch client",
       "acceptance": "Один referrer, чужие профили не раскрыты",
@@ -2071,7 +2071,7 @@
         "RF-01",
         "WL-01"
       ],
-      "change": "Применить approved versioned reward base после captured successful durable generation; exclude promo/refund, unique event keys",
+      "change": "Адаптировать вознаграждения, откаты и долги согласно утверждённой финансовой политике.",
       "test": "Duplicate capture, concurrent refund, spent bonus, version changes",
       "proof": "Ledger/reward invariant trace на PostgreSQL",
       "acceptance": "Один reward; refund компенсирован по approved debt policy",
@@ -2107,7 +2107,7 @@
         "RF-02",
         "AP-01"
       ],
-      "change": "Личная ссылка, invitees, reward history/terms через общий service; только разрешённые данные",
+      "change": "Подключить реферальные интерфейсы обоих клиентов к общему сервису и разрешённой истории.",
       "test": "Cross-user, pagination, empty/reversed/debt states",
       "proof": "Один реферальный сценарий в Telegram и Mini App на синтетических аккаунтах",
       "acceptance": "UI совпадает с ledger; показана версия условий",
@@ -2179,7 +2179,7 @@
       "dependencies": [
         "AD-01"
       ],
-      "change": "Поверх help/contact добавить missing ticket query/command/reply/status, owner and role checks",
+      "change": "Адаптировать общий support backend, маршрутизацию ответов и целостность медиагрупп с восстановлением.",
       "test": "IDOR, attachment bounds, duplicate reply, revoked support role",
       "proof": "Обращение пользователя и ответ оператора с audit ID",
       "acceptance": "Чужой тикет закрыт; support доступен без purchase consent",
@@ -2218,7 +2218,7 @@
         "SL-02",
         "MA-01"
       ],
-      "change": "Подключить документы, профиль и историю обращений к общему API без второго account store",
+      "change": "Подключить обращения, вложения, статус и историю обоих клиентов к общему backend.",
       "test": "Unaccepted user, suspended user, both clients, reply notifications",
       "proof": "Сквозной ticket/response, документы скачаны в клиентах",
       "acceptance": "Один ticket и consent state, понятный канал paysupport",
