@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "task_id": "IN-18-BATCH-01",
+  "developer": "Burn2288",
+  "reviewer": "vankhu21",
+  "contract_ids": [
+    "C-001",
+    "C-002",
+    "C-008",
+    "C-010",
+    "C-011",
+    "C-022",
+    "C-027",
+    "C-031"
+  ],
+  "base_branch": "main",
+  "base_sha": "01ef3ea72e80c24974ce956d661ef336ea2417db",
+  "head_branch": "work/burn2288/IN-18-batch-01",
+  "head_sha": "c9beebfe7906aa4ec75ef0b8b37f5211afa53db8",
+  "main_sha": "01ef3ea72e80c24974ce956d661ef336ea2417db",
+  "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/22",
+  "dependent_prs": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/18",
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19",
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20"
+  ],
+  "changed_files": [
+    "docs/planning/IN_18_BATCH_CANDIDATE.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/SUMMARY.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/CHANGES.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/TEST_RESULTS.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/EVIDENCE.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/REGRESSION.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/BRANCH_SYNC.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/AUDIT_REQUEST.md",
+    "docs/audit/handoffs/IN-18-BATCH-01/MANIFEST.json"
+  ],
+  "migration_files": [],
+  "test_environment": "Windows Python 3.12; GitHub Actions Ubuntu; documentation only",
+  "test_commands": [
+    "python .github/check_docs.py",
+    "python .github/check_planning.py",
+    "python docs/planning/integration/check_pr_graph.py",
+    "git diff --check"
+  ],
+  "test_results": [
+    {
+      "name": "Content documentation CI",
+      "type": "documentation",
+      "status": "PASS",
+      "source_sha": "c9beebfe7906aa4ec75ef0b8b37f5211afa53db8",
+      "passed": null,
+      "failed": 0,
+      "skipped": null,
+      "details": "Documentation Actions 43949831400 success; final artifact CI checked separately."
+    }
+  ],
+  "ci_run_urls": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43949831400"
+  ],
+  "evidence_paths": [
+    "docs/planning/IN_18_BATCH_CANDIDATE.md"
+  ],
+  "evidence_hashes": {
+    "docs/planning/IN_18_BATCH_CANDIDATE.md": "84ab79e040ccaae4cf3d03c8771779aae83c95ac6041e96edcc1e4ecfd0703bd"
+  },
+  "external_operations": [
+    "Read-only GitHub PR, owner decisions, developer review and CI checks"
+  ],
+  "known_limitations": [
+    "Original PR commits are not ancestors of snapshot candidate; owner must decide acceptance route",
+    "D-02–D-10 remain open where not separately decided",
+    "IN-01 PARTIAL; runtime, PostgreSQL and donor tests NOT_TESTED",
+    "Peer review and cross-audit pending; no merge or retarget authorized"
+  ],
+  "local_sync_status": "NOT_PERFORMED",
+  "publication_status": "PUBLISHED_WORK_PR",
+  "ready_for_audit": true
+}
