@@ -11,3 +11,7 @@ Source references неизменны. Public GitHub repository metadata/PR refs/
 - [Base5601faa delta](../../../planning/evidence/5601faa-to-candidate.diffstat.txt): не подмена исходной версии.
 
 Собственный documentation proof: вывод checker на frozen content SHA и успешный Documentation CI опубликованы в TEST_RESULTS/manifest/PR. Проверка публичного Draft PR и package URL — physical proof планировочной задачи. Provider image/Telegram actual display/Ubuntu deployment здесь NOT_TESTED, не заменяются этими evidence.
+
+## Published documentation proof
+
+[Content commit](https://github.com/Burn2288/FLOW-BRIDGE-GEN/commit/6e0b7a63241f2eeb14204ec48f2592b64e908f90), [Draft PR19](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19), [CI](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43873943770), [selected safe validation output](../../../planning/evidence/planning-validation.txt). Local draft и published commit имеют один treeSHA; другой commitSHA обусловлен публикацией через коннектор, не изменением содержимого. Final artifact SHA/CI проверяются по publication pointer в PR19.

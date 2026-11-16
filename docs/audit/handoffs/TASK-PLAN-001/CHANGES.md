@@ -10,3 +10,5 @@ Application source, migrations, provider/payments configuration: изменен�
 - docs/README.md, PROJECT_STATE.md, DECISION_LOG.md: навигация и append-only предложение процесса; исторические записи не удалены.
 
 Контракты C-001…C-031 покрыты задачами/owners, но текст target контрактов не объявлен implemented. Schema аудиторского пакета — отдельный tooling contract v1, не новая бизнес-схема БД. Новых migrations — 0.
+
+Дополнительно `.gitattributes` ограничивает exact-byte правила только audit evidence и historical original .txt; runtime paths не затрагивает. Historical raw snapshots хранятся как .txt, чтобы сохранить исходные relative links без выдачи relocated context за рабочую документацию. `CONTRACT_OWNERSHIP.md` задаёт всех31 interface owners/reviewers; planning-validation.txt содержит фактический output и исправленные initial checker failures.
