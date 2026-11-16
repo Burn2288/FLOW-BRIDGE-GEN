@@ -24,3 +24,7 @@ ProviderRegistry `aggregate.py`, Pricing/model_policy, TaskLaunch/worker, wallet
 Отдельно `git merge-base --is-ancestor` подтвердил, что HEAD каждого раннего PR #2, #4, #6 и #7 является предком HEAD #8. Следовательно, отдельный перенос тех же коммитов не нужен при сохранении этой ancestry; изменённые после них файлы всё ещё требуют semantic review.
 
 Автоматическая сверка имён тестов ранних PR и #17: [historical-test-names.json](historical-test-names.json). Найдено одно отсутствующее прежнее имя: `test_private_access_denied_before_registration` из #2. В #17 есть тест `test_non_admin_in_private_pilot_can_accept_terms_and_open_user_menu` с другим ожидаемым поведением. Это конкретное изменение политики доступа, а не доказанный дефект; его намеренность, совместимость и разрешение на сохранение нового поведения требуют решения владельца и проверки vankhu21. Сравнение имён остальных тестов не доказывает неизменность их тела.
+
+## IN-01-FIX-01 — открытый access gate
+
+[ADR PROPOSED](PRIVATE_PILOT_ACCESS_ADR.md), [матрица сценариев](ACCESS_CONTROL_TEST_MATRIX.md), [semantic review и вопросы vankhu21](SEMANTIC_PRESERVATION_REVIEW.md). Режим private в #17 не доказывает запрет outsider до identity; owner approval и peer review NOT_PROVEN. После утверждения отдельная кодовая задача; этот PR не меняет runtime. До решения не считать поведенческую сохранность или командное согласование подтверждёнными.
