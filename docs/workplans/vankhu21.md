@@ -226,7 +226,7 @@
 
 Использовать PR #17 SHA `d691d54e0266c3d519d66575555fa45895ef40ac`: `src/elevenbot/admin_access.py`, `src/elevenbot/tariff_admin.py`, `src/elevenbot/topup_ui.py`, `src/elevenbot/broadcasts.py`. Состояние: SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN.
 
-Недостающий результат: Инвентаризация команд, scopes, экранов, sessions, broadcasts, тарифов, платежей и deny-тестов PR #16 без редактирования общего кода. Зависимости: IN-01. Решения: общие gates. Параллельно: IN-01, DC-01.
+Недостающий результат: Инвентаризация команд, scopes, экранов, sessions, broadcasts, тарифов, платежей и deny-тестов PR #16 без редактирования общего кода. Зависимости: IN-01. Решения: общие gates. Параллельно: DC-01.
 
 Проверки: Проверить tests и immutable source refs, сопоставить audit findings. Физическое доказательство: Каталог команд с SHA и матрицей прав. Приёмка: Каждая существующая admin-команда имеет регрессию/ограничение.
 
@@ -274,7 +274,7 @@
 
 Использовать PR #17 SHA `d691d54e0266c3d519d66575555fa45895ef40ac`: `src/elevenbot/pricing.py`, `src/elevenbot/tariff_admin.py`, `src/elevenbot/model_policy.py`. Состояние: SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN.
 
-Недостающий результат: Развить tariff_admin через typed admin API; cost estimate отдельно от sale, audit/rollback. Зависимости: PC-01, AD-02. Решения: D-02. Параллельно: AP-02.
+Недостающий результат: Развить tariff_admin через typed admin API; cost estimate отдельно от sale, audit/rollback. Зависимости: PC-01, AD-02. Решения: D-02. Параллельно: только по lock-check.
 
 Проверки: Provider/model overrides, currency mismatch, rollback. Физическое доказательство: Админ preview не тратит кредиты, publish сохраняет старые quotes. Приёмка: Единый расчёт цены в обоих клиентах и отчётах.
 
@@ -334,7 +334,7 @@
 
 Использовать PR #17 SHA `d691d54e0266c3d519d66575555fa45895ef40ac`: `src/elevenbot/anymodel_speech.py`, `src/elevenbot/worker.py`, `src/elevenbot/providers.py`. Состояние: SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN.
 
-Недостающий результат: Формы текста/языка/голоса/параметров через каталог и общий quote. Зависимости: VO-01, AP-03, MC-02. Решения: D-06. Параллельно: OB-02.
+Недостающий результат: Формы текста/языка/голоса/параметров через каталог и общий quote. Зависимости: VO-01, AP-03, MC-02. Решения: D-06. Параллельно: только по lock-check.
 
 Проверки: Границы длины, sample ownership, interrupted delivery. Физическое доказательство: Разрешённая озвучка, воспроизведение/скачивание после restart. Приёмка: Сохранённый audio и проводки совпадают; цены не в UI.
 
@@ -430,7 +430,7 @@
 
 Использовать PR #17 SHA `d691d54e0266c3d519d66575555fa45895ef40ac`: `src/elevenbot/core.py`, `src/elevenbot/config.py`, `src/elevenbot/telegram.py`. Состояние: SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN.
 
-Недостающий результат: Подключить документы, профиль и историю обращений к общему API без второго account store. Зависимости: SL-01, SL-02, MA-01. Решения: общие gates. Параллельно: RF-02.
+Недостающий результат: Подключить документы, профиль и историю обращений к общему API без второго account store. Зависимости: SL-01, SL-02, MA-01. Решения: общие gates. Параллельно: только по lock-check.
 
 Проверки: Unaccepted user, suspended user, both clients, reply notifications. Физическое доказательство: Сквозной ticket/response, документы скачаны в клиентах. Приёмка: Один ticket и consent state, понятный канал paysupport.
 
@@ -478,7 +478,7 @@
 
 Использовать PR #18 SHA `37337cc1538e26f91696be366908420d9dbb08d2`: `docs/acceptance/FOUNDATION_TEST_MATRIX.md`, `docs/operations/DEPLOYMENT.md`. Состояние: SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN.
 
-Недостающий результат: Только отдельно разрешённый pilot: обычный user, Stars, генерация, доставка, library, поддержка/refund. Зависимости: RL-01, TQ-02, OP-03, OB-03. Решения: D-06 D-10. Параллельно: DC-02.
+Недостающий результат: Только отдельно разрешённый pilot: обычный user, Stars, генерация, доставка, library, поддержка/refund. Зависимости: RL-01, TQ-02, OP-03, OB-03. Решения: D-06 D-10. Параллельно: только по lock-check.
 
 Проверки: Android/Desktop и оба канала, outage/restart/no duplicate charge. Физическое доказательство: Реальные обезличенные receipts/файлы/ledger и user-visible record. Приёмка: Независимый аудитор принимает именно pilot scope, не весь будущий каталог.
 

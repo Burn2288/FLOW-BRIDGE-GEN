@@ -111,3 +111,5 @@ flowchart TD
 | [AU-02](MASTER_WORK_BREAKDOWN.md#au-02) | AU-01 | нет дополнительного | C-027, C-028 |
 
 [Владельцы и reviewer всех 31 общих интерфейсов](CONTRACT_OWNERSHIP.md).
+
+FIX-01: `parallel_with` симметрично и запрещено при прямой или транзитивной зависимости и пересечении консервативных областей `paths`. Read-only подготовка не является объявлением параллельного merge. См. [матрицу](PARALLEL_WORK_MATRIX.md).

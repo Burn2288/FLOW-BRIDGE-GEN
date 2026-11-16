@@ -21,6 +21,63 @@ def require(condition, message):
         raise SystemExit(message)
 
 
+def validate_parallel(tasks):
+    """Symmetric independent tasks; paths are conservative potential write scopes.
+
+    No exceptions are supported: a claimed exception never bypasses single-writer.
+    """
+    by_id = {t['task_id']: t for t in tasks}
+    def ancestors(task_id, seen=None):
+        seen = set() if seen is None else seen
+        for dep in by_id[task_id]['dependencies']:
+            if dep not in by_id:
+                raise ValueError('unknown dependency')
+            if dep not in seen:
+                seen.add(dep)
+                ancestors(dep, seen)
+        return seen
+    for a, task in by_id.items():
+        if task.get('parallel_exceptions'):
+            raise ValueError('parallel exceptions unsupported')
+        for b in task['parallel_with']:
+            if b not in by_id:
+                raise ValueError('unknown parallel task')
+            if a == b or a not in by_id[b]['parallel_with']:
+                raise ValueError('asymmetric parallel task')
+            if b in ancestors(a) or a in ancestors(b):
+                raise ValueError('parallel dependency')
+            for x in task['paths']:
+                for y in by_id[b]['paths']:
+                    if x == y or x.startswith(y.rstrip('/') + '/') or y.startswith(x.rstrip('/') + '/'):
+                        raise ValueError('parallel write scope overlap')
+
+
+def test_parallel_validator():
+    def task(i, deps=(), paths=(), peers=(), **extra):
+        return {'task_id': i, 'dependencies': list(deps), 'paths': list(paths),
+                'parallel_with': list(peers), **extra}
+    a = task('A', paths=['a.py'], peers=['B'])
+    b = task('B', paths=['b.py'], peers=['A'])
+    validate_parallel([a, b])
+    validate_parallel([task('A', paths=['a.py']), task('B', deps=['A'], paths=['b.py'])])
+    invalid = [
+        [a, task('B', deps=['A'], paths=['b.py'], peers=['A'])],
+        [a, task('B', deps=['C'], paths=['b.py'], peers=['A']), task('C', deps=['A'])],
+        [a, task('B', paths=['a.py'], peers=['A'])],
+        [task('A', peers=['Z'])],
+        [task('A', paths=['a.py'], peers=['B'], parallel_exceptions=['approved']), b],
+        [a, task('B', paths=['b.py'])],
+        [task('A', paths=['src/'], peers=['B']), task('B', paths=['src/a.py'], peers=['A'])],
+    ]
+    for fixture in invalid:
+        try:
+            validate_parallel(fixture)
+        except ValueError:
+            continue
+        raise AssertionError('invalid parallel fixture accepted')
+    print('Parallel validation: 7 negative fixtures rejected, 2 positive fixtures accepted')
+
+
 def main():
     registry = read(ROOT / 'docs/planning/tasks.json')
     tasks = registry['tasks']
@@ -61,6 +118,9 @@ def main():
         require(f'### {task_id}\n' in master, f'{task_id}: no full card')
         worklist = (ROOT / f'docs/workplans/{task["developer"].lower()}.md').read_text(encoding='utf-8')
         require(f'## {task_id} —' in worklist, f'{task_id}: missing personal worklist')
+
+    validate_parallel(tasks)
+    test_parallel_validator()
 
     schema = read(ROOT / 'docs/audit/MANIFEST.schema.json')
     Draft202012Validator.check_schema(schema)

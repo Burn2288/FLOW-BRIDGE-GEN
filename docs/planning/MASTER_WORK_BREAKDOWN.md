@@ -117,7 +117,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Согласовать #1, #8–#18, supersession #2/#4/#6/#7 и исключение для стэка; проверить diff и checksum миграций, ничего не сливать автоматически |
 | Зависимости | нет; начинается read-only |
 | Owner decisions | D-01 |
-| Допускаемый параллелизм | TA-01 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | merge-base, range-diff, diff --check для каждой ступени |
 | Физическое доказательство | Подписанное решение двух разработчиков, неизменные base/head refs |
@@ -881,7 +881,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Инвентаризация команд, scopes, экранов, sessions, broadcasts, тарифов, платежей и deny-тестов PR #16 без редактирования общего кода |
 | Зависимости | IN-01 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
-| Допускаемый параллелизм | IN-01, DC-01 |
+| Допускаемый параллелизм | DC-01 |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Проверить tests и immutable source refs, сопоставить audit findings |
 | Физическое доказательство | Каталог команд с SHA и матрицей прав |
@@ -1119,7 +1119,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Развить tariff_admin через typed admin API; cost estimate отдельно от sale, audit/rollback |
 | Зависимости | PC-01, AD-02 |
 | Owner decisions | D-02 |
-| Допускаемый параллелизм | AP-02 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Provider/model overrides, currency mismatch, rollback |
 | Физическое доказательство | Админ preview не тратит кредиты, publish сохраняет старые quotes |
@@ -1388,7 +1388,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Формы текста/языка/голоса/параметров через каталог и общий quote |
 | Зависимости | VO-01, AP-03, MC-02 |
 | Owner decisions | D-06 |
-| Допускаемый параллелизм | OB-02 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Границы длины, sample ownership, interrupted delivery |
 | Физическое доказательство | Разрешённая озвучка, воспроизведение/скачивание после restart |
@@ -1746,7 +1746,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Применить approved versioned reward base после captured successful durable generation; exclude promo/refund, unique event keys |
 | Зависимости | RF-01, WL-01 |
 | Owner decisions | D-07 |
-| Допускаемый параллелизм | SL-03 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Duplicate capture, concurrent refund, spent bonus, version changes |
 | Физическое доказательство | Ledger/reward invariant trace на PostgreSQL |
@@ -1864,7 +1864,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Подключить документы, профиль и историю обращений к общему API без второго account store |
 | Зависимости | SL-01, SL-02, MA-01 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
-| Допускаемый параллелизм | RF-02 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Unaccepted user, suspended user, both clients, reply notifications |
 | Физическое доказательство | Сквозной ticket/response, документы скачаны в клиентах |
@@ -2162,7 +2162,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Read models дней/моделей/провайдеров; payments/holds/capture/refund vs estimated costs, queue/uncertain |
 | Зависимости | OB-01, AD-01 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
-| Допускаемый параллелизм | VO-02 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Seeded aggregates, timezone boundaries, unknown cost, variance |
 | Физическое доказательство | Сверка API с ledger fixture и job events |
@@ -2251,7 +2251,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Актуализировать deployment/backup/incident/provider/billing/media/error/API/acceptance, не создавать дубликаты индексов |
 | Зависимости | OP-03, TQ-02 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
-| Допускаемый параллелизм | RL-02 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Команды runbook на чистом стенде, links и schema checks |
 | Физическое доказательство | Другой разработчик воспроизводит запуск и диагностику по docs |
@@ -2311,7 +2311,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | Только отдельно разрешённый pilot: обычный user, Stars, генерация, доставка, library, поддержка/refund |
 | Зависимости | RL-01, TQ-02, OP-03, OB-03 |
 | Owner decisions | D-06 D-10 |
-| Допускаемый параллелизм | DC-02 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Android/Desktop и оба канала, outage/restart/no duplicate charge |
 | Физическое доказательство | Реальные обезличенные receipts/файлы/ledger и user-visible record |
@@ -2400,7 +2400,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Требуемые изменения | POST quotes/jobs через существующий Pricing/TaskLaunch с semantic idempotency, не fake Telegram update IDs |
 | Зависимости | AP-01, AR-02, PC-01 |
 | Owner decisions | Дополнительное policy решение не требуется; общие merge/live gates сохраняются |
-| Допускаемый параллелизм | PC-02 |
+| Допускаемый параллелизм | Только disjoint files после lock-check по PARALLEL_WORK_MATRIX; не blanket разрешение |
 | Результат | Минимальный diff существующих компонентов, профильные проверки и актуальный контракт/runbook; для proof-only — код менять только при подтверждённом дефекте. |
 | Проверка | Same key+changed payload conflict, bot/HTTP race, stale quote, rollback |
 | Физическое доказательство | Одна common transaction reserve+job и один adapter POST |

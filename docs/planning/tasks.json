@@ -32,9 +32,7 @@
       "source_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
       "risk": "Регрессия CONTRIBUTING.md, .github/workflows/docs.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "TA-01"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "IN-02",
@@ -975,7 +973,6 @@
       "risk": "Регрессия src/elevenbot/admin_access.py, src/elevenbot/tariff_admin.py, src/elevenbot/topup_ui.py, src/elevenbot/broadcasts.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
       "parallel_with": [
-        "IN-01",
         "DC-01"
       ]
     },
@@ -1283,9 +1280,7 @@
       "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
       "risk": "Регрессия src/elevenbot/pricing.py, src/elevenbot/tariff_admin.py, src/elevenbot/model_policy.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "AP-02"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "JO-01",
@@ -1634,9 +1629,7 @@
       "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
       "risk": "Регрессия src/elevenbot/anymodel_speech.py, src/elevenbot/worker.py, src/elevenbot/providers.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "OB-02"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "MU-01",
@@ -2100,9 +2093,7 @@
       "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
       "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/task_wallet.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "SL-03"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "RF-03",
@@ -2251,9 +2242,7 @@
       "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
       "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/config.py, src/elevenbot/telegram.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "RF-02"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "SE-01",
@@ -2637,9 +2626,7 @@
       "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
       "risk": "Регрессия src/elevenbot/progress.py, src/elevenbot/pricing.py, src/elevenbot/worker.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "VO-02"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "OB-03",
@@ -2758,9 +2745,7 @@
       "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
       "risk": "Регрессия docs/contracts, docs/architecture, docs/operations, docs/acceptance; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "RL-02"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "RL-01",
@@ -2838,9 +2823,7 @@
       "source_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
       "risk": "Регрессия docs/acceptance/FOUNDATION_TEST_MATRIX.md, docs/operations/DEPLOYMENT.md; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "DC-02"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "RL-03",
@@ -2959,9 +2942,7 @@
       "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
       "risk": "Регрессия miniapp/backend/web.py, src/elevenbot/task_launch.py, src/elevenbot/pricing.py, miniapp/tests/test_miniapp.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
       "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
-      "parallel_with": [
-        "PC-02"
-      ]
+      "parallel_with": []
     },
     {
       "task_id": "AP-03",

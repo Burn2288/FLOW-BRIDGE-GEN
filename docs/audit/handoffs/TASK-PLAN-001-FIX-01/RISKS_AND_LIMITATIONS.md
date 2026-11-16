@@ -1,0 +1,5 @@
+# Limitations
+
+Ожидаются publication, CI точного SHA, peer review и независимая повторная приёмка. Текущий статус — PARTIAL, READY_FOR_AUDIT не заявлен. Старый audit verdict сохраняется.
+
+Вердикт исходного аудита: [PARTIAL](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19#issuecomment-6917957969). Ревизия FIX-01 дополняет историю, не заменяет предыдущий пакет. Независимое решение по FIX-01 ожидается.
