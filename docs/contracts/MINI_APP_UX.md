@@ -48,3 +48,7 @@ Each feature row must have bot route, Mini App route, API endpoint, role, tests 
 
 ## Security and acceptance
 Tampered/expired initData, forged allowlist, URL deep-link /admin, missing consent, stale session, SSRF media URL, cross-user library access, replay form, duplicate click, charge under race are tested. Mini App is NOT accepted merely because /home visually renders: validate physical Telegram launch and E2E user/payment/job paths separately.
+
+## IN-01-FIX-02 — OWNER_APPROVED / IMPLEMENTATION_PENDING / PEER_REVIEW_PENDING
+
+[Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6919575091) утверждает private: admin + отдельный PILOT_TELEGRAM_USER_IDS, outsider denied до создания identity/user/wallet; tester не получает admin rights. Public: обычная регистрация после consent, generation/model/payment gates отдельно. Серверный admission обязателен для Telegram, callbacks, Mini App и HTTP, с проверкой отзыва сессий. Existing jobs, paid events, wallet и reconciliation сохраняются. Код ещё не реализует эту политику, runtime NOT_TESTED. Ревью vankhu21 ожидается. [Отдельное задание](../planning/integration/SEC-PILOT-01.md).

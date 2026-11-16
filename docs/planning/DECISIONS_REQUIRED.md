@@ -22,3 +22,7 @@ CONTRIBUTING сейчас требует work/<login>/<task> от main. Поль
 ## Платёжная граница
 
 На 2026-11-16 повторно проверены [официальные digital payments](https://core.telegram.org/bots/payments-stars) и [Developer Terms](https://telegram.org/tos/bot-developers). Внутри Telegram digital services оплачиваются Stars/XTR. Сохранение existing Platega кода не разрешает показывать такой checkout в этом продукте. Отдельные юридические/налоговые выводы в этой задаче не делаются.
+
+## IN-01-FIX-02 — OWNER_APPROVED / IMPLEMENTATION_PENDING / PEER_REVIEW_PENDING
+
+[Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6919575091) утверждает private: admin + отдельный PILOT_TELEGRAM_USER_IDS, outsider denied до создания identity/user/wallet; tester не получает admin rights. Public: обычная регистрация после consent, generation/model/payment gates отдельно. Серверный admission обязателен для Telegram, callbacks, Mini App и HTTP, с проверкой отзыва сессий. Existing jobs, paid events, wallet и reconciliation сохраняются. Код ещё не реализует эту политику, runtime NOT_TESTED. Ревью vankhu21 ожидается. [Отдельное задание](integration/SEC-PILOT-01.md).

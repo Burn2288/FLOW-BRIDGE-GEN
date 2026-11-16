@@ -67,3 +67,7 @@ Suggested routes: main, studio, studio.catalog, studio.model, studio.prompt, stu
 
 ## Contract tests
 Table-driven routing + Back, ≤5 results/page, page boundaries, 1024 caption limit, UTF-8/HTML escaping, long model names/prompt previews, duplicate callbacks, edit-not-modified, edit errors/fallback no duplicate, multiple devices, consent lock, empty library, active jobs and unknown payment.
+
+## IN-01-FIX-02 — OWNER_APPROVED / IMPLEMENTATION_PENDING / PEER_REVIEW_PENDING
+
+[Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6919575091) утверждает private: admin + отдельный PILOT_TELEGRAM_USER_IDS, outsider denied до создания identity/user/wallet; tester не получает admin rights. Public: обычная регистрация после consent, generation/model/payment gates отдельно. Серверный admission обязателен для Telegram, callbacks, Mini App и HTTP, с проверкой отзыва сессий. Existing jobs, paid events, wallet и reconciliation сохраняются. Код ещё не реализует эту политику, runtime NOT_TESTED. Ревью vankhu21 ожидается. [Отдельное задание](../planning/integration/SEC-PILOT-01.md).

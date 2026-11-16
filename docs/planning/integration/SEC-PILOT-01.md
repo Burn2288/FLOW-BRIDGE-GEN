@@ -1,0 +1,9 @@
+# SEC-PILOT-01 — отдельная будущая реализация
+
+OWNER_APPROVED / IMPLEMENTATION_PENDING / PEER_REVIEW_PENDING. Owner Burn2288; reviewer vankhu21; scope C-001/002/003/008/012/024/026. [Решение](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6919575091), [ADR](PRIVATE_PILOT_ACCESS_ADR.md), [матрица](ACCESS_CONTROL_TEST_MATRIX.md). Отдельное задание после принятия общей кодовой базы и согласования последовательности PR #8–#17; это не разрешение на merge/production.
+
+До изменений: fresh fetch, зафиксировать accepted main и PR #17 candidate SHA, изучить telegram.py, core.py, config.py, admin_access.py, miniapp/backend/web.py, TaskLaunch, topups/Stars и миграции. Согласовать shared-file/migration writer; сохранить авторство vankhu21.
+
+Реализовать единую серверную admission policy: private допускает ADMIN_TELEGRAM_IDS или PILOT_TELEGRAM_USER_IDS, outsider denied до создания identity/user/wallet; tester не admin. Public permits registration/consent; generation, model, payment и wallet checks независимы. Проверять Telegram сообщения/callbacks, Mini App initData и каждый HTTP запрос, включая отозванные сессии. Safe notice/legal/support без регистрации. Существующие данные не удалять. Already authenticated successful payments, completed jobs и reconciliation сохраняются при revoke; никаких повторных платных POST.
+
+Один reviewable PR с кодом/необходимой миграцией, совместимостью конфигурации, тестами и rollback. Unit и PostgreSQL integration: все 13 строк матрицы, concurrent /start, spoofed callback/initData, revocation/restart, unauthorised no identity/wallet/reserve/provider POST, idempotent paid event after revoke, no admin escalation; тесты существующих функций и миграций. Локальная/CI заглушка не доказывает live. Live только по отдельному разрешению. Приёмка: exact SHA CI, peer review, независимый audit, owner-approved merge и whole-clone sync. Сценарии с отсутствующим доступом — BLOCKED/NOT_PROVEN, не PASS.

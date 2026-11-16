@@ -1,6 +1,6 @@
-# ACCESS CONTROL TEST MATRIX — proposed / NOT_TESTED
+# ACCESS CONTROL TEST MATRIX — OWNER_APPROVED / IMPLEMENTATION_PENDING / NOT_TESTED
 
-| Сценарий | Ожидаемое поведение после утверждения ADR | Данные и побочные эффекты |
+| Сценарий | Ожидаемое поведение по утверждённому ADR | Данные и побочные эффекты |
 | --- | --- | --- |
 | Администратор private | допуск до identity; admin только после существующей проверки роли/сессии | создать только один аккаунт/кошелёк |
 | Разрешённый tester private | допуск и обычное меню после consent; admin denied | один кошелёк без admin grants |
@@ -17,3 +17,7 @@
 | Tester без admin прав | обычный end-to-end путь; admin команды и API denied | нет повышения роли; один кошелёк |
 
 Все строки — будущая приёмка, не результаты. Каждый тест включает Telegram, callback или HTTP где применимо, PostgreSQL до/после, fixture provider/payment счётчики, рестарт и повтор. Live user/payment не выполнялись.
+
+## IN-01-FIX-02 — OWNER_APPROVED / IMPLEMENTATION_PENDING / PEER_REVIEW_PENDING
+
+[Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6919575091) утверждает private: admin + отдельный PILOT_TELEGRAM_USER_IDS, outsider denied до создания identity/user/wallet; tester не получает admin rights. Public: обычная регистрация после consent, generation/model/payment gates отдельно. Серверный admission обязателен для Telegram, callbacks, Mini App и HTTP, с проверкой отзыва сессий. Existing jobs, paid events, wallet и reconciliation сохраняются. Код ещё не реализует эту политику, runtime NOT_TESTED. Ревью vankhu21 ожидается. [Отдельное задание](SEC-PILOT-01.md).

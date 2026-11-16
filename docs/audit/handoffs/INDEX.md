@@ -11,3 +11,5 @@
 | IN-01 | Burn2288 / vankhu21 | [MANIFEST](IN-01/MANIFEST.json) | PARTIAL; private-access policy decision pending | ARCHIVE_PENDING | PENDING_CHATGPT |
 
 | IN-01-FIX-01 | Burn2288 / vankhu21 | [MANIFEST](IN-01-FIX-01/MANIFEST.json) | PARTIAL; owner and peer pending | ARCHIVE_PENDING | PENDING_CHATGPT |
+
+| IN-01-FIX-02 | Burn2288 / vankhu21 | [MANIFEST](IN-01-FIX-02/MANIFEST.json) | PARTIAL; review request pending | ARCHIVE_PENDING | PENDING_CHATGPT |
