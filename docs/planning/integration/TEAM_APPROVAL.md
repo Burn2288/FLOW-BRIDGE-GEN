@@ -11,3 +11,7 @@ Burn2288 подготовил предложение. Review/approval vankhu21: 
 ## IN-01-FIX-02 — OWNER_APPROVED / IMPLEMENTATION_PENDING / PEER_REVIEW_PENDING
 
 [Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6919575091) утверждает private: admin + отдельный PILOT_TELEGRAM_USER_IDS, outsider denied до создания identity/user/wallet; tester не получает admin rights. Public: обычная регистрация после consent, generation/model/payment gates отдельно. Серверный admission обязателен для Telegram, callbacks, Mini App и HTTP, с проверкой отзыва сессий. Existing jobs, paid events, wallet и reconciliation сохраняются. Код ещё не реализует эту политику, runtime NOT_TESTED. Ревью vankhu21 ожидается. [Отдельное задание](SEC-PILOT-01.md).
+
+## Запрос peer review FIX-02
+
+[Запрос vankhu21 в GitHub](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6919750191) отправлен; reviewer также указан в PR. Ответ и одобрение пока не получены: PEER_REVIEW_PENDING. Проверяются исторические функции, миграции, #8–#17 и причина изменения private-пилота.

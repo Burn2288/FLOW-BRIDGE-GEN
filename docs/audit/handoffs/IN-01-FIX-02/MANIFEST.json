@@ -15,7 +15,7 @@
   "base_branch": "work/burn2288/IN-01",
   "base_sha": "ee1b19871e85d616db91f54f6bea18e4c921f8d1",
   "head_branch": "work/burn2288/IN-01",
-  "head_sha": "ee1b19871e85d616db91f54f6bea18e4c921f8d1",
+  "head_sha": "6641c5394a94ab0b141efb2d54d60723fb379289",
   "main_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
   "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20",
   "dependent_prs": [
@@ -23,7 +23,32 @@
     "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19"
   ],
   "changed_files": [
-    "docs/planning/integration/PRIVATE_PILOT_ACCESS_ADR.md"
+    "docs/audit/handoffs/IN-01-FIX-02/AUDIT_REQUEST.md",
+    "docs/audit/handoffs/IN-01-FIX-02/BRANCH_SYNC.md",
+    "docs/audit/handoffs/IN-01-FIX-02/CHANGES.md",
+    "docs/audit/handoffs/IN-01-FIX-02/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/IN-01-FIX-02/EVIDENCE.md",
+    "docs/audit/handoffs/IN-01-FIX-02/MANIFEST.json",
+    "docs/audit/handoffs/IN-01-FIX-02/REGRESSION.md",
+    "docs/audit/handoffs/IN-01-FIX-02/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/IN-01-FIX-02/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/IN-01-FIX-02/SUMMARY.md",
+    "docs/audit/handoffs/IN-01-FIX-02/TEST_RESULTS.md",
+    "docs/audit/handoffs/INDEX.md",
+    "docs/contracts/API_FOUNDATION.md",
+    "docs/contracts/IDENTITY_CONSENT.md",
+    "docs/contracts/MINI_APP_UX.md",
+    "docs/contracts/TELEGRAM_UX.md",
+    "docs/planning/DECISIONS_REQUIRED.md",
+    "docs/planning/integration/ACCESS_CONTROL_TEST_MATRIX.md",
+    "docs/planning/integration/CI_AND_REVIEW_GATES.md",
+    "docs/planning/integration/CODE_PRESERVATION_MATRIX.md",
+    "docs/planning/integration/CONFLICT_AND_ROLLBACK_PLAN.md",
+    "docs/planning/integration/INTEGRATION_EXECUTION_PLAN.md",
+    "docs/planning/integration/PRIVATE_PILOT_ACCESS_ADR.md",
+    "docs/planning/integration/SEC-PILOT-01.md",
+    "docs/planning/integration/SEMANTIC_PRESERVATION_REVIEW.md",
+    "docs/planning/integration/TEAM_APPROVAL.md"
   ],
   "migration_files": [],
   "test_environment": "Windows Python 3.12; repository clone; no application runtime",
@@ -35,17 +60,29 @@
   ],
   "test_results": [
     {
-      "name": "Documentation before publication",
+      "name": "Documentation and planning checks",
       "type": "documentation",
+      "status": "PASS",
+      "source_sha": "6641c5394a94ab0b141efb2d54d60723fb379289",
+      "passed": null,
+      "failed": 0,
+      "skipped": 0,
+      "details": "118 Markdown, DAG/schema/review-independent checks, CI 43889473312."
+    },
+    {
+      "name": "Application runtime",
+      "type": "live",
       "status": "NOT_TESTED",
-      "source_sha": "ee1b19871e85d616db91f54f6bea18e4c921f8d1",
+      "source_sha": "6641c5394a94ab0b141efb2d54d60723fb379289",
       "passed": null,
       "failed": null,
       "skipped": null,
-      "details": "CI and published SHA pending."
+      "details": "Documentation only; implementation pending."
     }
   ],
-  "ci_run_urls": [],
+  "ci_run_urls": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43889473312"
+  ],
   "evidence_paths": [
     "docs/planning/integration/github-snapshot.json",
     "docs/planning/integration/historical-test-names.json",
@@ -66,12 +103,12 @@
     "Read-only GitHub metadata, branch and CI inspection; no production or merge"
   ],
   "known_limitations": [
-    "Implementation pending",
-    "vankhu21 review request pending",
-    "Independent audit pending",
+    "PEER_REVIEW_PENDING: https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6919750191",
+    "Implementation pending; runtime NOT_TESTED",
+    "Independent audit pending; IN-01 remains PARTIAL",
     "Archive pending"
   ],
   "local_sync_status": "NOT_PERFORMED",
-  "publication_status": "LOCAL_ONLY",
-  "ready_for_audit": false
+  "publication_status": "ARCHIVE_PENDING",
+  "ready_for_audit": true
 }
