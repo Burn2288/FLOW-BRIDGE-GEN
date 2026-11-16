@@ -32,3 +32,12 @@ These are architectural choices pending approval, not assigned to either develop
 | D-016 | Сохранять Mini App read-mostly как основу, наращивать узкие endpoints вместо второго API | web.py + miniapp tests | PENDING_OWNER |
 
 Следующие документы: [инвентаризация](audit/VANKHU21_IMPLEMENTATION_BASELINE.md), [протокол веток](coordination/BRANCH_INTEGRATION_PROTOCOL.md), [конструктор Codex](codex/PROMPT_FACTORY.md). Ни одна запись PENDING не является разрешением менять рабочий код или проводить реальные платежи.
+
+## TASK-PLAN-001 — proposals, 2026-11-16
+
+- P-001: source-aware task registry и два worklist вместо повторной реализации существующих модулей; owner approval pending. Автор сложных financial компонентов vankhu21 сохраняет их развитие, Burn2288 reviewer/contract owner.
+- P-002: рабочий package docs/audit/handoffs, долгосрочное отображение в audit-artifacts/audit/handoffs; auditor read-only для разработчиков; schema 2020-12 + docs checks; bootstrap archive branch отдельным PR после approval.
+- P-003: immutable tested content SHA отличается от artifact/publication SHA, чтобы manifest не требовал невозможной самоссылки; final PR HEAD checks отдельно.
+- P-004: TASK-PLAN-001 разрешает planning branch от foundation; повторяющиеся branch exceptions только после review. Ни один новый процесс не молча отменяет CONTRIBUTING.
+
+Решения D-01…D-10 плана — открытые owner gates, не approvals старого D-001…D-016. Таблицы исторических решений не удаляются.

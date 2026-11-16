@@ -1,0 +1,18 @@
+[
+  {
+    "owner": "Burn2288",
+    "ref": "origin/dev/burn2288",
+    "sha": "2bb54438ddecdc8b9d5733990ece61e9f602428b",
+    "path": "docs/workplans/burn2288.md",
+    "sha256": "9efcd53f0a5c6e7a63a48cef5fd9a0fdf2dbbe85ffee4757db3e96019072412b",
+    "snapshot": "docs/planning/history/burn2288-original.txt"
+  },
+  {
+    "owner": "vankhu21",
+    "ref": "origin/dev/vankhu21",
+    "sha": "eef68e31838cae3727a7446c0a75e4ffd67154a8",
+    "path": "docs/workplans/vankhu21.md",
+    "sha256": "116f2a3d6bfb0cdaca70340123b3ba74dbe02ba675e6978383c589fab5cc17b3",
+    "snapshot": "docs/planning/history/vankhu21-original.txt"
+  }
+]

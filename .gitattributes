@@ -1,0 +1,3 @@
+# Audit evidence and raw historical blobs must retain exact bytes on all platforms.
+docs/planning/evidence/* -text
+docs/planning/history/*-original.txt -text

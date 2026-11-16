@@ -1,0 +1,3077 @@
+{
+  "version": 1,
+  "status": "PROPOSED_NOT_ASSIGNED_UNTIL_OWNER_APPROVAL",
+  "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+  "tasks": [
+    {
+      "task_id": "IN-01",
+      "epic_id": "IN",
+      "title": "Утвердить порядок интеграции и freeze SHA",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [],
+      "change": "Согласовать #1, #8–#18, supersession #2/#4/#6/#7 и исключение для стэка; проверить diff и checksum миграций, ничего не сливать автоматически",
+      "test": "merge-base, range-diff, diff --check для каждой ступени",
+      "proof": "Подписанное решение двух разработчиков, неизменные base/head refs",
+      "acceptance": "Согласованы владельцы ретаргета и точные SHA; нет потерянных уникальных изменений",
+      "decision": "D-01",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/docs.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 18,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/docs.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "TA-01"
+      ]
+    },
+    {
+      "task_id": "IN-02",
+      "epic_id": "IN",
+      "title": "Принять документационную базу PR #1",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-01"
+      ],
+      "change": "Ревью существующих правил и включение только после согласованного merge",
+      "test": "Документационный CI текущего SHA; правила local sync",
+      "proof": "GitHub review и merge commit после разрешения",
+      "acceptance": "Правила вошли в main; SHA и CI опубликованы",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 1,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/docs.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 1,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/docs.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-08",
+      "epic_id": "IN",
+      "title": "Интегрировать PR #8 и доказать supersession ранних пилотов",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-02"
+      ],
+      "change": "Сохранить исходники/историю #2/#4/#6/#7; убрать только доказанное дублирование интеграции",
+      "test": "Полный PostgreSQL CI; image validation/recovery; 001–012",
+      "proof": "Одобренный diff, дерево миграций, review и merge SHA",
+      "acceptance": "В принятой main есть исходный image slice, уникальные тесты сохранены",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 8,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "eaadb892227e6b731e4cebccb071b23c1b209b3b",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-09",
+      "epic_id": "IN",
+      "title": "Провести отдельную приёмку и интеграцию PR #9: Veo video",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-08"
+      ],
+      "change": "Ретаргет владельцем после предшественника; сохранить историю; пересмотреть только конфликтный delta video.py",
+      "test": "Полный CI на новом SHA + профильные тесты video.py; миграционные checksum",
+      "proof": "Review, новый base/head diff, checks и merge SHA",
+      "acceptance": "Предшественник принят; текущий PR прошёл ревью и CI после ретаргета",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 1,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 9,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "b5c1368cf9663bd0be43a1e9c0b65816c51fe61d",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-10",
+      "epic_id": "IN",
+      "title": "Провести отдельную приёмку и интеграцию PR #10: AnyModel registry",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-09"
+      ],
+      "change": "Ретаргет владельцем после предшественника; сохранить историю; пересмотреть только конфликтный delta anymodel.py",
+      "test": "Полный CI на новом SHA + профильные тесты anymodel.py; миграционные checksum",
+      "proof": "Review, новый base/head diff, checks и merge SHA",
+      "acceptance": "Предшественник принят; текущий PR прошёл ревью и CI после ретаргета",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 1,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 10,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "eaa1a6fdc6eb19ed61a231ad05c9eb412c0d2496",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-11",
+      "epic_id": "IN",
+      "title": "Провести отдельную приёмку и интеграцию PR #11: FIBO async image",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-10"
+      ],
+      "change": "Ретаргет владельцем после предшественника; сохранить историю; пересмотреть только конфликтный delta anymodel_image_jobs.py",
+      "test": "Полный CI на новом SHA + профильные тесты anymodel_image_jobs.py; миграционные checksum",
+      "proof": "Review, новый base/head diff, checks и merge SHA",
+      "acceptance": "Предшественник принят; текущий PR прошёл ревью и CI после ретаргета",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 1,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 11,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "99c091476de23d998a3101bb0e39d199552f8838",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-12",
+      "epic_id": "IN",
+      "title": "Провести отдельную приёмку и интеграцию PR #12: Grok video",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-11"
+      ],
+      "change": "Ретаргет владельцем после предшественника; сохранить историю; пересмотреть только конфликтный delta anymodel_video.py",
+      "test": "Полный CI на новом SHA + профильные тесты anymodel_video.py; миграционные checksum",
+      "proof": "Review, новый base/head diff, checks и merge SHA",
+      "acceptance": "Предшественник принят; текущий PR прошёл ревью и CI после ретаргета",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 1,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 12,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "de4e5f1183ec9ee7b079977fda68f99e02d00dd7",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-13",
+      "epic_id": "IN",
+      "title": "Провести отдельную приёмку и интеграцию PR #13: AnyModel speech",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-12"
+      ],
+      "change": "Ретаргет владельцем после предшественника; сохранить историю; пересмотреть только конфликтный delta anymodel_speech.py",
+      "test": "Полный CI на новом SHA + профильные тесты anymodel_speech.py; миграционные checksum",
+      "proof": "Review, новый base/head diff, checks и merge SHA",
+      "acceptance": "Предшественник принят; текущий PR прошёл ревью и CI после ретаргета",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 1,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 13,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "6c82761c5e4c42e1129934884c5b23030df4e090",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-14",
+      "epic_id": "IN",
+      "title": "Провести отдельную приёмку и интеграцию PR #14: Welcome/navigation",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-13"
+      ],
+      "change": "Ретаргет владельцем после предшественника; сохранить историю; пересмотреть только конфликтный delta telegram.py",
+      "test": "Полный CI на новом SHA + профильные тесты telegram.py; миграционные checksum",
+      "proof": "Review, новый base/head diff, checks и merge SHA",
+      "acceptance": "Предшественник принят; текущий PR прошёл ревью и CI после ретаргета",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 1,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 14,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "742db84eb8663d5a4b7a7e50b2c10825e7b18a87",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-15",
+      "epic_id": "IN",
+      "title": "Провести отдельную приёмку и интеграцию PR #15: Task progress",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-14"
+      ],
+      "change": "Ретаргет владельцем после предшественника; сохранить историю; пересмотреть только конфликтный delta progress.py",
+      "test": "Полный CI на новом SHA + профильные тесты progress.py; миграционные checksum",
+      "proof": "Review, новый base/head diff, checks и merge SHA",
+      "acceptance": "Предшественник принят; текущий PR прошёл ревью и CI после ретаргета",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 1,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 15,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "5162e8e58ba91564c7989617567e24a18aa5f3da",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-16",
+      "epic_id": "IN",
+      "title": "Принять PR #16: финансы, каталог и Telegram Admin",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-15"
+      ],
+      "change": "Разобрать большой накопленный PR по тестовым областям, сохранить авторство; не переписывать Pricing/Wallet/Platega",
+      "test": "Миграции 019–036, admin deny, tariff/hold/refusal/topups/broadcast lock isolation",
+      "proof": "Review каждой области, CI, migration doctor и merge SHA",
+      "acceptance": "Нет миграционных коллизий; финансовые и admin-регрессии текущего SHA опубликованы",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 16,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "76a030a5dc32ccf79b9c9a8393f1807d7df9d791",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-17",
+      "epic_id": "IN",
+      "title": "Принять PR #17: Mini App и новый inbox",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-16"
+      ],
+      "change": "Ретаргет и регрессия Mini App, публичного image policy, inbox/defer; сохранить исправления поздних SHA",
+      "test": "037–039, штатный CLODEX с HTTP fixture, replay/session/IDOR, inbox two-chat",
+      "proof": "Точный CI 397-test baseline + актуальный полный прогон и review",
+      "acceptance": "Новые проверки прошли; старый вывод о sync polling не перенесён без воспроизведения",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-18",
+      "epic_id": "IN",
+      "title": "Согласовать фундамент и план как отдельные docs PR",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-02"
+      ],
+      "change": "Review #18 и TASK-PLAN-001; устранить расхождения единиц, этапов, env-названий через ADR; перенос только после approvals",
+      "test": "Docs CI, ссылки, контрактные ID, DAG и manifest schema",
+      "proof": "Peer review и решение владельца о плане; docs merge SHA",
+      "acceptance": "Назначения согласованы; DESIGN_DRAFT не назван внедрённым контрактом",
+      "decision": "D-01 D-02",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/docs.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 18,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/docs.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IN-19",
+      "epic_id": "IN",
+      "title": "Синхронизировать и запустить целую принятую сборку",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S0",
+      "priority": "P0",
+      "dependencies": [
+        "IN-17",
+        "IN-18"
+      ],
+      "change": "Проверить всю main и код коллеги, обе машины независимо; не переносить незавершённые dev-коммиты в main",
+      "test": "fetch; clean tree; ff-only; HEAD=origin/main; setup/test migrations в изолированной БД",
+      "proof": "Два BRANCH_SYNC с SHA и health всей сборки",
+      "acceptance": "Обе локальные main равны принятому main; недоступная машина честно NOT_PERFORMED",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "CONTRIBUTING.md",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-027"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия CONTRIBUTING.md, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "AR-01",
+      "epic_id": "AR",
+      "title": "Зафиксировать реальные границы модулей и транзакций",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S3",
+      "priority": "P1",
+      "dependencies": [
+        "JO-03"
+      ],
+      "change": "Уточнить MODULAR_SYSTEM по интегрированному коду, определить query/command порты без переноса файлов ради структуры",
+      "test": "Dependency checks, одна транзакция quote+reserve+job",
+      "proof": "Трасса одной команды из Telegram и HTTP с общими user/job/ledger",
+      "acceptance": "Контракт одобрен; нет отдельного wallet или registry",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/task_launch.py",
+        "miniapp/backend/web.py"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-008",
+        "C-012",
+        "C-024",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/task_launch.py, miniapp/backend/web.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "AR-02",
+      "epic_id": "AR",
+      "title": "Изолировать транспортные команды от финансовых деталей",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S3",
+      "priority": "P1",
+      "dependencies": [
+        "AR-01"
+      ],
+      "change": "Вынести только оставшиеся прямые UI-записи через существующие services; совместимость callbacks",
+      "test": "Telegram/HTTP parity и crash на commit boundary",
+      "proof": "Одинаковые persistent эффекты двух клиентов",
+      "acceptance": "UI не управляет провайдерским payload или ledger напрямую",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/task_launch.py",
+        "miniapp/backend/web.py"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-008",
+        "C-012",
+        "C-024",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/task_launch.py, miniapp/backend/web.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "TG-01",
+      "epic_id": "TG",
+      "title": "Перевести главное меню и Back без потери старых маршрутов",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "IN-19"
+      ],
+      "change": "Открыть студию/кабинет/информация, совместимые старые callbacks, edit fallback; referrals/support честно закрыты до API",
+      "test": "Два устройства, duplicate, long labels, edit failure, admin routes",
+      "proof": "Запись Android/Desktop на тестовом боте + route table",
+      "acceptance": "Один актуальный экран, Back сохраняет страницу; legacy маршруты работают",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/navigation.py",
+        "src/elevenbot/progress.py",
+        "tests/test_navigation.py"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-002",
+        "C-004",
+        "C-017"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/telegram.py, src/elevenbot/navigation.py, src/elevenbot/progress.py, tests/test_navigation.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "PR-01",
+        "JO-01"
+      ]
+    },
+    {
+      "task_id": "TG-02",
+      "epic_id": "TG",
+      "title": "Подключить документы и текущий consent к Telegram UX",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "SL-01",
+        "TG-01"
+      ],
+      "change": "Отправлять оба versioned MD как файлы, запретить устаревшее согласие и покупку при сбое доставки",
+      "test": "Missing file, old callback, repeat /start, active paid job",
+      "proof": "Видеопроход принятия и перепринятия версии",
+      "acceptance": "Нет обхода gate, кошелёк и jobs не сбрасываются",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/navigation.py",
+        "src/elevenbot/progress.py",
+        "tests/test_navigation.py"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-002",
+        "C-004",
+        "C-017"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/telegram.py, src/elevenbot/navigation.py, src/elevenbot/progress.py, tests/test_navigation.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "TG-03",
+      "epic_id": "TG",
+      "title": "Личный кабинет и история общего кошелька",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "PY-01",
+        "TG-01"
+      ],
+      "change": "Показать доступный/резерв, профиль, статусы заказов и историю через общий query port",
+      "test": "Pending не зачислен, pagination, два аккаунта",
+      "proof": "Сверка экранов с ledger на тестовых данных",
+      "acceptance": "Баланс и история совпадают с Mini App и сервером",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/navigation.py",
+        "src/elevenbot/progress.py",
+        "tests/test_navigation.py"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-002",
+        "C-004",
+        "C-017"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/telegram.py, src/elevenbot/navigation.py, src/elevenbot/progress.py, tests/test_navigation.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "MA-01",
+      "epic_id": "MA",
+      "title": "Принять существующую Mini App в Telegram по HTTPS",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "IN-19",
+        "OP-01"
+      ],
+      "change": "Сохранить read-mostly MVP, проверить launch c signed initData и fallback reply-keyboard; исправлять только подтверждённое",
+      "test": "Два аккаунта; Android/Desktop; revoke/expiry/theme/catalogue/works",
+      "proof": "Запись реальных WebView и HTTP owner-deny, без raw initData",
+      "acceptance": "Оба клиента видят свой баланс/работы; чужой файл закрыт",
+      "decision": "D-05",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "miniapp/backend/web.py",
+        "miniapp/frontend/app.js",
+        "miniapp/frontend/style.css",
+        "miniapp/tests/test_miniapp.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-005",
+        "C-024"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, miniapp/frontend/app.js, miniapp/frontend/style.css, miniapp/tests/test_miniapp.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "JO-02"
+      ]
+    },
+    {
+      "task_id": "MA-02",
+      "epic_id": "MA",
+      "title": "Форма image quote и явное подтверждение",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "AP-02",
+        "MA-01"
+      ],
+      "change": "Существующий frontend потребляет server schemas и quote; loading/error/expired/insufficient states",
+      "test": "Disabled model, stale quote, double click, mobile keyboard",
+      "proof": "Видео quote→confirm на fixture без оптимистического success",
+      "acceptance": "Цена только с сервера, один semantic request ID на повтор",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "miniapp/backend/web.py",
+        "miniapp/frontend/app.js",
+        "miniapp/frontend/style.css",
+        "miniapp/tests/test_miniapp.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-005",
+        "C-024"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, miniapp/frontend/app.js, miniapp/frontend/style.css, miniapp/tests/test_miniapp.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "MA-03",
+      "epic_id": "MA",
+      "title": "Карточка job и безопасная отмена",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "MA-02",
+        "AP-03",
+        "JO-02"
+      ],
+      "change": "Показывать persisted status/uncertain и cancel только по policy; повтор не делает новый POST",
+      "test": "Reload mid-job, cancel race, expired session",
+      "proof": "Один job виден в Telegram и Mini App после рестарта",
+      "acceptance": "Нет выдуманных процентов и успешной отмены при неизвестном провайдере",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "miniapp/backend/web.py",
+        "miniapp/frontend/app.js",
+        "miniapp/frontend/style.css",
+        "miniapp/tests/test_miniapp.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-005",
+        "C-024"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, miniapp/frontend/app.js, miniapp/frontend/style.css, miniapp/tests/test_miniapp.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "MA-04",
+      "epic_id": "MA",
+      "title": "Довести пользовательский parity и доступность",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S8",
+      "priority": "P1",
+      "dependencies": [
+        "MA-03",
+        "VI-02",
+        "VO-02",
+        "MU-02",
+        "ML-03",
+        "RF-03",
+        "SL-03",
+        "PY-03"
+      ],
+      "change": "Собрать уже готовые экраны, исправить parity gaps, focus/contrast/reduced motion/narrow width",
+      "test": "Feature-by-feature bot/Mini App matrix, Android/Desktop, offline/error",
+      "proof": "Записи полного пути каждого из четырёх типов",
+      "acceptance": "Все обязательные пути представлены; ограничения явно видны",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "miniapp/backend/web.py",
+        "miniapp/frontend/app.js",
+        "miniapp/frontend/style.css",
+        "miniapp/tests/test_miniapp.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-005",
+        "C-024"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, miniapp/frontend/app.js, miniapp/frontend/style.css, miniapp/tests/test_miniapp.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "AD-01",
+      "epic_id": "AD",
+      "title": "Серверные admin roles, chooser и read-only обзор",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "AP-01",
+        "TA-01"
+      ],
+      "change": "Добавить HTTP RBAC через общую identity; согласовать ADMIN_TELEGRAM_IDS alias; не переносить process-local парольную сессию",
+      "test": "Forged role, allowlist/no role, direct /admin, revocation",
+      "proof": "Матрица HTTP deny + разрешённая read-only сессия",
+      "acceptance": "Все admin endpoints default deny независимо от скрытия UI",
+      "decision": "D-04",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "miniapp/backend/web.py",
+        "miniapp/frontend/app.js",
+        "src/elevenbot/admin_access.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-020",
+        "C-021",
+        "C-026"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, miniapp/frontend/app.js, src/elevenbot/admin_access.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "VI-01"
+      ]
+    },
+    {
+      "task_id": "AD-02",
+      "epic_id": "AD",
+      "title": "Одна typed settings-мутация с аудитом и rollback",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "AD-01",
+        "MC-01"
+      ],
+      "change": "Whitelist low-risk visibility setting; preview/version/CAS/confirm/idempotency; без ключей и financial SQL",
+      "test": "Stale version, double confirm, invalid config, role removal",
+      "proof": "Before/after audit и rollback на тестовом сервере",
+      "acceptance": "Изменение атомарно, старое значение восстановимо, аудит неизменяем",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "miniapp/backend/web.py",
+        "miniapp/frontend/app.js",
+        "src/elevenbot/admin_access.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-020",
+        "C-021",
+        "C-026"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, miniapp/frontend/app.js, src/elevenbot/admin_access.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "AD-03",
+      "epic_id": "AD",
+      "title": "Графические admin экраны по общему API",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "AD-02",
+        "OB-02"
+      ],
+      "change": "Добавлять users/jobs/queue/providers/models/pricing/payments/ledger/reports/audit по готовым read/write capabilities",
+      "test": "Permissions per view, no plaintext secrets, dangerous action preview",
+      "proof": "Ручная диагностика job ID без SQL и скринкаст rollback",
+      "acceptance": "Все области имеют рабочий read view; опасные записи только через разрешённые команды",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "miniapp/backend/web.py",
+        "miniapp/frontend/app.js",
+        "src/elevenbot/admin_access.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-020",
+        "C-021",
+        "C-026"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, miniapp/frontend/app.js, src/elevenbot/admin_access.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "RF-01"
+      ]
+    },
+    {
+      "task_id": "TA-01",
+      "epic_id": "TA",
+      "title": "Зафиксировать compatibility inventory Admin Edition",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P1",
+      "dependencies": [
+        "IN-01"
+      ],
+      "change": "Инвентаризация команд, scopes, экранов, sessions, broadcasts, тарифов, платежей и deny-тестов PR #16 без редактирования общего кода",
+      "test": "Проверить tests и immutable source refs, сопоставить audit findings",
+      "proof": "Каталог команд с SHA и матрицей прав",
+      "acceptance": "Каждая существующая admin-команда имеет регрессию/ограничение",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/admin_access.py",
+        "src/elevenbot/tariff_admin.py",
+        "src/elevenbot/topup_ui.py",
+        "src/elevenbot/broadcasts.py"
+      ],
+      "contract_ids": [
+        "C-019",
+        "C-021"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/admin_access.py, src/elevenbot/tariff_admin.py, src/elevenbot/topup_ui.py, src/elevenbot/broadcasts.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "IN-01",
+        "DC-01"
+      ]
+    },
+    {
+      "task_id": "TA-02",
+      "epic_id": "TA",
+      "title": "Сохранить Telegram admin при общих admin services",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "AD-02",
+        "TA-01"
+      ],
+      "change": "Только миграция вызовов settings на общий service; старые команды сохраняются",
+      "test": "Logout/stale button, unauthorized ID, два чата, broadcast lock",
+      "proof": "Telegram admin и Mini App меняют одну настройку с единым audit",
+      "acceptance": "Нет изменения баланса или навигации другого пользователя от admin-действия",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/admin_access.py",
+        "src/elevenbot/tariff_admin.py",
+        "src/elevenbot/topup_ui.py",
+        "src/elevenbot/broadcasts.py"
+      ],
+      "contract_ids": [
+        "C-019",
+        "C-021"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/admin_access.py, src/elevenbot/tariff_admin.py, src/elevenbot/topup_ui.py, src/elevenbot/broadcasts.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "PR-01",
+      "epic_id": "PR",
+      "title": "Расширить existing registry нормализованным manifest",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S4",
+      "priority": "P1",
+      "dependencies": [
+        "AR-01"
+      ],
+      "change": "Ввести schema/version/verified hosts/credential references и normalize sync/async errors поверх ProviderRegistry",
+      "test": "Две adapter-family fixtures, malformed output, NEEDS_ADAPTER",
+      "proof": "Загрузка manifests без изменений Telegram/frontend",
+      "acceptance": "Новый протокол требует reviewed adapter, нет произвольных scripts/URLs",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/aggregate.py",
+        "src/elevenbot/provider_execution.py",
+        "src/elevenbot/fal.py",
+        "tests/test_provider_extensibility.py"
+      ],
+      "contract_ids": [
+        "C-013",
+        "C-014",
+        "C-026",
+        "C-029"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/aggregate.py, src/elevenbot/provider_execution.py, src/elevenbot/fal.py, tests/test_provider_extensibility.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "TG-01"
+      ]
+    },
+    {
+      "task_id": "PR-02",
+      "epic_id": "PR",
+      "title": "Версии, health, staging и rollback провайдера",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S4",
+      "priority": "P1",
+      "dependencies": [
+        "PR-01"
+      ],
+      "change": "Добавить missing health/circuit/budgets/staging, сохранить pinned версии in-flight jobs",
+      "test": "Disable/rollback while polling, key redaction, stale discovery",
+      "proof": "Изолированный отказ одного провайдера при успешном другом",
+      "acceptance": "Отключение не теряет jobs; unknown paid outcome без failover",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/aggregate.py",
+        "src/elevenbot/provider_execution.py",
+        "src/elevenbot/fal.py",
+        "tests/test_provider_extensibility.py"
+      ],
+      "contract_ids": [
+        "C-013",
+        "C-014",
+        "C-026",
+        "C-029"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/aggregate.py, src/elevenbot/provider_execution.py, src/elevenbot/fal.py, tests/test_provider_extensibility.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "PR-03",
+      "epic_id": "PR",
+      "title": "Сверить live capability каждого включаемого адаптера",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S4",
+      "priority": "P1",
+      "dependencies": [
+        "PR-02",
+        "IM-02"
+      ],
+      "change": "Для CLODEX, AnyModel, Fal проверить только утверждённые capability/model протоколы, цены и реальные ответы",
+      "test": "Contract fixtures + отдельные разрешённые live probes",
+      "proof": "Provider request IDs, redacted receipts, валидные сохранённые outputs",
+      "acceptance": "Каждая продаваемая capability имеет свой live proof либо выключена",
+      "decision": "D-06",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/aggregate.py",
+        "src/elevenbot/provider_execution.py",
+        "src/elevenbot/fal.py",
+        "tests/test_provider_extensibility.py"
+      ],
+      "contract_ids": [
+        "C-013",
+        "C-014",
+        "C-026",
+        "C-029"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/aggregate.py, src/elevenbot/provider_execution.py, src/elevenbot/fal.py, tests/test_provider_extensibility.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "MC-01",
+      "epic_id": "MC",
+      "title": "Версионировать модель и capabilities без второго каталога",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S4",
+      "priority": "P1",
+      "dependencies": [
+        "PR-01"
+      ],
+      "change": "Расширить approved_models, входные схемы/лимиты и stage/publish; старые quotes pin версию",
+      "test": "Duplicate external key, disable, stale snapshot, cached recovery",
+      "proof": "Одна модель публикуется и исчезает в обоих клиентах",
+      "acceptance": "Неизвестные параметры запрещены, исторические jobs читаются",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/model_policy.py",
+        "src/elevenbot/discovery.py",
+        "src/elevenbot/aggregate.py"
+      ],
+      "contract_ids": [
+        "C-006",
+        "C-014",
+        "C-015",
+        "C-029"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/model_policy.py, src/elevenbot/discovery.py, src/elevenbot/aggregate.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "MC-02",
+      "epic_id": "MC",
+      "title": "Общие карточки и schema-driven параметры каталога",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "MC-01",
+        "MA-01"
+      ],
+      "change": "Убрать только оставшееся дублирование доступности/параметров из UI; сохранить existing labels",
+      "test": "Price parity, empty/offline provider, pagination и параметры",
+      "proof": "Одна публикация видна в боте/Mini App без хардкода",
+      "acceptance": "UI не показывает недопущенные модели",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/model_policy.py",
+        "src/elevenbot/discovery.py",
+        "src/elevenbot/aggregate.py"
+      ],
+      "contract_ids": [
+        "C-006",
+        "C-014",
+        "C-015",
+        "C-029"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/model_policy.py, src/elevenbot/discovery.py, src/elevenbot/aggregate.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "AP-01"
+      ]
+    },
+    {
+      "task_id": "PC-01",
+      "epic_id": "PC",
+      "title": "Уточнить токены, XTR, RUB и immutable quote",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S1",
+      "priority": "P0",
+      "dependencies": [
+        "IN-19"
+      ],
+      "change": "Сохранить existing Pricing; устранить подтверждённые неоднозначности units/rounding/expiry и maximum variable cost",
+      "test": "Concurrent tariff publish, stale/cross-user quote, bounds/rounding",
+      "proof": "DB quote snapshot до/после смены тарифа",
+      "acceptance": "Старый quote/job не пересчитан; float не определяет списание",
+      "decision": "D-02",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/pricing.py",
+        "src/elevenbot/tariff_admin.py",
+        "src/elevenbot/model_policy.py"
+      ],
+      "contract_ids": [
+        "C-007",
+        "C-008",
+        "C-015"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/pricing.py, src/elevenbot/tariff_admin.py, src/elevenbot/model_policy.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "ML-01"
+      ]
+    },
+    {
+      "task_id": "PC-02",
+      "epic_id": "PC",
+      "title": "Preview и publish versioned тарифов",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "PC-01",
+        "AD-02"
+      ],
+      "change": "Развить tariff_admin через typed admin API; cost estimate отдельно от sale, audit/rollback",
+      "test": "Provider/model overrides, currency mismatch, rollback",
+      "proof": "Админ preview не тратит кредиты, publish сохраняет старые quotes",
+      "acceptance": "Единый расчёт цены в обоих клиентах и отчётах",
+      "decision": "D-02",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/pricing.py",
+        "src/elevenbot/tariff_admin.py",
+        "src/elevenbot/model_policy.py"
+      ],
+      "contract_ids": [
+        "C-007",
+        "C-008",
+        "C-015"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/pricing.py, src/elevenbot/tariff_admin.py, src/elevenbot/model_policy.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "AP-02"
+      ]
+    },
+    {
+      "task_id": "JO-01",
+      "epic_id": "JO",
+      "title": "Доказать topology и закрыть missing lease/fencing",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S2",
+      "priority": "P0",
+      "dependencies": [
+        "IM-02"
+      ],
+      "change": "Сравнить worker/jobs и task_dispatch/pilot loops; добавить только недостающие durable claim/heartbeat/fence/limits",
+      "test": "Kill до POST/после accept/до commit, два workers, stale fence",
+      "proof": "PostgreSQL process-kill trace с одним reserve/capture/provider POST",
+      "acceptance": "Старый worker не завершает новый claim; unknown не повторён",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/task_launch.py",
+        "src/elevenbot/worker.py",
+        "src/elevenbot/inbox.py",
+        "src/elevenbot/__main__.py"
+      ],
+      "contract_ids": [
+        "C-012",
+        "C-018",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/task_launch.py, src/elevenbot/worker.py, src/elevenbot/inbox.py, src/elevenbot/__main__.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "TG-01"
+      ]
+    },
+    {
+      "task_id": "JO-02",
+      "epic_id": "JO",
+      "title": "Bounded queue, fairness, cancellation и shutdown",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S2",
+      "priority": "P0",
+      "dependencies": [
+        "JO-01"
+      ],
+      "change": "Унифицировать resource budgets/backpressure/cancel policy и graceful shutdown без удаления пилотных guard",
+      "test": "10/50/100 users/requests, hot user, cancellation races, shutdown",
+      "proof": "Метрики p95/throughput/queue/DB locks на эмуляторе",
+      "acceptance": "Лимиты соблюдены, нет starving/duplicate charge; live load не заявлен",
+      "decision": "D-09",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/task_launch.py",
+        "src/elevenbot/worker.py",
+        "src/elevenbot/inbox.py",
+        "src/elevenbot/__main__.py"
+      ],
+      "contract_ids": [
+        "C-012",
+        "C-018",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/task_launch.py, src/elevenbot/worker.py, src/elevenbot/inbox.py, src/elevenbot/__main__.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "MA-01"
+      ]
+    },
+    {
+      "task_id": "JO-03",
+      "epic_id": "JO",
+      "title": "Единый job projection и состояния четырёх типов",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S3",
+      "priority": "P1",
+      "dependencies": [
+        "JO-02"
+      ],
+      "change": "Совместимая проекция существующих type tables и recovery, общий stable job_id; без destructive rewrite",
+      "test": "Sync/async/uncertain fixtures по четырём типам, старые IDs",
+      "proof": "Восстановленные исторические jobs видны через единый status query",
+      "acceptance": "State map и event IDs документированы; никаких дублирующих денег",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/task_launch.py",
+        "src/elevenbot/worker.py",
+        "src/elevenbot/inbox.py",
+        "src/elevenbot/__main__.py"
+      ],
+      "contract_ids": [
+        "C-012",
+        "C-018",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/task_launch.py, src/elevenbot/worker.py, src/elevenbot/inbox.py, src/elevenbot/__main__.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IM-01",
+      "epic_id": "IM",
+      "title": "Повторить штатный image путь с ordinary user",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S1",
+      "priority": "P0",
+      "dependencies": [
+        "IN-19",
+        "PC-01"
+      ],
+      "change": "Использовать исправленный public image policy PR #17, один конфиг/DB и настоящий adapter с HTTP fixture; фиксировать дефект только после воспроизведения",
+      "test": "Topup fixture→hold→image→library→restart; duplicates; corrupt media",
+      "proof": "Один provider POST, один settlement и сохранённый checksum; без платных вызовов",
+      "acceptance": "Старый blocker 6504bd1 не объявляется текущим без reproduction",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/interaction.py",
+        "src/elevenbot/anymodel_image_jobs.py",
+        "tests/test_image_validation.py",
+        "tests/test_public_image_topup.py"
+      ],
+      "contract_ids": [
+        "C-007",
+        "C-012",
+        "C-013",
+        "C-016",
+        "C-018"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/interaction.py, src/elevenbot/anymodel_image_jobs.py, tests/test_image_validation.py, tests/test_public_image_topup.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "IM-02",
+      "epic_id": "IM",
+      "title": "Три live изображения и временный отказ",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S1",
+      "priority": "P0",
+      "dependencies": [
+        "IM-01",
+        "ML-01"
+      ],
+      "change": "Контролируемый provider/Telegram прогон с IDs/stages, форматом/сохранением/library/restart; лимиты не повышать вслепую",
+      "test": "Три последовательных успеха; temporary failure; sendPhoto/document по необходимости",
+      "proof": "Job/provider IDs, размеры/checksums, receipt, owner/library и проводки до/после рестарта",
+      "acceptance": "3 success + failure; no double debit; API receipt отдельно от USER_VISIBLE_NOT_PROVEN",
+      "decision": "D-06",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/interaction.py",
+        "src/elevenbot/anymodel_image_jobs.py",
+        "tests/test_image_validation.py",
+        "tests/test_public_image_topup.py"
+      ],
+      "contract_ids": [
+        "C-007",
+        "C-012",
+        "C-013",
+        "C-016",
+        "C-018"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/interaction.py, src/elevenbot/anymodel_image_jobs.py, tests/test_image_validation.py, tests/test_public_image_topup.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "VI-01",
+      "epic_id": "VI",
+      "title": "Согласовать video create/poll и финальный расчёт",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S3",
+      "priority": "P1",
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ],
+      "change": "Расширить существующие Veo/Grok jobs для общего status/cancel/parameters, сохранить provider handles",
+      "test": "Duration/resolution bounds, delayed polling, restart, invalid MP4",
+      "proof": "Async process fixture, one create, valid video checksum",
+      "acceptance": "Нет повторного create при timeout; итоговая цена pinned",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/video.py",
+        "src/elevenbot/anymodel_video.py"
+      ],
+      "contract_ids": [
+        "C-006",
+        "C-012",
+        "C-013",
+        "C-016"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/video.py, src/elevenbot/anymodel_video.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "AD-01"
+      ]
+    },
+    {
+      "task_id": "VI-02",
+      "epic_id": "VI",
+      "title": "Video формы двух клиентов и разрешённая приёмка",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "VI-01",
+        "AP-03",
+        "MC-02"
+      ],
+      "change": "Переиспользовать video forms; подключить Mini App quote/status/library",
+      "test": "Недопустимые параметры/credits, restart, Telegram delivery",
+      "proof": "Один разрешённый live video по продаваемой capability + записи UI",
+      "acceptance": "Video доступно из библиотеки обоих клиентов; live без доступа BLOCKED",
+      "decision": "D-06",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/video.py",
+        "src/elevenbot/anymodel_video.py"
+      ],
+      "contract_ids": [
+        "C-006",
+        "C-012",
+        "C-013",
+        "C-016"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/video.py, src/elevenbot/anymodel_video.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "VO-01",
+      "epic_id": "VO",
+      "title": "Нормализовать существующие TTS голоса и units",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S3",
+      "priority": "P1",
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ],
+      "change": "Свести AnyVoice/Fish/legacy speech в capability schema, UTF-16/language/voice pricing не угадывать",
+      "test": "Surrogates/UTF-16, unavailable tariff/voice, corrupt audio, timeout",
+      "proof": "Shared fixtures и восстановление сохранённого MP3",
+      "acceptance": "Без подтверждённого тарифа продажа закрыта; no double capture",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/anymodel_speech.py",
+        "src/elevenbot/worker.py",
+        "src/elevenbot/providers.py"
+      ],
+      "contract_ids": [
+        "C-006",
+        "C-012",
+        "C-013",
+        "C-016"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/anymodel_speech.py, src/elevenbot/worker.py, src/elevenbot/providers.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "VO-02",
+      "epic_id": "VO",
+      "title": "Voice UI и E2E двух клиентов",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "VO-01",
+        "AP-03",
+        "MC-02"
+      ],
+      "change": "Формы текста/языка/голоса/параметров через каталог и общий quote",
+      "test": "Границы длины, sample ownership, interrupted delivery",
+      "proof": "Разрешённая озвучка, воспроизведение/скачивание после restart",
+      "acceptance": "Сохранённый audio и проводки совпадают; цены не в UI",
+      "decision": "D-06",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/anymodel_speech.py",
+        "src/elevenbot/worker.py",
+        "src/elevenbot/providers.py"
+      ],
+      "contract_ids": [
+        "C-006",
+        "C-012",
+        "C-013",
+        "C-016"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/anymodel_speech.py, src/elevenbot/worker.py, src/elevenbot/providers.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "OB-02"
+      ]
+    },
+    {
+      "task_id": "MU-01",
+      "epic_id": "MU",
+      "title": "Свести CLODEX/Fal music в общий lifecycle",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S4",
+      "priority": "P1",
+      "dependencies": [
+        "JO-03",
+        "PR-01"
+      ],
+      "change": "Сохранить Leonardo/Lyria pilots, lyrics/duration/output multiplicity, licensing metadata; AnyModel music не выдумывать",
+      "test": "Async handles, n>1 partial output, malformed audio, unknown cost",
+      "proof": "Fixture MP3s/checksums/settlement, approved model specs",
+      "acceptance": "Один общий job с явной partial policy и pricing cap",
+      "decision": "D-02 D-08",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/clodex_music.py",
+        "src/elevenbot/fal.py"
+      ],
+      "contract_ids": [
+        "C-006",
+        "C-012",
+        "C-013",
+        "C-016"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/clodex_music.py, src/elevenbot/fal.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "ML-03"
+      ]
+    },
+    {
+      "task_id": "MU-02",
+      "epic_id": "MU",
+      "title": "Music UI, library и разрешённый live proof",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "MU-01",
+        "AP-03",
+        "MC-02"
+      ],
+      "change": "Song/music формы и типизированная выдача в обоих клиентах",
+      "test": "Lyrics bounds, unavailable model, multiple outputs, resend",
+      "proof": "Разрешённый реальный output каждой включённой music capability",
+      "acceptance": "Лицензия и ограничения показаны; нет продаж непроверенных возможностей",
+      "decision": "D-06 D-08",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/clodex_music.py",
+        "src/elevenbot/fal.py"
+      ],
+      "contract_ids": [
+        "C-006",
+        "C-012",
+        "C-013",
+        "C-016"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/clodex_music.py, src/elevenbot/fal.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "ML-01",
+      "epic_id": "ML",
+      "title": "Доказать сохранность image и восстановление доставки",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S1",
+      "priority": "P0",
+      "dependencies": [
+        "IN-19"
+      ],
+      "change": "Воспроизвести notify_attempts<3 на текущем коде; различить явный Telegram отказ и ambiguous send; bounded recovery и manual redelivery без regeneration",
+      "test": "Три отказа sendPhoto, restart, sendDocument fallback, retry cap, cross-user",
+      "proof": "Тот же image checksum из БД после restart, provider count=1",
+      "acceptance": "Файл доступен в library; известный отказ восстанавливаем, неизвестная доставка не спамит",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/storage.py",
+        "src/elevenbot/anymodel_image_jobs.py",
+        "miniapp/backend/web.py"
+      ],
+      "contract_ids": [
+        "C-016",
+        "C-017",
+        "C-018",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/storage.py, src/elevenbot/anymodel_image_jobs.py, miniapp/backend/web.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "PC-01"
+      ]
+    },
+    {
+      "task_id": "ML-02",
+      "epic_id": "ML",
+      "title": "Общий LibraryItem для всех сохранённых типов",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S3",
+      "priority": "P1",
+      "dependencies": [
+        "JO-03",
+        "ML-01"
+      ],
+      "change": "Проекция старых media tables, validation/checksum/final price/owner; не удалять bytes",
+      "test": "Corrupt/missing asset, storage failure, ownership, multiasset",
+      "proof": "Backup/restore сверка media bytes и metadata",
+      "acceptance": "SUCCEEDED не возникает без durable owned assets",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/storage.py",
+        "src/elevenbot/anymodel_image_jobs.py",
+        "miniapp/backend/web.py"
+      ],
+      "contract_ids": [
+        "C-016",
+        "C-017",
+        "C-018",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/storage.py, src/elevenbot/anymodel_image_jobs.py, miniapp/backend/web.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "ML-03",
+      "epic_id": "ML",
+      "title": "Пять строк Telegram и карточки Mini App",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "ML-02",
+        "MA-01"
+      ],
+      "change": "В боте preview prompt + final price, ≤5/page; Mini App detail/download/resend/new quote",
+      "test": "Long escaping, page bounds, historical price, resend no POST",
+      "proof": "Одна работа открывается из обоих клиентов после restart",
+      "acceptance": "Re-delivery не генерирует и не списывает; create similar явно новый quote",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/storage.py",
+        "src/elevenbot/anymodel_image_jobs.py",
+        "miniapp/backend/web.py"
+      ],
+      "contract_ids": [
+        "C-016",
+        "C-017",
+        "C-018",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/storage.py, src/elevenbot/anymodel_image_jobs.py, miniapp/backend/web.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "MU-01"
+      ]
+    },
+    {
+      "task_id": "WL-01",
+      "epic_id": "WL",
+      "title": "Проверить атомарный reserve/capture/release/refund",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S7",
+      "priority": "P0",
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ],
+      "change": "Сохранить existing task_wallet, добавить только доказанно missing constraints/compensation; один migration writer",
+      "test": "20 concurrent reserve, double completion, crash before/after commit, unknown provider",
+      "proof": "PostgreSQL transaction race trace и ledger reconciliation",
+      "acceptance": "Баланс/резерв корректны, уникальный effect, нет release при unknown",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/task_wallet.py",
+        "src/elevenbot/core.py",
+        "migrations/026_task_wallet.sql",
+        "migrations/034_topups.sql"
+      ],
+      "contract_ids": [
+        "C-008",
+        "C-011",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/task_wallet.py, src/elevenbot/core.py, migrations/026_task_wallet.sql, migrations/034_topups.sql; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "WL-02",
+      "epic_id": "WL",
+      "title": "Сверка ledger и контролируемые корректировки",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "WL-01",
+        "PY-02"
+      ],
+      "change": "Согласовать projection/double-entry target ADR; reconciliation jobs/holds/payments/debt, audited correction",
+      "test": "Mismatch detection, partial refund, spent credit, repeated reconciliation",
+      "proof": "Созданное в fixture расхождение обнаружено и исправлено компенсирующей записью",
+      "acceptance": "Нет direct balance editing, отчёт различает факты/оценки",
+      "decision": "D-02 D-03",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/task_wallet.py",
+        "src/elevenbot/core.py",
+        "migrations/026_task_wallet.sql",
+        "migrations/034_topups.sql"
+      ],
+      "contract_ids": [
+        "C-008",
+        "C-011",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/task_wallet.py, src/elevenbot/core.py, migrations/026_task_wallet.sql, migrations/034_topups.sql; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "PY-01",
+      "epic_id": "PY",
+      "title": "Проверить existing Stars checkout на одном конфиге",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S1",
+      "priority": "P0",
+      "dependencies": [
+        "IN-19",
+        "PC-01"
+      ],
+      "change": "Объединить существующие XTR invoice/precheckout/payment/refund с common wallet; не создавать отдельный платёжный сервис",
+      "test": "Duplicate successful_payment, wrong XTR/amount/charge/user, fixture topup→ordinary image",
+      "proof": "Один credit и один image capture на неизменном конфиге",
+      "acceptance": "Invoice и redirect не зачисляют; Stars digital flow включаем только по policy",
+      "decision": "D-02",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/core.py",
+        "src/elevenbot/topups.py",
+        "src/elevenbot/platega.py",
+        "src/elevenbot/platega_web.py"
+      ],
+      "contract_ids": [
+        "C-008",
+        "C-009",
+        "C-031"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/telegram.py, src/elevenbot/core.py, src/elevenbot/topups.py, src/elevenbot/platega.py, src/elevenbot/platega_web.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "PY-02",
+      "epic_id": "PY",
+      "title": "Проверить Platega callback/reconcile без Telegram checkout",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "IN-19"
+      ],
+      "change": "Сохранить topups/chargeback/debt; исправлять только подтверждённое; закрыть запрещённый digital checkout",
+      "test": "Auth callback, mismatch, duplicate/out-of-order, create_unknown, restart mid-credit",
+      "proof": "Изолированная HTTP/DB failure matrix; отдельный approved sandbox если доступен",
+      "acceptance": "Ровно один credit; unknown не повторяется; Platega не обход Stars",
+      "decision": "D-03",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/core.py",
+        "src/elevenbot/topups.py",
+        "src/elevenbot/platega.py",
+        "src/elevenbot/platega_web.py"
+      ],
+      "contract_ids": [
+        "C-008",
+        "C-009",
+        "C-031"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/telegram.py, src/elevenbot/core.py, src/elevenbot/topups.py, src/elevenbot/platega.py, src/elevenbot/platega_web.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "PY-03",
+      "epic_id": "PY",
+      "title": "Mini App Stars и payment history",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "AP-01",
+        "PY-01",
+        "MA-01"
+      ],
+      "change": "Существующий checkout через API и Telegram invoice UI, pending/verify/history/paysupport",
+      "test": "Cancelled invoice, duplicate event, stale session, generation race",
+      "proof": "Telegram Stars test environment + Mini App→bot same wallet",
+      "acceptance": "Одна серверно подтверждённая проводка; real funds только отдельно",
+      "decision": "D-06",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/core.py",
+        "src/elevenbot/topups.py",
+        "src/elevenbot/platega.py",
+        "src/elevenbot/platega_web.py"
+      ],
+      "contract_ids": [
+        "C-008",
+        "C-009",
+        "C-031"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/telegram.py, src/elevenbot/core.py, src/elevenbot/topups.py, src/elevenbot/platega.py, src/elevenbot/platega_web.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "RF-01",
+      "epic_id": "RF",
+      "title": "Адаптировать immutable attribution из донора",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "AR-01",
+        "SL-01"
+      ],
+      "change": "Read-only donor 494ab81f: random code, first-registration binding; PostgreSQL canonical user, без SQLite transplant",
+      "test": "Self-referral, repeated /start, code collision, concurrent signup",
+      "proof": "DB fixture attribution переживает restart и switch client",
+      "acceptance": "Один referrer, чужие профили не раскрыты",
+      "decision": "",
+      "state": "NOT_STARTED; donor SOURCE_PRESENT, FLOW integration NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/task_wallet.py"
+      ],
+      "contract_ids": [
+        "C-010",
+        "C-011",
+        "C-008"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/task_wallet.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "AD-03"
+      ]
+    },
+    {
+      "task_id": "RF-02",
+      "epic_id": "RF",
+      "title": "Rewards на capture и reversal/debt",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "RF-01",
+        "WL-01"
+      ],
+      "change": "Применить approved versioned reward base после captured successful durable generation; exclude promo/refund, unique event keys",
+      "test": "Duplicate capture, concurrent refund, spent bonus, version changes",
+      "proof": "Ledger/reward invariant trace на PostgreSQL",
+      "acceptance": "Один reward; refund компенсирован по approved debt policy",
+      "decision": "D-07",
+      "state": "NOT_STARTED",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/task_wallet.py"
+      ],
+      "contract_ids": [
+        "C-010",
+        "C-011",
+        "C-008"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/task_wallet.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "SL-03"
+      ]
+    },
+    {
+      "task_id": "RF-03",
+      "epic_id": "RF",
+      "title": "Реферальные экраны и API обоих клиентов",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "RF-02",
+        "AP-01"
+      ],
+      "change": "Личная ссылка, invitees, reward history/terms через общий service; только разрешённые данные",
+      "test": "Cross-user, pagination, empty/reversed/debt states",
+      "proof": "Один реферальный сценарий в Telegram и Mini App на синтетических аккаунтах",
+      "acceptance": "UI совпадает с ledger; показана версия условий",
+      "decision": "",
+      "state": "NOT_STARTED",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/task_wallet.py"
+      ],
+      "contract_ids": [
+        "C-010",
+        "C-011",
+        "C-008"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/task_wallet.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "SL-01",
+      "epic_id": "SL",
+      "title": "Общее versioned consent и юридические MD",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "AR-01"
+      ],
+      "change": "Расширить существующий accepted_at immutable версиями/hash, общая проверка обоих клиентов",
+      "test": "Stale version, concurrent accept, failed document delivery, preserve history",
+      "proof": "Реальная повторная авторизация при новой версии в тестовом окружении",
+      "acceptance": "Нет покупки со старым consent; юридический текст утверждён отдельно",
+      "decision": "D-08",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/config.py",
+        "src/elevenbot/telegram.py"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-002",
+        "C-022",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/config.py, src/elevenbot/telegram.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "SL-02",
+      "epic_id": "SL",
+      "title": "Общий support ticket и operator workflow",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "AD-01"
+      ],
+      "change": "Поверх help/contact добавить missing ticket query/command/reply/status, owner and role checks",
+      "test": "IDOR, attachment bounds, duplicate reply, revoked support role",
+      "proof": "Обращение пользователя и ответ оператора с audit ID",
+      "acceptance": "Чужой тикет закрыт; support доступен без purchase consent",
+      "decision": "",
+      "state": "PARTIAL; help SOURCE_PRESENT, ticket lifecycle NOT_STARTED",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/config.py",
+        "src/elevenbot/telegram.py"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-002",
+        "C-022",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/config.py, src/elevenbot/telegram.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "SL-03",
+      "epic_id": "SL",
+      "title": "Support/legal/profile в двух клиентах",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "SL-01",
+        "SL-02",
+        "MA-01"
+      ],
+      "change": "Подключить документы, профиль и историю обращений к общему API без второго account store",
+      "test": "Unaccepted user, suspended user, both clients, reply notifications",
+      "proof": "Сквозной ticket/response, документы скачаны в клиентах",
+      "acceptance": "Один ticket и consent state, понятный канал paysupport",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/config.py",
+        "src/elevenbot/telegram.py"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-002",
+        "C-022",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/core.py, src/elevenbot/config.py, src/elevenbot/telegram.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "RF-02"
+      ]
+    },
+    {
+      "task_id": "SE-01",
+      "epic_id": "SE",
+      "title": "Threat model и security boundary suite",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "AR-01",
+        "AD-01"
+      ],
+      "change": "Актуальная data-flow threat model: initData/session, RBAC, media SSRF/redirect/DNS, callbacks, resource budgets",
+      "test": "Replay, IDOR, forged admin, DNS rebinding, oversized/decompression, unsafe paths",
+      "proof": "Reproducible negative HTTP/DB probes с безопасными логами",
+      "acceptance": "Каждой threat assigned mitigation/test; критичные findings закрыты или блокируют release",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "src/elevenbot/interaction.py",
+        "src/elevenbot/admin_access.py",
+        "miniapp/backend/web.py",
+        ".dockerignore"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-020",
+        "C-026",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/interaction.py, src/elevenbot/admin_access.py, miniapp/backend/web.py, .dockerignore; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "SE-02",
+      "epic_id": "SE",
+      "title": "Безопасные экспорт, логи и retention",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "SE-01",
+        "ML-02"
+      ],
+      "change": "Проверить архивирование allowlist, secret redaction, safe errors, legal hold/deletion по утверждённой policy",
+      "test": "Синтетический canary secret в исключённом файле, archive listing, log scans, retention hold",
+      "proof": "Созданный безопасный тестовый архив не содержит canary; paid bytes не удалены раньше срока",
+      "acceptance": "Никаких raw private logs или env в публичных artifacts; restore описан",
+      "decision": "D-08",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/interaction.py",
+        "src/elevenbot/admin_access.py",
+        "miniapp/backend/web.py",
+        ".dockerignore"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-020",
+        "C-026",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/interaction.py, src/elevenbot/admin_access.py, miniapp/backend/web.py, .dockerignore; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "SE-03",
+      "epic_id": "SE",
+      "title": "Независимая regression security двух клиентов",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "SE-02",
+        "AD-03",
+        "MA-03"
+      ],
+      "change": "Проверить реальные HTTP/UI denies и command boundaries, не ограничиваться статическим сканером",
+      "test": "Two-user roles, revoke, stale session, forged price, upload abuse",
+      "proof": "Записи отрицательных сценариев + серверные evidence IDs",
+      "acceptance": "Нет обхода API через прямой URL/старую кнопку",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/interaction.py",
+        "src/elevenbot/admin_access.py",
+        "miniapp/backend/web.py",
+        ".dockerignore"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-020",
+        "C-026",
+        "C-030"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/interaction.py, src/elevenbot/admin_access.py, miniapp/backend/web.py, .dockerignore; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "OP-02"
+      ]
+    },
+    {
+      "task_id": "TQ-01",
+      "epic_id": "TQ",
+      "title": "Закрепить CI profile и fixtures для интегрированной базы",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S0",
+      "priority": "P1",
+      "dependencies": [
+        "IN-19"
+      ],
+      "change": "Сохранить suite vankhu21, разделить unit/DB/contract/mock/live, записывать skips и checksum миграций",
+      "test": "Python 3.12, PostgreSQL16, ffmpeg, полный acceptance + docs",
+      "proof": "Actions exact SHA и sanitized JUnit summary",
+      "acceptance": "Нет скрытых skipped/infrastructure failures; mocks не называются live",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "tests",
+        "miniapp/tests/test_miniapp.py",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-012",
+        "C-013",
+        "C-024",
+        "C-027"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия tests, miniapp/tests/test_miniapp.py, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "TQ-02",
+      "epic_id": "TQ",
+      "title": "Сквозная parity/regression matrix четырёх студий",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S8",
+      "priority": "P1",
+      "dependencies": [
+        "MA-04",
+        "TA-02",
+        "WL-02",
+        "SE-03"
+      ],
+      "change": "Собрать уже существующие fixtures и live evidence в трассируемую acceptance matrix; воспроизводить только missing",
+      "test": "Happy/failure/uncertain/restart/resend для каждого включённого типа",
+      "proof": "Ссылки test ID→contract→SHA→UI/provider evidence",
+      "acceptance": "Обязательные сценарии покрыты; непроверенные capability выключены",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "tests",
+        "miniapp/tests/test_miniapp.py",
+        ".github/workflows/test.yml"
+      ],
+      "contract_ids": [
+        "C-012",
+        "C-013",
+        "C-024",
+        "C-027"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия tests, miniapp/tests/test_miniapp.py, .github/workflows/test.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "OP-01",
+      "epic_id": "OP",
+      "title": "Подготовить закрытый HTTPS test endpoint Mini App",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "IN-19"
+      ],
+      "change": "Разрешённый DNS/reverse proxy/TLS к тестовому Mini App, health и same DB; без production rollout",
+      "test": "Public HTTPS reachability, cert, unauthorized API 401, health",
+      "proof": "Доступ с телефона вне LAN и build SHA в test environment",
+      "acceptance": "Выделенный тестовый бот и два аккаунта готовы; ключи вне artifacts",
+      "decision": "D-05",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "compose.yaml",
+        "compose.miniapp.yaml",
+        "deploy/ubuntu/backup.sh",
+        "deploy/ubuntu/install.sh",
+        "scripts"
+      ],
+      "contract_ids": [
+        "C-027",
+        "C-026"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия compose.yaml, compose.miniapp.yaml, deploy/ubuntu/backup.sh, deploy/ubuntu/install.sh, scripts; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "OP-02",
+      "epic_id": "OP",
+      "title": "Проверить миграции и полный backup/restore",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S7",
+      "priority": "P1",
+      "dependencies": [
+        "ML-02",
+        "WL-01"
+      ],
+      "change": "Развить existing Ubuntu scripts; media+DB+catalogue, runtime least privilege, RPO/RTO измерить",
+      "test": "Upgrade копии 036→039+new, checksum doctor, restore isolated DB/volumes",
+      "proof": "Восстановленные owner records, bytes hashes и ledger totals",
+      "acceptance": "Restore работает, destructive downgrade не выдуман; measured RPO/RTO",
+      "decision": "D-09",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "compose.yaml",
+        "compose.miniapp.yaml",
+        "deploy/ubuntu/backup.sh",
+        "deploy/ubuntu/install.sh",
+        "scripts"
+      ],
+      "contract_ids": [
+        "C-027",
+        "C-026"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия compose.yaml, compose.miniapp.yaml, deploy/ubuntu/backup.sh, deploy/ubuntu/install.sh, scripts; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "SE-03"
+      ]
+    },
+    {
+      "task_id": "OP-03",
+      "epic_id": "OP",
+      "title": "Принять Ubuntu release candidate и shutdown",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S8",
+      "priority": "P1",
+      "dependencies": [
+        "OP-02",
+        "JO-02",
+        "SE-02"
+      ],
+      "change": "Существующая Docker/systemd поставка, independent worker topology, reproducible build metadata",
+      "test": "Clean Ubuntu amd64, health/readiness, restart, bounded queue, migration failure",
+      "proof": "Версии ОС/images/Python/PostgreSQL и полный health trace",
+      "acceptance": "Восстановление и rollback приложения доказаны без потери данных",
+      "decision": "D-09",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "compose.yaml",
+        "compose.miniapp.yaml",
+        "deploy/ubuntu/backup.sh",
+        "deploy/ubuntu/install.sh",
+        "scripts"
+      ],
+      "contract_ids": [
+        "C-027",
+        "C-026"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия compose.yaml, compose.miniapp.yaml, deploy/ubuntu/backup.sh, deploy/ubuntu/install.sh, scripts; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "OB-01",
+      "epic_id": "OB",
+      "title": "Единая safe timeline job и provider request",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S3",
+      "priority": "P1",
+      "dependencies": [
+        "JO-03"
+      ],
+      "change": "Дополнить existing trace_interaction correlation/events/stages, bounded metrics без prompt/key",
+      "test": "Ошибки provider/media/store/delivery, IDs through restart",
+      "proof": "По одному job ID видны все этапы с latency/error class",
+      "acceptance": "API success и user-visible evidence различимы, лог без секретов",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/progress.py",
+        "src/elevenbot/pricing.py",
+        "src/elevenbot/worker.py"
+      ],
+      "contract_ids": [
+        "C-023",
+        "C-028"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/progress.py, src/elevenbot/pricing.py, src/elevenbot/worker.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "OB-02",
+      "epic_id": "OB",
+      "title": "Операционный и финансовый read API",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "OB-01",
+        "AD-01"
+      ],
+      "change": "Read models дней/моделей/провайдеров; payments/holds/capture/refund vs estimated costs, queue/uncertain",
+      "test": "Seeded aggregates, timezone boundaries, unknown cost, variance",
+      "proof": "Сверка API с ledger fixture и job events",
+      "acceptance": "Расчётная маржа не выдаётся за фактическую; operator видит причину",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/progress.py",
+        "src/elevenbot/pricing.py",
+        "src/elevenbot/worker.py"
+      ],
+      "contract_ids": [
+        "C-023",
+        "C-028"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/progress.py, src/elevenbot/pricing.py, src/elevenbot/worker.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "VO-02"
+      ]
+    },
+    {
+      "task_id": "OB-03",
+      "epic_id": "OB",
+      "title": "Dashboard отчётов и управляемые incident alerts",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S6",
+      "priority": "P1",
+      "dependencies": [
+        "OB-02",
+        "AD-03"
+      ],
+      "change": "UI reports/export и opt-in admin alerts с thresholds/dedup/cooldown; доступ к данным по role",
+      "test": "Provider outage, stale queue, repeated alert, export redaction",
+      "proof": "Инъекция тестового инцидента и одно адресное уведомление",
+      "acceptance": "Финансы/операции разделены, alert не создаёт broadcast клиентам",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "src/elevenbot/progress.py",
+        "src/elevenbot/pricing.py",
+        "src/elevenbot/worker.py"
+      ],
+      "contract_ids": [
+        "C-023",
+        "C-028"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия src/elevenbot/progress.py, src/elevenbot/pricing.py, src/elevenbot/worker.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "DC-01",
+      "epic_id": "DC",
+      "title": "Устранить расхождения фундаментальных контрактов",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S0",
+      "priority": "P1",
+      "dependencies": [
+        "IN-18"
+      ],
+      "change": "В PR отдельно согласовать этапы S4 providers/S5 API/S6 admin/S7 hardening, token units, admin env и реестр C-031",
+      "test": "Cross-doc consistency, 31 IDs, links; source/target labels",
+      "proof": "ADR и review актуального SHA",
+      "acceptance": "Нет RUB-wallet target без ADR; старая история не удалена",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "docs/contracts",
+        "docs/architecture",
+        "docs/operations",
+        "docs/acceptance"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-008",
+        "C-012",
+        "C-013",
+        "C-024",
+        "C-027"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия docs/contracts, docs/architecture, docs/operations, docs/acceptance; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "TA-01"
+      ]
+    },
+    {
+      "task_id": "DC-02",
+      "epic_id": "DC",
+      "title": "Сверить финальные runbooks с реализацией",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S8",
+      "priority": "P1",
+      "dependencies": [
+        "OP-03",
+        "TQ-02"
+      ],
+      "change": "Актуализировать deployment/backup/incident/provider/billing/media/error/API/acceptance, не создавать дубликаты индексов",
+      "test": "Команды runbook на чистом стенде, links и schema checks",
+      "proof": "Другой разработчик воспроизводит запуск и диагностику по docs",
+      "acceptance": "Документы различают implemented/planned и содержат точные версии",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "docs/contracts",
+        "docs/architecture",
+        "docs/operations",
+        "docs/acceptance"
+      ],
+      "contract_ids": [
+        "C-001",
+        "C-008",
+        "C-012",
+        "C-013",
+        "C-024",
+        "C-027"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия docs/contracts, docs/architecture, docs/operations, docs/acceptance; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "RL-02"
+      ]
+    },
+    {
+      "task_id": "RL-01",
+      "epic_id": "RL",
+      "title": "Согласовать scope, цены и критерии пилота",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S8",
+      "priority": "P1",
+      "dependencies": [
+        "PR-03",
+        "WL-02",
+        "PY-03",
+        "SE-03"
+      ],
+      "change": "Список включённых model/capability, caps/budgets, privacy/refund/retention/support, SLO и stop conditions",
+      "test": "Все обязательные evidence gates, blocked decisions review",
+      "proof": "Подписанный owner go/no-go с capability exclusions",
+      "acceptance": "Нет неподтверждённой live capability в продаже",
+      "decision": "D-02 D-03 D-06 D-08 D-09 D-10",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "docs/acceptance/FOUNDATION_TEST_MATRIX.md",
+        "docs/operations/DEPLOYMENT.md"
+      ],
+      "contract_ids": [
+        "C-027",
+        "C-028",
+        "C-030",
+        "C-031"
+      ],
+      "source_pr": 18,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "risk": "Регрессия docs/acceptance/FOUNDATION_TEST_MATRIX.md, docs/operations/DEPLOYMENT.md; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "RL-02",
+      "epic_id": "RL",
+      "title": "Провести ограниченный коммерческий user journey",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S8",
+      "priority": "P1",
+      "dependencies": [
+        "RL-01",
+        "TQ-02",
+        "OP-03",
+        "OB-03"
+      ],
+      "change": "Только отдельно разрешённый pilot: обычный user, Stars, генерация, доставка, library, поддержка/refund",
+      "test": "Android/Desktop и оба канала, outage/restart/no duplicate charge",
+      "proof": "Реальные обезличенные receipts/файлы/ledger и user-visible record",
+      "acceptance": "Независимый аудитор принимает именно pilot scope, не весь будущий каталог",
+      "decision": "D-06 D-10",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "docs/acceptance/FOUNDATION_TEST_MATRIX.md",
+        "docs/operations/DEPLOYMENT.md"
+      ],
+      "contract_ids": [
+        "C-027",
+        "C-028",
+        "C-030",
+        "C-031"
+      ],
+      "source_pr": 18,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "risk": "Регрессия docs/acceptance/FOUNDATION_TEST_MATRIX.md, docs/operations/DEPLOYMENT.md; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "DC-02"
+      ]
+    },
+    {
+      "task_id": "RL-03",
+      "epic_id": "RL",
+      "title": "Release decision и синхронизация двух полных сборок",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S8",
+      "priority": "P1",
+      "dependencies": [
+        "RL-02",
+        "DC-02"
+      ],
+      "change": "Owner release approval, audit verdict, точный tag/build и обновление whole clones обоих авторов",
+      "test": "Final SHA CI, restore readiness, clean FF, includes teammate changes",
+      "proof": "Release checklist и два BRANCH_SYNC с actual SHA",
+      "acceptance": "Commercial pilot accepted только после owner/auditor; rollback готов",
+      "decision": "D-10",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "docs/acceptance/FOUNDATION_TEST_MATRIX.md",
+        "docs/operations/DEPLOYMENT.md"
+      ],
+      "contract_ids": [
+        "C-027",
+        "C-028",
+        "C-030",
+        "C-031"
+      ],
+      "source_pr": 18,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "37337cc1538e26f91696be366908420d9dbb08d2",
+      "risk": "Регрессия docs/acceptance/FOUNDATION_TEST_MATRIX.md, docs/operations/DEPLOYMENT.md; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "AP-01",
+      "epic_id": "AP",
+      "title": "Описать существующий API OpenAPI 3.1 и auth errors",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "AR-01"
+      ],
+      "change": "Версионированная схема текущих session/catalogue/wallet/settings/works; aliases и error envelope без ломания MVP",
+      "test": "Response contract tests, auth/consent/IDOR, bounded input",
+      "proof": "Спецификация сверена с реальными HTTP на fixture",
+      "acceptance": "Нет объявленных endpoint без implementation или explicit proposed marker",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "miniapp/backend/web.py",
+        "src/elevenbot/task_launch.py",
+        "src/elevenbot/pricing.py",
+        "miniapp/tests/test_miniapp.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-007",
+        "C-012",
+        "C-024",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, src/elevenbot/task_launch.py, src/elevenbot/pricing.py, miniapp/tests/test_miniapp.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "MC-02"
+      ]
+    },
+    {
+      "task_id": "AP-02",
+      "epic_id": "AP",
+      "title": "Transport-neutral quote и image job command",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "AP-01",
+        "AR-02",
+        "PC-01"
+      ],
+      "change": "POST quotes/jobs через существующий Pricing/TaskLaunch с semantic idempotency, не fake Telegram update IDs",
+      "test": "Same key+changed payload conflict, bot/HTTP race, stale quote, rollback",
+      "proof": "Одна common transaction reserve+job и один adapter POST",
+      "acceptance": "Один wallet/job store; auth user authoritative",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 5,
+      "paths": [
+        "miniapp/backend/web.py",
+        "src/elevenbot/task_launch.py",
+        "src/elevenbot/pricing.py",
+        "miniapp/tests/test_miniapp.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-007",
+        "C-012",
+        "C-024",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, src/elevenbot/task_launch.py, src/elevenbot/pricing.py, miniapp/tests/test_miniapp.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": [
+        "PC-02"
+      ]
+    },
+    {
+      "task_id": "AP-03",
+      "epic_id": "AP",
+      "title": "Owned job status, list и cancel API",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S5",
+      "priority": "P1",
+      "dependencies": [
+        "AP-02",
+        "JO-02"
+      ],
+      "change": "GET job/status/list, permitted cancellation, shared query projection, safe polling",
+      "test": "Owner IDOR, cursor, UNCERTAIN, stale cancel, restart",
+      "proof": "Telegram job читается HTTP, HTTP job виден Telegram",
+      "acceptance": "Cancel не обещает возврат до подтверждения; нет повторного paid POST",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "miniapp/backend/web.py",
+        "src/elevenbot/task_launch.py",
+        "src/elevenbot/pricing.py",
+        "miniapp/tests/test_miniapp.py"
+      ],
+      "contract_ids": [
+        "C-003",
+        "C-007",
+        "C-012",
+        "C-024",
+        "C-025"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия miniapp/backend/web.py, src/elevenbot/task_launch.py, src/elevenbot/pricing.py, miniapp/tests/test_miniapp.py; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "AU-01",
+      "epic_id": "AU",
+      "title": "Согласовать audit-artifacts lifecycle и schema gate",
+      "developer": "Burn2288",
+      "reviewer": "vankhu21",
+      "stage": "S0",
+      "priority": "P1",
+      "dependencies": [
+        "IN-18"
+      ],
+      "change": "Принять протокол TASK-PLAN-001, bootstrap отдельной ветки только через owner-approved PR; auditor read-only для разработчиков",
+      "test": "Manifest JSON Schema, negative fixtures, READY guard, links",
+      "proof": "Draft docs PR + затем одобренный archive PR с SHA-пакетом",
+      "acceptance": "Работа не READY до опубликованного пакета; нет self PASS",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        ".github/pull_request_template.md"
+      ],
+      "contract_ids": [
+        "C-027",
+        "C-028"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия AGENTS.md, CONTRIBUTING.md, .github/pull_request_template.md; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    },
+    {
+      "task_id": "AU-02",
+      "epic_id": "AU",
+      "title": "Доказать передачу и повторный аудит без потери истории",
+      "developer": "vankhu21",
+      "reviewer": "Burn2288",
+      "stage": "S0",
+      "priority": "P1",
+      "dependencies": [
+        "AU-01"
+      ],
+      "change": "Одна синтетическая docs-задача revision r1→rejected→r2, immutable index и sha256 evidence inventory",
+      "test": "Missing file/hash, bad schema, absent PR/CI, secret canary, prior verdict retention",
+      "proof": "Постоянные SHA URLs на оба пакета и независимое решение",
+      "acceptance": "Старое отрицательное заключение сохранено; archive не копирует application code",
+      "decision": "",
+      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "effort": 3,
+      "paths": [
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        ".github/pull_request_template.md"
+      ],
+      "contract_ids": [
+        "C-027",
+        "C-028"
+      ],
+      "source_pr": 17,
+      "status": "Планируется",
+      "integration_owner": "vankhu21",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "risk": "Регрессия AGENTS.md, CONTRIBUTING.md, .github/pull_request_template.md; не менять общий контракт/миграцию параллельно без lock/reservation.",
+      "artifacts": "Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts.",
+      "parallel_with": []
+    }
+  ]
+}

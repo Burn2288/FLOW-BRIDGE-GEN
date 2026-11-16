@@ -32,3 +32,7 @@
 - [Платёжная политика Stars для цифровых услуг](contracts/TELEGRAM_STARS_CHANNEL.md).
 
 Эти документы не означают merge PR #8–#17, не меняют личные dev-планы и не доказывают полный live E2E. Начинать расширение только после выбора интеграционной базы.
+
+## Team planning proposal
+
+[TASK-PLAN-001 — план, worklists и протокол аудита](planning/README.md). Не заменяет принятую main до review/merge.

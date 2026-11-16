@@ -1,0 +1,53 @@
+{
+  "sha": "0ffeea007752b04c0e179229883bf662309e646d",
+  "files": [
+    {
+      "path": ".gitignore",
+      "blob_sha": "6f596e17917419c463b0d15bf1f0bce19b8918eb"
+    },
+    {
+      "path": "AUDIT_LOG.md",
+      "blob_sha": "035de22d3d2ca5fc94a6fd25d7c4a8035e5230cb"
+    },
+    {
+      "path": "MINI_APP_ACCEPTANCE_0453995.md",
+      "blob_sha": "1b3933071220cd912a3c209b3d9be75d78bbf055"
+    },
+    {
+      "path": "MINI_APP_ACCEPTANCE_6504bd1.md",
+      "blob_sha": "1fe522f0d187b512f6e84b22f43cbcdc5653ce92"
+    },
+    {
+      "path": "MINI_APP_DEPLOYMENT_7ef45c2.md",
+      "blob_sha": "993c9bb0ef88c2033be664eda3937733d51592ee"
+    },
+    {
+      "path": "MINI_APP_MANUAL_PREPARATION_7ef45c2.md",
+      "blob_sha": "5e8405fb6474bc6eff4f1ae808abb9dc49580144"
+    },
+    {
+      "path": "MINI_APP_PLAN.md",
+      "blob_sha": "19e3d290144de4d93d2e91f7ff9434546d2455b6"
+    },
+    {
+      "path": "MINI_APP_REPLY_KEYBOARD_F69FD5C.md",
+      "blob_sha": "f295a9790cb4863ba2e4972e441a5d0c5a04d9d8"
+    },
+    {
+      "path": "MINI_APP_REVIEW_6504bd1.md",
+      "blob_sha": "f39fbcd6028c633bc4cea581db4baec65c1f8268"
+    },
+    {
+      "path": "MINI_APP_STRUCTURE_AND_THEMES_7ef45c2.md",
+      "blob_sha": "bdec78fe0934eba0c1ac951a9733259fa686f2d3"
+    },
+    {
+      "path": "README.md",
+      "blob_sha": "0b585bf3dbd986fdf3f8897bd01540e186ab8611"
+    },
+    {
+      "path": "TELEGRAM_LATENCY_AND_RECOVERY_D691D54.md",
+      "blob_sha": "8ff763c8c4cd3bb9ddf0ec5bf711e4b86c5ba567"
+    }
+  ]
+}

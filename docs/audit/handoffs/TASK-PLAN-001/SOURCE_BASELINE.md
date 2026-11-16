@@ -1,0 +1,13 @@
+# SOURCE BASELINE
+
+Дата наблюдения 2026-11-16 Europe/Kiev. Main `98d05504446458252ede2df35e8870b2e1bc63e2`. Documentation base `37337cc1538e26f91696be366908420d9dbb08d2`, PR #18 docs/foundation-contracts-v1 → docs/bootstrap, Draft/open. Planning branch `planning/team-workplans-v1` создана от этого точного SHA, исходное дерево нового клона clean. Родительская папка имела только ранние handoff docs, они не подменяют original repository и не импортированы.
+
+Код-кандидат #17 `d691d54e0266c3d519d66575555fa45895ef40ac`, база #16 `76a030a5dc32ccf79b9c9a8393f1807d7df9d791`. Historical build 5601faa0481a52a67e0ada43a8a48f07bd3d1968 отличается: [точный список delta](../../../planning/evidence/5601faa-to-candidate.diffstat.txt). Все 39 migration blobs/hash зафиксированы, никакой БД в этой задаче не обновляли. #8–#17 OPEN/UNMERGED; #1/#2/#4/#6/#7/#18 также отдельно исследованы.
+
+Прочитаны AGENTS/CONTRIBUTING/ROADMAP/PR template/workflows; foundation index, product, modular architecture, все 14 contract документов + registry/README, PROJECT_STATE/DECISION_LOG, foundation acceptance matrix, vankhu baseline, branch protocol, prompt factory/next prompts. Оба исходных dev workplans сохранены точно с SHA256 и source commit. Ветка auditor read-only: inventory и отчёты Mini App/latency/recovery/старый AUDIT_LOG, без записи от разработчика.
+
+Фактический code inspection: ProviderRegistry register/collect, ExecutionAdapter/TaskLaunch confirm/defer/recover, SQL task_wallet reserve/settle, inbox 12 chat tasks/25 per chat/500 batch, Telegram deferred task cap16, worker claim/fence/delivery, image limits 5 MiB и HTTP response 8 MiB, AnyModel ready delivery notify_attempts<3, Mini App routes/session age300/TTL600. Provider prepare/run/pilots и topups/refunds/music также проинвентаризированы через Git blobs/symbol refs. Статическая проверка не доказывает актуальный процесс/лимиты внешнего сервиса.
+
+Особый residual risk: новый InboxDispatcher/defer не означает единый independent job engine; worker и pilot loops продолжают различаться. Image ready retry cap3 присутствует по коду; фактическая потеря уведомления на нынешнем runtime ROOT_CAUSE_UNCONFIRMED. Старое sequential polling замечание уже адресовано #17 software tests, повторную реализацию не назначали.
+
+Текущий CI #17: [run43759469582](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469582), job132950793312, 397 passed/128.65s; body392 исторический. Отчёты auditor о живой проверке исторические, их ограничения сохранены. Новых live проб не выполняли. Private AI-SHOP-BOT donor SHA494ab81f используется как историческая ссылка/паттерн, private source не публиковался и не объявляется повторно проверенным runtime.
