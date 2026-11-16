@@ -39,7 +39,7 @@
   "base_branch": "planning/team-workplans-v1",
   "base_sha": "0f9de7ae24741cd5c09ea099eb66f46a88b09fa8",
   "head_branch": "planning/team-workplans-v1",
-  "head_sha": "0f9de7ae24741cd5c09ea099eb66f46a88b09fa8",
+  "head_sha": "de1fa29fdee06e0c106507855f8e312c60d6c2e1",
   "main_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
   "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19",
   "dependent_prs": [
@@ -58,7 +58,24 @@
   ],
   "changed_files": [
     ".github/check_planning.py",
-    "docs/planning/tasks.json"
+    "docs/audit/handoffs/INDEX.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/AUDIT_REQUEST.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/BRANCH_SYNC.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/CHANGES.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/EVIDENCE.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/MANIFEST.json",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/REGRESSION.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/SUMMARY.md",
+    "docs/audit/handoffs/TASK-PLAN-001-FIX-01/TEST_RESULTS.md",
+    "docs/planning/IMPLEMENTATION_DEPENDENCIES.md",
+    "docs/planning/MASTER_WORK_BREAKDOWN.md",
+    "docs/planning/PARALLEL_WORK_MATRIX.md",
+    "docs/planning/tasks.json",
+    "docs/workplans/burn2288.md",
+    "docs/workplans/vankhu21.md"
   ],
   "migration_files": [],
   "test_environment": "Windows PowerShell; bundled Python 3.12; jsonschema4.25.1 in ignored .local/doc-deps; app runtime not started",
@@ -69,14 +86,14 @@
   ],
   "test_results": [
     {
-      "name": "Local planning validator",
+      "name": "Local planning validation",
       "type": "documentation",
-      "status": "PARTIAL",
-      "source_sha": "0f9de7ae24741cd5c09ea099eb66f46a88b09fa8",
+      "status": "PASS",
+      "source_sha": "de1fa29fdee06e0c106507855f8e312c60d6c2e1",
       "passed": 9,
       "failed": 0,
       "skipped": 0,
-      "details": "7 invalid and 2 valid fixtures on local uncommitted changes; not yet bound to commit."
+      "details": "Identical local Git tree; 7 negative and 2 positive fixtures; 75 markdown documents; CI pending."
     }
   ],
   "ci_run_urls": [],
@@ -111,7 +128,7 @@
     "Clone public repository; documentation branch/PR publication only; no application merge/deploy/paid calls"
   ],
   "known_limitations": [
-    "CI final SHA pending",
+    "GitHub Actions final SHA not observed",
     "Independent audit and reviewer pending",
     "Archive pending"
   ],
