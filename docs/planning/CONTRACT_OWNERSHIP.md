@@ -35,3 +35,7 @@
 | C-029 | Burn2288 | vankhu21 | [MC-01](MASTER_WORK_BREAKDOWN.md#mc-01) |
 | C-030 | Burn2288 | vankhu21 | [SE-02](MASTER_WORK_BREAKDOWN.md#se-02) |
 | C-031 | vankhu21 | Burn2288 | [PY-01](MASTER_WORK_BREAKDOWN.md#py-01) |
+
+## PREP-FINAL-ALIGNMENT-01
+
+Базовая карта ответственности одобрена владельцем как рабочая основа; конкретные назначения writer/reviewer на каждый общий файл и письменное принятие обоих разработчиков остаются обязательными. Статус контрактов DESIGN_DRAFT не меняется. [Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6924608933); [запрос подтверждения](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6924655335).

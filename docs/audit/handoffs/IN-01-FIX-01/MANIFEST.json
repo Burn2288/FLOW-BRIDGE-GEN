@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "task_id": "IN-01-FIX-01",
+  "developer": "Burn2288",
+  "reviewer": "vankhu21",
+  "contract_ids": [
+    "C-001",
+    "C-002",
+    "C-003",
+    "C-008",
+    "C-012",
+    "C-026",
+    "C-027"
+  ],
+  "base_branch": "work/burn2288/IN-01",
+  "base_sha": "460b2a0b7e6b93c6a54f3874970a22a24461ddc8",
+  "head_branch": "work/burn2288/IN-01",
+  "head_sha": "7df4262f9b3999ff465565dfb76388552dab375b",
+  "main_sha": "98d05504446458252ede2df35e8870b2e1bc63e2",
+  "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20",
+  "dependent_prs": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/18",
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/19"
+  ],
+  "changed_files": [
+    "docs/audit/handoffs/IN-01-FIX-01/AUDIT_REQUEST.md",
+    "docs/audit/handoffs/IN-01-FIX-01/BRANCH_SYNC.md",
+    "docs/audit/handoffs/IN-01-FIX-01/CHANGES.md",
+    "docs/audit/handoffs/IN-01-FIX-01/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/IN-01-FIX-01/EVIDENCE.md",
+    "docs/audit/handoffs/IN-01-FIX-01/MANIFEST.json",
+    "docs/audit/handoffs/IN-01-FIX-01/REGRESSION.md",
+    "docs/audit/handoffs/IN-01-FIX-01/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/IN-01-FIX-01/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/IN-01-FIX-01/SUMMARY.md",
+    "docs/audit/handoffs/IN-01-FIX-01/TEST_RESULTS.md",
+    "docs/audit/handoffs/INDEX.md",
+    "docs/planning/integration/ACCESS_CONTROL_TEST_MATRIX.md",
+    "docs/planning/integration/CI_AND_REVIEW_GATES.md",
+    "docs/planning/integration/CODE_PRESERVATION_MATRIX.md",
+    "docs/planning/integration/CONFLICT_AND_ROLLBACK_PLAN.md",
+    "docs/planning/integration/INTEGRATION_EXECUTION_PLAN.md",
+    "docs/planning/integration/PRIVATE_PILOT_ACCESS_ADR.md",
+    "docs/planning/integration/SEMANTIC_PRESERVATION_REVIEW.md",
+    "docs/planning/integration/TEAM_APPROVAL.md"
+  ],
+  "migration_files": [],
+  "test_environment": "Windows Python 3.12; repository clone; no application runtime",
+  "test_commands": [
+    "python docs/planning/integration/check_pr_graph.py",
+    "python .github/check_docs.py",
+    "python .github/check_planning.py",
+    "git diff --check"
+  ],
+  "test_results": [
+    {
+      "name": "Documentation and schema checks",
+      "type": "documentation",
+      "status": "PASS",
+      "source_sha": "7df4262f9b3999ff465565dfb76388552dab375b",
+      "passed": null,
+      "failed": 0,
+      "skipped": 0,
+      "details": "107 Markdown, 81 tasks, schema/hashes, 7 negative and 2 positive parallel fixtures; CI 43887673514."
+    },
+    {
+      "name": "Application and DB runtime",
+      "type": "live",
+      "status": "NOT_TESTED",
+      "source_sha": "7df4262f9b3999ff465565dfb76388552dab375b",
+      "passed": null,
+      "failed": null,
+      "skipped": null,
+      "details": "Documentation-only revision; runtime and live acceptance not executed."
+    }
+  ],
+  "ci_run_urls": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43887673514"
+  ],
+  "evidence_paths": [
+    "docs/planning/integration/github-snapshot.json",
+    "docs/planning/integration/historical-test-names.json",
+    "docs/planning/integration/migration-blobs.json",
+    "docs/planning/integration/migration-deltas.json",
+    "docs/planning/integration/pr-graph.json",
+    "docs/planning/integration/preservation-evidence.json"
+  ],
+  "evidence_hashes": {
+    "docs/planning/integration/github-snapshot.json": "cb606f7255d4aacf2be639fbd43d7b9ab0673a4c3d340db6b12b7c6b45fb5364",
+    "docs/planning/integration/pr-graph.json": "997687fbd985f00b63ef626aab4016d474d3688ec46b954eee18d3e409f0d457",
+    "docs/planning/integration/preservation-evidence.json": "cab6dd656462e33232af648af68b98415d5f9f5bc2abea92697db73a9e182023",
+    "docs/planning/integration/migration-blobs.json": "c4b008ea4a9506bcf87752c63b8290836d4c005eb48e53723c6805c0e4d16578",
+    "docs/planning/integration/migration-deltas.json": "a55d93625b54a394d08bbe64c6a33c2c8548e761e22e8530955d2a0dea29f7a0",
+    "docs/planning/integration/historical-test-names.json": "6c16340d3970bcec65c25c975dd00b50cd7a3b9284c4dc7ad49c1ffd8fb337b4"
+  },
+  "external_operations": [
+    "Read-only GitHub metadata, branch and CI inspection; no production or merge"
+  ],
+  "known_limitations": [
+    "Owner approval pending",
+    "vankhu21 review NOT_PROVEN",
+    "Runtime NOT_TESTED",
+    "Archive pending"
+  ],
+  "local_sync_status": "NOT_PERFORMED",
+  "publication_status": "ARCHIVE_PENDING",
+  "ready_for_audit": false
+}

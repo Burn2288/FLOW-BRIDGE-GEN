@@ -1,0 +1,9 @@
+ -:  ------- >  1:  30c5575 docs: establish collaboration and initial project documentation
+ -:  ------- >  2:  d8f251d Import audited DarkFlow baseline and preserve image delivery on status failure
+ -:  ------- >  3:  a704218 test: run real bot and worker against the current Telegram stub contract
+ -:  ------- >  4:  0089512 docs: define two-developer handoffs and Codex synchronization
+ 1:  c1c3a0f =  5:  c1c3a0f test: verify persisted image recovery after Telegram upload failure
+ 2:  14cab24 =  6:  14cab24 Validate provider PNG and JPEG integrity before saving images
+ 3:  4ebe400 =  7:  4ebe400 Validate exact inflated scanline lengths for PNG and APNG
+ 4:  c2370af =  8:  c2370af docs: describe the FLUX Schnell smoke pilot
+ -:  ------- >  9:  eaadb89 Integrate image delivery, catalogue controls and safe diagnostics
