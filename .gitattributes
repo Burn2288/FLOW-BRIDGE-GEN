@@ -4,4 +4,5 @@ docs/planning/history/*-original.txt -text
 docs/planning/integration/*.json text eol=lf
 docs/planning/PRE_DEVELOPMENT_READINESS.md text eol=lf
 docs/planning/PRE_DEVELOPMENT_READINESS_PREP_REVIEW_01.md text eol=lf
+docs/planning/PRE_DEVELOPMENT_READINESS_PREP_FINAL_ALIGNMENT_01.md text eol=lf
 docs/reference/REUSE_FUNCTIONAL_PLAN.md text eol=lf

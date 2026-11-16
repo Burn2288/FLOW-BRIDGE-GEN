@@ -1,6 +1,6 @@
 # PARALLEL WORK MATRIX
 
-Базовая карта ответственности утверждена владельцем как рабочая основа; письменное принятие обоими разработчиками и назначение на каждый общий файл каждого будущего PR остаются обязательными. [Полные задачи](MASTER_WORK_BREAKDOWN.md). Effort 1/3/5 учитывает сложность, а не только количество; code авторство не отнимается. Ревью каждого задания делает другой разработчик, integration owner указан в карточке.
+Базовая карта ответственности утверждена владельцем как рабочая основа; письменное принятие обоими разработчиками подтверждено; назначение на каждый общий файл каждого будущего PR остаётся обязательным. [Полные задачи](MASTER_WORK_BREAKDOWN.md). Effort 1/3/5 учитывает сложность, а не только количество; code авторство не отнимается. Ревью каждого задания делает другой разработчик, integration owner указан в карточке.
 
 | Разработчик | Задач | Effort | Основная ответственность |
 | --- | --- | --- | --- |
@@ -48,4 +48,4 @@
 
 ## OWNER_APPROVED responsibility foundation
 
-[Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6924608933): vankhu21 — pricing, wallet/ledger, Platega, Telegram; Burn2288 — task lifecycle, worker, shared HTTP API и access/RBAC contracts. Для каждого общего файла каждого будущего PR назначаются ровно один writer и второй разработчик reviewer; без blanket передачи `core.py`, `task_launch.py`, `web.py` или `admin_access.py` целиком: граница определяется конкретным срезом. Burn2288 координирует нумерацию миграций, автор задачи пишет свою миграцию, второй разработчик проверяет. [Письменное принятие запрошено у обоих](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6924655335); подтверждения PENDING. PREPARATION_ONLY / DEVELOPMENT_NOT_AUTHORIZED / MERGE_NOT_AUTHORIZED.
+[Решение владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6924608933): vankhu21 — pricing, wallet/ledger, Platega, Telegram; Burn2288 — task lifecycle, worker, shared HTTP API и access/RBAC contracts. Для каждого общего файла каждого будущего PR назначаются ровно один writer и второй разработчик reviewer; без blanket передачи `core.py`, `task_launch.py`, `web.py` или `admin_access.py` целиком: граница определяется конкретным срезом. Burn2288 координирует нумерацию миграций, автор задачи пишет свою миграцию, второй разработчик проверяет. [Burn2288 подтвердил](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6924956157); [vankhu21 подтвердил](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20#issuecomment-6924988451). PREPARATION_ONLY / DEVELOPMENT_NOT_AUTHORIZED / MERGE_NOT_AUTHORIZED.

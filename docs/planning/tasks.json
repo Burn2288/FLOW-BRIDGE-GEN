@@ -50,7 +50,7 @@
       "proof": "GitHub review и merge commit после разрешения",
       "acceptance": "Правила вошли в main; SHA и CI опубликованы",
       "decision": "",
-      "state": "SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN",
+      "state": "DOCUMENTATION_ACCEPTED; PR #1 merged 01ef3ea; IN-01 remains PARTIAL",
       "effort": 1,
       "paths": [
         "CONTRIBUTING.md",
@@ -60,7 +60,7 @@
         "C-027"
       ],
       "source_pr": 1,
-      "status": "Планируется",
+      "status": "Принято",
       "integration_owner": "Burn2288",
       "source_sha": "008951279802ee0761da998e71c5a6e78c21a6d5",
       "risk": "Регрессия CONTRIBUTING.md, .github/workflows/docs.yml; не менять общий контракт/миграцию параллельно без lock/reservation.",

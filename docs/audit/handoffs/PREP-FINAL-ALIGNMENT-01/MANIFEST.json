@@ -66,10 +66,10 @@
     "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43906950149"
   ],
   "evidence_paths": [
-    "docs/planning/PRE_DEVELOPMENT_READINESS.md"
+    "docs/planning/PRE_DEVELOPMENT_READINESS_PREP_FINAL_ALIGNMENT_01.md"
   ],
   "evidence_hashes": {
-    "docs/planning/PRE_DEVELOPMENT_READINESS.md": "0500b0015c2c4f33f5b89d2a8f8a5ce5cbbd1b56de0ac00ce633012da37d83a5"
+    "docs/planning/PRE_DEVELOPMENT_READINESS_PREP_FINAL_ALIGNMENT_01.md": "0500b0015c2c4f33f5b89d2a8f8a5ce5cbbd1b56de0ac00ce633012da37d83a5"
   },
   "external_operations": [
     "Read-only GitHub audits/PR and peer permissions",
@@ -79,7 +79,8 @@
     "DEVELOPMENT_NOT_AUTHORIZED / MERGE_NOT_AUTHORIZED",
     "ACKNOWLEDGMENTS_PENDING and FORMAL_PR_REVIEW_PENDING",
     "Runtime, PostgreSQL, donor tests NOT_TESTED",
-    "New exact SHA CI pending"
+    "New exact SHA CI pending",
+    "Historical evidence relocated byte-for-byte; original manifest is preserved at source PR #20 SHA 3815642."
   ],
   "local_sync_status": "NOT_PERFORMED",
   "publication_status": "ARCHIVE_PENDING",

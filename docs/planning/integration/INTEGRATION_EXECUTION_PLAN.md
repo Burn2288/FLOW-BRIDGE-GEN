@@ -4,8 +4,8 @@ D-01 OWNER_APPROVED_AS_PLAN; каждое решение о merge и retarget т
 
 | Шаг | Условия, исполнитель, PR | Проверка / аудит / фиксация | Восстановление |
 | --- | --- | --- | --- |
-| 1 | Burn2288 и vankhu21 письменно подтверждают утверждённую базовую карту; документ IN-01 и #19 на ревью | Peer review vankhu21, independent audit source-preservation, current head SHA | Разрешать разногласия в отдельном PR; не переписывать refs |
-| 2 | После разрешения owner принять #1: Burn2288, reviewer vankhu21 | docs CI точного SHA, audit и recorded merge SHA | При ошибке отдельный revert PR, не force push |
+| 1 | Базовая карта письменно подтверждена обоими; документ IN-01 и #19 на ревью | Peer review vankhu21, independent audit source-preservation, current head SHA | Разрешать разногласия в отдельном PR; не переписывать refs |
+| 2 | PR #1 принят: merge `01ef3ea`; source author vankhu21, reviewer Burn2288 | docs CI точного SHA, audit и recorded merge SHA | При ошибке отдельный revert PR, не force push |
 | 3 | Автор vankhu21 и reviewer Burn2288: #8 затем #9–#17 по одному | current base/head, per-PR regressions, PostgreSQL migration checks, peer/audit и explicit owner approval до merge; далее retarget следующего | Конфликт: остановить, сохранить оба parent, отдельный integration branch и ручной review |
 | 4 | При появлении документационных конфликтов Burn2288 + vankhu21 | Сравнить правила, исходники и Markdown отдельно; нельзя перезаписать документы/код | Разрешить в отдельном PR, независимая проверка diff |
 | 5 | #18 после review #1 и согласованной базы | contracts/doc CI, второй reviewer/audit, explicit owner approval и SHA | revert PR при ошибке; сохранение истории |

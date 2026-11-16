@@ -141,7 +141,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Рецензент | vankhu21 |
 | Integration owner | Burn2288 |
 | Контракты | C-027; target DESIGN_DRAFT до approval |
-| Текущее состояние | SOURCE_PRESENT / PR_OPEN / PARTIAL / LIVE_NOT_PROVEN; exact CI baseline в github-snapshot.json, не future test PASS |
+| Текущее состояние | DOCUMENTATION_ACCEPTED; PR #1 merged 01ef3ea; IN-01 remains PARTIAL; exact CI baseline в github-snapshot.json, не future test PASS |
 | Существующий код | PR #1, `008951279802ee0761da998e71c5a6e78c21a6d5`; [CONTRIBUTING.md](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/008951279802ee0761da998e71c5a6e78c21a6d5/CONTRIBUTING.md); [.github/workflows/docs.yml](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/008951279802ee0761da998e71c5a6e78c21a6d5/.github/workflows/docs.yml) |
 | Требуемые изменения | Ревью существующих правил и включение только после согласованного merge |
 | Зависимости | IN-01 |
@@ -154,7 +154,7 @@ Effort 1/3/5 — относительная сложность, не дни и �
 | Риски | Регрессия CONTRIBUTING.md, .github/workflows/docs.yml; не менять общий контракт/миграцию параллельно без lock/reservation. |
 | Артефакты | Полный пакет MANIFEST + 10 MD, CI exact SHA, safe evidence/checksums, code PR и archive PR; для live — разрешение и redacted receipts. |
 | Effort | 1 |
-| Статус | Планируется; назначение предложено, запуск после approval/dependencies |
+| Статус | Принято: документационная база PR #1; IN-01 остаётся PARTIAL |
 
 ### IN-08
 
