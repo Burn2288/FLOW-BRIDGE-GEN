@@ -1,3 +1,3 @@
 # Проверки
 
-[Documentation CI](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43902114415) SUCCESS на db48ca803c933b4b75fa5a9bbc1a0b2434318098. Локальные docs и planning проверены отдельно; GitHub CI для последующей ревизии пакета требуется отдельно. Runtime/DB/донорские тесты NOT_TESTED.
+[Documentation CI](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43903923898) SUCCESS на 37258f3ab03366d50e70d84dba95f2c4c264ec0e. На приватной исправленной ревизии: SHA-256 всех 24 файлов, перечисленных в манифесте, пересчитаны, 0 расхождений; манифест и отчёт исключены из собственного списка для предотвращения самоссылки. CI следующей публичной ревизии проверяется отдельно. Runtime/DB/донорские тесты NOT_TESTED.
