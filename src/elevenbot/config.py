@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 @dataclass(frozen=True)
 class Config:
@@ -11,6 +12,7 @@ class Config:
     migration_dsn: str = ''
     generation_enabled: bool = False
     payments_enabled: bool = False
+    public_image_models: tuple[str, ...] = ()
     payment_backend: str = 'platega'
     telegram_api_base: str = ''
     catalogue_enabled: bool = False
@@ -21,15 +23,23 @@ class Config:
     retail_per_char: int = 1
     concurrency: int = 2
     token: str = ''
+    miniapp_url: str = ''
     storage: Path = Path('data/audio')
     support: str = 'Поддержка пока не настроена.'
     terms: str = 'Условия коммерческого сервиса пока не опубликованы.'
     privacy: str = 'Политика обработки данных пока не опубликована.'
     admin_ids: tuple[int, ...] = ()
+    pilot_user_ids: tuple[int, ...] = ()
+    admin_password: str = field(default='', repr=False)
     clodex_key: str = ''
+    clodex_music_owner: int = 0
+    clodex_music_live: bool = False
     anymodel_key: str = ''
     anymodel_test_enabled: bool = False
     anymodel_chat_live: bool = False
+    anymodel_image_live: bool = False
+    anymodel_video_live: bool = False
+    anymodel_speech_live: bool = False
     interaction_mode: str = 'off'
     video_pilot: bool = False
     interaction_limit: int = 0
@@ -40,8 +50,27 @@ class Config:
     speech_pilot: bool = False
     economy_verified: bool = False
 
+    fal_key: str = ''
+    fal_music_owner: int = 0
+    fal_music_live: bool = False
+
+    topup_mode: str = 'off'
+    platega_enabled: bool = False
+    platega_merchant: str = ''
+    platega_secret: str = field(default='',repr=False)
+    platega_return: str = ''
+    platega_failed: str = ''
+    platega_method: int = 2
+
+    def allows_public_image(self, provider, model, operation):
+        return (operation == 'images.generate' and f'{provider}:{model}' in self.public_image_models)
+
     @property
     def wallet_mode(self): return 'demo' if self.mode == 'mock' else 'live'
+
+    @property
+    def balance_wallet_mode(self):
+        return 'live' if self.access_mode=='private' else self.wallet_mode
 
     @property
     def voice_catalogue_path(self):
@@ -59,16 +88,21 @@ class Config:
         c=cls(dsn=os.getenv('DATABASE_URL',cls.dsn),mode=os.getenv('PROVIDER_MODE','mock'),
               access_mode=os.getenv('ACCESS_MODE','public'),migration_dsn=os.getenv('DATABASE_MIGRATION_URL',''),
               generation_enabled=flag('GENERATION_ENABLED'),payments_enabled=flag('PAYMENTS_ENABLED'),
+              public_image_models=tuple(filter(None, (item.strip() for item in
+                  os.getenv('PUBLIC_IMAGE_MODELS', '').split(',')))),
               payment_backend=os.getenv('PAYMENT_BACKEND','platega'),telegram_api_base=os.getenv('TELEGRAM_API_BASE',''),
               catalogue_enabled=flag('CATALOGUE_ENABLED'),catalogue_path=local(os.getenv('CATALOGUE_PATH','data/catalogue/models.json')),catalogue_profile=local(os.getenv('CATALOGUE_PROFILE','')),
               budget=int(budget) if budget else None,
               cost_per_char=int(os.getenv('PROVIDER_COST_BOUND_PER_CHAR','0')),
               retail_per_char=int(os.getenv('RETAIL_CREDITS_PER_CHAR','1')),
               concurrency=int(os.getenv('PROVIDER_CONCURRENCY','2')),token=os.getenv('TELEGRAM_BOT_TOKEN',''),
+              miniapp_url=os.getenv('MINIAPP_URL','').strip(),
               storage=Path(local(os.getenv('AUDIO_STORAGE_DIR','data/audio'))),
               support=os.getenv('SUPPORT_CONTACT',cls.support),terms=os.getenv('TERMS_TEXT',cls.terms),
               privacy=os.getenv('PRIVACY_TEXT',cls.privacy),
               admin_ids=tuple(int(x) for x in os.getenv('ADMIN_TELEGRAM_IDS','').split(',') if x.strip()),
+              pilot_user_ids=tuple(int(x.strip()) for x in os.getenv('PILOT_TELEGRAM_USER_IDS','').split(',') if x.strip()),
+              admin_password=os.getenv('ADMIN_PASSWORD',''),
               interaction_mode=os.getenv('CLODEX_INTERACTION_MODE','off'),
               video_pilot=flag('CLODEX_VIDEO_PILOT'),
               interaction_limit=int(os.getenv('CLODEX_INTERACTION_LIMIT','0')),
@@ -77,9 +111,39 @@ class Config:
               anymodel_key=os.getenv('ANYMODEL_API_KEY',''),
               anymodel_test_enabled=flag('ANYMODEL_TEST_ENABLED'),
               anymodel_chat_live=flag('ANYMODEL_TEST_CHAT_LIVE'),
+              anymodel_image_live=flag('ANYMODEL_TEST_IMAGE_LIVE'),
+              anymodel_video_live=flag('ANYMODEL_TEST_VIDEO_LIVE'),
+              anymodel_speech_live=flag('ANYMODEL_TEST_SPEECH_LIVE'),
               clodex_key=os.getenv('CLODEX_API_KEY',''),clodex_model=os.getenv('CLODEX_TTS_MODEL',''),
+              clodex_music_owner=int(os.getenv('CLODEX_MUSIC_OWNER','0') or 0),
+              clodex_music_live=flag('CLODEX_MUSIC_LIVE'),
+              fal_key=os.getenv('FAL_KEY','').strip(),
+              fal_music_owner=int(os.getenv('FAL_MUSIC_OWNER','0') or 0),
+              fal_music_live=flag('FAL_MUSIC_LIVE'),
+              topup_mode=os.getenv('TOPUP_MODE','off'),
+              platega_enabled=flag('PLATEGA_ENABLED'),
+              platega_merchant=os.getenv('PLATEGA_MERCHANT_ID','').strip(),
+              platega_secret=os.getenv('PLATEGA_SECRET','').strip(),
+              platega_return=os.getenv('PLATEGA_RETURN_URL',''),
+              platega_failed=os.getenv('PLATEGA_FAILED_URL',''),
+              platega_method=int(os.getenv('PLATEGA_PAYMENT_METHOD','2')),
               voices_file=local(os.getenv('VOICES_FILE','')),speech_pilot=flag('CLODEX_SPEECH_PILOT'),economy_verified=flag('ECONOMY_VERIFIED'))
+        if c.miniapp_url:
+            url = urlsplit(c.miniapp_url)
+            if (url.scheme != 'https' or not url.hostname or url.username is not None
+                    or url.password is not None or url.fragment
+                    or any(char.isspace() for char in c.miniapp_url)):
+                raise ValueError('MINIAPP_URL must be an HTTPS URL')
         if c.access_mode not in ('private','public') or (c.access_mode=='private' and not c.admin_ids):raise ValueError('Private access requires ADMIN_TELEGRAM_IDS')
+        if any(x <= 0 or x >= 2**52 for x in c.pilot_user_ids):raise ValueError('Invalid PILOT_TELEGRAM_USER_IDS')
+        if c.clodex_music_owner and (c.access_mode!='private' or c.clodex_music_owner not in c.admin_ids
+                                    or not c.admin_password or c.payments_enabled or not c.clodex_key):
+            raise ValueError('Music pilot requires one listed administrator, a password and a CLODEX key without payments')
+        if c.clodex_music_live and not c.clodex_music_owner:
+            raise ValueError('Music pilot requires CLODEX_MUSIC_OWNER')
+        if c.fal_music_live and (not c.fal_key or not c.admin_password or c.payments_enabled
+                                 or c.access_mode!='private' or c.fal_music_owner not in c.admin_ids):
+            raise ValueError('fal music pilot requires a key and one listed administrator in private mode')
         if c.speech_pilot and (c.access_mode!='private' or c.payments_enabled):
             raise ValueError('Speech pilot requires private access without payments')
         if c.speech_pilot and c.generation_enabled and (c.mode!='clodex' or c.clodex_model!='eleven_v4'):
@@ -94,16 +158,23 @@ class Config:
             raise ValueError('Live interaction pilot requires private access, key, catalogue, explicit pairs and a positive request limit for models other than Nano Banana 2 image generation')
         if c.anymodel_test_enabled and c.access_mode!='private':
             raise ValueError('AnyModel pilot requires private access')
-        if c.anymodel_chat_live and not (
+        if (c.anymodel_chat_live or c.anymodel_image_live or c.anymodel_video_live or c.anymodel_speech_live) and not (
             c.anymodel_test_enabled and c.anymodel_key and not c.payments_enabled and 1<=c.interaction_limit<=100
         ):
-            raise ValueError('Live AnyModel chat requires a test key and positive request limit')
+            raise ValueError('Live AnyModel requests require a test key and positive request limit')
         if c.video_pilot and (c.interaction_mode!='live' or not 1<=c.interaction_limit<=100):
             raise ValueError('Video pilot requires private live interaction and a positive request limit')
         if c.mode=='catalogue' and (c.generation_enabled or c.payments_enabled):raise ValueError('Catalogue mode cannot generate or charge')
         if c.catalogue_enabled:
             from .discovery import SchemaProfile
             SchemaProfile.load(c.catalogue_profile)
+        if c.topup_mode not in ('off','test','live'):
+            raise ValueError('Invalid TOPUP_MODE')
+        if c.topup_mode=='test' and (c.payments_enabled or c.access_mode!='private'):
+            raise ValueError('Test top-ups require private mode and payments disabled')
+        if c.topup_mode=='live' and not (c.payments_enabled and c.payment_backend=='platega' and c.platega_enabled
+                                        and c.platega_merchant and c.platega_secret):
+            raise ValueError('Live top-ups require enabled Platega credentials')
         if c.payment_backend not in ('stars','platega'):raise ValueError('Invalid payment backend')
         if c.telegram_api_base:
             from urllib.parse import urlparse

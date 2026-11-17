@@ -1,0 +1,40 @@
+{
+    admin off
+    auto_https off
+}
+
+http://:__HTTP_PORT__ {
+    bind 127.0.0.1
+    @invalid_host not host localhost
+    handle @invalid_host {
+        respond 421
+    }
+    handle {
+        redir https://localhost:__HTTPS_PORT__{uri} 308
+    }
+}
+
+https://:__HTTPS_PORT__ {
+    bind 127.0.0.1
+    tls __CERT_PATH__ __KEY_PATH__
+    @invalid_host not host localhost
+    handle @invalid_host {
+        respond 421
+    }
+    handle {
+        @allowed path / /healthz /assets/* /api/v1/*
+        handle @allowed {
+            reverse_proxy unix/__SOCKET_PATH__ {
+                header_up Host localhost
+                header_up -Forwarded
+                header_up X-Forwarded-For {remote_host}
+                header_up X-Forwarded-Proto https
+                header_up X-Forwarded-Host localhost
+                header_up -X-Real-IP
+            }
+        }
+        handle {
+            respond 404
+        }
+    }
+}

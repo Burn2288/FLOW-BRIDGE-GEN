@@ -1,0 +1,19 @@
+services:
+  platega-webhook:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://elevenbot_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@db:5432/elevenbot
+      PLATEGA_WEBHOOK_HOST: 0.0.0.0
+      PLATEGA_WEBHOOK_PORT: 8090
+    command: [platega-webhook]
+    ports: ["127.0.0.1:8090:8090"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+
