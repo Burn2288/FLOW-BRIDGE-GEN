@@ -1,5 +1,6 @@
 from dataclasses import replace
 import asyncio
+import uuid
 import pytest
 from aiogram.types import Update
 from aiohttp.test_utils import TestClient, TestServer
@@ -39,7 +40,8 @@ async def test_private_access_denied_before_registration(env):
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,))
     bot=Bot();app=TelegramApp(pool,cfg,bot)
     before={table:await pool.fetchval('SELECT count(*) FROM '+table) for table in ('users','identities','wallets','ledger','conversations')}
-    await asyncio.gather(*(app.handle(telegram_event(900+i)) for i in range(3)))
+    await asyncio.gather(*(app.handle(telegram_event(900)) for _ in range(3)))
+    await app.handle(telegram_event(901))
     await app.handle(telegram_event(900,callback='accept'))
     assert before=={table:await pool.fetchval('SELECT count(*) FROM '+table) for table in before}
     assert not await pool.fetchval("SELECT EXISTS(SELECT 1 FROM identities WHERE external_id BETWEEN 900 AND 902)")
@@ -66,3 +68,23 @@ async def test_revocation_keeps_existing_data_and_denies_miniapp(env):
     await app.handle(telegram_event(101))
     assert 'ограничен' in bot.sent[-1][0]
     assert await pool.fetchrow('SELECT * FROM wallets WHERE user_id=$1 AND mode=$2',user,'live')==before
+
+
+async def test_revoked_user_payment_is_idempotent_and_job_is_preserved(env):
+    pool,cfg,service,_=env
+    user=await service.identity(101);await service.accept(user)
+    quote,_=await service.quote(user,'fixture','demo');job=await service.confirm(user,quote)
+    payment=uuid.uuid4()
+    await pool.execute("INSERT INTO payments(id,user_id,amount,credits,currency,tariff,status) VALUES($1,$2,100,500,'XTR','fixture','pending')",payment,user)
+    revoked=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=())
+    app=TelegramApp(pool,revoked,Bot())
+    actor={'id':101,'is_bot':False,'first_name':'Fixture'}
+    msg={'message_id':1,'date':1700000000,'chat':{'id':101,'type':'private'},'from':actor,
+         'successful_payment':{'currency':'XTR','total_amount':100,'invoice_payload':str(payment),
+                               'telegram_payment_charge_id':'fixture-charge','provider_payment_charge_id':'fixture'}}
+    update=Update.model_validate({'update_id':999,'message':msg})
+    await app.handle(update);await app.handle(update)
+    assert await pool.fetchval('SELECT status FROM jobs WHERE id=$1',job)=='queued'
+    assert await pool.fetchval('SELECT status FROM payments WHERE id=$1',payment)=='succeeded'
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE payment_id=$1 AND kind='payment'",payment)==1
+    assert (await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))['available']==500

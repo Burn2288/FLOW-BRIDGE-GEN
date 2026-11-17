@@ -84,7 +84,7 @@ asyncio.run(main())
 @pytest.mark.parametrize('lose_response',[False,True])
 async def test_anymodel_video_confirmation_and_restart(funded_env,video,lose_response):
     pool,cfg,_,user=funded_env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),anymodel_test_enabled=True,
                 anymodel_video_live=True,anymodel_key='fixture-any',interaction_limit=3)
     calls=[]
 
@@ -173,7 +173,7 @@ async def test_anymodel_video_confirmation_and_restart(funded_env,video,lose_res
 
 async def test_anymodel_video_missing_price_keeps_launch_closed(env):
     pool,cfg,_,user=env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),anymodel_test_enabled=True,
                 anymodel_video_live=True,anymodel_key='fixture-any',interaction_limit=3)
     def respond(req):
         assert req.method=='GET'

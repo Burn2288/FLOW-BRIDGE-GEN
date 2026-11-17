@@ -21,7 +21,7 @@ def routes(bot):
 @pytest.mark.parametrize('failure', [False, True])
 async def test_anymodel_menu_and_provider_routing(funded_env,tmp_path,monkeypatch,failure,manual_tariff):
     pool,cfg,_,user=funded_env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_chat_live=True,
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),anymodel_test_enabled=True,anymodel_chat_live=True,
                 anymodel_key='fixture-any',clodex_key='fixture-clodex',catalogue_path=str(tmp_path/'models.json'),
                 interaction_mode='live',interaction_limit=3,interaction_pairs=(f'chat:{TEST_MODEL}',))
     ids=[f'fixture/model-{i:02}' for i in range(22)]
@@ -172,7 +172,7 @@ async def test_user_anymodel_distinguishes_outage_empty_and_recovery(env,tmp_pat
     from elevenbot.telegram import CATALOGUE_UNAVAILABLE,EMPTY_MODELS
 
     pool,cfg,_,_=env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),anymodel_test_enabled=True,
                 catalogue_path=str(tmp_path/'catalogue.json'))
     bot=Bot()
     app=telegram.TelegramApp(pool,cfg,bot)

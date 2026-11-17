@@ -62,7 +62,7 @@ def app_with_fixture(pool,cfg,bot,client):
     adapter=FixtureAggregator(pool,client)
     registry=ProviderRegistry()
     registry.register('fixture',adapter,price=adapter,launch=adapter,title='Fixture provider')
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),interaction_limit=100)
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),interaction_limit=100)
     return TelegramApp(pool,cfg,bot,providers=registry)
 
 
