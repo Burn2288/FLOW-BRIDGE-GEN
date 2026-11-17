@@ -4,6 +4,7 @@ import pytest_asyncio,pytest
 from elevenbot.db import connect,migrate
 from elevenbot.config import Config
 from elevenbot.core import Service
+from scripts.disposable_test_db import require_disposable_dsn
 
 
 @pytest.fixture(autouse=True)
@@ -14,20 +15,24 @@ def admin_already_signed_in(monkeypatch):
 
 @pytest_asyncio.fixture
 async def env(tmp_path):
-    dsn=os.getenv('TEST_DATABASE_URL')
-    if not dsn:pytest.skip('BLOCKED: genuine PostgreSQL TEST_DATABASE_URL not provided')
-    # Must be explicitly isolated. No automatic production DB truncation.
+    dsn=require_disposable_dsn(os.environ)
     import asyncpg
     admin=await asyncpg.connect(dsn);schema='test_'+uuid.uuid4().hex
-    await admin.execute(f'CREATE SCHEMA {schema}')
-    pool=await asyncpg.create_pool(dsn,min_size=1,max_size=25,server_settings={'search_path':schema})
-    await migrate(pool)
-    cfg=Config(generation_enabled=True,storage=tmp_path/'audio')
-    svc=Service(pool,cfg)
-    u=await svc.identity(100);await svc.accept(u)
-    try:yield pool,cfg,svc,u
+    pool=None; created=False
+    try:
+        await admin.execute(f'CREATE SCHEMA {schema}');created=True
+        pool=await asyncpg.create_pool(dsn,min_size=1,max_size=25,server_settings={'search_path':schema})
+        await migrate(pool)
+        cfg=Config(generation_enabled=True,storage=tmp_path/'audio')
+        svc=Service(pool,cfg)
+        u=await svc.identity(100);await svc.accept(u)
+        yield pool,cfg,svc,u
     finally:
-        await pool.close();await admin.execute(f'DROP SCHEMA {schema} CASCADE');await admin.close()
+        try:
+            if pool: await pool.close()
+            if created: await admin.execute(f'DROP SCHEMA {schema} CASCADE')
+        finally:
+            await admin.close()
 
 
 @pytest.fixture

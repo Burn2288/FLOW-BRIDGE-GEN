@@ -17,5 +17,7 @@ services:
       dockerfile: Dockerfile.test
     environment:
       TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/elevenbot_test
+      DISPOSABLE_POSTGRES_PROFILE: compose-service
+      DISPOSABLE_POSTGRES_CONFIRM: 'YES'
     depends_on:
       db: {condition: service_healthy}

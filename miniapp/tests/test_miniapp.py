@@ -21,6 +21,7 @@ from elevenbot.anymodel import model_store
 from elevenbot.discovery import SnapshotStore
 from elevenbot.core import Service
 from elevenbot.interaction import MOCK_IMAGE
+from scripts.disposable_test_db import require_disposable_dsn
 from miniapp.backend.web import create_app
 
 
@@ -33,9 +34,7 @@ def signed(token, user, age=0):
 
 @pytest.fixture
 async def account_db(tmp_path):
-    dsn = os.getenv('TEST_DATABASE_URL')
-    if not dsn:
-        pytest.skip('Separate PostgreSQL TEST_DATABASE_URL is required')
+    dsn = require_disposable_dsn(os.environ)
     schema = 'miniapp_' + uuid4().hex
     connection = await asyncpg.connect(dsn)
     try:
