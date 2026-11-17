@@ -100,7 +100,7 @@ async def snapshot(conn, audio_dir, speech):
     ]
     result = {name: [tuple(row) for row in await conn.fetch(sql)] for name, sql in queries}
     assert result['wallets'] == [(USER, 'demo', 800, 100), (USER, 'live', 500, 0)]
-    assert await conn.fetchval("SELECT count(*) FROM wallets w WHERE (available,reserved) IS DISTINCT FROM (SELECT coalesce(sum(da),0),coalesce(sum(dr),0) FROM ledger l WHERE l.user_id=w.user_id AND l.mode=w.mode)") == 0
+    assert await conn.fetchval("SELECT count(*) FROM wallets w WHERE available<>(SELECT coalesce(sum(da),0) FROM ledger l WHERE l.user_id=w.user_id AND l.mode=w.mode) OR reserved<>(SELECT coalesce(sum(dr),0) FROM ledger l WHERE l.user_id=w.user_id AND l.mode=w.mode)") == 0
     assert digest(result['images'][0][2]) == digest(PNG)
     assert digest(result['videos'][0][4]) == digest(MP4)
     assert digest((audio_dir / 'historical.mp3').read_bytes()) == digest(MP3)
