@@ -2,6 +2,7 @@
 import hashlib
 import os
 import shutil
+import socket
 import subprocess
 import uuid
 import zipfile
@@ -114,6 +115,25 @@ async def snapshot(conn, audio_dir, speech):
 @pytest.mark.asyncio
 async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
     raw, url = safe_config()
+    outbound_attempts = []
+    original_connect = socket.socket.connect
+    original_connect_ex = socket.socket.connect_ex
+
+    def allow_loopback(address):
+        if isinstance(address, tuple) and address[0] not in ('127.0.0.1', '::1'):
+            outbound_attempts.append(address[0])
+            raise RuntimeError('external network blocked in fixture')
+
+    def guarded_connect(sock, address):
+        allow_loopback(address)
+        return original_connect(sock, address)
+
+    def guarded_connect_ex(sock, address):
+        allow_loopback(address)
+        return original_connect_ex(sock, address)
+
+    monkeypatch.setattr(socket.socket, 'connect', guarded_connect)
+    monkeypatch.setattr(socket.socket, 'connect_ex', guarded_connect_ex)
     name = 'in19_seed_' + uuid.uuid4().hex
     restored_name = 'in19_restore_' + uuid.uuid4().hex
     admin = await asyncpg.connect(raw)
@@ -152,6 +172,7 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
                 if stage >= 16:
                     assert check.pop('speech') == baseline_speech
                 assert check == baseline
+            assert not outbound_attempts
             print(f'STAGE {stage:03d} PASS registry={stage} rerun=stable data=stable ledger=balanced')
 
         async with pool.acquire() as conn:
@@ -188,7 +209,8 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
                 await conn.execute("INSERT INTO identities(platform,external_id,user_id) VALUES('telegram',90001,$1)", USER)
         print('RESTORE PASS new database rows/ledger/jobs/results/registry/constraints; audio restored from separate archive')
         print('MEDIA_SHA256 png='+digest(PNG)+' mp3='+digest(MP3)+' mp4='+digest(MP4)+' speech='+digest(SPEECH_BYTES))
-        print('PROVIDER_POSTS=0; fixture invokes no provider client or external service')
+        assert not outbound_attempts
+        print('PROVIDER_POSTS=0; no provider client invoked; Python non-loopback connections blocked')
     finally:
         if restored:
             await restored.close()
