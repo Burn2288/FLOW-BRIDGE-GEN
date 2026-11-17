@@ -29,9 +29,10 @@ MODEL_ID = re.compile(r'[A-Za-z0-9_.:@-]+(?:/[A-Za-z0-9_.:@-]+)+')
 
 
 class AnyModelError(Exception):
-    def __init__(self,message,*,code='protocol',status=None,retry_after=5):
+    def __init__(self,message,*,code='protocol',status=None,retry_after=5,terminal=False):
         super().__init__(message)
         self.code,self.status,self.retry_after=code,status,retry_after
+        self.terminal=terminal
 
 
 @dataclass(frozen=True)
@@ -120,7 +121,8 @@ class AnyModelProvider:
                 delay=retry_after(response.headers.get('Retry-After'))
                 if response.status_code not in accepted:
                     raise AnyModelError(f'HTTP {response.status_code}',code=f'http_{response.status_code}',
-                                        status=response.status_code,retry_after=delay)
+                                        status=response.status_code,retry_after=delay,
+                                        terminal=response.headers.get('X-Should-Retry','').strip().lower()=='false')
                 raw = bytearray()
                 async for chunk in response.aiter_bytes():
                     if len(raw) + len(chunk) > max_body:

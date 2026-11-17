@@ -10,7 +10,7 @@ from .core import Rejected, Service
 from .interaction import trace_interaction
 
 RETRYABLE_POLL = {'connect_error','connect_timeout','response_timeout','transport_error',
-                  'http_429','http_502','http_504'}
+                  'http_429','http_502','http_503','http_504'}
 
 
 class AnyModelImageJobs:
@@ -92,12 +92,31 @@ class AnyModelImageJobs:
             code=error.code if isinstance(error,AnyModelError) else 'access'
             trace_interaction(update_id,'anymodel_image_poll_failed',code=code,
                               status=error.status if isinstance(error,AnyModelError) else None)
-            if code in RETRYABLE_POLL:
+            if isinstance(error,AnyModelError) and code in RETRYABLE_POLL and not error.terminal:
                 await self.reschedule(update_id,lease,max(5,error.retry_after))
             else:
-                await self.pool.execute("UPDATE anymodel_image_jobs SET status='failed' WHERE update_id=$1 AND next_at=$2",
-                                        update_id,lease)
+                await self.fail_poll(bot,update_id,user,lease)
         return True
+
+    async def fail_poll(self,bot,update_id,user,lease):
+        external=await self.pool.fetchval("""
+            WITH failed AS (
+                UPDATE anymodel_image_jobs SET status='failed'
+                WHERE update_id=$1 AND next_at=$2 AND status='pending' AND user_id=$3
+                RETURNING user_id
+            )
+            SELECT i.external_id FROM failed f
+            JOIN users u ON u.id=f.user_id AND NOT u.blocked
+            JOIN identities i ON i.user_id=f.user_id AND i.platform='telegram'
+            WHERE i.accepted_at IS NOT NULL
+            """,update_id,lease,user)
+        if external is None:
+            return
+        try:
+            async with asyncio.timeout(50):
+                await bot.send_message(external,'FIBO 2 · AnyModel · Не удалось получить изображение. Автоповтора нет.')
+        except (TelegramAPIError,TimeoutError):
+            trace_interaction(update_id,'anymodel_image_failure_notice_failed')
 
     async def reschedule(self,update_id,lease,delay):
         await self.pool.execute("""
