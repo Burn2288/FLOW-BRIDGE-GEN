@@ -74,6 +74,7 @@ async def seed_013(conn, audio_dir):
         await conn.execute("INSERT INTO wallets(user_id,mode) VALUES($1,'demo'),($1,'live')", USER)
         await conn.execute("INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr) VALUES($1,$2,'demo','grant-fixture','demo_grant',1000,0)", uuid.UUID(int=1030), USER)
         await conn.execute("INSERT INTO payments(id,user_id,amount,credits,currency,tariff,charge_id,status) VALUES($1,$2,100,500,'XTR','fixture','fixture-charge','succeeded')", PAYMENT, USER)
+        await conn.execute("INSERT INTO payment_callback_events(provider,remote_id,status) VALUES('platega',$1,'fixture-pending')", uuid.UUID(int=1006))
         await conn.execute("INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr,payment_id) VALUES($1,$2,'live','payment-fixture','payment',500,0,$3)", uuid.UUID(int=1031), USER, PAYMENT)
         await conn.execute("INSERT INTO budgets(day) VALUES('2026-01-01')")
         for i in range(2):
@@ -96,6 +97,7 @@ async def snapshot(conn, audio_dir, speech):
         ('ledger', 'SELECT id,user_id,mode,event_key,kind,da,dr,job_id,payment_id FROM ledger ORDER BY event_key'),
         ('jobs', 'SELECT id,user_id,quote_id,mode,price,cost_bound,budget_day,status,settlement FROM jobs ORDER BY id'),
         ('payments', 'SELECT id,user_id,amount,credits,currency,tariff,charge_id,status FROM payments ORDER BY id'),
+        ('payment_events', 'SELECT id,provider,remote_id,status,received_at FROM payment_callback_events ORDER BY id'),
         ('files', 'SELECT job_id,storage_key,sha256,size FROM files ORDER BY job_id'),
         ('images', 'SELECT id,user_id,image FROM image_works ORDER BY id'),
         ('videos', 'SELECT id,user_id,status,provider_id,video FROM video_jobs ORDER BY id'),
