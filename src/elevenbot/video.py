@@ -21,6 +21,13 @@ VIDEOS = '/v1/videos'
 MAX_VIDEO_BYTES = 49_000_000
 ID_PATTERN = re.compile(r'[A-Za-z0-9_-]{1,180}')
 
+def video_status_detail(body):
+    stage = body.get('status')
+    if stage == 'in_progress':
+        stage = 'processing'
+    percent = body.get('progress')
+    return stage, percent if type(percent) is int and 0<=percent<=100 else None
+
 
 class VideoProtocolError(Exception):
     pass
@@ -96,7 +103,7 @@ class VideoAPI:
         body = await self.json('GET', f'{VIDEOS}/{task}')
         status = body.get('status')
         if status in ('pending', 'queued', 'processing', 'in_progress'):
-            return 'pending'
+            return video_status_detail(body)
         if status in ('done', 'completed', 'succeeded'):
             return 'done'
         if status == 'failed':
@@ -175,7 +182,7 @@ class VideoPilot:
                 ''',quote_id,user,model,prompt,price,self.provider,self.key_fingerprint)
         return quote_id, price
 
-    async def confirm(self, user, quote_id, update_id, model):
+    async def confirm(self, user, quote_id, update_id, model, *, on_accepted=None):
         if not self.enabled():
             raise Rejected('Пилот видео недоступен.')
         job = uid(quote_id)
@@ -200,6 +207,8 @@ class VideoPilot:
             if not await self.svc.reserve_interaction_on(conn, user, update_id, unlimited=False):
                 raise Rejected('Запрос уже был принят. Автоматический повтор отключён.')
         # Claim is durable before the only POST. A lost response never triggers a retry.
+        if on_accepted:
+            await on_accepted(job)
         try:
             provider_id,connection=await self.create_task(model,reserved["prompt"],reserved["idempotency_key"])
             await self.pool.execute("""
@@ -227,8 +236,11 @@ class VideoPilot:
             return False
         job, task, connection, lease = row
         status, video = 'polling', None
+        stage = percent = None
         try:
             current = await self.task_status(task,connection)
+            if isinstance(current,tuple):
+                stage,percent=current
             if current == 'failed':
                 status = 'failed'
             if current == 'done':
@@ -242,9 +254,10 @@ class VideoPilot:
             UPDATE video_jobs SET status=$3,video=$4,
                 next_poll_at=now()+interval '10 seconds',
                 expires_at=CASE WHEN $3 IN ('succeeded','failed') THEN now()+interval '7 days' END,
-                notify_at=CASE WHEN $3 IN ('succeeded','failed') THEN now() END
+                notify_at=CASE WHEN $3 IN ('succeeded','failed') THEN now() END,
+                provider_stage=COALESCE($5,provider_stage),provider_progress=COALESCE($6,provider_progress)
             WHERE id=$1 AND next_poll_at=$2 RETURNING id
-            """, job, lease, status, video)
+            """, job, lease, status, video, stage, percent)
         if saved and status in ('succeeded', 'failed'):
             await self.notify_one(bot)
         return True

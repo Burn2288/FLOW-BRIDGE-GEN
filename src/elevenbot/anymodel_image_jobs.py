@@ -19,7 +19,7 @@ class AnyModelImageJobs:
         self.svc=Service(pool,cfg)
         self.adapter=adapter or AnyModelProvider(cfg.anymodel_key)
 
-    async def submit(self,user,update_id,prompt):
+    async def submit(self,user,update_id,prompt,*,on_accepted=None):
         async with self.pool.acquire() as conn,conn.transaction():
             await self.svc.authorize(conn,user)
             existing=await conn.fetchval('SELECT status FROM anymodel_image_jobs WHERE update_id=$1',update_id)
@@ -30,6 +30,8 @@ class AnyModelImageJobs:
                 VALUES($1,$2,$3,'submitting',now()+interval '1 minute')
                 """,update_id,user,prompt)
 
+        if on_accepted:
+            await on_accepted(update_id)
         reply=None
         try:
             reply=await self.adapter.submit_image(FIBO_MODEL,prompt)

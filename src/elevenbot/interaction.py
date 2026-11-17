@@ -368,7 +368,7 @@ async def execute(operation, model, prompt, history, *, mode, key='', client=Non
         raise Rejected('CLODEX не ответил вовремя. Статус генерации неизвестен. Автоповтора нет.') from None
     except httpx.RequestError as error:
         trace_interaction(request_id, 'network_error', error_type=type(error).__name__)
-        raise Rejected('Сетевая ошибка при запросе к CLODEX. Автоповтора нет.') from None
+        raise Rejected('Сетевая ошибка при запросе к CLODEX. Исход запроса неизвестен. Автоповтора нет.') from None
     except ValueError:
         trace_interaction(request_id, 'invalid_json')
         raise Rejected('CLODEX вернул ответ, который не удалось прочитать как JSON. Автоповтора нет.') from None

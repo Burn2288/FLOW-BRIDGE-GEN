@@ -1,6 +1,7 @@
 """Closed AnyModel speech pilot with a durable, one-use price confirmation."""
 
 import asyncio
+from contextlib import nullcontext
 from decimal import Decimal, InvalidOperation
 import json
 import subprocess
@@ -125,7 +126,7 @@ class SpeechPilot:
                 """, quote, user, model, title, input_text, cost)
         return quote, title, units, cost
 
-    async def confirm(self, user, external, quote, update_id):
+    async def confirm(self, user, external, quote, update_id, *, track=None):
         if not self.enabled(external):
             raise Rejected('AnyModel: тестовый запуск озвучки выключен.')
         quote = uid(quote)
@@ -137,7 +138,7 @@ class SpeechPilot:
                 """, quote, user)
         if not row:
             raise Rejected('AnyModel: оценка устарела или запрос уже принят.')
-        _, rate = await self.model(row['model_id'])
+        title, rate = await self.model(row['model_id'])
         units = len(row['input'].encode('utf-16-le')) // 2
         if rate is None or rate * units != row['cost_tokens']:
             raise Rejected('AnyModel: цена изменилась или не подтверждена. Запросите новую оценку.')
@@ -149,15 +150,19 @@ class SpeechPilot:
                 """, quote, user)
             if not claimed or not await self.svc.reserve_interaction_on(conn,user,update_id,unlimited=False):
                 raise Rejected('AnyModel: оценка устарела или запрос уже принят.')
-        try:
-            reply = await self.api.read_response('POST',BASE+SPEECH_PATH,authenticated=True,
-                max_body=MAX_AUDIO,deadline=120,timeout=httpx.Timeout(90,connect=5),
-                json={'model':row['model_id'],'input':row['input']})
-            if reply.content_type not in ('audio/mpeg','audio/mp3'):
-                raise AnyModelError('неизвестный формат ответа', code='speech_content_type')
-            await asyncio.to_thread(validate_mp3, reply.body)
-        except AnyModelError as error:
-            trace_interaction(str(quote),'anymodel_speech_failed',reason=error.code)
-            raise Rejected('AnyModel: результат озвучки не подтверждён. Запрос автоматически не повторяется.') from None
-        await self.pool.execute('UPDATE anymodel_speech SET audio=$2 WHERE id=$1', quote, reply.body)
+        async with track(title) if track else nullcontext():
+            try:
+                reply = await self.api.read_response('POST',BASE+SPEECH_PATH,authenticated=True,
+                    max_body=MAX_AUDIO,deadline=120,timeout=httpx.Timeout(90,connect=5),
+                    json={'model':row['model_id'],'input':row['input']})
+                if reply.content_type not in ('audio/mpeg','audio/mp3'):
+                    raise AnyModelError('неизвестный формат ответа', code='speech_content_type')
+                await asyncio.to_thread(validate_mp3, reply.body)
+            except AnyModelError as error:
+                trace_interaction(str(quote),'anymodel_speech_failed',reason=error.code)
+                detail = 'Исход запроса неизвестен.' if error.status is None and error.code in (
+                    'response_timeout','transport_error','connect_timeout','connect_error',
+                ) else 'Не удалось получить озвучку.'
+                raise Rejected(f'{detail} Запрос автоматически не повторяется.') from None
+            await self.pool.execute('UPDATE anymodel_speech SET audio=$2 WHERE id=$1', quote, reply.body)
         return quote

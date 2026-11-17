@@ -181,7 +181,7 @@ async def test_UI_full_dialog():
     markup=b.sent[-1][1];callback=markup.inline_keyboard[0][0].callback_data
     assert len(callback.encode())<=64
     await a.handle(event(callback=callback));assert a.svc.confirmations==1
-    assert 'Работа принята' in b.sent[-1][0]
+    assert 'Озвучиваю текст' in b.sent[-1][0]
 
 @pytest.mark.parametrize('callback',['voice:-1','voice:999','preview:999','speed:bad','voices:bad','nonsense'])
 async def test_UI_stale_callbacks(callback):

@@ -36,6 +36,7 @@ import httpx
 
 from elevenbot.anymodel_video import AnyModelVideoPilot,AnyModelVideoProvider
 from elevenbot.config import Config
+from elevenbot.progress import TaskProgress
 
 calls=[]
 def respond(req):
@@ -50,6 +51,11 @@ def respond(req):
     return httpx.Response(200,json={'status':'done','video':{'url':'https://untrusted.example/unused'}})
 
 class Bot:
+    async def edit_message_text(self,text,*,chat_id,message_id):
+        assert chat_id==100 and message_id==int(os.environ['VIDEO_STATUS_MESSAGE'])
+        assert text.startswith('✅ Grok Imagine Video 1.5')
+        print('telegram_status_completed')
+
     async def send_video(self,chat,file,**kwargs):
         assert chat==100 and file.data==b64decode(os.environ['VIDEO_BYTES'])
         print('telegram_delivery_confirmed')
@@ -67,6 +73,8 @@ async def main():
             assert await pilot.poll_one(Bot())
             assert calls==['/v1/videos/fixture-job','/v1/videos/fixture-job','/v1/videos/fixture-job/content']
             assert await pool.fetchval("SELECT status='succeeded' AND notify_at IS NULL FROM video_jobs")
+            await TaskProgress(Bot(),pool).refresh()
+            assert not await pool.fetchval('SELECT EXISTS(SELECT 1 FROM task_progress)')
 
 asyncio.run(main())
 """
@@ -117,10 +125,16 @@ async def test_anymodel_video_confirmation_and_restart(env,video,lose_response):
         assert any(isinstance(r,Rejected) for r in results)
         assert calls==['/v1/videos/generations']
         assert await pool.fetchval('SELECT count(*) FROM interaction_attempts')==1
+        status_message=await pool.fetchval('SELECT message_id FROM task_progress')
+        assert status_message and '⏳ Grok Imagine Video 1.5' in bot.sent[-1][0]
+        await app.callback(user,100,'home')
+        assert status_message not in bot.deleted
         if lose_response:
             assert all(isinstance(r,Rejected) for r in results)
             assert await pool.fetchval("SELECT status='uncertain' AND provider_id IS NULL FROM video_jobs")
             assert not await app.anymodel_video.poll_one(bot)
+            await app.progress.refresh()
+            assert 'Исход запроса неизвестен' in bot.sent[-1][0]
             return
         assert results.count(None)==1
         assert await pool.fetchval("""
@@ -131,6 +145,7 @@ async def test_anymodel_video_confirmation_and_restart(env,video,lose_response):
     proc=await asyncio.create_subprocess_exec(sys.executable,'-c',POLL_PROCESS,env=os.environ|{
         'VIDEO_SCHEMA':await pool.fetchval('SELECT current_schema()'),
         'VIDEO_BYTES':b64encode(video).decode(),
+        'VIDEO_STATUS_MESSAGE':str(status_message),
         'PYTHONPATH':str(Path(__file__).resolve().parents[1]/'src'),
     },stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
     try:
@@ -142,6 +157,7 @@ async def test_anymodel_video_confirmation_and_restart(env,video,lose_response):
             await proc.wait()
     assert proc.returncode==0,stderr.decode()
     assert b'telegram_delivery_confirmed' in stdout and b'video_poll_failed' in stdout
+    assert b'telegram_status_completed' in stdout
     assert b'fixture-any' not in stdout and b'fixture-ticket' not in stdout
     bot=Bot()
     bot.send_video=AsyncMock(return_value=SimpleNamespace(message_id=15))

@@ -79,7 +79,7 @@ async def test_anymodel_menu_and_provider_routing(env,tmp_path,monkeypatch,failu
                 await hidden.callback(user,external_id,action)
         await app.callback(user,100,action)
         await app.handle(event('hello AnyModel'))
-        assert ('AnyModel: сетевая ошибка' if failure else 'Reply from anymodel.org') in bot.sent[-1][0]
+        assert ('Исход запроса неизвестен' if failure else 'Reply from anymodel.org') in bot.sent[-1][0]
         assert len(calls)==2
 
         version=app.catalogue_snapshot()['version']
