@@ -28,6 +28,7 @@ class Config:
     admin_ids: tuple[int, ...] = ()
     clodex_key: str = ''
     interaction_mode: str = 'off'
+    video_pilot: bool = False
     interaction_limit: int = 0
     interaction_pairs: tuple[str, ...] = ()
     public_catalogue_models: tuple[str, ...] = ()
@@ -66,6 +67,7 @@ class Config:
               privacy=os.getenv('PRIVACY_TEXT',cls.privacy),
               admin_ids=tuple(int(x) for x in os.getenv('ADMIN_TELEGRAM_IDS','').split(',') if x.strip()),
               interaction_mode=os.getenv('CLODEX_INTERACTION_MODE','off'),
+              video_pilot=flag('CLODEX_VIDEO_PILOT'),
               interaction_limit=int(os.getenv('CLODEX_INTERACTION_LIMIT','0')),
               interaction_pairs=tuple(x.strip() for x in os.getenv('CLODEX_INTERACTION_PAIRS','').split(',') if x.strip()),
               public_catalogue_models=tuple(x.strip() for x in os.getenv('PUBLIC_CATALOGUE_MODELS','').split(',') if x.strip()),
@@ -84,6 +86,8 @@ class Config:
             and (c.interaction_limit>0 or set(c.interaction_pairs)=={'images.generate:nano-banana-2'})
         ):
             raise ValueError('Live interaction pilot requires private access, key, catalogue, explicit pairs and a positive request limit for models other than Nano Banana 2 image generation')
+        if c.video_pilot and (c.interaction_mode!='live' or not 1<=c.interaction_limit<=100):
+            raise ValueError('Video pilot requires private live interaction and a positive request limit')
         if c.mode=='catalogue' and (c.generation_enabled or c.payments_enabled):raise ValueError('Catalogue mode cannot generate or charge')
         if c.catalogue_enabled:
             from .discovery import SchemaProfile

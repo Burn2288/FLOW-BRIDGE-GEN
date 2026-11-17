@@ -135,6 +135,7 @@ class Worker:
                 if time.time()-path.stat().st_mtime>7*86400:path.unlink(missing_ok=True)
             await c.execute("UPDATE conversations SET aggregate_context=NULL,text_content=NULL,step='home' WHERE updated_at<now()-interval '1 day'")
             await c.execute("DELETE FROM image_works WHERE expires_at<=now()")
+            await c.execute("DELETE FROM video_jobs WHERE expires_at<=now() OR (status='quoted' AND quote_expires_at<=now())")
             await c.execute("DELETE FROM rate_limits WHERE minute<now()-interval '1 day'")
             await c.execute("DELETE FROM inbox WHERE done AND error_code IS NULL AND created_at<now()-interval '1 day'")
     async def _poll_work(self, operation):

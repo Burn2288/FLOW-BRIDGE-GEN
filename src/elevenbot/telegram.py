@@ -9,11 +9,12 @@ from .core import Service,Rejected,uid
 from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
+from .video import VideoPilot,video_modes
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
-CATALOGUE_CALLBACKS={'provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork'}
+CATALOGUE_CALLBACKS={'provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
     'image':('🖼 Генерировать изображение','images.generate'),
@@ -42,6 +43,7 @@ class TelegramApp:
         self.home_screens = set()
         self.work_previews = {}
         self.pending_speech = {}
+        self.video = VideoPilot(pool,cfg)
     async def say(self,chat,text,markup=None):
         if isinstance(markup,ReplyKeyboardMarkup) and chat not in self.cfg.admin_ids:
             markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=OPEN_CATALOGUE)]],resize_keyboard=True,is_persistent=True)
@@ -83,20 +85,20 @@ class TelegramApp:
             await self.remove_menu_message(ext,previous)
 
     async def open_work(self,u,ext,kind,job,*,prompt_only=False,show_prompt=False):
-        work=await (self.svc.image_work(u,job) if kind=='image' else self.svc.audio_work(u,job))
+        work=await getattr(self.svc,f'{kind}_work')(u,job)
         await self.close_work_preview(ext)
         prompt=work['prompt']
         if prompt_only:
             if not prompt:raise Rejected('Текст этой работы недоступен.')
             message=await self.bot.send_document(ext,BufferedInputFile(prompt.encode(),filename='prompt.txt'))
         else:
-            caption=work.get('caption') or ('Изображение' if kind=='image' else 'Озвучка')
+            caption=work.get('caption') or {'image':'Изображение','audio':'Озвучка','video':'Veo 3.1'}[kind]
             markup=None
             if show_prompt and prompt:
                 caption+='\nПромпт: '+prompt[:450]+('…' if len(prompt)>450 else '')
                 if len(prompt)>450:
                     markup=buttons([[('Полный промпт',f'prompt:{kind}:{job}')]])
-            send=self.bot.send_photo if kind=='image' else self.bot.send_audio
+            send=getattr(self.bot,{'image':'send_photo','audio':'send_audio','video':'send_video'}[kind])
             message=await send(ext,BufferedInputFile(work[kind],filename=work['filename']),
                                caption=caption,reply_markup=markup)
         self.work_previews[ext]=message.message_id
@@ -177,7 +179,7 @@ class TelegramApp:
             command=text.lstrip().split(maxsplit=1)
             command=command[0].lower() if command else ''
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
-                        or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','prompt:'))
+                        or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:'))
                         or text in CATALOGUE_COMMANDS or text in MENU or text in ('/menu','/cancel'))
             await self.svc.rate(u,navigation=navigation)
             if update.callback_query:
@@ -242,6 +244,8 @@ class TelegramApp:
             state=await self.svc.conversation(u)
             if state['step']=='aggregate':
                 context=await self.svc.aggregate_context(u)
+                if context and 'video_mode' in context:
+                    await self.video_prompt(u,ext,text,context);return
                 if context and 'interaction' in context:
                     await self.interaction_input(u,ext,update,context);return
                 if ext not in self.cfg.admin_ids:
@@ -324,12 +328,12 @@ class TelegramApp:
         rows=[]
         for index,r in enumerate(jobs,start=page*10+1):
             kind=r.get('kind','audio')
-            name='Изображение' if kind=='image' else 'Озвучка'
+            name={'image':'Изображение','audio':'Озвучка','video':'Видео'}[kind]
             price=f" · {r['price']} кредитов" if r['price'] is not None else ''
             lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {STATUS[r['status']]}{price}")
             if r['status']=='succeeded' and r.get('file_available',True):
-                route='image' if kind=='image' else 'get'
-                if model:route='m'+route
+                route={'image':'image','audio':'get','video':'video'}[kind]
+                if model and kind!='video':route='m'+route
                 rows.append([(f"Открыть работу №{index}",f"{route}:{r['id']}")])
             if r['status']=='queued':
                 rows.append([(f'Отменить №{index}',f"cancel:{r['id']}")])
@@ -363,6 +367,16 @@ class TelegramApp:
             raise Rejected('Этот раздел доступен только разработчику.')
         if data=='store':
             await self.svc.conversation(u,'home');await self.show_store(ext);return
+        if route=='veo':
+            await self.show_veo(ext,data.split(':')[1]);return
+        if route=='veoprompt':
+            _,version,mode=data.split(':')
+            selected=self.veo_mode(ext,version,mode)
+            await self.svc.aggregate_context(u,{'video_mode':mode,'version':version})
+            await self.catalogue_screen(ext,f'Veo 3.1 · {selected[1]}\nОпишите, какое видео хотите создать.',
+                                        buttons([[('Отмена','home')]]));return
+        if route=='veoconfirm':
+            await self.confirm_video(u,ext,data.split(':')[1],request_id);return
         if route=='mwork':
             _,version,section,index,page=data.split(':')
             snapshot=self.catalogue_snapshot(version)
@@ -445,6 +459,8 @@ class TelegramApp:
             await self.catalogue_screen(ext,'Работа принята. ⏳ Подождите, идёт озвучка…',buttons(rows))
             self.pending_speech[ext]=(u,job,rows)
             return
+        if kind=='video':
+            await self.open_work(u,ext,'video',arg);return
         if kind in ('get','image','mget','mimage'):
             await self.open_work(u,ext,'image' if kind.endswith('image') else 'audio',arg,
                                  show_prompt=kind.startswith('m'));return
@@ -553,6 +569,13 @@ class TelegramApp:
 
     async def show_store_models(self,ext,version,section,page):
         snapshot=self.catalogue_snapshot(None if version=='current' else version)
+        if section=='video':
+            if page!=0:raise Rejected('Страница недоступна.')
+            rows=[]
+            if video_modes(self.cfg,snapshot,ext):
+                rows.append([('Veo 3.1',f"veo:{snapshot['version']}")])
+            rows.append([('← Каталог','store')])
+            await self.catalogue_screen(ext,STORE_SECTIONS['video'][0],buttons(rows));return
         models=self.store_models(snapshot,section,ext)
         page_count=max(1,(len(models)+9)//10)
         if not 0<=page<page_count:
@@ -571,6 +594,40 @@ class TelegramApp:
         rows.append([('← Каталог','store')])
         status=f'Моделей: {len(models)} · Страница {page+1} из {page_count}' if models else 'В этом разделе пока нет опубликованных моделей.'
         await self.catalogue_screen(ext,title+'\n'+status,buttons(rows))
+
+    def veo_mode(self,ext,version,mode):
+        selected=video_modes(self.cfg,self.catalogue_snapshot(version),ext).get(mode)
+        if selected is None:
+            raise Rejected('Этот режим Veo недоступен. Обновите каталог.')
+        return selected
+
+    async def show_veo(self,ext,version):
+        modes=video_modes(self.cfg,self.catalogue_snapshot(version),ext)
+        if not modes:raise Rejected('Veo 3.1 недоступна. Обновите каталог.')
+        rows=[[(label,f'veoprompt:{version}:{mode}')] for mode,(_,_,label) in modes.items()]
+        rows.append([('← Назад','slist:current:video:0')])
+        await self.catalogue_screen(ext,'Veo 3.1 · Текст → видео',buttons(rows))
+
+    async def video_prompt(self,u,ext,text,context):
+        if 'quote_id' in context:
+            raise Rejected('Подтвердите оценку или откройте меню для отмены.')
+        mode=context['video_mode']
+        model,label,_=self.veo_mode(ext,context['version'],mode)
+        quote_id,price=await self.video.quote(u,model,text)
+        await self.svc.aggregate_context(u,{**context,'quote_id':str(quote_id)})
+        await self.catalogue_screen(ext,f'Veo 3.1 · {label}\n4 с · 720p · 16:9\n'
+                                    f'Оценка CLODEX: {price:f} USD. Действует 5 минут.',
+                                    buttons([[('Подтвердить',f'veoconfirm:{quote_id}')],[('Отмена','home')]]))
+
+    async def confirm_video(self,u,ext,quote_id,request_id):
+        context=await self.svc.aggregate_context(u)
+        if request_id is None or not context or context.get('quote_id')!=quote_id:
+            raise Rejected('Оценка устарела или заказ уже принят.')
+        model,_,_=self.veo_mode(ext,context['version'],context['video_mode'])
+        await self.video.confirm(u,quote_id,request_id,model)
+        await self.svc.conversation(u,'home')
+        await self.catalogue_screen(ext,'Задание принято. Отправлю видео, когда оно будет готово.',
+                                    buttons([[('📁 Мои работы','history:0')]]))
 
     async def show_store_model(self,ext,snapshot,section,page,index):
         model=snapshot['models'][index]
