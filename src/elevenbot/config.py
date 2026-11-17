@@ -29,6 +29,7 @@ class Config:
     terms: str = 'Условия коммерческого сервиса пока не опубликованы.'
     privacy: str = 'Политика обработки данных пока не опубликована.'
     admin_ids: tuple[int, ...] = ()
+    pilot_user_ids: tuple[int, ...] = ()
     admin_password: str = field(default='', repr=False)
     clodex_key: str = ''
     clodex_music_owner: int = 0
@@ -100,6 +101,7 @@ class Config:
               support=os.getenv('SUPPORT_CONTACT',cls.support),terms=os.getenv('TERMS_TEXT',cls.terms),
               privacy=os.getenv('PRIVACY_TEXT',cls.privacy),
               admin_ids=tuple(int(x) for x in os.getenv('ADMIN_TELEGRAM_IDS','').split(',') if x.strip()),
+              pilot_user_ids=tuple(int(x.strip()) for x in os.getenv('PILOT_TELEGRAM_USER_IDS','').split(',') if x.strip()),
               admin_password=os.getenv('ADMIN_PASSWORD',''),
               interaction_mode=os.getenv('CLODEX_INTERACTION_MODE','off'),
               video_pilot=flag('CLODEX_VIDEO_PILOT'),
@@ -133,6 +135,7 @@ class Config:
                     or any(char.isspace() for char in c.miniapp_url)):
                 raise ValueError('MINIAPP_URL must be an HTTPS URL')
         if c.access_mode not in ('private','public') or (c.access_mode=='private' and not c.admin_ids):raise ValueError('Private access requires ADMIN_TELEGRAM_IDS')
+        if any(x <= 0 or x >= 2**52 for x in c.pilot_user_ids):raise ValueError('Invalid PILOT_TELEGRAM_USER_IDS')
         if c.clodex_music_owner and (c.access_mode!='private' or c.clodex_music_owner not in c.admin_ids
                                     or not c.admin_password or c.payments_enabled or not c.clodex_key):
             raise ValueError('Music pilot requires one listed administrator, a password and a CLODEX key without payments')

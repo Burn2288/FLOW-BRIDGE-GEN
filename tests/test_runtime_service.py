@@ -51,7 +51,7 @@ def test_catalogue_and_owner_fail_closed(clean_env,values):
     with pytest.raises(ValueError):Config.env()
 
 async def test_non_admin_in_private_pilot_can_accept_terms_and_open_user_menu():
-    bot=Bot();app=TelegramApp(None,Config(access_mode='private',admin_ids=(999,)),bot);app.svc=FakeService()
+    bot=Bot();app=TelegramApp(None,Config(access_mode='private',admin_ids=(999,),pilot_user_ids=(100,)),bot);app.svc=FakeService()
     await app.handle(event('/start'))
     assert bot.sent[-1][1].inline_keyboard[0][0].callback_data=='accept'
     await app.handle(event(callback='accept'))
