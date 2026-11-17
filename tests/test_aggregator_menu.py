@@ -24,7 +24,7 @@ def model(provider, model_id, operation, protocol):
 
 async def test_admin_aggregator_menu_routes_and_permissions(env, tmp_path):
     pool,cfg,_,user=env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),catalogue_path=str(tmp_path/'models.json'),
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),catalogue_path=str(tmp_path/'models.json'),
                 anymodel_test_enabled=True,interaction_mode='live',video_pilot=True)
     clodex=[model('clodex','clodex-video/veo-3.1','video','openai-video'),
             model('clodex','flux-schnell','images.generate','image-generation'),

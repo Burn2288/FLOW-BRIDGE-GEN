@@ -43,7 +43,7 @@ async def account_db(tmp_path):
         try:
             async with asyncpg.create_pool(dsn, server_settings={'search_path': schema}) as pool:
                 await migrate(pool)
-                cfg = Config(token='fixture', interaction_mode='mock', access_mode='private',
+                cfg = Config(token='fixture', interaction_mode='mock', access_mode='private', admin_ids=(100,), pilot_user_ids=(101,),
                              anymodel_test_enabled=True, catalogue_path=str(tmp_path / 'catalogue.json'))
                 yield pool, cfg
         finally:
