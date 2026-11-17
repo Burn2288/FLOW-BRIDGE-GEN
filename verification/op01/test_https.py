@@ -14,6 +14,7 @@ import aiohttp
 import asyncpg
 import pytest
 from aiohttp import web
+from aiohttp.test_utils import TestClient, TestServer
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tests'))
@@ -49,6 +50,17 @@ def test_dsn_guard_fails_before_connect():
                   'postgresql://postgres:x@127.0.0.1:55432/other'):
         with pytest.raises(ValueError):safe_dsn(value,'YES')
     with pytest.raises(ValueError):safe_dsn('postgresql://postgres:x@127.0.0.1:55432/op01_test','NO')
+
+
+async def test_unavailable_database_health_has_no_details():
+    class BrokenPool:
+        async def fetchval(self,sql):
+            raise RuntimeError('fixture-dsn-must-not-appear')
+    async with TestClient(TestServer(create_app(BrokenPool(),Config(token=FIXTURE_TOKEN)))) as client:
+        response=await client.get('/healthz')
+        body=await response.text()
+        assert response.status==503 and 'fixture-dsn-must-not-appear' not in body and 'Traceback' not in body
+        assert await response.json()=={'status':'unavailable'}
 
 
 @pytest.mark.skipif(os.name=='nt',reason='Unix socket and test Caddy profile require Linux')
@@ -120,6 +132,7 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
                 with pytest.raises(aiohttp.ClientConnectorCertificateError):await untrusted.get(base+'/healthz')
             response=await client.get(f'http://localhost:{http_port}/healthz',allow_redirects=False)
             assert response.status==308 and response.headers['Location']==base+'/healthz'
+            assert (await client.get(f'http://localhost:{http_port}/healthz',headers={'Host':'attacker.invalid'})).status==421
             assert (await client.get(base+'/healthz',headers={'Host':'attacker.invalid'})).status in (400,404,421)
             assert (await client.get(base+'/_private')).status==404
             response=await client.get(base+'/api/v1/_op01-observed',headers={'Forwarded':'for=8.8.8.8;proto=http',
@@ -132,6 +145,8 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
                 'X-Forwarded-For':'127.0.0.1','X-Forwarded-Proto':'https'})
             assert response.status==401 and 'Access-Control-Allow-Origin' not in response.headers
             assert response.headers.get('Set-Cookie') is None
+            preflight=await client.options(base+'/api/v1/wallet',headers={'Origin':'https://attacker.invalid','Access-Control-Request-Method':'GET'})
+            assert preflight.status in (404,405) and 'Access-Control-Allow-Origin' not in preflight.headers
             assert (await client.post(base+'/api/v1/session',json={'initData':signed('incorrect',100)})).status==401
             assert (await client.post(base+'/api/v1/session',json={'initData':signed(FIXTURE_TOKEN,100,age=360)})).status==401
             assert (await client.post(base+'/api/v1/session',json={'initData':signed(FIXTURE_TOKEN,102)})).status==403
@@ -167,6 +182,7 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
         assert proxy.returncode is not None
         async with aiohttp.ClientSession() as stopped:
             with pytest.raises(aiohttp.ClientConnectorError):await stopped.get(f'http://127.0.0.1:{http_port}/')
+        with pytest.raises(OSError):await asyncio.open_connection('127.0.0.1',tls_port)
         log=proxy_log.read_text(encoding='utf-8',errors='replace')
         assert FIXTURE_TOKEN not in log and owner_token not in log and tester_token not in log
         assert FIXTURE_TOKEN not in caplog.text and owner_token not in caplog.text and tester_token not in caplog.text
@@ -177,6 +193,10 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
             try:await asyncio.wait_for(proxy.wait(),10)
             except TimeoutError:proxy.kill();await proxy.wait()
         if runner:await runner.cleanup()
+        sock.unlink(missing_ok=True)
+        assert not sock.exists()
         if pool:await pool.close()
         await admin.execute('DROP SCHEMA IF EXISTS '+schema+' CASCADE')
+        assert not await admin.fetchval('SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname=$1)',schema)
+        print('TEMP_SCHEMA_AND_UNIX_SOCKET_CLEANUP=pass')
         await admin.close()
