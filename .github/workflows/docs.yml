@@ -21,3 +21,5 @@ jobs:
       - run: python3 -m pip install -r .github/requirements-docs.txt
       - run: python3 .github/check_docs.py
       - run: python3 .github/check_planning.py
+      - run: python3 .github/check_foundation_contracts.py
+      - run: python3 .github/test_foundation_contracts.py

@@ -23,7 +23,7 @@ Mini App and DM bot implement functionally identical product operations through 
 Admin area: /admin routes isolated from / routes; see ADMIN_CONTROL.
 
 ## Admin-specific launch chooser
-Environment key ADMIN_TELEGRAM_USER_IDS lists Telegram numeric IDs (comma-delimited) authorized to see *entry chooser* after server validation. For allowlisted users show:
+TARGET: an entry chooser requires verified identity and server authorization. Existing source Config reads `ADMIN_TELEGRAM_IDS`; the proposed `ADMIN_TELEGRAM_USER_IDS` does not exist in the checked source and is not an alias. D-04 requires an owner decision. For authorized users show:
   [Войти в админ-панель] [Войти как пользователь].
 Non-allowlisted users go directly to /home. Choice never self-escalates: each /admin request validates server identity, allowlist, RBAC and, where applicable, elevated authentication. Admin may return to user mode without loss of own wallet. UI cannot choose another actor. User mode is a normal user context, not administrator impersonation.
 

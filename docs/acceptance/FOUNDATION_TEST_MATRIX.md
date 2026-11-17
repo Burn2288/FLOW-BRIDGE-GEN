@@ -21,11 +21,12 @@ F0 Documentation: all required contract links resolve, documents mark provenance
 S0 Evidence baseline: exact FLOW source SHA and database migrations; map existing Telegram admin features; separate previous findings from confirmed defects.
 S1 Image vertical slice: three real successful executions; provider returned bytes; image validated+stored; user library survives restart; Telegram API receipt and if possible user-visible verification; no duplicate charges; one transient outage.
 S2 Concurrency: simulated 10/50/100 jobs, no double claim, fair and bounded queue, recovery, latency metrics, failover blocked on unknown paid outcome.
-S3 Common Job + provider contracts: sync and async capabilities, schema validation, second adapter and provider test suite; API/consumers unchanged.
-S4 Mini App/public API: authenticated data equality and complete core user flow; admin chooser security.
-S5 Admin and reports: editable settings with version rollback, RBAC, job diagnosis, payment and financial reconciliation.
-S6 Financial/security hardening: PostgreSQL transaction races, Platega verified credit, reversal, abuse probes, restore.
-S7/S8 Pilot criteria aligned to master directive: Ubuntu deployment, backup recovery, limited pilot with explicit exclusions; do not silently declare commercial ready.
+S3 Common Job contracts: sync/async job transitions, no blind paid retry and recovery.
+S4 Provider adapters: schema validation, second adapter and provider test suite; API/consumers unchanged.
+S5 Mini App/public API: authenticated data equality and complete core user flow; admin chooser security.
+S6 Admin and reports: editable settings with version rollback, RBAC, job diagnosis, payment and financial reconciliation.
+S7 Financial/security hardening: PostgreSQL transaction races, verified credit, reversal, abuse probes, restore.
+S8 Pilot criteria: Ubuntu deployment, backup recovery, limited pilot with explicit exclusions; do not silently declare commercial ready.
 
 ## Evidence requirement per test
 contract_id, test_id, scenario, environment, repository+commit_sha, configuration redacted, command/method, timestamps, expected and actual results, evidence artifact link, reviewer, status. PASS requires independently inspectable artifact; MOCK_PASS is not LIVE_PASS; if no access use BLOCKED_EXTERNAL; software success without physical proof → SOFTWARE_PASS/LIVE_NOT_PROVEN. Test omitted → NOT_TESTED.
