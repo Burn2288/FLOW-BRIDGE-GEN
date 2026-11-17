@@ -139,15 +139,16 @@ from elevenbot.anymodel_image_jobs import AnyModelImageJobs
 from elevenbot.config import Config
 
 calls=[]
+resuming_503=os.environ['FIBO_RESUMING_503']=='1'
 
 def respond(req):
     assert req.method=='GET'
     assert req.url.path=='/v1/images/generations/fixture-job'
     assert req.headers['Authorization']=='Bearer fixture-any'
     calls.append(req.url.path)
-    if len(calls)==1:
+    if not resuming_503 and len(calls)==1:
         return httpx.Response(202,headers={'Retry-After':'12'},json={'id':'fixture-job','status':'in_progress'})
-    if len(calls)==2:
+    if not resuming_503 and len(calls)==2:
         raise httpx.ReadTimeout('fixture')
     return httpx.Response(200,json={'data':[{'b64_json':os.environ['FIBO_PNG']}]})
 
@@ -163,24 +164,27 @@ async def main():
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
             jobs=AnyModelImageJobs(pool,Config(),adapter=AnyModelProvider('fixture-any',client=http))
             assert not await jobs.poll_one(Bot())
-            await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
-            assert await jobs.poll_one(Bot())
-            assert await pool.fetchval('SELECT next_at>now()+interval \'10 seconds\' FROM anymodel_image_jobs')
-            assert not await jobs.poll_one(Bot())
-            await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
-            assert await jobs.poll_one(Bot())
-            assert await pool.fetchval("SELECT status='pending' AND provider_id='fixture-job' FROM anymodel_image_jobs")
+            assert calls==[]
+            if not resuming_503:
+                await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
+                assert await jobs.poll_one(Bot())
+                assert await pool.fetchval('SELECT next_at>now()+interval \'10 seconds\' FROM anymodel_image_jobs')
+                assert not await jobs.poll_one(Bot())
+                await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
+                assert await jobs.poll_one(Bot())
+                assert await pool.fetchval("SELECT status='pending' AND provider_id='fixture-job' FROM anymodel_image_jobs")
             await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
             assert await jobs.poll_one(Bot())
             assert await jobs.poll_one(Bot())
             assert await pool.fetchval("SELECT status='delivered' FROM anymodel_image_jobs")
-            assert len(calls)==3
+            assert len(calls)==(1 if resuming_503 else 3)
 
 asyncio.run(main())
 """
 
 
-async def test_fibo_202_resumes_in_fresh_process(funded_env,tmp_path,monkeypatch):
+@pytest.mark.parametrize('resuming_503',[False,True],ids=['poll-timeout','poll-503'])
+async def test_fibo_202_resumes_in_fresh_process(funded_env,tmp_path,monkeypatch,resuming_503):
     pool,cfg,_,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_image_live=True,
                 anymodel_key='fixture-any',catalogue_path=str(tmp_path/'models.json'),interaction_limit=3)
@@ -193,8 +197,11 @@ async def test_fibo_202_resumes_in_fresh_process(funded_env,tmp_path,monkeypatch
             return httpx.Response(200,json={'data':[]})
         if req.url.path=='/v1/models/info':
             return httpx.Response(200,json=FIBO_TARIFF)
-        if req.method=='GET':
+        if req.url.path=='/v1/models':
             return httpx.Response(200,json={'data':[{'id':FIBO_MODEL,'kind':'image'}]})
+        if req.method=='GET':
+            assert resuming_503 and req.url.path=='/v1/images/generations/fixture-job'
+            return httpx.Response(503,headers={'Retry-After':'60'})
         assert json.loads(req.content)=={'model':FIBO_MODEL,'prompt':'Blue square','background':True}
         return httpx.Response(202,headers={'Retry-After':'120','Location':'https://untrusted.example/ignore'},
                               json={'id':'fixture-job','status':'queued'})
@@ -221,11 +228,26 @@ async def test_fibo_202_resumes_in_fresh_process(funded_env,tmp_path,monkeypatch
         """)
     assert not await pool.fetchval('SELECT count(*) FROM image_works')
 
+    if resuming_503:
+        await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+            jobs=AnyModelImageJobs(pool,cfg,adapter=AnyModelProvider(cfg.anymodel_key,client=http))
+            assert await jobs.poll_one(before)
+        assert await pool.fetchval("""
+            SELECT status='pending' AND provider_id='fixture-job'
+                AND next_at BETWEEN now()+interval '55 seconds' AND now()+interval '60 seconds'
+            FROM anymodel_image_jobs
+            """)
+        assert requests==[('GET','/v1/models'),('GET','/v1/models/video'),('GET','/v1/models/tts'),
+                          ('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations'),
+                          ('GET','/v1/images/generations/fixture-job')]
+
     schema=await pool.fetchval('SELECT current_schema()')
     process=await asyncio.create_subprocess_exec(
         sys.executable,'-c',POLL_AFTER_RESTART,
         env=os.environ|{
             'FIBO_SCHEMA':schema,
+            'FIBO_RESUMING_503':str(int(resuming_503)),
             'FIBO_PNG':b64encode(png).decode(),
             'PYTHONPATH':str(Path(__file__).resolve().parents[1]/'src'),
         },
@@ -239,7 +261,8 @@ async def test_fibo_202_resumes_in_fresh_process(funded_env,tmp_path,monkeypatch
             process.kill()
             await process.wait()
     assert process.returncode==0, stderr.decode()
-    assert b'anymodel_image_poll_failed' in stdout and b'response_timeout' in stdout
+    if not resuming_503:
+        assert b'anymodel_image_poll_failed' in stdout and b'response_timeout' in stdout
     assert b'telegram_sha256=' in stdout
     assert await pool.fetchval('SELECT count(*) FROM interaction_attempts')==1
 
@@ -250,3 +273,33 @@ async def test_fibo_202_resumes_in_fresh_process(funded_env,tmp_path,monkeypatch
     await restarted.callback(user,100,routes(bot)['Открыть работу №1'])
     assert bot.send_photo.await_args.args[1].data==png
     assert await pool.fetchval('SELECT image FROM image_works')==png
+
+
+@pytest.mark.parametrize('status,headers',[(422,{}),(503,{'X-Should-Retry':'false'})])
+async def test_fibo_final_poll_failure_notifies_the_owner_once(env,status,headers):
+    pool,cfg,_,user=env
+    cfg=replace(cfg,interaction_limit=1)
+    calls=[]
+
+    def respond(req):
+        calls.append((req.method,req.url.path))
+        if req.method=='POST':
+            return httpx.Response(202,headers={'Retry-After':'0'},json={'id':'fixture-final'})
+        return httpx.Response(status,headers=headers)
+
+    bot=AsyncMock()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+        adapter=AnyModelProvider('fixture-any',client=http)
+        jobs=AnyModelImageJobs(pool,cfg,adapter=adapter)
+        await jobs.submit(user,222,'Blue square')
+        assert await jobs.poll_one(bot)
+        assert not await AnyModelImageJobs(pool,cfg,adapter=adapter).poll_one(bot)
+
+    assert calls==[('POST','/v1/images/generations'),('GET','/v1/images/generations/fixture-final')]
+    assert await pool.fetchval("SELECT status='failed' AND provider_id='fixture-final' FROM anymodel_image_jobs")
+    assert await pool.fetchval('SELECT count(*) FROM interaction_attempts')==1
+    assert await pool.fetchval('SELECT count(*) FROM image_works')==0
+    bot.send_message.assert_awaited_once()
+    chat_id,message=bot.send_message.await_args.args
+    assert chat_id==100 and 'Не удалось получить изображение' in message
+    bot.send_photo.assert_not_awaited()

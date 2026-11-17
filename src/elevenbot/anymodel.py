@@ -36,10 +36,11 @@ MODEL_ID = re.compile(r'[A-Za-z0-9_.:@-]+(?:/[A-Za-z0-9_.:@-]+)+')
 
 
 class AnyModelError(Exception):
-    def __init__(self,message,*,code='protocol',status=None,retry_after=5,endpoint=None):
+    def __init__(self,message,*,code='protocol',status=None,retry_after=5,endpoint=None,terminal=False):
         super().__init__(message)
         self.code,self.status,self.retry_after=code,status,retry_after
         self.endpoint=endpoint
+        self.terminal=terminal
 
 
 @dataclass(frozen=True)
@@ -138,7 +139,8 @@ class AnyModelProvider:
                     if submission:
                         await check_submission_refusal(response)
                     raise AnyModelError(f'HTTP {response.status_code}',code=f'http_{response.status_code}',
-                                        status=response.status_code,retry_after=delay)
+                                        status=response.status_code,retry_after=delay,
+                                        terminal=response.headers.get('X-Should-Retry','').strip().lower()=='false')
                 raw = bytearray()
                 async for chunk in response.aiter_bytes():
                     if len(raw) + len(chunk) > max_body:
@@ -190,7 +192,8 @@ class AnyModelProvider:
                 return self.catalogue(payload,'key_available',kind=kind)['models']
             except AnyModelError as error:
                 raise AnyModelError(str(error),code=error.code,status=error.status,
-                                    retry_after=error.retry_after,endpoint='/v1'+path) from None
+                                    retry_after=error.retry_after,endpoint='/v1'+path,
+                                    terminal=error.terminal) from None
 
         primary = await fetch('/models')
         typed = await asyncio.gather(fetch('/models/video','video'),fetch('/models/tts','tts'))
