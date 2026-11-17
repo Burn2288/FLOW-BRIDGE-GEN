@@ -85,6 +85,39 @@ async def test_revoke_first_denies_and_cannot_be_spoofed(trusted_env):
         assert await snapshot(pool) == before
 
 
+async def test_incomplete_policy_fails_closed(trusted_env):
+    _, schema, _, _, runtime_pool, policy_pool = trusted_env
+    await update(policy_pool, 0)
+    await policy_pool.execute("DELETE FROM admission_membership_shadow WHERE role='admin'")
+    async with runtime_pool.acquire() as conn:
+        with pytest.raises(asyncpg.RaiseError, match='policy incomplete'):
+            async with conn.transaction():
+                await conn.fetchrow(f'SELECT * FROM {schema}.fixture_admission_lock($1)', 101)
+
+
+async def test_rollback_releases_lock_and_financial_state(trusted_env, env):
+    pool, schema, (_, runtime, _), _, runtime_pool, policy_pool = trusted_env
+    _, _, service, _ = env
+    tester = await service.identity(101)
+    await service.accept(tester)
+    await update(policy_pool, 0)
+    async with pool.acquire() as owner_conn:
+        await owner_conn.execute(f'GRANT SELECT ON ALL TABLES IN SCHEMA {schema} TO {runtime}')
+        await owner_conn.execute(f'GRANT SELECT,UPDATE ON {schema}.wallets TO {runtime}')
+        await owner_conn.execute(f'GRANT SELECT,INSERT ON {schema}.ledger TO {runtime}')
+    before = await pool.fetchval('SELECT count(*) FROM ledger')
+    async with runtime_pool.acquire() as conn:
+        tx = conn.transaction()
+        await tx.start()
+        assert (await conn.fetchrow(f'SELECT * FROM {schema}.fixture_admission_lock($1)', 101))['admitted']
+        await conn.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live' FOR UPDATE", tester)
+        await service.movement(conn, tester, 'live', 'rollback-fixture-credit', 'pilot_grant', 100, 0)
+        await tx.rollback()
+    assert await pool.fetchval('SELECT count(*) FROM ledger') == before
+    assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'", tester) == 0
+    assert await asyncio.wait_for(update(policy_pool, 1, testers=()), 5) == 2
+
+
 async def test_protected_commit_first_serializes_revocation_and_ledger(trusted_env, env):
     pool, schema, (_, runtime, _), _, runtime_pool, policy_pool = trusted_env
     _, _, service, _ = env

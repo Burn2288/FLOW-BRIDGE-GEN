@@ -23,6 +23,9 @@ async def install(conn, schema, owner, runtime):
         IF NOT FOUND OR NOT ready THEN
           RAISE EXCEPTION USING ERRCODE='P0001', MESSAGE='policy unavailable';
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM {s}.admission_membership_shadow AS a WHERE a.role='admin') THEN
+          RAISE EXCEPTION USING ERRCODE='P0001', MESSAGE='policy incomplete';
+        END IF;
         RETURN QUERY SELECT revision, m.role IS NOT NULL, m.role
           FROM (SELECT 1) AS one LEFT JOIN {s}.admission_membership_shadow AS m
           ON m.telegram_id=subject;
