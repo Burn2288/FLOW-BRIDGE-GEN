@@ -73,6 +73,13 @@ def create_app(pool, cfg):
     view = TelegramApp(pool, cfg, None)
     app = web.Application(client_max_size=12 * 1024, middlewares=[headers])
 
+    async def health(request):
+        try:
+            healthy = await pool.fetchval('SELECT 1') == 1
+        except Exception:
+            healthy = False
+        return web.json_response({'status': 'ok' if healthy else 'unavailable'}, status=200 if healthy else 503)
+
     async def login(request):
         try:
             body = await request.json()
@@ -234,6 +241,7 @@ def create_app(pool, cfg):
                             content_type=content_type)
 
     app.router.add_get('/', asset)
+    app.router.add_get('/healthz', health)
     app.router.add_get('/assets/{asset}', asset)
     app.router.add_post('/api/v1/session', login)
     app.router.add_delete('/api/v1/session', logout)
