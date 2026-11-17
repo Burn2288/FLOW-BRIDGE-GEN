@@ -76,7 +76,7 @@ async def test_revoked_user_payment_is_idempotent_and_job_is_preserved(env):
     quote,_=await service.quote(user,'fixture','demo');job=await service.confirm(user,quote)
     payment=uuid.uuid4()
     await pool.execute("INSERT INTO payments(id,user_id,amount,credits,currency,tariff,status) VALUES($1,$2,100,500,'XTR','fixture','pending')",payment,user)
-    revoked=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=())
+    revoked=replace(cfg,mode='clodex',access_mode='private',admin_ids=(100,),pilot_user_ids=())
     app=TelegramApp(pool,revoked,Bot())
     actor={'id':101,'is_bot':False,'first_name':'Fixture'}
     msg={'message_id':1,'date':1700000000,'chat':{'id':101,'type':'private'},'from':actor,
