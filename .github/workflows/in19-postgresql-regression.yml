@@ -30,4 +30,4 @@ jobs:
           python-version: '3.12'
       - run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - run: python -m pip install -r requirements-acceptance.txt
-      - run: python -m pytest -q -s -p no:cacheprovider tests/test_in19_seeded_upgrade.py
+      - run: python -m pytest -q -s -p no:cacheprovider verification/in19/test_seeded_upgrade.py
