@@ -2,6 +2,8 @@
 
 Статус: DESIGN_DRAFT. Следующие итерации должны довести каждый контракт до схем полей, команд, событий, ошибок, версий, migration, property/contract/integration/E2E тестов и acceptance evidence.
 
+Пофайловая сверка существующего кода и оставшихся разрывов: [матрица IN-18](../planning/FOUNDATION_CONTRACT_AS_IS.md). Зрелость проекта контракта и частичное наличие функций в исходном коде — разные оси; PARTIAL не означает approval или acceptance.
+
 ## Статусы и версия
 
 Документальная зрелость: DRAFT → REVIEWED → APPROVED → IMPLEMENTED@SHA → VERIFIED@SHA. При DRAFT значения являются предложением. Результаты отдельных проверок: PASS / PARTIAL / FAIL / BLOCKED / NOT_PROVEN / NOT_TESTED. Любой PASS требует ссылки на evidence, среду и SHA. Для внешних API отдельно MOCK_PASS / PROVIDER_LIVE_PASS, никогда не смешивать.
