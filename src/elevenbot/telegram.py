@@ -303,9 +303,12 @@ class TelegramApp:
                 caption+='\nПромпт: '+prompt[:450]+('…' if len(prompt)>450 else '')
                 if len(prompt)>450:
                     markup=buttons([[('Полный промпт',f'prompt:{kind}:{job}')]])
-            send=getattr(self.bot,{'image':'send_photo','audio':'send_audio','video':'send_video'}[kind])
-            await send(ext,BufferedInputFile(work[kind],filename=work['filename']),
-                               caption=caption,reply_markup=markup)
+            if kind=='image':
+                from .image_delivery import send_saved_image
+                await send_saved_image(self.bot,ext,work[kind],work['filename'],caption=caption,reply_markup=markup)
+            else:
+                send=getattr(self.bot,{'audio':'send_audio','video':'send_video'}[kind])
+                await send(ext,BufferedInputFile(work[kind],filename=work['filename']),caption=caption,reply_markup=markup)
 
     async def work_rows(self,ext,section,model_id,snapshot=None):
         rows=[]
