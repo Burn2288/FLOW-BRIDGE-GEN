@@ -68,7 +68,7 @@ async def test_demo_real_sdk_local_http_audio():
         if method in ('answerCallbackQuery','deleteMessage'):
             return web.json_response({'ok':True,'result':True})
         return web.json_response({'ok':True,'result':{'message_id':len(calls),'date':1,'chat':{'id':100,'type':'private'}}})
-    app=web.Application();app.router.add_post('/bot{token}/{method}',endpoint)
+    app=web.Application(client_max_size=3*1024**2);app.router.add_post('/bot{token}/{method}',endpoint)
     runner=web.AppRunner(app,access_log=None);await runner.setup();site=web.TCPSite(runner,'127.0.0.1',0);await site.start()
     port=site._server.sockets[0].getsockname()[1]
     session=AiohttpSession(api=TelegramAPIServer.from_base(f'http://127.0.0.1:{port}'))

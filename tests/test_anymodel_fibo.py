@@ -71,7 +71,7 @@ async def test_fibo_provider_and_library(env,tmp_path,monkeypatch,capsys,variant
         for section in ('chat','tools'):
             await app.callback(user,100,f'amsection:{section}')
             assert 'пока нет подключённых операций' in bot.sent[-1][0]
-        await app.callback(user,100,home['🧩 Модели'])
+        await app.callback(user,100,home[telegram.OPEN_CATALOGUE])
         assert 'anymedia/fibo-lite' in routes(bot)
         await app.callback(user,100,'amsection:image')
         assert set(routes(bot))=={'FIBO 2','← AnyModel'}

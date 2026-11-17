@@ -8,7 +8,7 @@ from pathlib import Path
 from aiogram import Bot
 from aiogram.exceptions import TelegramUnauthorizedError,TelegramConflictError,TelegramNetworkError
 from .config import Config
-from .core import Rejected,uid
+from .core import ConsentRequired,Rejected,uid
 from .telegram import TelegramApp,buttons
 
 class DemoService:
@@ -20,8 +20,14 @@ class DemoService:
         u=uuid.uuid4();self.users[u]={'external':external,'accepted':False,'state':{'step':'home','text_content':None,'voice':None},'actions':[]}
         return u
     def authorize(self,u):
-        if u not in self.users or not self.users[u]['accepted']:raise Rejected('Сначала примите условия через /start.')
+        if u not in self.users or not self.users[u]['accepted']:raise ConsentRequired('Сначала примите условия через /start.')
     async def accept(self,u):self.users[u]['accepted']=True
+
+    async def welcome_message(self,chat):
+        return self.users[await self.identity(chat)].get('welcome_message_id')
+
+    async def save_welcome_message(self,chat,message_id):
+        self.users[await self.identity(chat)]['welcome_message_id']=message_id
     async def rate(self,u,*,navigation=False):
         r=self.users[u];bucket='navigation' if navigation else 'actions';now=time.monotonic()
         r[bucket]=[x for x in r.get(bucket,[]) if now-x<60]
