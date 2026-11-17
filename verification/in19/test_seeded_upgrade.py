@@ -154,7 +154,7 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
             assert len(await registry(conn, 13)) == 13
         print('STAGE 013 seeded: identity, consent, wallets, ledger, completed/queued jobs, payment, image/audio/video')
         baseline_speech = None
-        for stage in (14, 15, 16, 17, 18, 36, 39):
+        for stage in (14, 15, 16, 17, 18, 36, 39, 40, 41):
             await migrate_to(pool, stage, tmp_path, monkeypatch)
             async with pool.acquire() as conn:
                 if stage == 16:
@@ -167,9 +167,16 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
                     assert speech == baseline_speech
                 assert current == baseline
                 before = await registry(conn, stage)
+                if stage == 39:
+                    await conn.execute("INSERT INTO miniapp_sessions(token_hash,init_hash,user_id,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')", b'fixture-token', b'fixture-init', USER)
+                    session = await conn.fetch("SELECT * FROM miniapp_sessions")
+                if stage >= 39:
+                    assert await conn.fetch("SELECT * FROM miniapp_sessions") == session
             await db.migrate(pool)
             async with pool.acquire() as conn:
                 assert await registry(conn, stage) == before
+                if stage >= 39:
+                    assert await conn.fetch("SELECT * FROM miniapp_sessions") == session
                 check = await snapshot(conn, audio, stage >= 16)
                 if stage >= 16:
                     assert check.pop('speech') == baseline_speech
@@ -185,7 +192,7 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
         async with pool.acquire() as conn:
             assert await conn.fetchval('SELECT sha256 FROM schema_migrations WHERE version=$1', first['version']) == '0'*64
             await conn.execute('UPDATE schema_migrations SET sha256=$1 WHERE version=$2', first['sha256'], first['version'])
-            assert len(await registry(conn, 39)) == 39
+            assert len(await registry(conn, 41)) == 41
         print('CHECKSUM_MISMATCH PASS rejected without rewriting SQL')
 
         env = {k: os.environ[k] for k in ('PATH', 'SYSTEMROOT') if k in os.environ}
@@ -205,7 +212,8 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
             after = await snapshot(conn, restored_audio, True)
             speech = after.pop('speech')
             assert after == baseline and speech == baseline_speech
-            assert len(await registry(conn, 39)) == 39
+            assert len(await registry(conn, 41)) == 41
+            assert await conn.fetch("SELECT * FROM miniapp_sessions") == session
             assert await conn.fetchval("SELECT count(*) FROM pg_constraint WHERE conrelid IN ('ledger'::regclass,'jobs'::regclass,'identities'::regclass) AND contype IN ('f','c','p','u')") > 10
             with pytest.raises(asyncpg.UniqueViolationError):
                 await conn.execute("INSERT INTO identities(platform,external_id,user_id) VALUES('telegram',90001,$1)", USER)

@@ -303,22 +303,31 @@ class VideoPilot:
         return True
 
     async def notify_one(self, bot):
-        from aiogram.exceptions import TelegramAPIError
+        from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramRetryAfter
         from aiogram.types import BufferedInputFile
+        from .media_delivery import claim_delivery, finish_delivery
 
-        row = await self.pool.fetchrow("""
-            UPDATE video_jobs j SET notify_at=now()+interval '2 minutes',notify_attempts=j.notify_attempts+1
+        async with self.pool.acquire() as conn,conn.transaction():
+            row = await conn.fetchrow("""
+            -- Three is the durable automatic-delivery stop marker, shared with
+            -- the image worker. Reserve it BEFORE I/O, including cancellation.
+            UPDATE video_jobs j SET notify_at=now()+interval '2 minutes',notify_attempts=3
             FROM (
-                SELECT id FROM video_jobs WHERE provider=$1 AND notify_at<=now() AND notify_attempts<3 AND expires_at>now()
+                SELECT id,notify_attempts FROM video_jobs WHERE provider=$1 AND notify_at<=now() AND notify_attempts<3 AND expires_at>now()
+                    AND NOT EXISTS (SELECT 1 FROM task_media_delivery d
+                        WHERE d.kind='video' AND d.job_id=video_jobs.id::text
+                            AND d.outcome IN ('unknown','sent'))
                 ORDER BY notify_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) due
             WHERE j.id=due.id
             RETURNING j.id,j.user_id,j.video,j.notify_at,
-                      (SELECT request->>'title' FROM task_price_quotes WHERE id=j.id) AS title
-            """,self.provider)
+                      (SELECT request->>'title' FROM task_price_quotes WHERE id=j.id) AS title,due.notify_attempts
+                """,self.provider)
+            if row:
+                claim=await claim_delivery(conn,'video',row['id'],row['user_id'])
         if not row:
             return False
-        job, user, video, lease, title = row
+        job, user, video, lease, title, attempts = row
         external = await self.pool.fetchval("""
             SELECT i.external_id FROM identities i JOIN users u ON u.id=i.user_id
             WHERE i.user_id=$1 AND i.platform='telegram' AND i.accepted_at IS NOT NULL AND NOT u.blocked
@@ -327,13 +336,25 @@ class VideoPilot:
             try:
                 async with asyncio.timeout(60):
                     if video is None:
-                        await bot.send_message(external, f'{self.label}: не удалось завершить обработку видео.')
+                        receipt=await bot.send_message(external, f'{self.label}: не удалось завершить обработку видео.')
                     else:
-                        await bot.send_video(external, BufferedInputFile(video, filename='video.mp4' if self.provider=='anymodel' else 'veo.mp4'),
+                        receipt=await bot.send_video(external, BufferedInputFile(video, filename='video.mp4' if self.provider=='anymodel' else 'veo.mp4'),
                                              caption=f'{title or self.title} · Видео также доступно в «Моих работах».')
-            except (TelegramAPIError, TimeoutError) as error:
+            except (TelegramBadRequest, TelegramRetryAfter) as error:
+                # Only a definitive non-acceptance permits bounded retry.
+                async with self.pool.acquire() as conn,conn.transaction():
+                    await finish_delivery(conn,'video',job,claim,'rejected',error=error)
+                    await conn.execute("""
+                        UPDATE video_jobs SET notify_attempts=$3,
+                            notify_at=now()+$4::double precision*interval '1 second'
+                        WHERE id=$1 AND notify_at=$2
+                        """,job,lease,attempts+1,max(120,getattr(error,'retry_after',0)))
+                video_failure(job, 'video_delivery_rejected', error)
+                return True
+            except (TelegramAPIError, ClientDecodeError, TimeoutError) as error:
                 video_failure(job, 'video_delivery_failed', error)
                 return True
+            await finish_delivery(self.pool,'video',job,claim,'sent',message=receipt)
         await self.pool.execute('UPDATE video_jobs SET notify_at=NULL WHERE id=$1 AND notify_at=$2', job, lease)
         return True
 

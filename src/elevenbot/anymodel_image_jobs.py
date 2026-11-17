@@ -8,6 +8,7 @@ from .anymodel import AnyModelError, AnyModelProvider, FIBO_MODEL
 from .core import Rejected, Service
 from .interaction import trace_interaction
 from .image_delivery import send_saved_image
+from .media_delivery import claim_delivery, finish_delivery
 
 RETRYABLE_POLL = {'connect_error','connect_timeout','response_timeout','transport_error',
                   'http_429','http_502','http_503','http_504'}
@@ -77,7 +78,10 @@ class AnyModelImageJobs:
             UPDATE anymodel_image_jobs j SET next_at=now()+interval '2 minutes'
             FROM (
                 SELECT update_id FROM anymodel_image_jobs WHERE next_at<=now() AND expires_at>now()
-                AND (status='pending' OR (status='ready' AND notify_attempts<3))
+                AND (status='pending' OR (status='ready' AND notify_attempts<3
+                    AND NOT EXISTS (SELECT 1 FROM task_media_delivery d
+                        WHERE d.kind='image' AND d.job_id=anymodel_image_jobs.update_id::text
+                            AND d.outcome IN ('unknown','sent'))))
                 ORDER BY next_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) due WHERE j.update_id=due.update_id
             RETURNING j.update_id,j.user_id,j.prompt,j.provider_id,j.status,j.next_at,j.notify_attempts
@@ -107,16 +111,18 @@ class AnyModelImageJobs:
         return True
 
     async def fail_poll(self,bot,update_id,user,lease):
+        # A linked indicator shows the failure through TaskProgress.refresh.
         external=await self.pool.fetchval("""
             WITH failed AS (
                 UPDATE anymodel_image_jobs SET status='failed'
                 WHERE update_id=$1 AND next_at=$2 AND status='pending' AND user_id=$3
-                RETURNING user_id
+                RETURNING user_id,update_id
             )
             SELECT i.external_id FROM failed f
             JOIN users u ON u.id=f.user_id AND NOT u.blocked
             JOIN identities i ON i.user_id=f.user_id AND i.platform='telegram'
             WHERE i.accepted_at IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM task_progress p WHERE p.image_id=f.update_id)
             """,update_id,lease,user)
         if external is None:
             return
@@ -142,26 +148,31 @@ class AnyModelImageJobs:
         if work:
             # Reserve the final attempt before network I/O. A crash or unknown
             # transport outcome must never schedule another automatic send.
-            claimed=await self.pool.fetchval("""
-                UPDATE anymodel_image_jobs SET notify_attempts=3
-                WHERE update_id=$1 AND next_at=$2 AND status='ready' AND notify_attempts=$3
-                RETURNING true
-                """,update_id,lease,attempts)
-            if not claimed:return
+            async with self.pool.acquire() as conn,conn.transaction():
+                claimed=await conn.fetchval("""
+                    UPDATE anymodel_image_jobs SET notify_attempts=3
+                    WHERE update_id=$1 AND next_at=$2 AND status='ready' AND notify_attempts=$3
+                    RETURNING true
+                    """,update_id,lease,attempts)
+                if not claimed:return
+                claim=await claim_delivery(conn,'image',update_id,user)
             try:
                 async with asyncio.timeout(50):
-                    await send_saved_image(bot,work['external_id'],work['image'],work['filename'],
+                    receipt=await send_saved_image(bot,work['external_id'],work['image'],work['filename'],
                                            caption='AnyModel · Изображение также доступно в «Моих работах».')
-            except (TelegramBadRequest,TelegramRetryAfter):
+            except (TelegramBadRequest,TelegramRetryAfter) as error:
                 # Telegram has definitively rejected the request; retry at most
                 # three times, preserving the original image in the library.
-                await self.pool.execute("UPDATE anymodel_image_jobs SET notify_attempts=$3 WHERE update_id=$1 AND next_at=$2 AND status='ready'",update_id,lease,attempts+1)
+                async with self.pool.acquire() as conn,conn.transaction():
+                    await finish_delivery(conn,'image',update_id,claim,'rejected',error=error)
+                    await conn.execute("UPDATE anymodel_image_jobs SET notify_attempts=$3,next_at=now()+$4::double precision*interval '1 second' WHERE update_id=$1 AND next_at=$2 AND status='ready'",update_id,lease,attempts+1,max(120,getattr(error,'retry_after',0)))
                 trace_interaction(update_id,'anymodel_image_delivery_rejected')
                 return
             except (TelegramAPIError,ClientDecodeError,TimeoutError):
                 trace_interaction(update_id,'anymodel_image_delivery_failed')
                 return
             trace_interaction(update_id,'anymodel_image_delivered')
+            await finish_delivery(self.pool,'image',update_id,claim,'sent',message=receipt)
         await self.pool.execute("UPDATE anymodel_image_jobs SET status='delivered' WHERE update_id=$1 AND next_at=$2",
                                 update_id,lease)
 
