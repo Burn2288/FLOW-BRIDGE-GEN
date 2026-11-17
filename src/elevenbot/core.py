@@ -28,6 +28,9 @@ class Service:
         )
 
     async def identity(self,external,platform='telegram'):
+        from .admission import admitted
+        if not admitted(self.cfg,external,platform):
+            raise Rejected('Доступ к закрытому пилоту ограничен.')
         async with self.pool.acquire() as c,c.transaction():
             await c.execute('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',f'{platform}:{external}')
             u=await c.fetchval('SELECT user_id FROM identities WHERE platform=$1 AND external_id=$2',platform,external)

@@ -77,7 +77,7 @@ class Gateway:
 
 async def fixture(env):
     pool,cfg,svc,user=env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),admin_password='fixture-password',
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),admin_password='fixture-password',
                 topup_mode='test',platega_merchant=MERCHANT,platega_secret=SECRET)
     pc=PlategaConfig(merchant=MERCHANT,secret=SECRET,enabled=True,
                     return_url='https://t.me/test_bot?start=pay_{order_id}',failed_url='https://example.org/fail')

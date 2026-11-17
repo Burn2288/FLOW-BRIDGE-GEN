@@ -14,6 +14,7 @@ from uuid import UUID
 from aiohttp import web
 
 from elevenbot.core import Rejected, Service
+from elevenbot.admission import admitted
 
 INIT_MAX_AGE = 300
 SESSION_SECONDS = 600
@@ -78,6 +79,8 @@ def create_app(pool, cfg):
             external, signed = verified_identity(body.get('initData'), cfg.token, now=time.time())
         except (AttributeError, ValueError):
             raise web.HTTPUnauthorized(text='Откройте приложение заново из Telegram.') from None
+        if not admitted(cfg,external):
+            raise web.HTTPForbidden(text='Доступ к закрытому пилоту ограничен.')
         token = secrets.token_urlsafe(32)
         async with pool.acquire() as conn, conn.transaction():
             user = await conn.fetchval(
@@ -108,6 +111,9 @@ def create_app(pool, cfg):
             )
             if user is None:
                 raise web.HTTPUnauthorized()
+            external = await conn.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1",user)
+            if not admitted(cfg,external):
+                raise web.HTTPForbidden()
             try:
                 await service.authorize(conn, user)
             except Rejected:

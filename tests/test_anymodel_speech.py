@@ -29,7 +29,7 @@ def billing(output):
 
 
 def config(cfg, *, live=True):
-    return replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
+    return replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),anymodel_test_enabled=True,
                    anymodel_speech_live=live,anymodel_key='fixture-any',interaction_limit=3)
 
 

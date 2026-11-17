@@ -119,12 +119,14 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path, d
         assert await wallet() == (400,0) and len(posts)==1 and len(gateway.orders)==1, [text for text, _ in bot.sent]
         assert await pool.fetchval("SELECT status FROM payments WHERE user_id=$1",user)=='succeeded'
         assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1",user)==3
+        ledger_before=await pool.fetch("SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id",user)
         restarted = TelegramApp(pool,cfg,bot)
         await press(callback='history:0',target=restarted)
         await press(callback=route('image:'),target=restarted)
         assert bot.send_photo.await_count==2
         assert all(call.args[1].data == MOCK_IMAGE for call in bot.send_photo.await_args_list)
         assert len(posts)==1 and (await restarted.svc.wallet(user))['available']==400
+        assert await pool.fetch("SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id",user)==ledger_before
         print('wallet=0->1000->400 payment=succeeded posts=1 debit=1 reopened=1',
               f'deferred={deferred} menu_ms={menu_ms} provider_ms={provider_timing[0]}')
     finally:

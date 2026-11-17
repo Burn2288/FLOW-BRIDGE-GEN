@@ -303,9 +303,12 @@ class TelegramApp:
                 caption+='\nПромпт: '+prompt[:450]+('…' if len(prompt)>450 else '')
                 if len(prompt)>450:
                     markup=buttons([[('Полный промпт',f'prompt:{kind}:{job}')]])
-            send=getattr(self.bot,{'image':'send_photo','audio':'send_audio','video':'send_video'}[kind])
-            await send(ext,BufferedInputFile(work[kind],filename=work['filename']),
-                               caption=caption,reply_markup=markup)
+            if kind=='image':
+                from .image_delivery import send_saved_image
+                await send_saved_image(self.bot,ext,work[kind],work['filename'],caption=caption,reply_markup=markup)
+            else:
+                send=getattr(self.bot,{'audio':'send_audio','video':'send_video'}[kind])
+                await send(ext,BufferedInputFile(work[kind],filename=work['filename']),caption=caption,reply_markup=markup)
 
     async def work_rows(self,ext,section,model_id,snapshot=None):
         rows=[]
@@ -480,8 +483,25 @@ class TelegramApp:
                 return
         else:
             chat_event=None
+        from .admission import admitted
+        payment_event = bool(update.message and (update.message.successful_payment or update.message.refunded_payment))
+        allowed = admitted(self.cfg,ext)
+        if not allowed and not payment_event:
+            if update.pre_checkout_query:
+                await self.bot.answer_pre_checkout_query(update.pre_checkout_query.id,ok=False,error_message='Доступ закрыт.')
+            elif update.callback_query:
+                await self.bot.answer_callback_query(update.callback_query.id,text='Доступ к закрытому пилоту ограничен.')
+            else:
+                await self.say(ext,'Доступ к закрытому пилоту ограничен.')
+            return
         if await self.intercept_admin_update(update,allow_login=not from_inbox):return
-        u=await self.svc.identity(ext)
+        if payment_event and not allowed:
+            # Existing authenticated financial events must not create an identity.
+            if self.pool is None:return
+            u=await self.pool.fetchval("SELECT user_id FROM identities WHERE platform='telegram' AND external_id=$1",ext)
+            if u is None:return
+        else:
+            u=await self.svc.identity(ext)
         if self.pool is not None and chat_event:
             await self.broadcasts.queue.observe_private(ext)
         catalogue_callback = False

@@ -131,7 +131,7 @@
   "tests.test_runtime_service#test_no_os_specific_provider_required_and_assets_independent_of_cwd",
   "tests.test_runtime_service#test_paths_relative_to_config_not_current_directory",
   "tests.test_runtime_service#test_postgres_identity_consent_and_context_survive_reconnection",
-  "tests.test_runtime_service#test_private_access_denied_before_registration",
+  "tests.test_private_pilot#test_private_access_denied_before_registration",
   "tests.test_runtime_service#test_saved_settings_reload_after_process_restart",
   "tests.test_runtime_service#test_supervisor_bounds_restarts",
   "tests.test_runtime_service#test_supervisor_only_passes_config_path_not_token",

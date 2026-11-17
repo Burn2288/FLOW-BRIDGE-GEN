@@ -57,7 +57,7 @@ def routes(screen):
 
 async def test_broadcast_ui_self_preview_delivery_and_permissions(env, tmp_path):
     pool, cfg, _, _ = env
-    cfg = replace(cfg, access_mode='private', admin_ids=(100,), admin_password='fixture-password',
+    cfg = replace(cfg, access_mode='private', admin_ids=(100,),pilot_user_ids=(101,), admin_password='fixture-password',
                   anymodel_test_enabled=True, catalogue_path=str(tmp_path/'catalogue.json'))
     SnapshotStore(cfg.catalogue_path).write(make_snapshot([], [], [{'provider':'clodex'}]))
     model_store(cfg).write(make_snapshot([], [], [{'provider':'anymodel'}]))
@@ -249,7 +249,7 @@ async def test_broadcast_media_survives_restart_and_keeps_caption(env, kind):
 @pytest.mark.parametrize('sending', [False, True], ids=['idle', 'sending'])
 async def test_broadcast_loop_does_not_block_pricing(env, sending):
     pool, cfg, _, user = env
-    cfg = replace(cfg, admin_ids=(100,), interaction_limit=10)
+    cfg = replace(cfg, admin_ids=(100,),pilot_user_ids=(101,), interaction_limit=10)
     worker_ready = asyncio.Event()
     competitor_tried = asyncio.Event()
     send_started = asyncio.Event()

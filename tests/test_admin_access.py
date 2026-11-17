@@ -33,7 +33,7 @@ def event(number, text=None, *, chat=100, callback=None, reply=None):
 
 async def test_empty_password_and_unlisted_chat_are_closed(env):
     pool,cfg,_,_=env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,))
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,))
     bot=Bot()
     app=TelegramApp(pool,cfg,bot)
     await app.handle(event(1,'/admin'))
@@ -50,7 +50,7 @@ async def test_empty_password_and_unlisted_chat_are_closed(env):
 async def test_password_updates_skip_inbox_and_logout_blocks_old_buttons(env):
     pool,cfg,_,_=env
     password='fixture-admin-password'
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),admin_password=password)
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),admin_password=password)
     bot=Bot()
     app=TelegramApp(pool,cfg,bot)
     await app.enqueue_updates([event(0,f'/admin {password}'),event(1,'/admin')])
@@ -81,7 +81,7 @@ async def test_admin_attempt_limit_expiry_restart_and_password_change(env,monkey
     pool,cfg,_,_=env
     clock=[0]
     monkeypatch.setattr(admin_access,'monotonic',lambda:clock[0])
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),admin_password='fixture-password')
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),admin_password='fixture-password')
     bot=Bot()
     app=TelegramApp(pool,cfg,bot)
     await app.handle(event(1,'/admin'))
@@ -117,7 +117,7 @@ async def test_user_and_admin_editions_share_catalogue_and_settings(env,tmp_path
     from test_anymodel import routes
 
     pool,cfg,_,user=env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,),video_pilot=True,interaction_mode='live',
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),video_pilot=True,interaction_mode='live',
                 anymodel_test_enabled=True,catalogue_path=str(tmp_path/'catalogue.json'))
     clodex=[model('clodex','clodex-video/veo-3.1','video','openai-video'),
             model('clodex','fixture/not-admitted','chat','openai')]
