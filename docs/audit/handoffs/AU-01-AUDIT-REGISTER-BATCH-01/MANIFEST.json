@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "task_id": "AU-01-AUDIT-REGISTER-BATCH-01",
+  "developer": "Burn2288",
+  "reviewer": "vankhu21",
+  "contract_ids": [
+    "C-027",
+    "C-028"
+  ],
+  "base_branch": "main",
+  "base_sha": "144bfe02fa8e63bc2209f2a5aa104ad1c5f5547c",
+  "head_branch": "work/burn2288/au-01-audit-register-batch-01",
+  "head_sha": "10bb3ad35199bbf4cafe9ee55c35a44eede78b41",
+  "main_sha": "144bfe02fa8e63bc2209f2a5aa104ad1c5f5547c",
+  "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/27",
+  "dependent_prs": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/22",
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26"
+  ],
+  "changed_files": [
+    ".github/check_audit_register.py",
+    ".github/tests/test_audit_register.py",
+    ".github/workflows/audit-register.yml",
+    "docs/audit/register/REGISTER.json",
+    "docs/audit/register/DEFERRED_REVIEW.json",
+    "docs/audit/register/DEFERRED_REVIEW.md",
+    "docs/audit/register/README.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/SUMMARY.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/CHANGES.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/TEST_RESULTS.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/EVIDENCE.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/REGRESSION.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/BRANCH_SYNC.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/AUDIT_REQUEST.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/MANIFEST.json"
+  ],
+  "migration_files": [],
+  "test_environment": "Windows Python 3.12 offline; GitHub Actions Ubuntu; documentation only",
+  "test_commands": [
+    "python .github/check_audit_register.py",
+    "python -m unittest discover -s .github/tests -p test_audit_register.py",
+    "python .github/check_docs.py",
+    "git diff --check"
+  ],
+  "test_results": [
+    {
+      "name": "Offline register and negative checks",
+      "type": "documentation",
+      "status": "PASS",
+      "source_sha": "10bb3ad35199bbf4cafe9ee55c35a44eede78b41",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "details": "Local and exact-head Audit register workflow; network evidence verified separately via GitHub API."
+    }
+  ],
+  "ci_run_urls": [
+    "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44131795066"
+  ],
+  "evidence_paths": [
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/SUMMARY.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/SOURCE_BASELINE.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/CHANGES.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/TEST_RESULTS.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/CONTRACT_COMPLIANCE.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/EVIDENCE.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/REGRESSION.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/RISKS_AND_LIMITATIONS.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/BRANCH_SYNC.md",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/AUDIT_REQUEST.md",
+    "docs/audit/register/REGISTER.json",
+    "docs/audit/register/DEFERRED_REVIEW.json",
+    "docs/audit/register/DEFERRED_REVIEW.md"
+  ],
+  "evidence_hashes": {
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/SUMMARY.md": "1b6eac2ebf1d7373b7ce5a125f09d82c1c587aa881f2679a8626e299cc6e1a65",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/SOURCE_BASELINE.md": "d569c172bd30476091f1af378727e2ec4416b235099921a3e717778041601e74",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/CHANGES.md": "c745206ccbedce3647b3d08bf9c81b0fe01abb6ebacc295ed3bc2cbf8529eb6f",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/TEST_RESULTS.md": "0f2151e44065c42170b2b4d09823df624613338d7742662b9b2ecbc7622b1ea7",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/CONTRACT_COMPLIANCE.md": "0ad20262bb6adb15c0f54845630d679bc4591968e20ece4c47ce2a864b3f820a",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/EVIDENCE.md": "420adbd040e554ad9f56df2a39d960fb2ad318a509e4fa31a9b77f634f9f9463",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/REGRESSION.md": "cbf62d6df298303598ea635c42d623563570bd023453b2175ec05de554028131",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/RISKS_AND_LIMITATIONS.md": "b17da5d4c24abf4b478034b2d312b3d201f09704db3cfdc81c2a1c058aa2f9b6",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/BRANCH_SYNC.md": "ae94dedf5a57cb9a38e15e24b06968cdb8554d7bf21691774c0a47e3dfc0e7dc",
+    "docs/audit/handoffs/AU-01-AUDIT-REGISTER-BATCH-01/AUDIT_REQUEST.md": "50b7076f36e9c829ed070de072c083598abe8c8557c7665f2f629c04f8cc2d45",
+    "docs/audit/register/REGISTER.json": "cf3e3596c753c18b7ae1d4b392daefd131e1582b57ef62ed1d0dd031c21a78e1",
+    "docs/audit/register/DEFERRED_REVIEW.json": "3fb010922145f9a6d49713afbe8e2661b83aa62bde6fe3076a9b744e164bd1ee",
+    "docs/audit/register/DEFERRED_REVIEW.md": "e0d9c69abddb3c7a71c0f3abb2e9dc49a26eee9e30eb9eeee93d29016e46c60e"
+  },
+  "external_operations": [
+    "Read-only GitHub metadata, audit comments and immutable report links"
+  ],
+  "known_limitations": [
+    "IN-18 pending; C-027/C-028 remain DESIGN_DRAFT",
+    "Offline catalog validation does not prove live remote existence",
+    "Peer review deferred; archive and owner integration approval pending",
+    "Scope is six specified technical/evidence packages; related planning PRs are recorded separately"
+  ],
+  "local_sync_status": "NOT_PERFORMED",
+  "publication_status": "PUBLISHED_WORK_PR",
+  "ready_for_audit": true
+}
