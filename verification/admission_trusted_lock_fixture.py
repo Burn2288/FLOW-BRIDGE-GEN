@@ -31,6 +31,20 @@ async def install(conn, schema, owner, runtime):
           ON m.telegram_id=subject;
       END $$''')
     await conn.execute(f'ALTER FUNCTION {s}.fixture_admission_lock(pg_catalog.int8) OWNER TO {o}')
+    await conn.execute(f'''CREATE FUNCTION {s}.fixture_membership_write_lock()
+      RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+      BEGIN
+        PERFORM 1 FROM {s}.admission_policy_shadow AS p WHERE p.id=1 FOR UPDATE;
+        IF NOT FOUND THEN
+          RAISE EXCEPTION USING ERRCODE='P0001', MESSAGE='policy unavailable';
+        END IF;
+        IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+      END $$''')
+    await conn.execute(f'ALTER FUNCTION {s}.fixture_membership_write_lock() OWNER TO {o}')
+    await conn.execute(f'REVOKE ALL ON FUNCTION {s}.fixture_membership_write_lock() FROM PUBLIC')
+    await conn.execute(f'''CREATE TRIGGER fixture_membership_write_lock
+      BEFORE INSERT OR UPDATE OR DELETE ON {s}.admission_membership_shadow
+      FOR EACH ROW EXECUTE FUNCTION {s}.fixture_membership_write_lock()''')
     await conn.execute(f'REVOKE CREATE ON SCHEMA {s} FROM {o}')
     await conn.execute(f'REVOKE ALL ON FUNCTION {s}.fixture_admission_lock(pg_catalog.int8) FROM PUBLIC')
     await conn.execute(f'GRANT EXECUTE ON FUNCTION {s}.fixture_admission_lock(pg_catalog.int8) TO {r}')

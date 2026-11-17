@@ -26,6 +26,8 @@ async def trusted_env(privilege_env):
     finally:
         if created:
             async with pool.acquire() as conn:
+                await conn.execute(f'DROP TRIGGER IF EXISTS fixture_membership_write_lock ON {schema}.admission_membership_shadow')
+                await conn.execute(f'DROP FUNCTION IF EXISTS {schema}.fixture_membership_write_lock()')
                 await conn.execute(f'DROP FUNCTION IF EXISTS {schema}.fixture_admission_lock(bigint)')
                 await conn.execute(f'DROP OWNED BY {function_owner}')
                 await conn.execute(f'DROP ROLE {function_owner}')
@@ -96,6 +98,20 @@ async def test_incomplete_policy_fails_closed(trusted_env):
         with pytest.raises(asyncpg.RaiseError, match='policy incomplete'):
             async with conn.transaction():
                 await conn.fetchrow(f'SELECT * FROM {schema}.fixture_admission_lock($1)', 101)
+
+
+async def test_direct_operator_membership_write_waits_for_policy_lock(trusted_env):
+    """Fixture trigger must serialize even direct trusted-role membership writes."""
+    _, schema, _, _, runtime_pool, policy_pool = trusted_env
+    await update(policy_pool, 0)
+    async with runtime_pool.acquire() as conn, conn.transaction():
+        assert (await conn.fetchrow(f'SELECT * FROM {schema}.fixture_admission_lock($1)', 101))['admitted']
+        deletion = asyncio.create_task(policy_pool.execute('DELETE FROM admission_membership_shadow WHERE telegram_id=101'))
+        await asyncio.sleep(.1)
+        assert not deletion.done()
+    assert await asyncio.wait_for(deletion, 5) == 'DELETE 1'
+    async with runtime_pool.acquire() as conn, conn.transaction():
+        assert not (await conn.fetchrow(f'SELECT * FROM {schema}.fixture_admission_lock($1)', 101))['admitted']
 
 
 async def test_rollback_releases_lock_and_financial_state(trusted_env, env):
