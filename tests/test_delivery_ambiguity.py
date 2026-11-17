@@ -4,6 +4,7 @@ from base64 import b64encode
 from dataclasses import replace
 import os
 import json
+from pathlib import Path
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -90,8 +91,10 @@ async def main():
     finally:await pool.close()
 asyncio.run(main())
 '''
+    root=Path(__file__).resolve().parents[1]
+    pythonpath=os.pathsep.join([str(root/'src'),str(root),os.environ.get('PYTHONPATH','')])
     process=await asyncio.create_subprocess_exec(sys.executable,'-c',code,
-        env=os.environ|{'DELIVERY_SCHEMA':schema,'DELIVERY_KIND':kind},
+        env=os.environ|{'DELIVERY_SCHEMA':schema,'DELIVERY_KIND':kind,'PYTHONPATH':pythonpath},
         stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     stdout,stderr=await asyncio.wait_for(process.communicate(),30)
     assert process.returncode==0,stderr.decode()
