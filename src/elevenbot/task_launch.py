@@ -24,7 +24,7 @@ class ExecutionAdapter(Protocol):
 class TaskLaunch:
     def __init__(self,pricing,adapters,*,authorize=None):
         self.pricing,self.adapters = pricing,adapters
-        self.authorize = authorize or self.authorize_pilot
+        self.authorize = authorize
 
     async def authorize_pilot(self,conn,user,external):
         # Paid pilot eligibility is independent of the Admin Edition session.
@@ -33,7 +33,24 @@ class TaskLaunch:
             raise Rejected('Тестовый запуск для этого аккаунта недоступен.')
         await self.pricing.admin(conn,user,external)
 
-    async def confirm(self,user,external,quote_id,update_id,*,progress,background):
+    async def authorize_request(self, conn, user, external, request):
+        if self.authorize is not None:
+            await self.authorize(conn, user, external)
+            return
+        cfg = self.pricing.config
+        if cfg.allows_public_image(request.provider, request.model, request.operation):
+            from .core import Service
+            await Service(self.pricing.pool, cfg).authorize(conn, user)
+            linked = await conn.fetchval(
+                "SELECT user_id FROM identities WHERE platform='telegram' AND external_id=$1", external
+            )
+            halted = await conn.fetchval("SELECT halted FROM settings WHERE id=1 FOR SHARE")
+            if linked != user or not cfg.generation_enabled or halted is not False:
+                raise Rejected('Запуск изображения пока недоступен.')
+            return
+        await self.authorize_pilot(conn, user, external)
+
+    async def confirm(self,user,external,quote_id,update_id,*,progress,background,defer=None):
         pool = self.pricing.pool
 
         adapter = prepared = None
@@ -44,7 +61,7 @@ class TaskLaunch:
 
         async def prepare(conn,quote):
             nonlocal adapter,prepared
-            await self.authorize(conn,user,external)
+            await self.authorize_request(conn,user,external,quote.request)
             adapter = self.adapters.get(quote.request.provider)
             if adapter is None:
                 raise Rejected('Агрегатор недоступен.')
@@ -79,11 +96,16 @@ class TaskLaunch:
                 await settle_task_tokens(conn,quote.id)
             return result
 
-        if kind:
-            return quote,True,await dispatch(lambda job:background(request,kind,job))
-        async with progress(request):
-            result = await dispatch()
-        return quote,True,result
+        async def run():
+            if kind:
+                return await dispatch(lambda job:background(request,kind,job))
+            async with progress(request):
+                return await dispatch()
+
+        if defer is not None:
+            defer(quote, run)
+            return quote,True,None
+        return quote,True,await run()
 
 
 async def recover_interrupted(pool):
@@ -108,7 +130,8 @@ async def recover_interrupted(pool):
 
 
 async def notify_interrupted(pool,bot):
-    from aiogram.exceptions import TelegramAPIError
+    import asyncio
+    from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramRetryAfter
     rows = await pool.fetch("""
         SELECT d.quote_id,d.state,i.external_id,q.request->>'title' AS title
         FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id
@@ -119,8 +142,19 @@ async def notify_interrupted(pool,bot):
     for row in rows:
         detail = ('Задача остановлена до отправки после перезапуска.' if row['state']=='interrupted'
                   else 'Исход запуска после перезапуска неизвестен.')
-        try:
-            await bot.send_message(row['external_id'],f"⚠️ {row['title']} · {detail} Автоповтора нет.")
-        except TelegramAPIError:
+        claimed = await pool.fetchval("""
+            UPDATE task_dispatch SET recovery_notice=false WHERE quote_id=$1 AND recovery_notice
+            RETURNING true
+            """,row['quote_id'])
+        if not claimed:
             continue
-        await pool.execute("UPDATE task_dispatch SET recovery_notice=false WHERE quote_id=$1",row['quote_id'])
+        try:
+            async with asyncio.timeout(8):
+                await bot.send_message(row['external_id'],f"⚠️ {row['title']} · {detail} Автоповтора нет.")
+        except TelegramRetryAfter as error:
+            await pool.execute("UPDATE task_dispatch SET recovery_notice=true WHERE quote_id=$1",row['quote_id'])
+            await asyncio.sleep(max(error.retry_after, 1))
+            return
+        except (ClientDecodeError, TelegramAPIError, TimeoutError):
+            # Telegram may have received the message. The task state remains in PostgreSQL.
+            pass

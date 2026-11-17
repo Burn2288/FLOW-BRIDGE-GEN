@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 @dataclass(frozen=True)
 class Config:
@@ -11,6 +12,7 @@ class Config:
     migration_dsn: str = ''
     generation_enabled: bool = False
     payments_enabled: bool = False
+    public_image_models: tuple[str, ...] = ()
     payment_backend: str = 'platega'
     telegram_api_base: str = ''
     catalogue_enabled: bool = False
@@ -21,6 +23,7 @@ class Config:
     retail_per_char: int = 1
     concurrency: int = 2
     token: str = ''
+    miniapp_url: str = ''
     storage: Path = Path('data/audio')
     support: str = 'Поддержка пока не настроена.'
     terms: str = 'Условия коммерческого сервиса пока не опубликованы.'
@@ -58,6 +61,9 @@ class Config:
     platega_failed: str = ''
     platega_method: int = 2
 
+    def allows_public_image(self, provider, model, operation):
+        return (operation == 'images.generate' and f'{provider}:{model}' in self.public_image_models)
+
     @property
     def wallet_mode(self): return 'demo' if self.mode == 'mock' else 'live'
 
@@ -81,12 +87,15 @@ class Config:
         c=cls(dsn=os.getenv('DATABASE_URL',cls.dsn),mode=os.getenv('PROVIDER_MODE','mock'),
               access_mode=os.getenv('ACCESS_MODE','public'),migration_dsn=os.getenv('DATABASE_MIGRATION_URL',''),
               generation_enabled=flag('GENERATION_ENABLED'),payments_enabled=flag('PAYMENTS_ENABLED'),
+              public_image_models=tuple(filter(None, (item.strip() for item in
+                  os.getenv('PUBLIC_IMAGE_MODELS', '').split(',')))),
               payment_backend=os.getenv('PAYMENT_BACKEND','platega'),telegram_api_base=os.getenv('TELEGRAM_API_BASE',''),
               catalogue_enabled=flag('CATALOGUE_ENABLED'),catalogue_path=local(os.getenv('CATALOGUE_PATH','data/catalogue/models.json')),catalogue_profile=local(os.getenv('CATALOGUE_PROFILE','')),
               budget=int(budget) if budget else None,
               cost_per_char=int(os.getenv('PROVIDER_COST_BOUND_PER_CHAR','0')),
               retail_per_char=int(os.getenv('RETAIL_CREDITS_PER_CHAR','1')),
               concurrency=int(os.getenv('PROVIDER_CONCURRENCY','2')),token=os.getenv('TELEGRAM_BOT_TOKEN',''),
+              miniapp_url=os.getenv('MINIAPP_URL','').strip(),
               storage=Path(local(os.getenv('AUDIO_STORAGE_DIR','data/audio'))),
               support=os.getenv('SUPPORT_CONTACT',cls.support),terms=os.getenv('TERMS_TEXT',cls.terms),
               privacy=os.getenv('PRIVACY_TEXT',cls.privacy),
@@ -117,6 +126,12 @@ class Config:
               platega_failed=os.getenv('PLATEGA_FAILED_URL',''),
               platega_method=int(os.getenv('PLATEGA_PAYMENT_METHOD','2')),
               voices_file=local(os.getenv('VOICES_FILE','')),speech_pilot=flag('CLODEX_SPEECH_PILOT'),economy_verified=flag('ECONOMY_VERIFIED'))
+        if c.miniapp_url:
+            url = urlsplit(c.miniapp_url)
+            if (url.scheme != 'https' or not url.hostname or url.username is not None
+                    or url.password is not None or url.fragment
+                    or any(char.isspace() for char in c.miniapp_url)):
+                raise ValueError('MINIAPP_URL must be an HTTPS URL')
         if c.access_mode not in ('private','public') or (c.access_mode=='private' and not c.admin_ids):raise ValueError('Private access requires ADMIN_TELEGRAM_IDS')
         if c.clodex_music_owner and (c.access_mode!='private' or c.clodex_music_owner not in c.admin_ids
                                     or not c.admin_password or c.payments_enabled or not c.clodex_key):

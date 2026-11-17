@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DarkFlow | Gen</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="brand"><img src="/assets/darkflow-banner.png" alt="DarkFlow | Gen"></header>
+  <p id="status" class="notice" role="status">Подключение…</p>
+  <section id="catalogue" aria-labelledby="catalogue-title">
+    <h1 id="catalogue-title">Каталог</h1>
+    <ul id="models" class="cards"></ul>
+  </section>
+  <section id="library" aria-labelledby="works-title" hidden>
+    <h1 id="works-title">Мои работы</h1>
+    <ul id="works" class="cards"></ul>
+    <div class="paging"><button id="previous" disabled>Назад</button><button id="next" disabled>Далее</button></div>
+  </section>
+  <section id="balance" aria-labelledby="balance-title" hidden>
+    <h1 id="balance-title">Баланс</h1>
+    <dl class="wallet card"><div><dt>Доступно</dt><dd id="available">—</dd></div><div><dt>В резерве</dt><dd id="reserved">—</dd></div></dl>
+  </section>
+  <section id="settings" aria-labelledby="settings-title" hidden>
+    <h1 id="settings-title">Настройки</h1>
+    <fieldset class="card"><legend>Тема оформления</legend>
+      <label><input type="radio" name="theme" value="dark" checked disabled> Тёмная</label>
+      <label><input type="radio" name="theme" value="light" disabled> Светлая</label>
+      <p id="theme-status" role="status"></p>
+      <button id="retry-theme" hidden>Повторить сохранение</button>
+    </fieldset>
+  </section>
+</main>
+<nav aria-label="Разделы приложения">
+  <button data-panel="catalogue" aria-current="page">Каталог</button>
+  <button data-panel="library">Мои работы</button>
+  <button data-panel="balance">Баланс</button>
+  <button data-panel="settings">Настройки</button>
+</nav>
+</body>
+</html>
