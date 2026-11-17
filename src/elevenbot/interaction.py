@@ -16,6 +16,7 @@ import httpx
 from PIL import Image
 from simplejpeg import decode_jpeg, decode_jpeg_header
 
+from .submission import check_submission_refusal
 from .core import Rejected
 
 provider_request_id = ContextVar('provider_request_id', default=None)
@@ -324,6 +325,8 @@ async def execute(operation, model, prompt, history, *, mode, key='', client=Non
                               ) else 'other',
                               elapsed_ms=round((time.monotonic()-started)*1000))
             if not response.is_success:
+                if operation=='chat':
+                    await check_submission_refusal(response)
                 response.raise_for_status()
             raw = bytearray()
             async for part in response.aiter_bytes(65536):

@@ -50,12 +50,14 @@ def test_catalogue_and_owner_fail_closed(clean_env,values):
     clean_env.update(values)
     with pytest.raises(ValueError):Config.env()
 
-async def test_private_access_denied_before_registration():
+async def test_non_admin_in_private_pilot_can_accept_terms_and_open_user_menu():
     bot=Bot();app=TelegramApp(None,Config(access_mode='private',admin_ids=(999,)),bot);app.svc=FakeService()
-    async def forbidden(*args):raise AssertionError('Unauthorized user registered')
-    app.svc.identity=forbidden
-    await app.handle(event('/start'));assert 'закрытом' in bot.sent[-1][0]
-    await app.handle(event(callback='accept'));assert 'accept' not in bot.answers[-1]
+    await app.handle(event('/start'))
+    assert bot.sent[-1][1].inline_keyboard[0][0].callback_data=='accept'
+    await app.handle(event(callback='accept'))
+    assert app.svc.accepted and bot.photos
+    await app.handle(event('/price_report'))
+    assert bot.sent[-1][0]=='Админ-доступ закрыт.'
 
 async def test_no_os_specific_provider_required_and_assets_independent_of_cwd(tmp_path,monkeypatch):
     monkeypatch.chdir(tmp_path);assert len(await MockProvider().synthesize('x','demo',1.0))>128

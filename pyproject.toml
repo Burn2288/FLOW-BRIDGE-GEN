@@ -22,7 +22,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 [tool.setuptools.package-data]
-elevenbot = ["welcome.png", "darkflow-energy-strip.gif"]
+elevenbot = ["welcome.png", "darkflow-energy-strip-1200x80-2x.mp4"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = ["src"]

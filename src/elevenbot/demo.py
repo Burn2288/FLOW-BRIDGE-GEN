@@ -110,23 +110,21 @@ class DemoApp(TelegramApp):
             await self.bot.send_message(m.chat.id,'Это демонстрационный режим. Финансовые операции не выполняются.');return
         await super().handle(update)
 
-    async def menu_section(self,u,ext,section,*,after_message_id=None):
+    async def menu_section(self,u,ext,section):
         if section!=3:
-            await super().menu_section(u,ext,section,after_message_id=after_message_id)
+            await super().menu_section(u,ext,section)
             return
         await self.catalogue_screen(
             ext,'DarkFlow | Gen: модели и функции загружаются из Clodex. Доступен предпросмотр запросов без отправки. '
             'Генерация и оплаты выключены. История и виртуальные данные сбрасываются при закрытии окна.',
-            buttons([[('Главное меню','home')]]),after_message_id=after_message_id,
+            buttons([[('Главное меню','home')]]),
         )
 
-    async def make_quote(self,u,ext,text,voice,speed,*,after_message_id=None):
+    async def make_quote(self,u,ext,text,voice,speed):
         q,price=await self.svc.quote(u,text,voice,speed)
-        if after_message_id is not None:
-            await self.remove_menu_message(ext,after_message_id)
         await self.svc.conversation(u,'confirm')
         await self.catalogue_screen(ext,f'ТЕСТ ИНТЕРФЕЙСА\nОбъём: {len(text)} символов\nУсловная стоимость: {price} демо-кредитов.\nНикаких списаний нет. Будет отправлен демонстрационный звук вместо озвучки.',
-                       buttons([[('Получить тестовый звук',f'confirm:{q}')],[('Главное меню','home')]]),after_message_id=after_message_id)
+                       buttons([[('Получить тестовый звук',f'confirm:{q}')],[('Главное меню','home')]]))
 
 class Pairing:
     def __init__(self):self.code=secrets.token_urlsafe(18);self.owner=None

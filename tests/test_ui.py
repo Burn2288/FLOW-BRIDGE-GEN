@@ -5,9 +5,9 @@ from datetime import datetime,timezone
 from dataclasses import replace
 from unittest.mock import AsyncMock
 import pytest
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.methods import SendAnimation, SendPhoto
-from aiogram.types import Update
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
+from aiogram.methods import SendAnimation, SendPhoto, SetMyCommands
+from aiogram.types import BotCommandScopeChat, BotCommandScopeDefault, Update
 from elevenbot import telegram
 from elevenbot.telegram import TelegramApp,MENU,menu
 from elevenbot.config import Config
@@ -19,6 +19,8 @@ class Bot:
     async def edit_message_text(self,text,*,chat_id,message_id,reply_markup=None):
         self.sent.append((text,reply_markup))
         return SimpleNamespace(message_id=message_id)
+    async def edit_message_caption(self,*,chat_id,message_id,caption,reply_markup=None):
+        return await self.edit_message_text(caption,chat_id=chat_id,message_id=message_id,reply_markup=reply_markup)
     async def delete_message(self,chat,message_id):self.deleted.append(message_id);return True
     async def answer_callback_query(self,*args,**kw):self.answers.append(args)
     async def send_audio(self,*args,**kw):self.audio.append((args,kw));return SimpleNamespace(message_id=1)
@@ -59,6 +61,36 @@ def app():
     bot=Bot();a=TelegramApp(None,Config(generation_enabled=True),bot);a.svc=FakeService();return a,bot
 
 
+async def test_command_registration_scopes_and_failed_chat(capsys):
+    error=TelegramBadRequest(SetMyCommands(commands=[]),'chat not found: fixture chat ID')
+    network=TelegramNetworkError(SetMyCommands(commands=[]),'fixture timeout')
+    bot=SimpleNamespace(set_my_commands=AsyncMock(side_effect=[network,True,error,True]))
+    await telegram.register_commands(bot,(100,100,-101,102))
+
+    calls=bot.set_my_commands.await_args_list
+    assert [call.kwargs['scope'] for call in calls]==[
+        BotCommandScopeDefault(),BotCommandScopeDefault(),BotCommandScopeChat(chat_id=100),BotCommandScopeChat(chat_id=102),
+    ]
+    base=[('start','Запустить бота'),('menu','Главное меню'),('cancel','Отменить текущее действие')]
+    admin=[*base,('price_report','Отчёт по ценам и расходам'),
+           ('admin','Войти в админку'),('admin_logout','Выйти из админки')]
+    assert [[(command.command,command.description) for command in call.args[0]] for call in calls]==[base,base,admin,admin]
+    output=capsys.readouterr().out
+    assert output.count('telegram_commands_registered')==2
+    assert output.count('telegram_commands_failed')==1 and 'fixture chat ID' not in output
+
+
+async def test_price_report_handler_keeps_admin_check(env):
+    pool,cfg,_,user=env
+    cfg=replace(cfg,access_mode='private',admin_ids=(100,))
+    bot=Bot()
+    app=TelegramApp(pool,cfg,bot)
+    await app.handle(event('/price_report'))
+    assert 'Отчёт' in bot.sent[-1][0] and 'Подтверждённый расход' in bot.sent[-1][0]
+    with pytest.raises(Rejected,match='только администратору'):
+        await app.price_admin(user,101,'/price_report',[])
+
+
 async def test_welcome_consent_start_and_menu():
     a,b=app()
     a.cfg=replace(a.cfg,admin_ids=(100,))
@@ -71,15 +103,18 @@ async def test_welcome_consent_start_and_menu():
     assert photo.data==telegram.WELCOME_BANNER.read_bytes()
     assert caption==telegram.WELCOME_TEXT
     assert '🎵 Создавай музыку' in caption
-    assert [row[0].text for row in keyboard.keyboard]==MENU
+    assert [row[0].text for row in keyboard.keyboard]==MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]
 
     for label in MENU:
         await a.handle(event(label))
-        temporary=a.catalogue_messages[100]
-        assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
-        await a.handle(event(callback='home'))
-        assert temporary in b.deleted
-        assert 100 not in a.catalogue_messages
+        temporary=(await a.navigation.read(100)).active_id
+        back=b.sent[-1][1].inline_keyboard[-1][0].callback_data
+        assert back==('providers' if label==MENU[1] else 'home')
+        await a.handle(event(callback=back))
+        state=await a.navigation.read(100)
+        assert state.active_id==state.panel_ids['chooser']
+        assert state.active_id!=temporary
+        assert (temporary in b.deleted)==(label==MENU[0])
     assert len(b.photos)==1 and 1001 not in b.deleted
     await a.handle(event('/start'))
     assert len(b.photos)==2 and b.deleted.count(1001)==1
@@ -87,7 +122,7 @@ async def test_welcome_consent_start_and_menu():
 
 
 @pytest.mark.parametrize('missing',[True,False])
-async def test_welcome_fallback_retains_public_keyboard(monkeypatch,tmp_path,missing):
+async def test_welcome_fallback_retains_user_keyboard(monkeypatch,tmp_path,missing):
     a,b=app()
     await a.svc.accept(a.svc.u)
     if missing:
@@ -98,13 +133,13 @@ async def test_welcome_fallback_retains_public_keyboard(monkeypatch,tmp_path,mis
     await a.handle(event('/start'))
     text,keyboard=b.sent[-1]
     assert text==telegram.WELCOME_TEXT
-    assert [[button.text for button in row] for row in keyboard.keyboard]==[[telegram.OPEN_CATALOGUE]]
+    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]]
     welcome=a.svc.welcome
     await a.handle(event(telegram.OPEN_CATALOGUE))
     assert b.sent[-1][1].inline_keyboard[-1][0].callback_data=='home'
     await a.handle(event(callback='home'))
-    assert a.svc.welcome==welcome and welcome not in b.deleted and 100 not in a.catalogue_messages
-    assert len(b.sent)==2
+    assert a.svc.welcome==welcome and welcome not in b.deleted
+    assert (await a.navigation.read(100)).active_id is not None
 
 
 async def test_welcome_replacement_survives_restart_and_send_failure(env):
@@ -134,6 +169,46 @@ async def test_welcome_replacement_survives_restart_and_send_failure(env):
     assert bot.deleted.count(1001)==1 and 1002 not in bot.deleted
 
 
+async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels(env):
+    pool,cfg,_,user=env
+    cfg=replace(cfg,mode='catalogue',access_mode='private',admin_ids=(100,))
+    bot=Bot()
+    app=TelegramApp(pool,cfg,bot)
+
+    def check_keyboard(markup,balance):
+        assert [[button.text for button in row] for row in markup.keyboard]==[
+            [MENU[0]],[MENU[1]],[balance],[telegram.TOPUP_MENU],[telegram.RUBLE_MENU],[MENU[3]],
+        ]
+
+    await app.handle(event('/start'))
+    assert bot.photos[-1][2] is None
+    check_keyboard(bot.sent[-1][1],'💳 0 токенов')
+    await app.pricing.set_ruble_rate(user,100,'100','10')
+    await app.handle(event('💳 Баланс'))
+    check_keyboard(bot.sent[-2][1],'💳 0 токенов ≈ 0 ₽')
+    async with pool.acquire() as conn:
+        await app.svc.movement(conn,user,'live','fixture:wallet-top-up','pilot_grant',1250,0)
+    await app.handle(event(MENU[0]))
+    label='💳 1\u202f250 токенов ≈ 125 ₽'
+    check_keyboard(bot.sent[-2][1],label)
+    first_refresh=(await app.navigation.read(100)).keyboard_id
+
+    async with pool.acquire() as conn:
+        await app.svc.movement(conn,user,'live','fixture:second-top-up','pilot_grant',500,0)
+    await app.handle(event(label))
+    assert bot.sent[-1][0]=='Кредиты: 1750\nЗарезервировано: 0'
+    check_keyboard(bot.sent[-2][1],'💳 1\u202f750 токенов ≈ 175 ₽')
+    await app.handle(event('💳 Баланс'))
+    assert bot.sent[-1][0]=='Кредиты: 1750\nЗарезервировано: 0'
+
+    await pool.execute('DELETE FROM task_ruble_equivalent')
+    await app.handle(event(MENU[0]))
+    check_keyboard(bot.sent[-2][1],'💳 1\u202f750 токенов')
+    assert first_refresh in bot.deleted
+    restarted=TelegramApp(pool,cfg,bot)
+    assert (await restarted.reply_menu(100)).keyboard[2][0].text=='💳 1\u202f750 токенов'
+
+
 @pytest.mark.parametrize('rejected',[False,True])
 async def test_aggregators_animation_navigation(monkeypatch,rejected):
     a,b=app()
@@ -142,31 +217,38 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
     monkeypatch.setattr(a,'catalogue_snapshot',lambda: {'sources':[]})
     monkeypatch.setattr(a,'anymodel_snapshot',lambda *args: {'models':[],'sources':[{'scope':'public_only'}]})
     monkeypatch.setattr(a,'anymodel_status',lambda data: 'Тестовый каталог')
+    monkeypatch.setattr(a.tariffs,'authorize',AsyncMock())
+    monkeypatch.setattr(a.models,'list',AsyncMock(return_value=[]))
     if rejected:
         error=TelegramBadRequest(SendAnimation(chat_id=100,animation='fixture'),'fixture')
         b.send_animation=AsyncMock(side_effect=error)
     await a.handle(event('/start'))
+    assert b.photos[-1][2] is None
+    keyboard=b.sent[-1][1]
     await a.handle(event(MENU[0]))
-    _,keyboard=b.sent[-2]
-    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU]
-    first=a.catalogue_messages[100]
+    assert [[button.text for button in row] for row in keyboard.keyboard]==[[label] for label in MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]]
+    first=(await a.navigation.read(100)).active_id
     text,markup=b.sent[-1]
     assert text.startswith('DarkFlow | Gen\nВыберите агрегатор')
     options={button.text:button.callback_data for row in markup.inline_keyboard for button in row}
     assert options['AnyModel']=='am' and telegram.OPEN_CATALOGUE not in options
     await a.handle(event(callback='am'))
+    assert b.sent[-1][0]=='AnyModel\nВыберите, что хотите сделать.'
+    await a.handle(event(callback='agmanage:anymodel'))
     _,markup=b.sent[-1]
-    assert any(button.text==telegram.OPEN_CATALOGUE and button.callback_data=='amcat:current:0'
+    assert any(button.text=='Все модели' and button.callback_data=='amcat:current:0'
                for row in markup.inline_keyboard for button in row)
     if not rejected:
+        assert b.animations[0].filename=='darkflow-energy-strip-1200x80-2x.mp4'
         assert b.animations[0].data==telegram.AGGREGATORS_ANIMATION.read_bytes()
-        assert first in b.deleted
+        assert first not in b.deleted
     await a.handle(event(callback='providers'))
-    second=a.catalogue_messages[100]
-    assert second!=first
+    second=(await a.navigation.read(100)).active_id
+    assert second!=first and first in b.deleted
     await a.handle(event(callback='home'))
+    assert (await a.navigation.read(100)).active_id!=second
     assert second in b.deleted and 1001 not in b.deleted
-    assert len(b.photos)==1 and len(b.animations)==(0 if rejected else 2)
+    assert len(b.photos)==1 and len(b.animations)==(0 if rejected else 3)
 
 async def test_UI_full_dialog():
     a,b=app()
@@ -239,5 +321,5 @@ async def test_image_delivery_survives_menu_failure(monkeypatch, failed_screen):
     assert bot.send_photo.await_args.args[1].data == MOCK_IMAGE
 
 def test_menu_core_and_discovery():
-    assert len(menu().keyboard)==4
-    assert [r[0].text for r in menu().keyboard]==MENU
+    assert len(menu().keyboard)==5
+    assert [r[0].text for r in menu().keyboard]==MENU[:3]+[telegram.TOPUP_MENU]+MENU[3:]

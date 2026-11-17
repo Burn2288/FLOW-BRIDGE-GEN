@@ -5,6 +5,13 @@ from elevenbot.db import connect,migrate
 from elevenbot.config import Config
 from elevenbot.core import Service
 
+
+@pytest.fixture(autouse=True)
+def admin_already_signed_in(monkeypatch):
+    # Existing feature tests exercise an administrator after sign-in.
+    from elevenbot.admin_access import AdminAccess
+    monkeypatch.setattr(AdminAccess,'active',lambda self,chat,password:True)
+
 @pytest_asyncio.fixture
 async def env(tmp_path):
     dsn=os.getenv('TEST_DATABASE_URL')
@@ -21,3 +28,37 @@ async def env(tmp_path):
     try:yield pool,cfg,svc,u
     finally:
         await pool.close();await admin.execute(f'DROP SCHEMA {schema} CASCADE');await admin.close()
+
+
+@pytest.fixture
+def manual_tariff():
+    from datetime import datetime, timedelta, timezone
+
+    async def save(app, user, model, operation, params, *, provider='clodex',
+                   basis='request', amount='100', external=100):
+        expires=(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()
+        await app.pricing.set_tariff(user,external,provider,model,operation,params,
+            basis=basis,unit='darkflow_token',amount=amount,expires=expires,evidence='fixture-evidence',temporary=True)
+    return save
+
+
+@pytest.fixture
+def confirmed_credit():
+    async def credit(pool, cfg, user, credits, charge='fixture-charge'):
+        # The pending order supplies credits; the authenticated provider event supplies the receipt.
+        order=uuid.uuid4()
+        await pool.execute("""
+            INSERT INTO payments(id,user_id,amount,credits,currency,tariff,status)
+            VALUES($1,$2,100,$3,'XTR','fixture','pending')
+            """,order,user,credits)
+        service=Service(pool,replace(cfg,mode='clodex'))
+        assert await service.payment(user,order,100,'XTR',charge)
+        return service,order
+    return credit
+
+
+@pytest_asyncio.fixture
+async def funded_env(env,confirmed_credit):
+    pool,cfg,_,user=env
+    await confirmed_credit(pool,cfg,user,10**12)
+    return env
