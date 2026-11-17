@@ -23,3 +23,5 @@ jobs:
       - run: python3 .github/check_planning.py
       - run: python3 .github/check_foundation_contracts.py
       - run: python3 .github/test_foundation_contracts.py
+      - run: python3 .github/check_dc01_evidence.py
+      - run: python3 .github/test_dc01_evidence.py
