@@ -1,0 +1,120 @@
+"""Transport transition checks with a fake application service, NOT financial proof."""
+from types import SimpleNamespace
+import uuid
+from datetime import datetime,timezone
+import pytest
+from aiogram.types import Update
+from elevenbot.telegram import TelegramApp,MENU,menu
+from elevenbot.config import Config
+from elevenbot.core import Rejected
+
+class Bot:
+    def __init__(self):self.sent=[];self.audio=[];self.answers=[]
+    async def send_message(self,chat,text,reply_markup=None):self.sent.append((text,reply_markup));return SimpleNamespace(message_id=len(self.sent))
+    async def edit_message_text(self,text,*,chat_id,message_id,reply_markup=None):
+        self.sent.append((text,reply_markup))
+        return SimpleNamespace(message_id=message_id)
+    async def delete_message(self,chat,message_id):return True
+    async def answer_callback_query(self,*args,**kw):self.answers.append(args)
+    async def send_audio(self,*args,**kw):self.audio.append((args,kw));return SimpleNamespace(message_id=1)
+    async def answer_pre_checkout_query(self,*args,**kw):self.answers.append(kw)
+
+class FakeService:
+    def __init__(self):self.u=uuid.uuid4();self.state={'step':'home','text_content':None,'voice':None};self.confirmations=0;self.accepted=False
+    async def identity(self,*a):return self.u
+    async def rate(self,*a,navigation=False):pass
+    async def accept(self,*a):self.accepted=True
+    async def conversation(self,u,step=None,text=None,voice=None,speed=None):
+        if not self.accepted:raise Rejected('Сначала примите условия через /start.')
+        if step is not None:self.state={'step':step,'text_content':text,'voice':voice}
+        return self.state
+    async def quote(self,*args):return uuid.UUID(int=10),len(args[1])
+    async def confirm(self,*args):self.confirmations+=1;return uuid.UUID(int=11)
+    async def history(self,*args):return []
+    async def wallet(self,*args):return {'available':10000,'reserved':0}
+
+def event(text=None,callback=None,payment=None):
+    message={'message_id':1,'date':int(datetime.now(timezone.utc).timestamp()),'chat':{'id':100,'type':'private'},'from':{'id':100,'is_bot':False,'first_name':'Test'}}
+    if text is not None:message['text']=text
+    if payment:message['successful_payment']=payment
+    payload={'update_id':1}
+    if callback is not None:payload['callback_query']={'id':'cb','from':message['from'],'chat_instance':'x','message':message,'data':callback}
+    else:payload['message']=message
+    return Update.model_validate(payload)
+
+def app():
+    bot=Bot();a=TelegramApp(None,Config(generation_enabled=True),bot);a.svc=FakeService();return a,bot
+
+async def test_UI_full_dialog():
+    a,b=app()
+    await a.handle(event('/start'));assert 'деморежим' in b.sent[-1][0]
+    await a.handle(event(callback='accept'));assert a.svc.accepted
+    await a.handle(event("🎙 Создать озвучку"));assert a.svc.state['step']=='text'
+    await a.handle(event('Привет'));assert a.svc.state['step']=='voice'
+    await a.handle(event(callback='preview:0'));assert len(b.audio)==1
+    await a.handle(event(callback='voice:0'));assert a.svc.state['step']=='settings'
+    await a.handle(event(callback='speed:1.0'));assert a.svc.state['step']=='confirm'
+    assert 'Цена: 6' in b.sent[-1][0]
+    markup=b.sent[-1][1];callback=markup.inline_keyboard[0][0].callback_data
+    assert len(callback.encode())<=64
+    await a.handle(event(callback=callback));assert a.svc.confirmations==1
+    assert 'Работа принята' in b.sent[-1][0]
+
+@pytest.mark.parametrize('callback',['voice:-1','voice:999','preview:999','speed:bad','voices:bad','nonsense'])
+async def test_UI_stale_callbacks(callback):
+    a,b=app();await a.svc.accept();await a.handle(event(callback=callback))
+    assert a.svc.confirmations==0 and b.sent
+
+async def test_UI_menu_cancels_draft():
+    a,b=app();await a.svc.accept();await a.handle(event("🎙 Создать озвучку"));await a.handle(event('/menu'))
+    assert a.svc.state['step']=='home'
+    await a.handle(event(callback='voice:0'));assert 'устарела' in b.sent[-1][0]
+
+@pytest.mark.parametrize('command',['/terms','/privacy','/support','/paysupport'])
+async def test_UI_help_without_accept(command):
+    a,b=app();await a.handle(event(command));assert b.sent
+
+async def test_UI_empty_and_oversized():
+    a,b=app();await a.svc.accept();await a.handle(event("🎙 Создать озвучку"))
+    for t in ('','a'*3001):
+        await a.handle(event(t));assert a.svc.state['step']=='text'
+
+@pytest.mark.parametrize("failed_screen", ["progress", "ready"])
+async def test_image_delivery_survives_menu_failure(monkeypatch, failed_screen):
+    from unittest.mock import AsyncMock
+    from aiogram.exceptions import TelegramNetworkError
+    from aiogram.methods import SendMessage
+    from elevenbot.demo import DemoService
+    from elevenbot.interaction import MOCK_IMAGE
+
+    bot = Bot()
+    bot.send_photo = AsyncMock(return_value=SimpleNamespace(message_id=20))
+    app = TelegramApp(None, Config(interaction_mode="mock"), bot)
+    app.svc = DemoService()
+    user = await app.svc.identity(100)
+    await app.svc.accept(user)
+    model = {"provider": "clodex", "id": "test-image"}
+    monkeypatch.setattr(app, "catalogue_snapshot", lambda: {"models": [model]})
+    monkeypatch.setattr(app, "work_rows", lambda *args: [])
+
+    async def render(chat, text, *args, **kwargs):
+        stage = "progress" if "идёт генерация" in text else "ready"
+        if stage == failed_screen:
+            raise TelegramNetworkError(
+                method=SendMessage(chat_id=chat, text=text), message="test timeout",
+            )
+
+    monkeypatch.setattr(app, "catalogue_screen", render)
+    await app.interaction_input(
+        user, 100, event("Тестовое изображение"),
+        {"interaction": "images.generate", "model_id": model["id"], "history": []},
+    )
+
+    work, = await app.svc.history(user)
+    assert work["image"] == MOCK_IMAGE
+    bot.send_photo.assert_awaited_once()
+    assert bot.send_photo.await_args.args[1].data == MOCK_IMAGE
+
+def test_menu_core_and_discovery():
+    assert len(menu().keyboard)==4
+    assert [r[0].text for r in menu().keyboard]==MENU

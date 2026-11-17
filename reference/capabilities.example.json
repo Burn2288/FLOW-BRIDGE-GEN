@@ -1,0 +1,20 @@
+{
+  "status": "UNVERIFIED",
+  "provider": "clodex",
+  "checked_at": null,
+  "tts": {
+    "enabled": false,
+    "endpoint": null,
+    "models": [],
+    "voices": [],
+    "formats": []
+  },
+  "voice_changer": false,
+  "dubbing": false,
+  "voice_cloning": false,
+  "usage_lookup": false,
+  "idempotency": {
+    "supported": false,
+    "evidence": null
+  }
+}

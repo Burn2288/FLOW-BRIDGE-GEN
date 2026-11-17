@@ -1,0 +1,13 @@
+{
+  "target": "Ubuntu 24.04 LTS",
+  "commit": "ca46fe650f32ada4be9a08dba46dfc8a4768e2d0",
+  "date": "2026-11-05",
+  "tests": {
+    "pass": 156,
+    "skip": 42,
+    "fail": 0
+  },
+  "postgresql_acceptance": "pending",
+  "live_clodex_account_inventory": "pending",
+  "live_payments": "disabled"
+}

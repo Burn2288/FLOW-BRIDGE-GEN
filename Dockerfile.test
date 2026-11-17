@@ -1,0 +1,12 @@
+FROM postgres:16.15-bookworm AS pgtools
+FROM python:3.12-slim-bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libpq5 liblz4-1 libzstd1 && rm -rf /var/lib/apt/lists/*
+COPY --from=pgtools /usr/lib/postgresql/16/bin/pg_dump /usr/local/bin/pg_dump
+COPY --from=pgtools /usr/lib/postgresql/16/bin/pg_restore /usr/local/bin/pg_restore
+COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /bin/uv
+WORKDIR /app
+COPY . .
+RUN uv sync --locked && useradd --uid 10001 --create-home tester
+USER tester
+ENV PATH=/app/.venv/bin:$PATH
+CMD ["python","-m","pytest","-q","--junitxml=/tmp/test-results.xml"]
