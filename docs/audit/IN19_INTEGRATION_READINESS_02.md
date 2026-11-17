@@ -12,6 +12,10 @@ Main + #33 merged without textual conflicts. Merging #11 required two resolution
 
 Each common file still requires a single assigned writer and the other developer as reviewer before acceptance. Semantics requiring review include paid POST uncertainty, delivery ambiguity for media other than images, process restart, RBAC/admission revocation and transaction boundaries. FIBO terminal poll failure notification is not evidence of a universal delivery outbox. The individual fixes are candidate code, not owner approval or production readiness.
 
+**VIDEO-DELIVERY-AMBIGUITY / FIX_REQUIRED:** `src/elevenbot/video.py::notify_one` increments `notify_attempts` and defers the next attempt before `send_video`; a Telegram timeout leaves `notify_at` in place and later retries up to three times. If Telegram accepted the first request but its response was lost, duplicate delivery is possible. The image-specific guard does not cover video. Existing stack owner vankhu21 should review and be assigned a writer for a separate fix; Burn2288 reviews shared delivery contracts. Runtime reproduction of this exact ambiguity is NOT_TESTED here; this source-level control-flow finding is an integration blocker, not a claim of an observed duplicate. No universal outbox is claimed.
+
+Ruff flagged a possibly unbound `remaining` in `_verify_png_streams`; initialize it to zero before stream processing. Existing stream initialization overwrites it before use when a stream exists. PNG/APNG/Adam7 regression tests must run against the candidate; no image bytes or size limits are changed.
+
 ## Documentation and gates
 
 Documentation PR #22 `f4bb350bd6a82b7f43c2aa8769ed14b5025d5e46` has four merge-tree conflicts against main: `.gitattributes`, `README.md`, `docs/README.md`, `docs/ROADMAP.md`; its adoption remains separate. PR #27 `151c3b7914248662bdf1704830285d8474ed150e`, #29 `6697bfa5ce1a4f5c20c29cd628b2151db1fe306d` and #31 `16e12968dbebaeb2a859de09decf52520ac1bc5d` are not integrated here. IN-18, DC-01 and AU-01 are not accepted. D-02 and D-04 remain open. Historical audit outcomes are not rewritten.

@@ -103,6 +103,7 @@ def _verify_png_streams(image, canvas, bits_per_pixel, interlaced, frames_left):
     source = memoryview(image)
     offset = len(PNG_SIGNATURE)
     stream = None
+    remaining = 0
     frame_size = None
     while offset < len(source):
         length, kind = struct.unpack_from('>I4s', source, offset)
