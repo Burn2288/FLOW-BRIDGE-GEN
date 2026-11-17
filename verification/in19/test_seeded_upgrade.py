@@ -79,8 +79,8 @@ async def seed_013(conn, audio_dir):
             await conn.execute("INSERT INTO jobs(id,user_id,quote_id,mode,price,cost_bound,budget_day,status) VALUES($1,$2,$3,'demo',100,100,'2026-01-01','queued')", JOBS[i], USER, QUOTES[i])
             await conn.execute("INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr,job_id) VALUES($1,$2,'demo',$3,'reserve',-100,100,$4)", uuid.UUID(int=1040+i), USER, 'reserve-fixture-'+str(i), JOBS[i])
             if i == 0:
-                await conn.execute("UPDATE jobs SET status='succeeded',settlement='capture',completed_at=now() WHERE id=$1", JOBS[0])
                 await conn.execute("INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr,job_id) VALUES($1,$2,'demo','capture-fixture','capture',0,-100,$3)", uuid.UUID(int=1050), USER, JOBS[0])
+                await conn.execute("UPDATE jobs SET status='succeeded',settlement='capture',completed_at=now() WHERE id=$1", JOBS[0])
         await conn.execute("INSERT INTO files(job_id,storage_key,sha256,size,expires_at) VALUES($1,'historical.mp3',$2,$3,now()+interval '7 days')", JOBS[0], digest(MP3), len(MP3))
         await conn.execute("INSERT INTO image_works(id,update_id,user_id,model_id,prompt,image,filename) VALUES($1,90002,$2,'fixture','fixture',$3,'test.png')", IMAGE, USER, PNG)
         await conn.execute("INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,status,provider_id,video) VALUES($1,$2,'fixture','fixture',0,'succeeded','fixture-video',$3)", VIDEO, USER, MP4)
