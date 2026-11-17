@@ -14,7 +14,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test
+    network_mode: service:db
     environment:
-      TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@db:5432/elevenbot_test
+      TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/elevenbot_test
     depends_on:
       db: {condition: service_healthy}
+networks:
+  default:
+    internal: true
