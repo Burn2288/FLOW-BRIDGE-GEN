@@ -14,13 +14,14 @@ services:
       timeout: 3s
       retries: 20
   bot:
+    network_mode: service:db
     build:
       context: .
       dockerfile: Dockerfile.test
     command: [python, -u, scripts/dev_bot.py]
     environment:
-      DATABASE_URL: postgresql://postgres:isolated-test-only@db:5432/flowbridge_dev
-      TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@db:5432/flowbridge_acceptance
+      DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/flowbridge_dev
+      TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/flowbridge_acceptance
       AUDIO_STORAGE_DIR: /home/tester/data/audio
       PYTHONPATH: /app/src
     depends_on:
@@ -28,6 +29,23 @@ services:
         condition: service_healthy
     volumes:
       - runtime:/home/tester
+    healthcheck:
+      test: [CMD, python, -m, elevenbot, health, --component, bot]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+  worker:
+    extends:
+      service: bot
+    command: [python, -u, scripts/dev_bot.py, worker]
+    depends_on:
+      bot:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -m, elevenbot, health, --component, worker]
+      interval: 3s
+      timeout: 5s
+      retries: 20
 networks:
   default:
     internal: true

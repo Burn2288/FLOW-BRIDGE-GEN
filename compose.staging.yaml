@@ -1,0 +1,2 @@
+# Closed fixture staging uses separate project-scoped volumes and an internal network.
+name: flowbridge-staging

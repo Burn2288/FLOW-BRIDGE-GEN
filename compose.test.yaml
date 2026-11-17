@@ -21,3 +21,6 @@ services:
       DISPOSABLE_POSTGRES_CONFIRM: 'YES'
     depends_on:
       db: {condition: service_healthy}
+networks:
+  default:
+    internal: true
