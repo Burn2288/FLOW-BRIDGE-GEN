@@ -78,6 +78,9 @@ async def test_revoke_first_denies_and_cannot_be_spoofed(trusted_env):
         # A caller-writable temp table and changed search_path cannot shadow qualified objects.
         await conn.execute('CREATE TEMP TABLE admission_policy_shadow(id int,version bigint,initialized bool)')
         await conn.execute('INSERT INTO admission_policy_shadow VALUES(1,999,true)')
+        await conn.execute('''CREATE FUNCTION pg_temp.fixture_admission_lock(bigint)
+            RETURNS TABLE(policy_version bigint, admitted boolean, member_role text)
+            LANGUAGE sql AS $$ SELECT 999::bigint, true, 'admin'::text $$''')
         await conn.execute(f'SET search_path = pg_temp, {schema}')
         async with conn.transaction():
             row = await conn.fetchrow(f'SELECT * FROM {schema}.fixture_admission_lock($1)', 101)
