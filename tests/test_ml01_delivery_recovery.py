@@ -113,7 +113,9 @@ async def test_image_owner_enforced_in_service_telegram_and_http(env):
     # Refresh baseline after legitimate creation of the second test account.
     ledger=[tuple(x) for x in await pool.fetch('SELECT id,event_key,da,dr FROM ledger ORDER BY id')]
     with pytest.raises(Rejected):await svc.image_work(other,row['id'])
-    with pytest.raises(Rejected):await TelegramApp(pool,cfg,Bot()).open_work(other,101,'image',str(row['id']))
+    foreign_app=TelegramApp(pool,cfg,Bot())
+    with pytest.raises(Rejected):await foreign_app.open_work(other,101,'image',str(row['id']))
+    with pytest.raises(Rejected):await foreign_app.callback(other,101,'image:'+str(row['id']))
     async with TestClient(TestServer(create_app(pool,cfg))) as client:
         login=await client.post('/api/v1/session',json={'initData':signed('fixture',101)})
         assert login.status==200
