@@ -10,12 +10,12 @@ from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from .providers import catalog,refresh_pilot_voices
 from .interaction import HIGH_QUALITY_IMAGE_MODELS,is_disabled_model,trace_interaction
 from .video import VideoPilot,video_modes
-from .anymodel import AnyModelProvider,AnyModelError,can_chat,can_view,model_store
+from .anymodel import AnyModelProvider,AnyModelError,FIBO_MODEL,IMAGE_OP,can_chat,can_image,can_view,model_store
 import httpx
 
 MENU=['🌐 Агрегаторы','📁 Мои работы','💳 Баланс','❓ Помощь']
 DEVELOPER_CALLBACKS={'cat','mdl','pf','funcs','fn','choosefn','bind','voice-demo','runmodel','speak'}
-ANYMODEL_ROUTES={'am','amcat','ammdl','amrun'}
+ANYMODEL_ROUTES={'am','amcat','ammdl','amrun','amsection','amimage'}
 CATALOGUE_CALLBACKS=ANYMODEL_ROUTES|{'provider','cat','mdl','pf','funcs','fn','choosefn','store','slist','smodel','mwork','veo','veoprompt','veoconfirm'}
 STORE_SECTIONS={
     'video':('🎬 Генерировать видео','video'),
@@ -23,6 +23,8 @@ STORE_SECTIONS={
     'speech':('🎙 Озвучить текст','audio.speech'),
 }
 OPEN_CATALOGUE='Открыть каталог'
+ANYMODEL_SECTIONS={key:title for key,(title,_) in STORE_SECTIONS.items()}
+ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠 Инструменты')
 SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
 CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','🛠 Функции',MENU[0],OPEN_CATALOGUE)
 MODEL_ACTIONS={
@@ -564,15 +566,31 @@ class TelegramApp:
         route,*parts=value.split(':')
         if route=='am':
             await self.svc.conversation(u,'home')
+            rows=[[(title,f'amsection:{key}')] for key,title in ANYMODEL_SECTIONS.items()]
+            rows.extend([[('🧩 Модели','amcat:current:0')],[('← Агрегаторы','providers')]])
             try:
                 data=self.anymodel_snapshot(ext)
+                text=f"AnyModel\nМоделей: {len(data['models'])}\n"+self.anymodel_status(data)
             except Rejected as error:
-                await self.catalogue_screen(ext,str(error),buttons([[('← Агрегаторы','providers')]]));return
-            text=f"AnyModel\nМоделей: {len(data['models'])}\n"+self.anymodel_status(data)
-            await self.catalogue_screen(ext,text,buttons([[('🧩 Модели',f"amcat:{data['version']}:0")],
-                                                         [('← Агрегаторы','providers')]]));return
-        version=parts[0]
+                text=str(error)
+            await self.catalogue_screen(ext,text,buttons(rows));return
+        if route=='amsection':
+            await self.anymodel_section(ext,parts[0]);return
+        if route=='amimage':
+            data=self.anymodel_snapshot(ext)
+            model=next((m for m in data['models'] if m['id']==FIBO_MODEL),None)
+            if not model:raise Rejected('AnyModel: FIBO 2 недоступна в каталоге.')
+            if parts==['run']:
+                if not self.cfg.anymodel_image_live or not can_image(model,data):
+                    raise Rejected('AnyModel: тестовый запуск FIBO 2 недоступен.')
+                await self.svc.aggregate_context(u,{'interaction':IMAGE_OP,'provider':'anymodel','model_id':FIBO_MODEL})
+                await self.catalogue_screen(ext,'FIBO 2 · AnyModel\nПришлите описание изображения.',
+                                            buttons([[('← FIBO 2','amimage:detail')]]));return
+            actions=[('🖼 Генерировать изображение','amimage:run')] if self.cfg.anymodel_image_live and can_image(model,data) else []
+            await self.render_model_detail(ext,model,'amsection:image',actions,provider='AnyModel');return
+        version=None if parts[0]=='current' else parts[0]
         data=self.anymodel_snapshot(ext,version)
+        version=data['version']
         if route=='amcat':
             await self.catalogue_page(ext,data,data['models'],'AnyModel',int(parts[1]),
                                       f'amcat:{version}',f'ammdl:{version}','am',self.anymodel_status(data));return
@@ -590,6 +608,25 @@ class TelegramApp:
         note='Отправьте текст.' if self.cfg.anymodel_chat_live else 'Платный вызов выключен на стенде.'
         await self.catalogue_screen(ext,f"AnyModel · {model['id']}\n{note}",
                                     buttons([[('← К списку моделей',f'amcat:{version}:{page}')]]))
+
+    async def anymodel_section(self,ext,section):
+        if section not in ANYMODEL_SECTIONS:raise Rejected('AnyModel: раздел недоступен.')
+        rows=[]
+        if section in ('image','chat'):
+            try:
+                data=self.anymodel_snapshot(ext)
+            except Rejected:
+                data=None
+            if data and section=='image' and any(m['id']==FIBO_MODEL for m in data['models']):
+                rows.append([('FIBO 2','amimage:detail')])
+            if data and section=='chat':
+                for index,model in enumerate(data['models']):
+                    if can_chat(model,data):
+                        rows.append([(model['title'],f"ammdl:{data['version']}:{index}:{index//10}")])
+        title=f'AnyModel · {ANYMODEL_SECTIONS[section]}'
+        if not rows:title+='\nВ этом разделе пока нет подключённых операций.'
+        rows.append([('← AnyModel','am')])
+        await self.catalogue_screen(ext,title,buttons(rows))
 
     async def provider_detail(self,ext,version,index):
         if ext not in self.cfg.admin_ids:
@@ -976,22 +1013,33 @@ class TelegramApp:
     async def anymodel_input(self,u,ext,update,context):
         data=self.anymodel_snapshot(ext)
         model=next((m for m in data['models'] if (m.get('provider'),m['id'])==('anymodel',context['model_id'])),None)
-        if not model or context['interaction']!='chat' or not can_chat(model,data):
+        operation=context['interaction']
+        image=operation==IMAGE_OP
+        if not model or not (can_image(model,data) if image else operation=='chat' and can_chat(model,data)):
             raise Rejected('AnyModel: модель недоступна. Обновите каталог.')
-        if not self.cfg.anymodel_chat_live:
+        if not (self.cfg.anymodel_image_live if image else self.cfg.anymodel_chat_live):
             raise Rejected('AnyModel: платный вызов выключен на стенде.')
         prompt=update.message.text
         if not prompt or not prompt.strip() or len(prompt)>4000 or '\x00' in prompt:
             raise Rejected('AnyModel: отправьте текст от 1 до 4000 символов.')
+        if image:
+            from .anymodel_image_jobs import AnyModelImageJobs
+            jobs=AnyModelImageJobs(self.pool,self.cfg,adapter=AnyModelProvider(self.cfg.anymodel_key))
+            await jobs.submit(u,update.update_id,prompt)
+            await self.svc.conversation(u,'home')
+            await self.catalogue_screen(ext,'AnyModel: запрос принят. Бот пришлёт изображение, когда оно будет готово.',
+                                        buttons([[('📁 Мои работы','history:0')]]))
+            return
         try:
-            reserved=await self.svc.reserve_interaction(u,update.update_id,operation='chat',model_id=model['id'])
+            reserved=await self.svc.reserve_interaction(u,update.update_id,operation=operation,model_id=model['id'])
             if not reserved:
                 raise Rejected('Запрос уже был принят.')
         except Rejected as error:
             raise Rejected(f'AnyModel: {error}') from None
+        adapter=AnyModelProvider(self.cfg.anymodel_key)
         history=context['history']
         try:
-            reply=await AnyModelProvider(self.cfg.anymodel_key).chat(model['id'],prompt,history)
+            reply=await adapter.chat(model['id'],prompt,history)
         except AnyModelError as error:
             raise Rejected(f'AnyModel: {error}. Автоповтора нет.') from None
         context['history']=[*history,{'role':'user','content':prompt[:2000]},

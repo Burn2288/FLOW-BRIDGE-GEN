@@ -30,6 +30,7 @@ class Config:
     anymodel_key: str = ''
     anymodel_test_enabled: bool = False
     anymodel_chat_live: bool = False
+    anymodel_image_live: bool = False
     interaction_mode: str = 'off'
     video_pilot: bool = False
     interaction_limit: int = 0
@@ -77,6 +78,7 @@ class Config:
               anymodel_key=os.getenv('ANYMODEL_API_KEY',''),
               anymodel_test_enabled=flag('ANYMODEL_TEST_ENABLED'),
               anymodel_chat_live=flag('ANYMODEL_TEST_CHAT_LIVE'),
+              anymodel_image_live=flag('ANYMODEL_TEST_IMAGE_LIVE'),
               clodex_key=os.getenv('CLODEX_API_KEY',''),clodex_model=os.getenv('CLODEX_TTS_MODEL',''),
               voices_file=local(os.getenv('VOICES_FILE','')),speech_pilot=flag('CLODEX_SPEECH_PILOT'),economy_verified=flag('ECONOMY_VERIFIED'))
         if c.access_mode not in ('private','public') or (c.access_mode=='private' and not c.admin_ids):raise ValueError('Private access requires ADMIN_TELEGRAM_IDS')
@@ -94,10 +96,10 @@ class Config:
             raise ValueError('Live interaction pilot requires private access, key, catalogue, explicit pairs and a positive request limit for models other than Nano Banana 2 image generation')
         if c.anymodel_test_enabled and c.access_mode!='private':
             raise ValueError('AnyModel pilot requires private access')
-        if c.anymodel_chat_live and not (
+        if (c.anymodel_chat_live or c.anymodel_image_live) and not (
             c.anymodel_test_enabled and c.anymodel_key and not c.payments_enabled and 1<=c.interaction_limit<=100
         ):
-            raise ValueError('Live AnyModel chat requires a test key and positive request limit')
+            raise ValueError('Live AnyModel requests require a test key and positive request limit')
         if c.video_pilot and (c.interaction_mode!='live' or not 1<=c.interaction_limit<=100):
             raise ValueError('Video pilot requires private live interaction and a positive request limit')
         if c.mode=='catalogue' and (c.generation_enabled or c.payments_enabled):raise ValueError('Catalogue mode cannot generate or charge')
