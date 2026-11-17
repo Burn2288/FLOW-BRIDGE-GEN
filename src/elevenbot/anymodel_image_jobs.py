@@ -2,12 +2,13 @@
 
 import asyncio
 
-from aiogram.exceptions import TelegramAPIError
-from aiogram.types import BufferedInputFile
+from aiogram.exceptions import ClientDecodeError, TelegramAPIError, TelegramBadRequest, TelegramRetryAfter
 
 from .anymodel import AnyModelError, AnyModelProvider, FIBO_MODEL
 from .core import Rejected, Service
 from .interaction import trace_interaction
+from .image_delivery import send_saved_image
+from .media_delivery import claim_delivery, finish_delivery
 
 RETRYABLE_POLL = {'connect_error','connect_timeout','response_timeout','transport_error',
                   'http_429','http_502','http_503','http_504'}
@@ -77,16 +78,19 @@ class AnyModelImageJobs:
             UPDATE anymodel_image_jobs j SET next_at=now()+interval '2 minutes'
             FROM (
                 SELECT update_id FROM anymodel_image_jobs WHERE next_at<=now() AND expires_at>now()
-                AND (status='pending' OR (status='ready' AND notify_attempts<3))
+                AND (status='pending' OR (status='ready' AND notify_attempts<3
+                    AND NOT EXISTS (SELECT 1 FROM task_media_delivery d
+                        WHERE d.kind='image' AND d.job_id=anymodel_image_jobs.update_id::text
+                            AND d.outcome IN ('unknown','sent'))))
                 ORDER BY next_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) due WHERE j.update_id=due.update_id
-            RETURNING j.update_id,j.user_id,j.prompt,j.provider_id,j.status,j.next_at
+            RETURNING j.update_id,j.user_id,j.prompt,j.provider_id,j.status,j.next_at,j.notify_attempts
             """)
         if not row:
             return False
-        update_id,user,prompt,job_id,status,lease=row
+        update_id,user,prompt,job_id,status,lease,attempts=row
         if status=='ready':
-            await self.notify(bot,update_id,user,lease)
+            await self.notify(bot,update_id,user,lease,attempts)
             return True
         try:
             reply=await self.adapter.poll_image(job_id)
@@ -134,7 +138,7 @@ class AnyModelImageJobs:
             WHERE update_id=$1 AND next_at=$2
             """,update_id,lease,max(1,delay))
 
-    async def notify(self,bot,update_id,user,lease):
+    async def notify(self,bot,update_id,user,lease,attempts):
         work=await self.pool.fetchrow("""
             SELECT w.image,w.filename,i.external_id
             FROM image_works w JOIN identities i ON i.user_id=w.user_id AND i.platform='telegram'
@@ -142,16 +146,33 @@ class AnyModelImageJobs:
             WHERE w.update_id=$1 AND w.user_id=$2 AND w.expires_at>now() AND i.accepted_at IS NOT NULL
             """,update_id,user)
         if work:
-            await self.pool.execute("UPDATE anymodel_image_jobs SET notify_attempts=notify_attempts+1 WHERE update_id=$1 AND next_at=$2",
-                                    update_id,lease)
+            # Reserve the final attempt before network I/O. A crash or unknown
+            # transport outcome must never schedule another automatic send.
+            async with self.pool.acquire() as conn,conn.transaction():
+                claimed=await conn.fetchval("""
+                    UPDATE anymodel_image_jobs SET notify_attempts=3
+                    WHERE update_id=$1 AND next_at=$2 AND status='ready' AND notify_attempts=$3
+                    RETURNING true
+                    """,update_id,lease,attempts)
+                if not claimed:return
+                claim=await claim_delivery(conn,'image',update_id,user)
             try:
                 async with asyncio.timeout(50):
-                    await bot.send_photo(work['external_id'],BufferedInputFile(work['image'],filename=work['filename']),
-                                         caption='AnyModel · Изображение также доступно в «Моих работах».')
-            except (TelegramAPIError,TimeoutError):
+                    receipt=await send_saved_image(bot,work['external_id'],work['image'],work['filename'],
+                                           caption='AnyModel · Изображение также доступно в «Моих работах».')
+            except (TelegramBadRequest,TelegramRetryAfter) as error:
+                # Telegram has definitively rejected the request; retry at most
+                # three times, preserving the original image in the library.
+                async with self.pool.acquire() as conn,conn.transaction():
+                    await finish_delivery(conn,'image',update_id,claim,'rejected',error=error)
+                    await conn.execute("UPDATE anymodel_image_jobs SET notify_attempts=$3,next_at=now()+$4::double precision*interval '1 second' WHERE update_id=$1 AND next_at=$2 AND status='ready'",update_id,lease,attempts+1,max(120,getattr(error,'retry_after',0)))
+                trace_interaction(update_id,'anymodel_image_delivery_rejected')
+                return
+            except (TelegramAPIError,ClientDecodeError,TimeoutError):
                 trace_interaction(update_id,'anymodel_image_delivery_failed')
                 return
             trace_interaction(update_id,'anymodel_image_delivered')
+            await finish_delivery(self.pool,'image',update_id,claim,'sent',message=receipt)
         await self.pool.execute("UPDATE anymodel_image_jobs SET status='delivered' WHERE update_id=$1 AND next_at=$2",
                                 update_id,lease)
 
