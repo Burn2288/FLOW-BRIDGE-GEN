@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import uuid
+import zipfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -148,7 +149,8 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
             async with pool.acquire() as conn:
                 assert await registry(conn, stage) == before
                 check = await snapshot(conn, audio, stage >= 16)
-                check.pop('speech', None)
+                if stage >= 16:
+                    assert check.pop('speech') == baseline_speech
                 assert check == baseline
             print(f'STAGE {stage:03d} PASS registry={stage} rerun=stable data=stable ledger=balanced')
 
@@ -167,9 +169,14 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
         env.update(PGHOST='127.0.0.1', PGPORT='55432', PGUSER='postgres', PGPASSWORD=url.password or '')
         dump = tmp_path / 'fixture.dump'
         subprocess.run(['pg_dump', '-Fc', '-f', str(dump), '-d', name], env=env, check=True)
+        media_backup = tmp_path / 'fixture-media.zip'
+        with zipfile.ZipFile(media_backup, 'w') as archive:
+            archive.write(audio / 'historical.mp3', arcname='historical.mp3')
         subprocess.run(['pg_restore', '--exit-on-error', '-d', restored_name, str(dump)], env=env, check=True)
         restored_audio = tmp_path / 'audio-restored'
-        shutil.copytree(audio, restored_audio)
+        restored_audio.mkdir()
+        with zipfile.ZipFile(media_backup) as archive:
+            (restored_audio / 'historical.mp3').write_bytes(archive.read('historical.mp3'))
         restored = await asyncpg.create_pool(raw.rsplit('/', 1)[0] + '/' + restored_name, min_size=1, max_size=2)
         async with restored.acquire() as conn:
             after = await snapshot(conn, restored_audio, True)
@@ -179,7 +186,7 @@ async def test_in19_seeded_upgrade_and_restore(tmp_path, monkeypatch):
             assert await conn.fetchval("SELECT count(*) FROM pg_constraint WHERE conrelid IN ('ledger'::regclass,'jobs'::regclass,'identities'::regclass) AND contype IN ('f','c','p','u')") > 10
             with pytest.raises(asyncpg.UniqueViolationError):
                 await conn.execute("INSERT INTO identities(platform,external_id,user_id) VALUES('telegram',90001,$1)", USER)
-        print('RESTORE PASS new database rows/ledger/jobs/results/registry/constraints; audio copied separately')
+        print('RESTORE PASS new database rows/ledger/jobs/results/registry/constraints; audio restored from separate archive')
         print('MEDIA_SHA256 png='+digest(PNG)+' mp3='+digest(MP3)+' mp4='+digest(MP4)+' speech='+digest(SPEECH_BYTES))
         print('PROVIDER_POSTS=0; fixture invokes no provider client or external service')
     finally:
