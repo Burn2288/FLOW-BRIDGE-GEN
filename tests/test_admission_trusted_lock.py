@@ -1,5 +1,7 @@
 """Restricted-role PostgreSQL prototype; not wired to runtime admission."""
 import asyncio
+import os
+import sys
 import uuid
 import asyncpg
 import pytest
@@ -90,6 +92,7 @@ async def test_protected_commit_first_serializes_revocation_and_ledger(trusted_e
     await service.accept(tester)
     await update(policy_pool, 0)
     async with pool.acquire() as owner_conn:
+        await owner_conn.execute(f'GRANT SELECT ON ALL TABLES IN SCHEMA {schema} TO {runtime}')
         await owner_conn.execute(f'GRANT SELECT,UPDATE ON {schema}.wallets TO {runtime}')
         await owner_conn.execute(f'GRANT SELECT,INSERT ON {schema}.ledger TO {runtime}')
     before = await pool.fetchval('SELECT count(*) FROM ledger')
@@ -126,3 +129,57 @@ async def test_replay_concurrent_updates_and_lock_timeout(trusted_env):
     outcomes = await asyncio.gather(update(policy_pool, 1, testers=()), update(policy_pool, 1, testers=(102,)), return_exceptions=True)
     assert sum(x == 2 for x in outcomes) == 1
     assert sum(isinstance(x, VersionConflict) for x in outcomes) == 1
+
+
+async def test_real_deadlock_aborts_one_transaction_without_committing_policy(trusted_env, env):
+    pool, schema, (_, runtime, policy), _, runtime_pool, policy_pool = trusted_env
+    _, _, service, _ = env
+    tester = await service.identity(101)
+    await service.accept(tester)
+    await update(policy_pool, 0)
+    async with pool.acquire() as owner_conn:
+        await owner_conn.execute(f'GRANT SELECT,UPDATE ON {schema}.wallets TO {runtime}, {policy}')
+    before = await snapshot(pool)
+    async with runtime_pool.acquire() as reader, policy_pool.acquire() as writer:
+        rtx, wtx = reader.transaction(), writer.transaction()
+        await rtx.start()
+        await wtx.start()
+        tasks = []
+        try:
+            await reader.fetchrow(f'SELECT * FROM {schema}.fixture_admission_lock($1)', 101)
+            await writer.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live' FOR UPDATE", tester)
+            tasks = [asyncio.create_task(reader.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live' FOR UPDATE", tester)),
+                     asyncio.create_task(writer.execute('UPDATE admission_policy_shadow SET version=version+1 WHERE id=1'))]
+            done, _ = await asyncio.wait(tasks, timeout=10, return_when=asyncio.FIRST_COMPLETED)
+            assert done, 'deadlock detection did not complete'
+            results = [task.exception() for task in done if not task.cancelled()]
+            assert any(isinstance(error, asyncpg.DeadlockDetectedError) for error in results)
+        finally:
+            if tasks:
+                await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), 10)
+            for tx in (rtx, wtx):
+                try:
+                    await tx.rollback()
+                except asyncpg.PostgresError:
+                    pass
+    assert await snapshot(pool) == before
+
+
+async def test_two_independent_runtime_processes_read_same_version(trusted_env):
+    pool, schema, (_, runtime, _), _, _, policy_pool = trusted_env
+    await update(policy_pool, 0)
+    code = '''import asyncio,asyncpg,os\nasync def run():\n c=await asyncpg.connect(os.environ["TEST_ROLE_DSN"])\n try:\n  async with c.transaction():\n   r=await c.fetchrow('SELECT * FROM '+os.environ["TEST_SCHEMA"]+'.fixture_admission_lock($1)',101)\n   print(str(r["policy_version"])+":"+str(r["admitted"]))\n finally: await c.close()\nasyncio.run(run())'''
+    from urllib.parse import urlsplit, urlunsplit
+    from scripts.disposable_test_db import require_disposable_dsn
+    parts = urlsplit(require_disposable_dsn(os.environ))
+    role_dsn = urlunsplit(parts._replace(netloc=f'{runtime}:fixture-only-policy@{parts.hostname}:{parts.port}'))
+    async def worker():
+        child = await asyncio.create_subprocess_exec(sys.executable, '-c', code,
+            env=os.environ | {'TEST_ROLE_DSN': role_dsn, 'TEST_SCHEMA': schema},
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        output, _ = await asyncio.wait_for(child.communicate(), 20)
+        assert child.returncode == 0, 'fixture subprocess failed (output withheld)'
+        return child.pid, output.decode().strip()
+    workers = await asyncio.gather(worker(), worker())
+    assert len({item[0] for item in workers}) == 2
+    assert [item[1] for item in workers] == ['1:True', '1:True']
