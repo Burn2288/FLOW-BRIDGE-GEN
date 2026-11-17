@@ -65,7 +65,7 @@ async def test_private_admission_across_three_processes(env):
     pool, _, service, admin = env
     schema = await pool.fetchval('SELECT current_schema()')
     admin_work = await service.save_image_work(admin, -901, 'fixture/image', 'fixture',
-        SimpleNamespace(image=MOCK_IMAGE, filename='fixture.png'))
+        SimpleNamespace(image=MOCK_IMAGE, filename='test.png'))
     processes = []
     async def launch(kind, allow):
         process, url = await start_process(schema, kind, allow)
@@ -100,7 +100,7 @@ async def test_private_admission_across_three_processes(env):
             tester = await pool.fetchval("SELECT user_id FROM identities WHERE platform='telegram' AND external_id=101")
             assert tester is not None
             own_work = await service.save_image_work(tester, -902, 'fixture/image', 'fixture',
-                SimpleNamespace(image=MOCK_IMAGE, filename='fixture.png'))
+                SimpleNamespace(image=MOCK_IMAGE, filename='test.png'))
             assert not (await request(client, url_b + '/fixture/telegram', body={'user': 101, 'callback': 'history:0'}))[1]['admin']
             raw = signed('fixture', 101)
             status, login = await request(client, url_m + '/api/v1/session', body={'initData': raw})
