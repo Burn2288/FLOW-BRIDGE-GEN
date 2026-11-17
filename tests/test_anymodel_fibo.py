@@ -14,6 +14,7 @@ import pytest
 from elevenbot import telegram
 from elevenbot.anymodel import AnyModelProvider, FIBO_MODEL, model_store
 from elevenbot.anymodel_image_jobs import AnyModelImageJobs
+from elevenbot.progress import TaskProgress
 from test_anymodel import routes
 from test_image_validation import encoded_image
 from test_ui import Bot, event
@@ -254,7 +255,8 @@ async def test_fibo_202_resumes_in_fresh_process(env,tmp_path,monkeypatch,resumi
 
 
 @pytest.mark.parametrize('status,headers',[(422,{}),(503,{'X-Should-Retry':'false'})])
-async def test_fibo_final_poll_failure_notifies_the_owner_once(env,status,headers):
+@pytest.mark.parametrize('linked',[False,True],ids=['standalone','progress-linked'])
+async def test_fibo_final_poll_failure_notifies_the_owner_once(env,status,headers,linked):
     pool,cfg,_,user=env
     cfg=replace(cfg,interaction_limit=1)
     calls=[]
@@ -266,18 +268,37 @@ async def test_fibo_final_poll_failure_notifies_the_owner_once(env,status,header
         return httpx.Response(status,headers=headers)
 
     bot=AsyncMock()
+    bot.send_message.return_value=SimpleNamespace(message_id=900)
+    progress=TaskProgress(bot,pool)
+
+    async def start_progress(job):
+        await progress.start(100,'FIBO 2','images.generate',image_id=job)
+
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
         adapter=AnyModelProvider('fixture-any',client=http)
         jobs=AnyModelImageJobs(pool,cfg,adapter=adapter)
-        await jobs.submit(user,222,'Blue square')
+        await jobs.submit(user,222,'Blue square',on_accepted=start_progress if linked else None)
+        assert bot.send_message.await_count==int(linked)
+        bot.send_message.reset_mock()
         assert await jobs.poll_one(bot)
+        restarted=TaskProgress(bot,pool)
+        await restarted.refresh()
         assert not await AnyModelImageJobs(pool,cfg,adapter=adapter).poll_one(bot)
+        await restarted.refresh()
 
     assert calls==[('POST','/v1/images/generations'),('GET','/v1/images/generations/fixture-final')]
     assert await pool.fetchval("SELECT status='failed' AND provider_id='fixture-final' FROM anymodel_image_jobs")
     assert await pool.fetchval('SELECT count(*) FROM interaction_attempts')==1
     assert await pool.fetchval('SELECT count(*) FROM image_works')==0
-    bot.send_message.assert_awaited_once()
-    chat_id,message=bot.send_message.await_args.args
-    assert chat_id==100 and 'Не удалось получить изображение' in message
+    assert await pool.fetchval('SELECT count(*) FROM task_progress')==0
+    if linked:
+        bot.send_message.assert_not_awaited()
+        bot.edit_message_text.assert_awaited_once_with(
+            '⚠️ FIBO 2 · Не удалось завершить задачу.',chat_id=100,message_id=900,
+        )
+    else:
+        bot.send_message.assert_awaited_once()
+        chat_id,message=bot.send_message.await_args.args
+        assert chat_id==100 and 'Не удалось получить изображение' in message
+        bot.edit_message_text.assert_not_awaited()
     bot.send_photo.assert_not_awaited()

@@ -101,16 +101,18 @@ class AnyModelImageJobs:
         return True
 
     async def fail_poll(self,bot,update_id,user,lease):
+        # A linked indicator shows the failure through TaskProgress.refresh.
         external=await self.pool.fetchval("""
             WITH failed AS (
                 UPDATE anymodel_image_jobs SET status='failed'
                 WHERE update_id=$1 AND next_at=$2 AND status='pending' AND user_id=$3
-                RETURNING user_id
+                RETURNING user_id,update_id
             )
             SELECT i.external_id FROM failed f
             JOIN users u ON u.id=f.user_id AND NOT u.blocked
             JOIN identities i ON i.user_id=f.user_id AND i.platform='telegram'
             WHERE i.accepted_at IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM task_progress p WHERE p.image_id=f.update_id)
             """,update_id,lease,user)
         if external is None:
             return
