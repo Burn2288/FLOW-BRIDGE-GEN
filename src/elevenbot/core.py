@@ -193,6 +193,10 @@ class Service:
                     SELECT id,'succeeded',NULL,created_at,'video',model_id,true
                     FROM video_jobs WHERE user_id=$1 AND status='succeeded' AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
+                    UNION ALL
+                    SELECT id,'succeeded',NULL,created_at,'audio',model_id,true
+                    FROM anymodel_speech WHERE user_id=$1 AND audio IS NOT NULL AND expires_at>now()
+                    AND ($3::text IS NULL OR model_id=$3)
                 ) works ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $2
                 """,u,max(0,offset),model_id)
 
@@ -234,6 +238,14 @@ class Service:
             return row
 
     async def audio_work(self,u,j):
+        async with self.pool.acquire() as c:
+            await self.authorize(c,u)
+            speech=await c.fetchrow("""
+                SELECT input AS prompt,audio,'anymodel.mp3' AS filename,title || ' · ИИ-озвучка' AS caption
+                FROM anymodel_speech WHERE id=$1 AND user_id=$2 AND audio IS NOT NULL AND expires_at>now()
+                """,uid(j),u)
+        if speech:
+            return dict(speech)
         r=await self.owned(u,j)
         if r['status']!='succeeded' or not r['storage_key'] or r['deleted_at'] or r['expires_at']<=datetime.now(timezone.utc):
             raise Rejected('Файл недоступен или срок хранения истёк.')
