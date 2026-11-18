@@ -26,6 +26,12 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements-acceptance.txt
+      - name: Install mock media probe for mock audio
+        run: |
+          mkdir -p "$RUNNER_TEMP/ft017-bin"
+          printf '%s\n' '#!/bin/sh' 'echo "{\"format\":{\"duration\":\"1\"}}"' > "$RUNNER_TEMP/ft017-bin/ffprobe"
+          chmod +x "$RUNNER_TEMP/ft017-bin/ffprobe"
+          echo "$RUNNER_TEMP/ft017-bin" >> "$GITHUB_PATH"
       - name: Run joint mock and PostgreSQL regressions
         run: >-
           python -m pytest -q -p no:cacheprovider
