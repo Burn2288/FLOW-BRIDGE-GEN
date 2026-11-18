@@ -17,7 +17,7 @@ async def test_active_image_is_owned_and_transitions_to_saved_work(env):
     for update, user, status in ((93311, owner, 'pending'), (93312, other, 'pending')):
         await pool.execute('INSERT INTO interaction_attempts(update_id,user_id) VALUES($1,$2)', update, user)
         await pool.execute("""INSERT INTO anymodel_image_jobs(update_id,user_id,prompt,model_id,status,provider_id,next_at)
-                              VALUES($1,$2,'fixture','fixture-model',$3,'fixture-'||$1::text,now())""", update, user, status)
+                              VALUES($1,$2,'fixture','fixture-model',$3,'fixture-'||$1::bigint::text,now())""", update, user, status)
     owner_items = await service.history(owner, include_pending_tasks=True)
     found = [item for item in owner_items if item['id'] == 'image-job:93311']
     assert len(found) == 1 and found[0]['status'] == 'queued' and not found[0]['file_available']
