@@ -156,6 +156,10 @@ class Service:
             if not r or r['mode']!=self.cfg.wallet_mode: raise Rejected('Предложение устарело. Создайте новое.')
             if not self.cfg.generation_enabled or self.cfg.wallet_mode!=self.cfg.balance_wallet_mode:
                 raise Rejected('Генерация временно выключена.')
+            # Serialize capacity checks with other submissions and Worker.claim.
+            await c.execute('SELECT pg_advisory_xact_lock(921182)')
+            if await c.fetchval("SELECT count(*) FROM jobs WHERE status='queued'") >= self.cfg.queue_max_pending:
+                raise Rejected('Очередь заполнена. Попробуйте позже.')
             if await c.fetchval('SELECT halted FROM settings WHERE id=1 FOR SHARE'): raise Rejected('Сервис на проверке. Попробуйте позже.')
             if await c.fetchval("SELECT EXISTS(SELECT 1 FROM jobs WHERE user_id=$1 AND status IN ('queued','dispatching','uncertain'))",u): raise Rejected('Дождитесь завершения текущей работы.')
             if await c.fetchval('SELECT EXISTS(SELECT 1 FROM wallet_debts WHERE user_id=$1 AND mode=$2 AND amount>0) '
