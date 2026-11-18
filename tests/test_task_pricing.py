@@ -147,3 +147,58 @@ def test_image_scale_order_and_video_mode():
     assert tariff(metadata,req).amount == 60
     with pytest.raises(PriceUnavailable):
         tariff(metadata,replace(req,params=req.params|{'mode':'unknown'}))
+
+async def test_pc01_confirm_preserves_presented_snapshot_during_rate_change(env):
+    pool, cfg, _, owner = env
+    checking, resume = asyncio.Event(), asyncio.Event()
+
+    class Adapter:
+        wait = False
+
+        async def cost(self, request):
+            if self.wait:
+                checking.set()
+                await asyncio.wait_for(resume.wait(), 5)
+            return ProviderCost(Decimal('1'), 'fixture_unit', False, 'fixture', '1 request')
+
+    adapter = Adapter()
+    pricing = Pricing(pool, replace(cfg, admin_ids=(100,), interaction_limit=10), {'anymodel':adapter})
+    request = Request('anymodel', 'fixture/chat', 'chat', 'Fixture', 'prompt')
+    await pricing.set_rate(owner, 100, 'fixture_unit', '1.1')
+    shown = await pricing.quote(owner, request)
+    query = 'SELECT price::text FROM task_price_quotes WHERE id=$1'
+    before = await pool.fetchval(query, shown.id)
+    prepared = []
+
+    async def prepare(conn, quote):
+        prepared.append(quote.price)
+
+    adapter.wait = True
+    confirmation = asyncio.create_task(pricing.confirm(owner, shown.id, 901, prepare))
+    try:
+        await asyncio.wait_for(checking.wait(), 5)
+        await pricing.set_rate(owner, 100, 'fixture_unit', '1.2')
+    finally:
+        resume.set()
+        accepted, ok = await confirmation
+    assert ok and accepted.id == shown.id
+    assert prepared == [shown.price] and shown.price['total'] == '2'
+    assert await pool.fetchval(query, shown.id) == before
+    next_quote = await pricing.quote(owner, request)
+    assert next_quote.price['total'] == '2'
+    assert Decimal(next_quote.price['rate']) == Decimal('1.2')
+    assert next_quote.price['rate_revision'] != shown.price['rate_revision']
+
+def test_pc01_variable_tariff_caps_and_precision():
+    from elevenbot.pricing import manual_amount, number
+
+    request = Request('anymodel', 'fixture/chat', 'chat', 'Fixture', 'A', {'max_tokens':4096})
+    amount, _ = manual_amount(request, 'token', number('0.000000000001'), number('0.1'))
+    assert amount == Decimal('409.600000000012')
+    for limit in (0, 4097, True, None):
+        invalid = replace(request, params={'max_tokens':limit})
+        with pytest.raises(PriceUnavailable):
+            manual_amount(invalid, 'token', number('1'), number('1'))
+    for invalid in ('-1', 'NaN', 'Infinity', '0.0000000000001', '1000000000001'):
+        with pytest.raises(PriceUnavailable):
+            number(invalid)

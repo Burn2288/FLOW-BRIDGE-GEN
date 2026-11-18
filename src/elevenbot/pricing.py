@@ -370,15 +370,15 @@ class Pricing:
             if row['expired'] or price['total'] != previous['total']:
                 await conn.execute("UPDATE task_price_quotes SET state='superseded' WHERE id=$1", quote_id)
                 return await self.insert(conn, user, request, price), False
-            quote = Quote(quote_id, request, price)
+            quote = Quote(quote_id, request, previous)
             if live_wallet:
                 await check_task_balance(conn,user,int(previous['total']))
             if track_interaction and not await self.service.reserve_interaction_on(conn, user, update_id, unlimited=False):
                 raise Rejected('Запрос уже принят.')
             await prepare(conn, quote)
             await conn.execute("""
-                UPDATE task_price_quotes SET state='accepted',accepted_at=now(),update_id=$2,price=$3::jsonb WHERE id=$1
-                """, quote_id, update_id, json.dumps(price))
+                UPDATE task_price_quotes SET state='accepted',accepted_at=now(),update_id=$2 WHERE id=$1
+                """, quote_id, update_id)
             return quote, True
 
     async def invalidate(self, user, provider, model, operation):
