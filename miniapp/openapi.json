@@ -401,6 +401,55 @@
           }
         ]
       }
+    },
+    "/api/v1/works/{kind}/{id}/timeline": {
+      "get": {
+        "summary": "Подтверждённая история состояния своей работы",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "image",
+                "audio",
+                "video"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Имеющиеся данные о текущем состоянии без закрытых ошибок провайдера"
+          },
+          "401": {
+            "description": "Сессия недействительна"
+          },
+          "403": {
+            "description": "Нет доступа"
+          },
+          "404": {
+            "description": "Работа недоступна"
+          }
+        }
+      }
     }
   },
   "components": {
