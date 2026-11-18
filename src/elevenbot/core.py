@@ -45,13 +45,27 @@ class Service:
     async def authorize(self,c,u,terms=True):
         r=await c.fetchrow('SELECT * FROM users WHERE id=$1',u)
         if not r or r['blocked']: raise Rejected('Доступ временно ограничен. Обратитесь в поддержку.')
-        if terms and not await c.fetchval("SELECT EXISTS(SELECT 1 FROM identities WHERE user_id=$1 AND terms_version='1' AND accepted_at IS NOT NULL)",u):
+        if terms and not await self.has_current_consent(c,u):
             raise ConsentRequired('Сначала примите условия через /start.')
 
-    async def accept(self,u):
+    def get_consent_documents(self):
+        from .consent import documents
+        return documents()
+
+    async def has_current_consent(self,c,u):
+        from .consent import is_current
+        return await is_current(c,u)
+
+    async def accept(self,u,presented_version=None):
+        from . import consent
+        # Existing Telegram callback has no version; never carry that fallback to a new version.
+        if presented_version is None and consent.CURRENT_VERSION == consent.LEGACY_VERSION:
+            presented_version = consent.LEGACY_VERSION
+        if presented_version != consent.CURRENT_VERSION:
+            raise ConsentRequired('Условия изменились. Откройте их заново.')
         async with self.pool.acquire() as c,c.transaction():
             await self.authorize(c,u,False)
-            await c.execute("UPDATE identities SET terms_version='1',accepted_at=now() WHERE user_id=$1",u)
+            await c.execute("UPDATE identities SET terms_version=$2,accepted_at=now() WHERE user_id=$1",u,presented_version)
             if self.cfg.balance_wallet_mode=='demo':
                 await self.movement(c,u,'demo',f'demo:{u}','demo_grant',10000,0)
 
