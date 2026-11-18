@@ -67,6 +67,12 @@ async def test_versioned_quotes_and_dispatch_preserve_snapshots(env, confirmed_c
         with pytest.raises(Rejected):
             await app.launch.confirm(user, 100, quote_b.id, 9193, progress=lambda _: nullcontext(), background=None)
         assert await pool.fetchval('SELECT state FROM task_dispatch WHERE quote_id=$1', quote_a.id) == 'completed'
+        assert await app.svc.chat_work(user, quote_a.id) == 'mock result'
+        assert any(row['id'] == quote_a.id for row in await app.svc.history(user))
+        other = await app.svc.identity(101)
+        await app.svc.accept(other)
+        with pytest.raises(Rejected):
+            await app.svc.chat_work(other, quote_a.id)
         assert posts == ['/generate']
         assert (await pool.fetchval('SELECT count(*) FROM model_capability_versions')) == 2
 
