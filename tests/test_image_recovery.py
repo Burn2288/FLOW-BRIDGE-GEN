@@ -12,9 +12,10 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from aiohttp import web
 
-from elevenbot.discovery import SnapshotStore, snapshot
+from elevenbot.aggregate import make_snapshot
+from elevenbot.discovery import SnapshotStore
 from elevenbot.interaction import MOCK_IMAGE
-from elevenbot.telegram import OPEN_CATALOGUE, STORE_SECTIONS
+from elevenbot.telegram import STORE_SECTIONS, WELCOME_TEXT
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +53,7 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
         "availability": "key_available",
         "operations": ["images.generate"],
     }
-    SnapshotStore(catalogue).write(snapshot([model]))
+    SnapshotStore(catalogue).write(make_snapshot([model],[],[{'provider':'clodex','scope':'key_available'}]))
     provider_calls = tmp_path / "provider-calls.txt"
     updates = []
     screens = []
@@ -71,7 +72,7 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
             return web.json_response({"ok": True, "result": pending})
         if method in ("answercallbackquery", "deletemessage"):
             return web.json_response({"ok": True, "result": True})
-        if method == "sendphoto":
+        if method == "sendphoto" and form.get("caption") != WELCOME_TEXT:
             image = form[form["photo"].removeprefix("attach://")].file.read()
             uploads.append((int(form["chat_id"]), image))
             if len(uploads) == 1:
@@ -82,8 +83,8 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
                     status=400,
                 )
         else:
-            assert method in ("sendmessage", "editmessagetext"), method
-        message_id = int(form["message_id"]) if method == "editmessagetext" else 1000 + len(screens)
+            assert method in ("sendmessage", "editmessagetext", "editmessagecaption", "sendphoto", "sendanimation"), method
+        message_id = int(form["message_id"]) if method in ("editmessagetext","editmessagecaption") else 1000 + len(screens)
         if method != "sendphoto":
             screens.append((message_id, json.loads(form.get("reply_markup", "{}"))))
         return web.json_response({
@@ -91,13 +92,14 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
             "result": {"message_id": message_id, "date": int(time.time()), "chat": chat},
         })
 
-    app = web.Application()
+    app = web.Application(client_max_size=3*1024**2)
     app.router.add_post("/bot{token}/{method}", telegram)
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()
     port = runner.addresses[0][1]
+    await pool.execute("INSERT INTO approved_models VALUES('clodex','image-fixture','images.generate','Image fixture')")
     config = os.environ | {
         "DATABASE_URL": dsn,
         "PROVIDER_MODE": "mock",
@@ -170,9 +172,9 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
     try:
         async with gateway("before-restart") as first:
             await send_update(first, text="/start")
-            await send_update(first, button="Принять")
-            await send_update(first, text=OPEN_CATALOGUE)
-            await send_update(first, button=STORE_SECTIONS["image"][0])
+            await send_update(first, text="/menu")
+            await send_update(first, button="Агрегатор 1")
+            await send_update(first, button="🎆 Генерировать изображение")
             await send_update(first, button="Image fixture")
             await send_update(first, button=STORE_SECTIONS["image"][0])
             await send_update(first, text="Draw a fixture")
@@ -184,7 +186,7 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
 
         async with gateway("after-restart") as second:
             assert second.pid != first.pid
-            await send_update(second, text=OPEN_CATALOGUE)
+            await send_update(second, text="/menu")
             await send_update(second, button="📁 Мои работы")
             await send_update(second, button="Открыть работу №")
             assert len(uploads) == 2

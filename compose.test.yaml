@@ -11,10 +11,17 @@ services:
       interval: 2s
       retries: 20
   tests:
+    network_mode: service:db
     build:
       context: .
       dockerfile: Dockerfile.test
+    command: ["sh", "-ec", "sh scripts/check-pg16-tools.sh && exec python -m pytest -q --junitxml=/tmp/test-results.xml"]
     environment:
-      TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@db:5432/elevenbot_test
+      TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/elevenbot_test
+      DISPOSABLE_POSTGRES_PROFILE: compose-service
+      DISPOSABLE_POSTGRES_CONFIRM: 'YES'
     depends_on:
       db: {condition: service_healthy}
+networks:
+  default:
+    internal: true

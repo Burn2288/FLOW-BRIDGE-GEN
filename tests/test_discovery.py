@@ -75,7 +75,7 @@ async def test_no_key_no_network():
         with pytest.raises(DiscoveryError):await ClodexDiscovery('',PROFILE,c).fetch()
 
 async def test_dynamic_telegram_groups_and_stale_buttons(tmp_path):
-    cfg=replace(Config(),catalogue_path=str(tmp_path/'m.json'))
+    cfg=replace(Config(),admin_ids=(100,),catalogue_path=str(tmp_path/'m.json'))
     models=normalize({'data':[{'id':'new-one','metadata':{'protocols':['generic-text']}}]},PROFILE)
     data=snapshot(models);SnapshotStore(cfg.catalogue_path).write(data)
     bot=Bot();app=TelegramApp(None,cfg,bot);app.svc=FakeService()

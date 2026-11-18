@@ -6,6 +6,7 @@ COPY pyproject.toml uv.lock ./
 COPY src ./src
 COPY migrations ./migrations
 COPY assets ./assets
+COPY miniapp ./miniapp
 RUN uv sync --locked --no-dev && useradd --uid 10001 --create-home bot && mkdir -p /app/data/audio /app/data/catalogue && chown -R bot:bot /app/data
 USER bot
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1

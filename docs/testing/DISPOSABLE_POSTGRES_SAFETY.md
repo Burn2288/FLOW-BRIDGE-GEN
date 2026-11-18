@@ -1,0 +1,11 @@
+# Disposable PostgreSQL test boundary
+
+The shared `env` and Mini App `account_db` fixtures validate configuration before any connection; a root autouse check also guards tests that directly consume `TEST_DATABASE_URL`. A missing DSN is rejected by a database fixture, while unit tests that do not need a database can run with the variable absent.
+
+Two intentionally narrow profiles are supported: `github-service` uses the test service at `127.0.0.1:55432/elevenbot_test` and `compose-service` uses the database service reached through the shared Compose network namespace at `127.0.0.1:5432/elevenbot_test`. Each requires its fixed non-secret test credential, matching profile name and `DISPOSABLE_POSTGRES_CONFIRM=YES`. Production `DATABASE_URL`, `DATABASE_MIGRATION_URL`, libpq routing overrides, other hosts/databases/users/passwords, query parameters, fragments and noncanonical URLs are rejected. No rejected input is printed.
+
+These checks reduce accidental risk; they cannot authenticate a service or prove that an arbitrary local port is disposable. Never forward a production database to these addresses. Start only a dedicated throwaway PostgreSQL 16 container; do not put production secrets in the test environment. The old native acceptance runner and dev Compose profile use different DSNs and therefore fail closed pending a separately designed isolation profile. Do not bypass the guard to use them.
+
+The independently isolated `verification/in19` and `verification/op01` harnesses use their own configuration and guards; they do not consume the shared `TEST_DATABASE_URL` fixture. Their guard policies are not changed or claimed to be verified by this patch. Tests which create their own role or database must first use the common `env` fixture; only their generated names may be removed.
+
+Run the standard Docker Compose S2 profile as documented in `scripts/run_s2.py`. GitHub workflows supply the required disposable profile explicitly. The tests create unique schemas and clean only those schemas; a real-PG regression checks that a neighbouring schema survives two fixture runs. Do not use a non-dedicated local PostgreSQL instance even if its address matches a supported profile.

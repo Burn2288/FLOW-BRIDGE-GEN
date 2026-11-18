@@ -16,6 +16,7 @@ import httpx
 from PIL import Image
 from simplejpeg import decode_jpeg, decode_jpeg_header
 
+from .submission import check_submission_refusal
 from .core import Rejected
 
 provider_request_id = ContextVar('provider_request_id', default=None)
@@ -102,6 +103,7 @@ def _verify_png_streams(image, canvas, bits_per_pixel, interlaced, frames_left):
     source = memoryview(image)
     offset = len(PNG_SIGNATURE)
     stream = None
+    remaining = 0
     frame_size = None
     while offset < len(source):
         length, kind = struct.unpack_from('>I4s', source, offset)
@@ -324,6 +326,8 @@ async def execute(operation, model, prompt, history, *, mode, key='', client=Non
                               ) else 'other',
                               elapsed_ms=round((time.monotonic()-started)*1000))
             if not response.is_success:
+                if operation=='chat':
+                    await check_submission_refusal(response)
                 response.raise_for_status()
             raw = bytearray()
             async for part in response.aiter_bytes(65536):
@@ -368,7 +372,7 @@ async def execute(operation, model, prompt, history, *, mode, key='', client=Non
         raise Rejected('CLODEX не ответил вовремя. Статус генерации неизвестен. Автоповтора нет.') from None
     except httpx.RequestError as error:
         trace_interaction(request_id, 'network_error', error_type=type(error).__name__)
-        raise Rejected('Сетевая ошибка при запросе к CLODEX. Автоповтора нет.') from None
+        raise Rejected('Сетевая ошибка при запросе к CLODEX. Исход запроса неизвестен. Автоповтора нет.') from None
     except ValueError:
         trace_interaction(request_id, 'invalid_json')
         raise Rejected('CLODEX вернул ответ, который не удалось прочитать как JSON. Автоповтора нет.') from None

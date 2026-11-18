@@ -1,6 +1,9 @@
 """AnyModel catalogue and explicitly selected test chat."""
 
 import asyncio
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 import json
 from pathlib import Path
@@ -9,18 +12,58 @@ import time
 
 import httpx
 
+from .submission import check_submission_refusal
 from .aggregate import ProviderRegistry
 from .discovery import DiscoveryError, SnapshotStore, normalize
+from .core import Rejected
+from .interaction import decode_result, download_image, image_url, trace_interaction
 
 BASE = 'https://anymodel.org/v1'
 PUBLIC_PRICING = 'https://anymodel.org/en/pricing'
+CATALOGUE_REFRESH_SECONDS=300
+CATALOGUE_RETRY_SECONDS=30
+TRANSIENT_CATALOGUE_ERRORS={
+    'connect_error','connect_timeout','response_timeout','transport_error',
+    'http_500','http_502','http_503','http_504','snapshot_io',
+}
 TEST_MODEL = 'ds/deepseek-v4-flash-vision'
+FIBO_MODEL = 'anymedia/fibo-2'
+IMAGE_OP = 'images.generate'
+IMAGE_ENDPOINT = BASE+'/images/generations'
+JOB_ID = re.compile(r'[A-Za-z0-9_-]{1,180}')
 MAX_BODY = 4 * 1024 * 1024
 MODEL_ID = re.compile(r'[A-Za-z0-9_.:@-]+(?:/[A-Za-z0-9_.:@-]+)+')
 
 
 class AnyModelError(Exception):
-    pass
+    def __init__(self,message,*,code='protocol',status=None,retry_after=5,endpoint=None,terminal=False):
+        super().__init__(message)
+        self.code,self.status,self.retry_after=code,status,retry_after
+        self.endpoint=endpoint
+        self.terminal=terminal
+
+
+@dataclass(frozen=True)
+class ProviderReply:
+    status: int
+    retry_after: float
+    body: bytes
+    content_type: str
+    connection_id: str | None
+
+
+def retry_after(value):
+    if value:
+        try:
+            if value.isascii() and value.isdigit():
+                return min(float(value), 31_536_000)
+            when=parsedate_to_datetime(value)
+            if when.tzinfo is None:
+                when=when.replace(tzinfo=timezone.utc)
+            return max(0,(when-datetime.now(timezone.utc)).total_seconds())
+        except (ValueError,TypeError,OverflowError):
+            pass
+    return 5
 
 
 class PricingModels(HTMLParser):
@@ -53,13 +96,23 @@ def model_store(cfg):
     return SnapshotStore(Path(cfg.catalogue_path).with_name('anymodel.json'))
 
 
+def available(cfg):
+    return cfg.anymodel_test_enabled and cfg.access_mode == 'private'
+
+
 def can_view(cfg, external_id):
-    return cfg.anymodel_test_enabled and cfg.access_mode == 'private' and external_id in cfg.admin_ids
+    return available(cfg) and external_id in cfg.admin_ids
 
 
 def can_chat(model, data):
-    return (model['provider'] == 'anymodel' and model['id'] == TEST_MODEL
+    return (model['provider'] == 'anymodel'
             and model['availability'] == 'key_available' and 'chat' in model['operations']
+            and data['fresh_until'] > time.time())
+
+
+def can_image(model, data):
+    return (model['provider'] == 'anymodel'
+            and model['availability'] == 'key_available' and IMAGE_OP in model['operations']
             and data['fresh_until'] > time.time())
 
 
@@ -68,50 +121,111 @@ class AnyModelProvider:
         self.key = key
         self.client = client
 
-    async def request(self, method, url, *, authenticated, **kwargs):
+    async def request(self,method,url,*,authenticated,**kwargs):
+        return (await self.read_response(method,url,authenticated=authenticated,**kwargs)).body
+
+    async def read_response(self,method,url,*,authenticated,max_body=MAX_BODY,accepted=(200,),
+                            request_headers=None,deadline=25,submission=False,**kwargs):
         if authenticated and not self.key:
             raise AnyModelError('тестовый ключ отсутствует')
-        headers = {'Authorization': 'Bearer '+self.key} if authenticated else {}
+        headers=dict(request_headers or {})
+        if authenticated:headers['Authorization']='Bearer '+self.key
         async def read(client):
-            async with asyncio.timeout(25), client.stream(
+            async with asyncio.timeout(deadline), client.stream(
                 method, url, headers=headers, follow_redirects=False, **kwargs
             ) as response:
-                if response.status_code != 200:
-                    raise AnyModelError(f'HTTP {response.status_code}')
+                delay=retry_after(response.headers.get('Retry-After'))
+                if response.status_code not in accepted:
+                    if submission:
+                        await check_submission_refusal(response)
+                    raise AnyModelError(f'HTTP {response.status_code}',code=f'http_{response.status_code}',
+                                        status=response.status_code,retry_after=delay,
+                                        terminal=response.headers.get('X-Should-Retry','').strip().lower()=='false')
                 raw = bytearray()
                 async for chunk in response.aiter_bytes():
-                    if len(raw) + len(chunk) > MAX_BODY:
-                        raise AnyModelError('превышен размер ответа')
+                    if len(raw) + len(chunk) > max_body:
+                        raise AnyModelError('превышен размер ответа',code='response_size',status=response.status_code)
                     raw.extend(chunk)
-                return raw
+                return ProviderReply(response.status_code,delay,bytes(raw),
+                                     response.headers.get('content-type','').split(';')[0].lower(),
+                                     response.headers.get('x-9router-connection-id'))
         try:
             if self.client is not None:
                 return await read(self.client)
             async with httpx.AsyncClient(timeout=httpx.Timeout(20, connect=5), trust_env=False) as client:
                 return await read(client)
-        except (httpx.HTTPError, TimeoutError):
-            raise AnyModelError('сетевая ошибка') from None
+        except (httpx.ConnectError,httpx.ConnectTimeout) as error:
+            code='connect_timeout' if isinstance(error,httpx.ConnectTimeout) else 'connect_error'
+            raise AnyModelError('сетевая ошибка',code=code) from None
+        except (httpx.ReadTimeout,TimeoutError):
+            raise AnyModelError('сетевая ошибка',code='response_timeout') from None
+        except httpx.HTTPError:
+            raise AnyModelError('сетевая ошибка',code='transport_error') from None
 
     @staticmethod
     def decode(raw):
         try:
             return json.loads(raw)
         except (ValueError, UnicodeError):
-            raise AnyModelError('некорректный JSON') from None
+            raise AnyModelError('некорректный JSON',code='invalid_json') from None
+
+    async def anyvoice_voices(self):
+        raw = await self.request('GET',BASE+'/audio/voices',authenticated=True,params={'provider':'anyvoice'})
+        payload = self.decode(raw)
+        rows = payload.get('data') if isinstance(payload,dict) else None
+        if not isinstance(rows,list):
+            raise AnyModelError('неизвестный формат каталога голосов',code='speech_catalogue')
+        voices = {}
+        for row in rows:
+            if not isinstance(row,dict):
+                continue
+            model,name = row.get('model'),row.get('name')
+            if (isinstance(model,str) and model.startswith('anyvoice/') and len(model)<=256
+                    and MODEL_ID.fullmatch(model) and isinstance(name,str) and name.strip()):
+                voices[model] = row
+        return voices
 
     async def collect(self):
-        payload = self.decode(await self.request('GET', BASE+'/models', authenticated=True))
-        return self.catalogue(payload, 'key_available')
+        async def fetch(path, kind=None):
+            try:
+                payload = self.decode(await self.request('GET',BASE+path,authenticated=True))
+                return self.catalogue(payload,'key_available',kind=kind)['models']
+            except AnyModelError as error:
+                raise AnyModelError(str(error),code=error.code,status=error.status,
+                                    retry_after=error.retry_after,endpoint='/v1'+path,
+                                    terminal=error.terminal) from None
+
+        primary = await fetch('/models')
+        typed = await asyncio.gather(fetch('/models/video','video'),fetch('/models/tts','tts'))
+        models = {model['id']:model for model in primary}
+        for rows in typed:
+            for model in rows:
+                existing = models.get(model['id'])
+                if existing:
+                    existing['operations'] = sorted(set(existing['operations']) | set(model['operations']))
+                    existing['capabilities_known'] = True
+                else:
+                    models[model['id']] = model
+        return {'models':list(models.values()),'functions':[],'scope':'key_available'}
 
     @staticmethod
-    def catalogue(payload, scope):
+    def catalogue(payload, scope, *, kind=None):
         try:
             models = normalize(payload)
         except DiscoveryError:
             raise AnyModelError('неизвестный формат каталога') from None
+        kinds = {record['id']: kind or record.get('kind') for record in payload['data']}
         for model in models:
+            if kinds.get(model['id']) == 'image':
+                model.update(operations=[IMAGE_OP],capabilities_known=True,protocols=['openai-images'])
+            if model['id'] == FIBO_MODEL:
+                if model['title'] == FIBO_MODEL:
+                    model['title'] = 'FIBO 2'
+            if kinds.get(model['id']) in ('video','tts'):
+                operation = 'video' if kinds[model['id']] == 'video' else 'audio.speech'
+                model.update(operations=[operation], capabilities_known=True)
             # Exact route documented for this ID. Do not infer other models' capabilities from their names.
-            if model['id'] == TEST_MODEL:
+            if kinds.get(model['id']) in ('chat','llm') or kind is None and model['id'] == TEST_MODEL:
                 model.update(operations=['chat'], capabilities_known=True, protocols=['openai-chat'])
             model['availability'] = scope
         return {'models': models, 'functions': [], 'scope': scope}
@@ -144,15 +258,53 @@ class AnyModelProvider:
                         raise error
                     data['fresh_until'] = 0
             data['refresh_error'] = str(error)
+            data['refresh_error_code'] = error.code
+            data['refresh_error_endpoint'] = error.endpoint
         await asyncio.to_thread(store.write,data)
         return data
 
-    async def chat(self, model, prompt, history):
-        if model != TEST_MODEL:
-            raise AnyModelError('модель тестового чата недоступна')
+    async def submit_image(self,model,prompt,*,params=None):
+        return await self.read_response('POST',IMAGE_ENDPOINT,authenticated=True,max_body=8*1024*1024,
+                                        accepted=(200,202),json={'model':model,'prompt':prompt,'background':True, **(params or {})})
+
+    async def poll_image(self,job_id):
+        if not JOB_ID.fullmatch(job_id):
+            raise AnyModelError('некорректный ID задачи',code='job_id')
+        return await self.read_response('GET',f'{IMAGE_ENDPOINT}/{job_id}',authenticated=True,
+                                        max_body=8*1024*1024,accepted=(200,202))
+
+    def accepted_image_id(self,reply):
+        data=self.decode(reply.body)
+        job_id=data.get('id') if isinstance(data,dict) else None
+        if not isinstance(job_id,str) or not JOB_ID.fullmatch(job_id):
+            raise AnyModelError('некорректный ID задачи',code='job_id')
+        return job_id
+
+    async def image_result(self,reply,request_id):
+        payload=self.decode(reply.body)
+        try:
+            result=await asyncio.to_thread(decode_result,IMAGE_OP,payload)
+        except Rejected:
+            url=image_url(payload)
+            if not url:
+                trace_interaction(request_id,'anymodel_image_result',format='other')
+                raise AnyModelError('ответ не содержит поддерживаемого изображения',code='image_invalid') from None
+        else:
+            trace_interaction(request_id,'anymodel_image_result',format='b64_json')
+            return result
+        trace_interaction(request_id,'anymodel_image_result',format='url')
+        try:
+            if self.client is not None:
+                return await download_image(self.client,url,request_id)
+            async with httpx.AsyncClient(trust_env=False,limits=httpx.Limits(max_keepalive_connections=0)) as media:
+                return await download_image(media,url,request_id)
+        except (Rejected,TimeoutError):
+            raise AnyModelError('не удалось скачать или проверить изображение',code='image_download') from None
+
+    async def chat(self, model, prompt, history, *, max_tokens=256):
         payload = {'model': model, 'messages': [*history, {'role':'user','content':prompt}],
-                   'max_tokens': 256, 'stream': False}
-        body = self.decode(await self.request('POST', BASE+'/chat/completions', authenticated=True, json=payload))
+                   'max_tokens': max_tokens, 'stream': False}
+        body = self.decode(await self.request('POST', BASE+'/chat/completions', authenticated=True, submission=True, json=payload))
         try:
             reply = body['choices'][0]['message']['content']
         except (KeyError, IndexError, TypeError):
@@ -169,8 +321,18 @@ async def refresh_anymodel(cfg, *, once=False):
             data = await provider.refresh(model_store(cfg))
             if once:
                 return data
-        except (AnyModelError,OSError):
+            code=data.get('refresh_error_code')
+            endpoint=data.get('refresh_error_endpoint')
+        except AnyModelError as error:
             if once:
                 raise
-            print('anymodel_catalogue_refresh_failed',flush=True)
-        await asyncio.sleep(300)
+            code,endpoint=error.code,error.endpoint
+        except OSError:
+            if once:
+                raise
+            code,endpoint='snapshot_io',None
+        if code:
+            print(json.dumps({'event':'anymodel_catalogue_refresh_failed','code':code,'endpoint':endpoint}),
+                  flush=True)
+        delay=CATALOGUE_RETRY_SECONDS if code in TRANSIENT_CATALOGUE_ERRORS else CATALOGUE_REFRESH_SECONDS
+        await asyncio.sleep(delay)

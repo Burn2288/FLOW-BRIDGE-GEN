@@ -15,14 +15,14 @@ python -m pytest -q -ra
 
 ## Локальный Docker-стенд flowbridge-dev
 
-Запускайте из корня рабочей копии. Проект использует внутреннюю сеть без опубликованных портов, собственные тома `flowbridge-dev_postgres` и `flowbridge-dev_runtime` и локальную Telegram-заглушку. Сервис бота использует БД `flowbridge_dev`, а тесты — `flowbridge_acceptance` в том же изолированном экземпляре PostgreSQL. Разные базы позволяют одновременно запускать smoke-бота и тестовые процессы с PostgreSQL advisory lock.
+Запускайте из корня рабочей копии. Проект использует внутреннюю сеть без опубликованных портов, собственные тома `flowbridge-dev_postgres` и `flowbridge-dev_runtime` и локальную Telegram-заглушку. Сервис бота использует БД `flowbridge_dev`, а сервис `tests` из `compose.test.yaml` использует отдельный экземпляр PostgreSQL с базой `elevenbot_test`. Разные базы позволяют одновременно запускать smoke-бота и тестовые процессы с PostgreSQL advisory lock.
 
 ```sh
 docker compose -f compose.dev.yaml -f compose.dev.override.yaml up -d --build
 docker compose -f compose.dev.yaml -f compose.dev.override.yaml ps
 docker compose -f compose.dev.yaml -f compose.dev.override.yaml logs bot
 docker compose -f compose.dev.yaml -f compose.dev.override.yaml exec -T bot python -m elevenbot health --component bot
-docker compose -f compose.dev.yaml -f compose.dev.override.yaml exec -T bot python -m pytest -p no:cacheprovider -q -s tests/test_image_recovery.py
+docker compose -f compose.test.yaml run --build --rm tests python -m pytest -p no:cacheprovider -q -s tests/test_image_recovery.py
 ```
 
 У первого запуска на новом томе ожидаются `migrations applied` и `telegram_stub_smoke=ok` в логах. Dev override монтирует `src/`, `scripts/` и `tests/` из рабочей копии в режиме чтения. После изменения Python-кода для бота перезапустите только `bot`. При изменении зависимостей соберите образ заново. Для остановки используйте `stop`, чтобы сохранить контейнеры и данные.
@@ -40,3 +40,36 @@ docker compose -f compose.dev.yaml -f compose.dev.override.yaml stop
 - Проверить контролируемое завершение, восстановление worker после падения, резервное копирование и восстановление БД и медиа. В runbook указать диагностику по job ID и действия при недоступности провайдера, БД или диска.
 - Модель угроз охватывает Telegram, HTTP API, Mini App, платежи, вебхуки, PostgreSQL, credentials, админку, медиа и деплой. Проверки включают SSRF и redirects, path traversal, SQL injection, IDOR, подделку вебхуков, гонки, вложения, исчерпание ресурсов, повторы и повышение привилегий.
 - Для релиза зафиксировать SHA, шаги миграции, проверку восстановления и результаты матрицы. Эксплуатационные изменения выполнять по [правилам команды](../../CONTRIBUTING.md).
+
+## DEV для разработки и закрытый STAGING
+
+На чистом DEV-томе `scripts/dev_bot.py` подаёт синтетический диалог в настоящий
+Telegram gateway. Пользователь принимает условия, выбирает тестовый голос и
+подтверждает цену. Отдельный штатный worker сохраняет mock-аудио. Локальный
+транспорт отмечает получение строкой `telegram_stub_delivery=audio`.
+Offset хранится в PostgreSQL. Завершённый сценарий при рестарте не запускается снова.
+Для повторяемых независимых запусков и проверки изображений используйте тестовую БД.
+
+```sh
+docker compose -f compose.dev.yaml up -d --build --wait
+docker compose -f compose.dev.yaml logs bot worker
+docker compose -f compose.dev.yaml exec -T bot python -m elevenbot metrics
+docker compose -f compose.dev.yaml restart worker
+docker compose -f compose.test.yaml run --build --rm tests python -m pytest -q tests/test_dev_fixture.py tests/test_process_e2e.py tests/test_public_image_topup.py tests/test_image_recovery.py tests/test_worker.py::test_A10_timeout
+docker compose -f compose.dev.yaml stop
+```
+
+Закрытая приёмка на отдельных проектных томах, без монтирования исходников:
+
+```sh
+docker compose -p flowbridge-staging -f compose.dev.yaml -f compose.staging.yaml up -d --build --wait
+docker compose -f compose.test.yaml run --build --rm tests python -m pytest -q tests/test_process_e2e.py tests/test_public_image_topup.py
+docker compose -p flowbridge-staging -f compose.dev.yaml -f compose.staging.yaml stop
+```
+
+В обоих профилях PostgreSQL доступна только внутри проекта. Шлюз и worker используют
+loopback в сетевом пространстве контейнера БД. Скрипт принимает только fixture-БД и
+передаёт приложению явный набор переменных. Production compose загружает свой .env
+и отдельные роли. Для реального интеграционного вызова требуется отдельно настроенный
+закрытый стенд с тестовым ключом, списком допущенных пользователей, моделью и лимитом
+конкретной операции. В этих двух профилях внешних разрешений нет.
