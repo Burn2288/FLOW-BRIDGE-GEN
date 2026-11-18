@@ -44,7 +44,12 @@ async function showWorks(target) {
   const data = await (await request('/api/v1/works?page=' + target)).json();
   works.replaceChildren();
   for (const work of data.works) {
-    const item = listItem(work.model ?? work.kind);
+    const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст' };
+    const states = { queued: 'В очереди', dispatching: 'Выполняется', succeeded: 'Готово',
+      failed: 'Ошибка', cancelled: 'Отменено', uncertain: 'Требует проверки' };
+    const label = kinds[work.kind] ?? work.kind;
+    const state = states[work.status] ?? work.status;
+    const item = listItem([label, work.model, state].filter(Boolean).join(' · '));
     if (work.available) {
       const button = document.createElement('button');
       button.textContent = 'Скачать';
