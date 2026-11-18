@@ -111,7 +111,7 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
 
     async def get_jobs(user, job_id=None):
         rows = await pool.fetch("""SELECT q.id,q.model_id,d.state,w.id AS work_id,h.cancelled_at,
-                   (h.quote_id IS NOT NULL) AS http_origin
+                   (h.quote_id IS NOT NULL OR q.update_id < 0) AS http_origin
             FROM task_price_quotes q JOIN task_dispatch d ON d.quote_id=q.id
             LEFT JOIN http_image_commands h ON h.quote_id=q.id AND h.user_id=q.user_id
             LEFT JOIN image_works w ON w.update_id=q.update_id AND w.user_id=q.user_id AND w.expires_at>now()
