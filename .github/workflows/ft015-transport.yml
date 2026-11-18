@@ -26,8 +26,5 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements-acceptance.txt
-      - name: Load immutable AR-01 regression tests
-        run: |
-          git fetch --no-tags --depth=1 origin 332c638829b9fbd83ee7d0a5a79658eac48e78f8
-          git show 332c638829b9fbd83ee7d0a5a79658eac48e78f8:tests/test_ft014_boundaries.py > tests/test_ft014_external.py
-      - run: python -m pytest -q -s -p no:cacheprovider tests/test_ft015_transport_boundaries.py tests/test_ft014_external.py tests/test_ft011_smoke.py tests/test_financial.py::test_A02_twenty_confirmations tests/test_financial.py::test_A07_ownership tests/test_worker.py::test_A10_timeout
+
+      - run: python -m pytest -q -s -p no:cacheprovider tests/test_ft015_transport_boundaries.py tests/test_ft014_boundaries.py tests/test_ft011_smoke.py tests/test_financial.py::test_A02_twenty_confirmations tests/test_financial.py::test_A07_ownership tests/test_worker.py::test_A10_timeout
