@@ -13,7 +13,8 @@ def test_saved_results_have_shared_projection(kind):
     item = LibraryItem.from_history(row).as_dict()
     assert item == {'id': str(row['id']), 'kind': kind, 'model': 'fixture-model',
                     'status': 'succeeded', 'available': True,
-                    'created_at': '2026-01-01T00:00:00+00:00', 'price': None}
+                    'created_at': '2026-01-01T00:00:00+00:00', 'price': None,
+                    'result_url': f"/api/v1/works/{kind}/{row['id']}"}
 
 
 def test_unavailable_item_cannot_be_presented_as_available():
@@ -50,4 +51,4 @@ async def test_http_lists_all_types_from_existing_history(monkeypatch):
         result = (await response.json())['works']
         assert [item['kind'] for item in result] == ['image', 'audio', 'video', 'chat']
         assert all(item['available'] and item['status'] == 'succeeded' for item in result)
-        history.assert_awaited_once_with(owner, 0)
+        history.assert_awaited_once_with(owner, 0, include_pending_tasks=True)

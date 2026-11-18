@@ -9,6 +9,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramUnauthorizedError,TelegramConflictError,TelegramNetworkError
 from .config import Config
 from .core import ConsentRequired,Rejected,uid
+from . import consent
 from .telegram import TelegramApp,buttons
 
 class DemoService:
@@ -20,8 +21,18 @@ class DemoService:
         u=uuid.uuid4();self.users[u]={'external':external,'accepted':False,'state':{'step':'home','text_content':None,'voice':None},'actions':[]}
         return u
     def authorize(self,u):
-        if u not in self.users or not self.users[u]['accepted']:raise ConsentRequired('Сначала примите условия через /start.')
-    async def accept(self,u):self.users[u]['accepted']=True
+        if u not in self.users or self.users[u]['accepted'] != consent.CURRENT_VERSION:
+            raise ConsentRequired('Сначала примите условия через /start.')
+
+    def get_consent_documents(self):
+        return consent.documents()
+
+    async def accept(self,u,presented_version=None):
+        if presented_version is None and consent.CURRENT_VERSION == consent.LEGACY_VERSION:
+            presented_version = consent.LEGACY_VERSION
+        if presented_version != consent.CURRENT_VERSION:
+            raise ConsentRequired('Условия изменились. Откройте их заново.')
+        self.users[u]['accepted'] = presented_version
 
     async def welcome_message(self,chat):
         return self.users[await self.identity(chat)].get('welcome_message_id')

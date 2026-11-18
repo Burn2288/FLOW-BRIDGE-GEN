@@ -15,6 +15,7 @@ from aiohttp import web
 
 from elevenbot.core import Rejected, Service
 from elevenbot.library import LibraryItem
+from elevenbot.job_timeline import get_timeline
 from elevenbot.admission import admitted
 
 INIT_MAX_AGE = 300
@@ -177,8 +178,16 @@ def create_app(pool, cfg):
                 raise ValueError()
         except ValueError:
             raise web.HTTPBadRequest() from None
-        rows = await service.history(user, page * 10)
+        rows = await service.history(user, page * 10, include_pending_tasks=True)
         return web.json_response({'works': [LibraryItem.from_history(row).as_dict() for row in rows]})
+
+    async def timeline(request):
+        user = await account(request)
+        try:
+            data = await get_timeline(pool, service, user, request.match_info['kind'], request.match_info['id'])
+        except Rejected:
+            raise web.HTTPNotFound() from None
+        return web.json_response(data)
 
     async def result(request):
         user = await account(request)
@@ -247,6 +256,7 @@ def create_app(pool, cfg):
     app.router.add_get('/api/v1/settings', settings)
     app.router.add_put('/api/v1/settings', settings)
     app.router.add_get('/api/v1/works', history)
+    app.router.add_get('/api/v1/works/{kind}/{id}/timeline', timeline)
     app.router.add_get('/api/v1/works/{kind}/{id}', result)
     return app
 

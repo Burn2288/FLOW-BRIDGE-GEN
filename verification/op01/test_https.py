@@ -81,7 +81,7 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
                    payments_enabled=False,generation_enabled=False,storage=tmp_path/'storage')
         telegram=TelegramApp(pool,cfg,Bot())
         await telegram.handle(event('/start'))
-        await telegram.handle(event(callback='accept'))
+        await telegram.handle(event(callback=telegram.bot.sent[-1][1].inline_keyboard[0][0].callback_data))
         owner=await telegram.svc.identity(100)
         tester=await telegram.svc.identity(101);await telegram.svc.accept(tester)
         assert await pool.fetchval("SELECT count(*) FROM identities WHERE platform='telegram' AND external_id=100")==1

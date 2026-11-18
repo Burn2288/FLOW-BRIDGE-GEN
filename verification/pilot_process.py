@@ -44,7 +44,9 @@ async def main():
             await tg.handle(event)
             text = ' '.join(str(x[0]) for x in bot.sent)
             text += ' '.join(str(item[1].get('text', '')) for item in bot.answers)
-            return web.json_response({'denied': 'ограничен' in text.lower(),
+            offers = [button.callback_data for _, markup in bot.sent if hasattr(markup,'inline_keyboard')
+                      for row in markup.inline_keyboard for button in row if button.text=='Принять']
+            return web.json_response({'offer': next(iter(offers), None), 'denied': 'ограничен' in text.lower(),
                                       'admin': tg.has_admin_session(data['user'])})
         app.router.add_post('/fixture/telegram', dispatch)
     else:
