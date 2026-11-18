@@ -52,6 +52,8 @@ class ProviderRegistry:
         self.launches = {}
         self.interactive = {}
         self.manifests = {}
+        from .provider_lifecycle import ManifestLifecycle
+        self.lifecycle = ManifestLifecycle(self)
 
     def load_manifest(self, manifest):
         # Metadata is never treated as permission to execute a request.
