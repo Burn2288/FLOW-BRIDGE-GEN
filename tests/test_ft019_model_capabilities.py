@@ -41,6 +41,7 @@ async def test_versioned_quotes_and_dispatch_preserve_snapshots(env, confirmed_c
             with pytest.raises(Rejected):
                 await app.pricing.quote(user, replace(req, params=bad))
         assert not posts and not await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_reserve'")
+        app.pricing.adapters['fixture'].cost.assert_not_awaited()
         quote_a = await app.pricing.quote(user, req)
         assert quote_a.request.model_version == {'version': str(a), 'schema': schema_a}
         schema_b = deepcopy(schema_a)
@@ -112,6 +113,8 @@ async def test_telegram_and_miniapp_catalogues_share_revoke(account_db):
         policy.show = AsyncMock()
         await policy.command(user, 100, '/revoke', ['clodex', 'fixture/image', 'images.generate'])
         assert await bot.store_models(snap, 'image', None) == []
+        stale = dict(snap, fresh_until=0)
+        assert await bot.store_models(stale, 'image', None) == []
         result = await (await client.get('/api/v1/catalogue', headers=headers)).json()
         assert 'fixture/image' not in [model['id'] for model in result['models']]
         assert await pool.fetchval('SELECT count(*) FROM model_capability_versions WHERE version=$1', version) == 1
@@ -137,3 +140,30 @@ async def test_external_model_key_is_scoped_to_provider(env):
     await policy.publish_capabilities(user, 100, 'fixture_two', 'shared', 'chat', second)
     assert await pool.fetchval('SELECT count(*) FROM model_capability_versions WHERE published AND model_id=$1', 'shared') == 2
     assert first != second
+
+
+async def test_legacy_quote_is_not_retroactively_versioned(env, confirmed_credit):
+    import json
+    pool, cfg, _, user = env
+    posts = []
+    def respond(request):
+        posts.append(request.url.path)
+        return httpx.Response(200, json={'answer': 'legacy'})
+    async with httpx.AsyncClient(base_url='https://fixture.invalid', transport=httpx.MockTransport(respond)) as client:
+        app = app_with_fixture(pool, cfg, Bot(), client)
+        app.pricing.adapters['fixture'].cost = AsyncMock(side_effect=NoProviderPrice)
+        await pool.execute("INSERT INTO approved_models VALUES('fixture','fixture/chat','chat','Fixture')")
+        await confirmed_credit(pool, cfg, user, 100)
+        await app.pricing.set_tariff(user, 100, 'fixture', 'fixture/chat', 'chat', {},
+            basis='request', unit='darkflow_token', amount='10', evidence='fixture')
+        req = Request('fixture', 'fixture/chat', 'chat', 'Fixture', 'prompt')
+        legacy = await app.pricing.quote(user, req)
+        await pool.execute("UPDATE task_price_quotes SET request=request-'model_version' WHERE id=$1", legacy.id)
+        schema = {'properties': {}, 'required': []}
+        version = await app.models.stage_capabilities(user, 100, 'fixture', 'fixture/chat', 'chat', schema)
+        await app.models.publish_capabilities(user, 100, 'fixture', 'fixture/chat', 'chat', version)
+        quote, accepted, _ = await app.launch.confirm(user, 100, legacy.id, 9393,
+            progress=lambda _: nullcontext(), background=None)
+        assert accepted and quote.request.model_version is None and posts == ['/generate']
+        raw = await pool.fetchval('SELECT request::text FROM task_price_quotes WHERE id=$1', legacy.id)
+        assert 'model_version' not in json.loads(raw)
