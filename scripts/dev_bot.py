@@ -42,7 +42,7 @@ async def main():
     if sys.argv[1:]:
         raise SystemExit("usage: dev_bot.py [worker]")
     # Drive the same Telegram conversation as the local process acceptance test.
-    steps = ["/start", "accept", "🎙 Создать озвучку", "DEV fixture", "voice:0", "speed:1.0", None]
+    steps = ["/start", None, "🎙 Создать озвучку", "DEV fixture", "voice:0", "speed:1.0", None]
     actor = {"id": 100, "is_bot": False, "first_name": "Fixture"}
     chat = {"id": 100, "type": "private"}
     confirm = None
@@ -54,7 +54,7 @@ async def main():
         form = await request.post()
         if method == "getupdates":
             number = max(1, int(form.get("offset", "0")))
-            if number > len(steps) or (number == len(steps) and not confirm):
+            if number > len(steps) or (number == 2 and not steps[1]) or (number == len(steps) and not confirm):
                 await asyncio.sleep(0.2)
                 return web.json_response({"ok": True, "result": []})
             value = steps[number - 1] or confirm
@@ -68,10 +68,12 @@ async def main():
             return web.json_response({"ok": True, "result": [update]})
         if method in ("deletemessage", "answercallbackquery", "setmycommands", "setchatmenubutton"):
             return web.json_response({"ok": True, "result": True})
-        if method in ("sendmessage", "sendphoto", "sendaudio", "sendanimation",
+        if method in ("sendmessage", "sendphoto", "sendaudio", "sendanimation", "senddocument",
                       "editmessagetext", "editmessagecaption"):
             for row in json.loads(form.get("reply_markup", "{}")).get("inline_keyboard", []):
                 for button in row:
+                    if button["text"] == "Принять":
+                        steps[1] = button["callback_data"]
                     if button.get("callback_data", "").startswith("confirm:"):
                         confirm = button["callback_data"]
             if method == "sendaudio":
