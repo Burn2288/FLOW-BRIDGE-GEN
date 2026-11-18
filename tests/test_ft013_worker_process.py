@@ -25,7 +25,9 @@ async def start_child(schema, *, hold=False):
         _, stderr = await process.communicate()
         match = re.search(rb'(?m)^([A-Za-z][A-Za-z0-9_.]*(?:Error|Exception))(?::|$)', stderr)
         category = match.group(1).decode('ascii') if match else 'unknown'
-        pytest.fail(f'Worker fixture failed before readiness: {category}')
+        frames = re.findall(rb'File "([^"]+)", line ([0-9]+)', stderr)
+        location = f'{Path(frames[-1][0].decode()).name}:{frames[-1][1].decode()}' if frames else 'unknown'
+        pytest.fail(f'Worker fixture failed before readiness: {category} at {location}')
     return process
 
 
