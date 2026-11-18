@@ -136,3 +136,13 @@ def test_known_operation_requires_matching_type_and_route():
     value['models'][0]['endpoints'] = ['https://clodex.xyz/v1/images/generations']
     with pytest.raises(ManifestError):
         registry.load_manifest(value)
+
+
+def test_fal_music_route_metadata():
+    registry = ProviderRegistry()
+    registry.register('fal', MockAdapter(), launch=object())
+    value = manifest('fal', 'fal', 'FAL_KEY', 'https://queue.fal.run/google/lyria-3.5')
+    value['models'][0]['type'] = 'music'
+    value['models'][0]['mode'] = 'async'
+    value['models'][0]['operations'][0]['id'] = 'audio.generate'
+    assert registry.load_manifest(value)['status'] == 'METADATA_VALIDATED'
