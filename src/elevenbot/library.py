@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 
 @dataclass(frozen=True)
@@ -41,5 +42,7 @@ def result_url(row):
 def project_history(row):
     """Preserve original fields and IDs for the Telegram and Mini App consumers."""
     result = dict(row)
+    if not str(result['id']).startswith('image-job:'):
+        result['id'] = UUID(str(result['id']))
     result['result_url'] = result_url(row)
     return result

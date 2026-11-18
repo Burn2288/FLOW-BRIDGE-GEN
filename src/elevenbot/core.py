@@ -215,25 +215,35 @@ class Service:
             await self.authorize(c,u)
             rows = await c.fetch("""
                 SELECT * FROM (
-                    SELECT j.id,j.status,j.price,j.created_at,'audio' AS kind,j.model_id,
+                    SELECT j.id::text AS id,j.status,j.price,j.created_at,'audio' AS kind,j.model_id,
                            (f.deleted_at IS NULL AND f.expires_at>now()) AS file_available
                     FROM jobs j LEFT JOIN files f ON f.job_id=j.id
                     WHERE j.user_id=$1 AND ($3::text IS NULL OR j.model_id=$3)
                     UNION ALL
-                    SELECT id,'succeeded',NULL,created_at,'image',model_id,true
+                    SELECT id::text,'succeeded',NULL,created_at,'image',model_id,true
                     FROM image_works WHERE user_id=$1 AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
                     UNION ALL
-                    SELECT id,'succeeded',NULL,created_at,'video',model_id,true
+                    SELECT 'image-job:' || j.update_id::text,
+                           CASE j.status WHEN 'pending' THEN 'queued' WHEN 'submitting' THEN 'dispatching'
+                                WHEN 'failed' THEN 'failed' ELSE 'uncertain' END,
+                           NULL,a.created_at,'image',j.model_id,false
+                    FROM anymodel_image_jobs j JOIN interaction_attempts a ON a.update_id=j.update_id AND a.user_id=j.user_id
+                    WHERE $5::boolean AND j.user_id=$1 AND j.expires_at>now()
+                    AND j.status IN ('submitting','pending','failed','unknown','ready','delivered')
+                    AND ($3::text IS NULL OR j.model_id=$3)
+                    AND NOT EXISTS (SELECT 1 FROM image_works w WHERE w.update_id=j.update_id AND w.user_id=j.user_id)
+                    UNION ALL
+                    SELECT id::text,'succeeded',NULL,created_at,'video',model_id,true
                     FROM video_jobs WHERE user_id=$1 AND status='succeeded' AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
                     UNION ALL
-                    SELECT id,CASE WHEN status IN ('submitting','polling') THEN 'dispatching' ELSE status END,
+                    SELECT id::text,CASE WHEN status IN ('submitting','polling') THEN 'dispatching' ELSE status END,
                            NULL,created_at,'video',model_id,false
                     FROM video_jobs WHERE user_id=$1 AND status IN ('submitting','polling','failed','uncertain')
                     AND ($3::text IS NULL OR model_id=$3)
                     UNION ALL
-                    SELECT q.id,CASE d.state WHEN 'pending' THEN 'queued' WHEN 'dispatching' THEN 'dispatching'
+                    SELECT q.id::text,CASE d.state WHEN 'pending' THEN 'queued' WHEN 'dispatching' THEN 'dispatching'
                            WHEN 'interrupted' THEN 'failed' ELSE 'uncertain' END,
                            NULL,q.accepted_at,CASE WHEN q.operation='chat' THEN 'chat' ELSE 'audio' END,
                            q.model_id,false
@@ -244,15 +254,15 @@ class Service:
                     AND NOT EXISTS (SELECT 1 FROM task_chat_works w WHERE w.quote_id=q.id)
                     AND NOT EXISTS (SELECT 1 FROM task_speech_works w WHERE w.id=q.id AND w.audio IS NOT NULL)
                     UNION ALL
-                    SELECT id,'succeeded',NULL,created_at,'audio',model_id,true
+                    SELECT id::text,'succeeded',NULL,created_at,'audio',model_id,true
                     FROM task_speech_works WHERE user_id=$1 AND audio IS NOT NULL AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
                     UNION ALL
-                    SELECT q.id,'succeeded',NULL,w.created_at,'chat',q.model_id,true
+                    SELECT q.id::text,'succeeded',NULL,w.created_at,'chat',q.model_id,true
                     FROM task_chat_works w JOIN task_price_quotes q ON q.id=w.quote_id
                     WHERE q.user_id=$1 AND w.expires_at>now() AND ($3::text IS NULL OR q.model_id=$3)
                     UNION ALL
-                    SELECT m.id,'succeeded',NULL,m.created_at,CASE m.provider WHEN 'clodex' THEN 'music' ELSE 'music:'||m.provider END,q.model_id,true
+                    SELECT m.id::text,'succeeded',NULL,m.created_at,CASE m.provider WHEN 'clodex' THEN 'music' ELSE 'music:'||m.provider END,q.model_id,true
                     FROM clodex_music_jobs m JOIN task_price_quotes q ON q.id=m.id
                     WHERE m.provider=ANY($4::text[]) AND m.user_id=$1 AND m.mp3 IS NOT NULL AND m.expires_at>now()
                     AND ($3::text IS NULL OR q.model_id=$3)

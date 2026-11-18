@@ -431,7 +431,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "description": "UUID сохранённой работы или image-job:<исходный update_id> для активной image job."
             }
           }
         ],

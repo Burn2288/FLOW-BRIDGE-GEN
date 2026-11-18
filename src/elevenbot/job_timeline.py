@@ -1,5 +1,6 @@
 """Owned generation timeline derived from existing rows, without event storage."""
 from uuid import UUID
+import re
 
 from .core import Rejected
 
@@ -28,6 +29,25 @@ def summarize(row):
 
 
 async def get_timeline(pool, service, user_id, kind, raw_id):
+    image_ref = re.fullmatch(r'image-job:(-?[0-9]{1,19})', str(raw_id)) if kind == 'image' else None
+    if image_ref:
+        update_id = int(image_ref.group(1))
+        if not -(2**63) <= update_id <= 2**63 - 1:
+            raise Rejected('Работа не найдена.')
+        async with pool.acquire() as conn:
+            await service.authorize(conn, user_id)
+            row = await conn.fetchrow("""
+                SELECT 'image-job:' || j.update_id::text AS id, 'image' AS kind, j.model_id,
+                       CASE WHEN w.id IS NOT NULL THEN 'succeeded' ELSE j.status END AS status,
+                       a.created_at, NULL::timestamptz AS completed_at, false AS saved_only
+                FROM anymodel_image_jobs j
+                JOIN interaction_attempts a ON a.update_id=j.update_id AND a.user_id=j.user_id
+                LEFT JOIN image_works w ON w.update_id=j.update_id AND w.user_id=j.user_id AND w.expires_at>now()
+                WHERE j.update_id=$1 AND j.user_id=$2 AND j.expires_at>now()
+            """, update_id, user_id)
+            if not row:
+                raise Rejected('Работа не найдена.')
+            return summarize(row)
     try:
         job_id = UUID(str(raw_id))
     except (ValueError, TypeError, AttributeError):
