@@ -177,7 +177,7 @@ def create_app(pool, cfg):
                 raise ValueError()
         except ValueError:
             raise web.HTTPBadRequest() from None
-        rows = await service.history(user, page * 10)
+        rows = await service.history(user, page * 10, include_pending_tasks=True)
         return web.json_response({'works': [LibraryItem.from_history(row).as_dict() for row in rows]})
 
     async def result(request):

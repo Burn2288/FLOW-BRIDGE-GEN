@@ -210,10 +210,10 @@ class Service:
             if not r: raise Rejected('Работа не найдена.')
             return r
 
-    async def history(self,u,offset=0,model_id=None,*,include_music=False,music_providers=None):
+    async def history(self,u,offset=0,model_id=None,*,include_music=False,music_providers=None,include_pending_tasks=False):
         async with self.pool.acquire() as c:
             await self.authorize(c,u)
-            return await c.fetch("""
+            rows = await c.fetch("""
                 SELECT * FROM (
                     SELECT j.id,j.status,j.price,j.created_at,'audio' AS kind,j.model_id,
                            (f.deleted_at IS NULL AND f.expires_at>now()) AS file_available
@@ -228,6 +228,22 @@ class Service:
                     FROM video_jobs WHERE user_id=$1 AND status='succeeded' AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
                     UNION ALL
+                    SELECT id,CASE WHEN status IN ('submitting','polling') THEN 'dispatching' ELSE status END,
+                           NULL,created_at,'video',model_id,false
+                    FROM video_jobs WHERE user_id=$1 AND status IN ('submitting','polling','failed','uncertain')
+                    AND ($3::text IS NULL OR model_id=$3)
+                    UNION ALL
+                    SELECT q.id,CASE d.state WHEN 'pending' THEN 'queued' WHEN 'dispatching' THEN 'dispatching'
+                           WHEN 'interrupted' THEN 'failed' ELSE 'uncertain' END,
+                           NULL,q.accepted_at,CASE WHEN q.operation='chat' THEN 'chat' ELSE 'audio' END,
+                           q.model_id,false
+                    FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id
+                    WHERE $5::boolean AND q.user_id=$1 AND q.operation IN ('chat','audio.speech') AND q.accepted_at IS NOT NULL
+                    AND d.state IN ('pending','dispatching','interrupted','uncertain')
+                    AND ($3::text IS NULL OR q.model_id=$3)
+                    AND NOT EXISTS (SELECT 1 FROM task_chat_works w WHERE w.quote_id=q.id)
+                    AND NOT EXISTS (SELECT 1 FROM task_speech_works w WHERE w.id=q.id AND w.audio IS NOT NULL)
+                    UNION ALL
                     SELECT id,'succeeded',NULL,created_at,'audio',model_id,true
                     FROM task_speech_works WHERE user_id=$1 AND audio IS NOT NULL AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
@@ -241,7 +257,9 @@ class Service:
                     WHERE m.provider=ANY($4::text[]) AND m.user_id=$1 AND m.mp3 IS NOT NULL AND m.expires_at>now()
                     AND ($3::text IS NULL OR q.model_id=$3)
                 ) works ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $2
-                """,u,max(0,offset),model_id,music_providers if music_providers is not None else ['clodex'] if include_music else [])
+                """,u,max(0,offset),model_id,music_providers if music_providers is not None else ['clodex'] if include_music else [],include_pending_tasks)
+            from .library import project_history
+            return [project_history(row) for row in rows]
 
     async def save_image_work(self,u,update_id,model_id,prompt,result):
         async with self.pool.acquire() as c:
