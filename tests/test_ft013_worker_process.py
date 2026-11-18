@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -20,7 +21,11 @@ async def start_child(schema, *, hold=False):
         cwd=str(ROOT), env=env, stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     line = await asyncio.wait_for(process.stdout.readline(), 15)
-    assert line.strip() == b'READY', 'Worker fixture failed before readiness'
+    if line.strip() != b'READY':
+        _, stderr = await process.communicate()
+        match = re.search(rb'(?m)^([A-Za-z][A-Za-z0-9_.]*(?:Error|Exception))(?::|$)', stderr)
+        category = match.group(1).decode('ascii') if match else 'unknown'
+        pytest.fail(f'Worker fixture failed before readiness: {category}')
     return process
 
 
