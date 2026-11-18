@@ -29,6 +29,8 @@ async def test_versioned_quotes_and_dispatch_preserve_snapshots(env, confirmed_c
             basis='request', unit='darkflow_token', amount='10', evidence='fixture')
         policy = app.models
         schema_a = {'properties': {'max_tokens': {'type': 'integer', 'minimum': 1, 'maximum': 200}}, 'required': ['max_tokens']}
+        with pytest.raises(Rejected):
+            await policy.stage_capabilities(user, 101, 'fixture', 'fixture/chat', 'chat', schema_a)
         a = await policy.stage_capabilities(user, 100, 'fixture', 'fixture/chat', 'chat', schema_a)
         await policy.publish_capabilities(user, 100, 'fixture', 'fixture/chat', 'chat', a)
         bad_schema = deepcopy(schema_a)

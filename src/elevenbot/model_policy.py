@@ -36,10 +36,12 @@ class ModelPolicy:
 
     async def stage_capabilities(self, user, external, provider, model, operation, schema):
         from .model_capabilities import stage
+        await self.app.tariffs.authorize(user, external)
         return await stage(self, user, external, provider, model, operation, schema)
 
     async def publish_capabilities(self, user, external, provider, model, operation, version):
         from .model_capabilities import publish
+        await self.app.tariffs.authorize(user, external)
         return await publish(self, user, external, provider, model, operation, version)
 
     async def list(self,provider,operation=None,*,snapshot=None):
