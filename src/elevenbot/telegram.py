@@ -125,6 +125,7 @@ def keyboard_signature(markup):
 class TelegramApp:
     def __init__(self,pool,cfg,bot,*,providers=None):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
+        self.consent_offers = {}
         self.admin_access=AdminAccess()
         self.navigation = Navigation(pool,bot)
         self.pending_speech = {}
@@ -154,6 +155,24 @@ class TelegramApp:
         if not isinstance(markup,ReplyKeyboardMarkup):
             return await self.bot.send_message(chat,text,reply_markup=markup)
         return await self.bot.send_message(chat,text,reply_markup=await self.reply_menu(chat))
+
+    async def consent_files(self, user, chat, names, *, offer=False):
+        if offer:
+            self.consent_offers.pop(user, None)
+        bundle = self.svc.get_consent_documents()
+        try:
+            for name in names:
+                file = BufferedInputFile(bundle[name].encode('utf-8'), filename=name + '.md')
+                await self.bot.send_document(chat, file)
+        except (TelegramAPIError, ClientDecodeError, TimeoutError):
+            await self.say(chat, 'Доставка документов не подтверждена. Повторите /start.')
+            return
+        if offer:
+            key = 'accept:' + uuid4().hex
+            title = 'Тестовые документы' if bundle['test_only'] else 'Документы'
+            await self.say(chat, f'{self.cfg.brand} · {title}. Принять показанные условия и политику?',
+                           buttons([[('Принять', key)]]))
+            self.consent_offers[user] = (key, bundle['version'])
 
     @staticmethod
     def balance_label(row):
@@ -607,12 +626,14 @@ class TelegramApp:
                 try:
                     await self.svc.conversation(u,'home')
                 except ConsentRequired:
-                    await self.catalogue_screen(ext,self.cfg.brand+' — агрегатор моделей и функций. Выберите агрегатор, затем его модели или функции.\n'+('Сейчас работает деморежим: тестовый звук, без оплаты.\n' if self.cfg.mode=='mock' else '')+'\nУсловия: '+self.cfg.terms+'\nПолитика: '+self.cfg.privacy,buttons([[('Принять','accept')]]))
+                    await self.consent_files(u,ext,('terms','privacy'),offer=True)
                 else:
                     await self.show_home(ext,replace_welcome=True)
                 return
-            if text in ('/terms','/privacy','/support','/paysupport'):
-                await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
+            if command in ('/terms','/privacy'):
+                await self.consent_files(u,ext,(command[1:],));return
+            if text in ('/support','/paysupport'):
+                await self.say(ext,self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
             if command in ('/admit','/revoke','/markup_value'):
                 await self.models.command(u,ext,command,text.split()[1:]);return
             if command in RATE_COMMANDS:
@@ -895,8 +916,20 @@ class TelegramApp:
                 await self.begin_interaction(u,ext,version,index,STORE_SECTIONS[section][1],
                                              request_id=request_id,quality=options[0] if options else None);return
             await self.show_store_model(ext,snapshot,section,int(page),index);return
-        if data=='accept':
-            await self.svc.accept(u);await self.show_home(ext,open_panel=True);return
+        if route=='accept':
+            shown = self.consent_offers.get(u)
+            if shown and data == shown[0]:
+                try:
+                    await self.svc.accept(u,shown[1])
+                except ConsentRequired:
+                    pass
+                else:
+                    self.consent_offers.pop(u,None)
+                    await self.show_home(ext,open_panel=True)
+                    return
+            await self.say(ext,'Откройте актуальные документы и подтвердите их заново.')
+            await self.consent_files(u,ext,('terms','privacy'),offer=True)
+            return
         if data in ('section:1','section:2','section:3'):
             await self.svc.conversation(u,'home')
             await self.menu_section(u,ext,int(data[-1]));return

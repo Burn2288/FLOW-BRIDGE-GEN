@@ -9,12 +9,16 @@ from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from aiogram.methods import SendAnimation, SendPhoto, SetMyCommands
 from aiogram.types import BotCommandScopeChat, BotCommandScopeDefault, Update
 from elevenbot import telegram
+from elevenbot.consent import documents
 from elevenbot.telegram import TelegramApp,MENU,menu
 from elevenbot.config import Config
 from elevenbot.core import ConsentRequired,Rejected
 
 class Bot:
     def __init__(self):self.sent=[];self.audio=[];self.answers=[];self.photos=[];self.deleted=[];self.animations=[]
+    async def send_document(self,chat,document):
+        self.documents = [*getattr(self,'documents',[]),document]
+        return SimpleNamespace(message_id=len(self.documents))
     async def send_message(self,chat,text,reply_markup=None):self.sent.append((text,reply_markup));return SimpleNamespace(message_id=100+len(self.sent))
     async def edit_message_text(self,text,*,chat_id,message_id,reply_markup=None):
         self.sent.append((text,reply_markup))
@@ -33,6 +37,7 @@ class Bot:
     async def answer_pre_checkout_query(self,*args,**kw):self.answers.append(kw)
 
 class FakeService:
+    get_consent_documents = staticmethod(documents)
     def __init__(self):self.u=uuid.uuid4();self.state={'step':'home','text_content':None,'voice':None};self.confirmations=0;self.accepted=False;self.welcome=None
     async def identity(self,*a):return self.u
     async def rate(self,*a,navigation=False):pass
@@ -96,9 +101,9 @@ async def test_welcome_consent_start_and_menu():
     a.cfg=replace(a.cfg,admin_ids=(100,))
     await a.handle(event('/start'))
     assert not b.photos
-    assert b.sent[-1][1].inline_keyboard[0][0].callback_data=='accept'
+    assert b.sent[-1][1].inline_keyboard[0][0].callback_data.startswith('accept:')
 
-    await a.handle(event(callback='accept'))
+    await a.handle(event(callback=b.sent[-1][1].inline_keyboard[0][0].callback_data))
     photo,caption,keyboard=b.photos[-1]
     assert photo.data==telegram.WELCOME_BANNER.read_bytes()
     assert caption==telegram.WELCOME_TEXT
@@ -252,8 +257,8 @@ async def test_aggregators_animation_navigation(monkeypatch,rejected):
 
 async def test_UI_full_dialog():
     a,b=app()
-    await a.handle(event('/start'));assert 'деморежим' in b.sent[-1][0]
-    await a.handle(event(callback='accept'));assert a.svc.accepted
+    await a.handle(event('/start'));assert 'Тестовые документы' in b.sent[-1][0]
+    await a.handle(event(callback=b.sent[-1][1].inline_keyboard[0][0].callback_data));assert a.svc.accepted
     await a.handle(event("🎙 Создать озвучку"));assert a.svc.state['step']=='text'
     await a.handle(event('Привет'));assert a.svc.state['step']=='voice'
     await a.handle(event(callback='preview:0'));assert len(b.audio)==1
@@ -277,7 +282,11 @@ async def test_UI_menu_cancels_draft():
 
 @pytest.mark.parametrize('command',['/terms','/privacy','/support','/paysupport'])
 async def test_UI_help_without_accept(command):
-    a,b=app();await a.handle(event(command));assert b.sent
+    a,b=app();await a.handle(event(command))
+    if command in ('/terms','/privacy'):
+        assert b.documents[-1].filename==command[1:]+'.md'
+    else:
+        assert b.sent
 
 async def test_UI_empty_and_oversized():
     a,b=app();await a.svc.accept();await a.handle(event("🎙 Создать озвучку"))

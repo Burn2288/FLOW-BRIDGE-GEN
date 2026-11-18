@@ -95,8 +95,9 @@ async def test_private_admission_across_three_processes(env):
             assert not await pool.fetchval('SELECT EXISTS(SELECT 1 FROM identities WHERE external_id=900)')
             assert not (await request(client, url_a + '/fixture/telegram', body={'user': 100}))[1]['denied']
 
-            assert not (await request(client, url_a + '/fixture/telegram', body={'user': 101}))[1]['denied']
-            assert not (await request(client, url_a + '/fixture/telegram', body={'user': 101, 'callback': 'accept'}))[1]['denied']
+            _, welcome = await request(client, url_a + '/fixture/telegram', body={'user': 101})
+            assert not welcome['denied'] and welcome['offer']
+            assert not (await request(client, url_a + '/fixture/telegram', body={'user': 101, 'callback': welcome['offer']}))[1]['denied']
             tester = await pool.fetchval("SELECT user_id FROM identities WHERE platform='telegram' AND external_id=101")
             assert tester is not None
             own_work = await service.save_image_work(tester, -902, 'fixture/image', 'fixture',

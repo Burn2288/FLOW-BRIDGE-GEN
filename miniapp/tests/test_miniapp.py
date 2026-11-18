@@ -25,8 +25,11 @@ from scripts.disposable_test_db import require_disposable_dsn
 from miniapp.backend.web import create_app
 
 
-def signed(token, user, age=0):
-    fields = {'auth_date': str(int(time.time()) - age), 'user': json.dumps({'id': user})}
+def signed(token, user, age=0, *, auth_date=None, query_id=None):
+    timestamp = int(time.time()) - age if auth_date is None else auth_date
+    fields = {'auth_date': str(timestamp), 'user': json.dumps({'id': user})}
+    if query_id is not None:
+        fields['query_id'] = query_id
     data = '\n'.join(f'{k}={v}' for k, v in sorted(fields.items()))
     key = hmac.digest(b'WebAppData', token.encode(), 'sha256')
     return urlencode(fields | {'hash': hmac.new(key, data.encode(), hashlib.sha256).hexdigest()})
@@ -90,7 +93,8 @@ async def test_miniapp_shared_wallet_library_and_session(account_db):
         banner = await client.get('/assets/darkflow-banner.png')
         assert banner.status == 200 and (await banner.read()).startswith(b'\x89PNG')
 
-        raw = signed(cfg.token, 100)
+        launch_time = int(time.time())
+        raw = signed(cfg.token, 100, auth_date=launch_time, query_id='first-device')
         await login(signed('wrong', 100), 401)
         await login(signed(cfg.token, 100, age=360), 401)
         await login(signed(cfg.token, 102), 403)
@@ -105,7 +109,9 @@ async def test_miniapp_shared_wallet_library_and_session(account_db):
         assert (await client.put(settings, headers=other, json={'theme': 'light', 'user': 100})).status == 400
         assert (await client.put(settings, json={'theme': 'light'})).status == 401
         assert await (await client.get(settings, headers=other)).json() == {'theme': 'dark'}
-        second_device = await login(signed(cfg.token, 100, age=1))
+        second_launch = signed(cfg.token, 100, auth_date=launch_time, query_id='second-device')
+        second_device = await login(second_launch)
+        await login(second_launch, 401)
         assert await (await client.get(settings, headers=second_device)).json() == {'theme': 'light'}
         assert (await client.put(settings, headers=second_device, json={'theme': 'dark'})).status == 200
         assert await (await client.get(settings, headers=main)).json() == {'theme': 'dark'}
