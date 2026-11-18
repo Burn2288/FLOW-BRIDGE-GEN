@@ -367,7 +367,16 @@ class Pricing:
                 await validate(conn,request)
             price = await self.calculate(conn, request, cost)
             previous = json.loads(row['price'])
-            if row['expired'] or price['total'] != previous['total']:
+            # Publishing a replacement manual tariff prices future quotes. An
+            # unexpired offer remains binding while its rate and markup still apply.
+            replaced_tariff = (
+                cost is None and previous['source'].startswith('manual:')
+                and previous['source'] != price['source']
+                and previous['rate_revision'] == price['rate_revision']
+                and previous['rule_revision'] == price['rule_revision']
+                and previous['provider_unit'] == price['provider_unit']
+            )
+            if row['expired'] or (price['total'] != previous['total'] and not replaced_tariff):
                 await conn.execute("UPDATE task_price_quotes SET state='superseded' WHERE id=$1", quote_id)
                 return await self.insert(conn, user, request, price), False
             quote = Quote(quote_id, request, previous)

@@ -202,3 +202,47 @@ def test_pc01_variable_tariff_caps_and_precision():
     for invalid in ('-1', 'NaN', 'Infinity', '0.0000000000001', '1000000000001'):
         with pytest.raises(PriceUnavailable):
             number(invalid)
+
+
+async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit):
+    from contextlib import nullcontext
+    from unittest.mock import AsyncMock
+
+    from elevenbot.pricing import NoProviderPrice
+    from test_provider_extensibility import app_with_fixture
+
+    pool, cfg, _, user = env
+    posts = []
+
+    def generate(request):
+        assert request.method == 'POST' and request.url.path == '/generate'
+        posts.append(request.url.path)
+        return httpx.Response(200, json={'answer':'fixture'})
+
+    async with httpx.AsyncClient(base_url='https://fixture.invalid', transport=httpx.MockTransport(generate)) as http:
+        app = app_with_fixture(pool, cfg, Bot(), http)
+        app.pricing.adapters['fixture'].cost = AsyncMock(side_effect=NoProviderPrice)
+        req = Request('fixture', 'fixture/chat', 'chat', 'Fixture', 'prompt')
+        await confirmed_credit(pool, cfg, user, 100)
+        await pool.execute("INSERT INTO approved_models VALUES('fixture',$1,'chat','Fixture')", req.model)
+
+        async def publish(amount):
+            await app.pricing.set_tariff(user, 100, req.provider, req.model, req.operation, {},
+                                         basis='request', unit='darkflow_token', amount=amount, evidence='fixture')
+
+        await publish('60')
+        shown = await app.pricing.quote(user, req)
+        snapshot = await pool.fetchval('SELECT price::text FROM task_price_quotes WHERE id=$1', shown.id)
+        await publish('85')
+        accepted, ok, _ = await app.launch.confirm(user, 100, shown.id, 100, progress=lambda _: nullcontext(), background=None)
+        assert ok and accepted.id == shown.id and accepted.price == shown.price
+        with pytest.raises(Rejected):
+            await app.launch.confirm(user, 100, shown.id, 101, progress=lambda _: nullcontext(), background=None)
+        job = await pool.fetchrow("""SELECT d.state, q.price::text FROM task_dispatch d
+            JOIN task_price_quotes q ON q.id=d.quote_id WHERE q.id=$1""", shown.id)
+        assert tuple(job) == ('completed', snapshot)
+        movements = await pool.fetch('SELECT kind,da,dr FROM ledger WHERE task_quote_id=$1 ORDER BY kind', shown.id)
+        assert [tuple(row) for row in movements] == [('task_capture',0,-60), ('task_reserve',-60,60)]
+        assert posts == ['/generate']
+        assert (await app.svc.wallet(user))['available'] == 40
+        assert (await app.pricing.quote(user, req)).price['total'] == '85'
