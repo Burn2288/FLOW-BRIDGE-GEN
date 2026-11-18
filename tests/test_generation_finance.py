@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import replace
 from decimal import Decimal
 import os
+from pathlib import Path
 import sys
 
 import httpx
@@ -99,8 +100,10 @@ async def run():
         await reconcile_generation(pool,UUID(os.environ['TEST_QUOTE']),{'anymodel':read})
 asyncio.run(run())
 """
+        source_dir = str(Path(__file__).resolve().parents[1] / 'src')
+        pythonpath = os.pathsep.join(filter(None, (source_dir, os.environ.get('PYTHONPATH'))))
         proc=await asyncio.create_subprocess_exec(sys.executable,'-c',code,
-            env=os.environ|{'TEST_SCHEMA':schema,'TEST_QUOTE':str(quote.id)})
+            env=os.environ|{'PYTHONPATH':pythonpath,'TEST_SCHEMA':schema,'TEST_QUOTE':str(quote.id)})
         assert await asyncio.wait_for(proc.wait(),20)==0
         await app.handle(event(2,callback=f'amconfirm:{quote.id}'))
         assert await balance()==(100,0) and await app.svc.reconcile()==0
