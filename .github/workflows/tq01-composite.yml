@@ -16,7 +16,7 @@ jobs:
       - run: python -m pip install ruff==0.11.13
       - run: python -m ruff check --select E9,F63,F7,F82 src tests miniapp verification scripts
   seeded-migrations:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16.15-bookworm
@@ -45,7 +45,7 @@ jobs:
       - run: python -m pip install -r requirements-acceptance.txt
       - run: python -m pytest -q -s -p no:cacheprovider verification/in19/test_seeded_upgrade.py
   full-regression:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16.15-bookworm
