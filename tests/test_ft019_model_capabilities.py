@@ -118,3 +118,22 @@ async def test_telegram_and_miniapp_catalogues_share_revoke(account_db):
 
 
 from miniapp.tests.test_miniapp import account_db
+
+
+async def test_external_model_key_is_scoped_to_provider(env):
+    import asyncpg
+    from elevenbot.telegram import TelegramApp
+    pool, cfg, _, user = env
+    cfg = replace(cfg, access_mode='private', admin_ids=(100,))
+    policy = TelegramApp(pool, cfg, Bot()).models
+    for provider in ('fixture_one', 'fixture_two'):
+        await pool.execute('INSERT INTO approved_models VALUES($1,$2,$3,$4)', provider, 'shared', 'chat', provider)
+    with pytest.raises(asyncpg.UniqueViolationError):
+        await pool.execute("INSERT INTO approved_models VALUES('fixture_one','shared','chat','duplicate')")
+    schema = {'properties': {'max_tokens': {'type': 'integer', 'minimum': 1, 'maximum': 100}}, 'required': ['max_tokens']}
+    first = await policy.stage_capabilities(user, 100, 'fixture_one', 'shared', 'chat', schema)
+    second = await policy.stage_capabilities(user, 100, 'fixture_two', 'shared', 'chat', schema)
+    await policy.publish_capabilities(user, 100, 'fixture_one', 'shared', 'chat', first)
+    await policy.publish_capabilities(user, 100, 'fixture_two', 'shared', 'chat', second)
+    assert await pool.fetchval('SELECT count(*) FROM model_capability_versions WHERE published AND model_id=$1', 'shared') == 2
+    assert first != second
