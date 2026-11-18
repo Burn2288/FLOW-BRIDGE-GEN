@@ -1,0 +1,414 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FLOW-BRIDGE-GEN Mini App API",
+    "version": "1.0.0",
+    "description": "Только существующие HTTP маршруты; нет административных или платёжных endpoints."
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Проверка соединения с базой",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "ok"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "База недоступна"
+          }
+        }
+      }
+    },
+    "/api/v1/session": {
+      "post": {
+        "summary": "Получить сессию по подписанному Telegram initData",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "expires_in"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "initData"
+                ],
+                "properties": {
+                  "initData": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Завершить текущую сессию",
+        "responses": {
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          },
+          "204": {
+            "description": "Сессия отозвана"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/catalogue": {
+      "get": {
+        "summary": "Каталог доступных моделей",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "availability": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "models",
+                    "availability"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/wallet": {
+      "get": {
+        "summary": "Доступный и зарезервированный баланс",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "string"
+                    },
+                    "reserved": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "available",
+                    "reserved"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "summary": "Получить тему",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "theme": {
+                      "enum": [
+                        "dark",
+                        "light"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "theme"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Изменить тему",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "theme": {
+                      "enum": [
+                        "dark",
+                        "light"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "theme"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос"
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "theme"
+                ],
+                "properties": {
+                  "theme": {
+                    "enum": [
+                      "dark",
+                      "light"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/works": {
+      "get": {
+        "summary": "Страница своих работ",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "works": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  },
+                  "required": [
+                    "works"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос"
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/works/{kind}/{id}": {
+      "get": {
+        "summary": "Получить свою сохранённую работу",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "contentEncoding": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          },
+          "404": {
+            "description": "Работа недоступна"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "image",
+                "audio",
+                "video"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
