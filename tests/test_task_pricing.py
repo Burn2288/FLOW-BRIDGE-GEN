@@ -204,7 +204,8 @@ def test_pc01_variable_tariff_caps_and_precision():
             number(invalid)
 
 
-async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit):
+@pytest.mark.parametrize('overlap', [False, True], ids=['sequential', 'overlapping-transactions'])
+async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit, monkeypatch, overlap):
     from contextlib import nullcontext
     from unittest.mock import AsyncMock
 
@@ -226,21 +227,62 @@ async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit
         await confirmed_credit(pool, cfg, user, 100)
         await pool.execute("INSERT INTO approved_models VALUES('fixture',$1,'chat','Fixture')", req.model)
 
+        publisher = Pricing(pool, app.cfg, app.pricing.adapters)
+
         async def publish(amount):
-            await app.pricing.set_tariff(user, 100, req.provider, req.model, req.operation, {},
+            await publisher.set_tariff(user, 100, req.provider, req.model, req.operation, {},
                                          basis='request', unit='darkflow_token', amount=amount, evidence='fixture')
 
         await publish('60')
         shown = await app.pricing.quote(user, req)
         snapshot = await pool.fetchval('SELECT price::text FROM task_price_quotes WHERE id=$1', shown.id)
-        await publish('85')
-        accepted, ok, _ = await app.launch.confirm(user, 100, shown.id, 100, progress=lambda _: nullcontext(), background=None)
+        async def confirm():
+            return await app.launch.confirm(user, 100, shown.id, 100, progress=lambda _: nullcontext(), background=None)
+
+        if overlap:
+            # set_tariffs calls rate inside its transaction after taking POLICY_LOCK.
+            publisher_locked = asyncio.Event()
+            confirmer_pid = asyncio.get_running_loop().create_future()
+            read_rate = publisher.rate
+            authorize = app.pricing.service.authorize
+
+            async def wait_for_confirmer(conn, *args):
+                rate = await read_rate(conn, *args)
+                publisher_locked.set()
+                waiter = await confirmer_pid
+                assert waiter != conn.get_server_pid()
+                while not await conn.fetchval(
+                    'SELECT pg_backend_pid() = ANY(pg_blocking_pids($1))', waiter
+                ):
+                    await asyncio.sleep(0.01)
+                return rate
+
+            async def observe_confirmer(conn, *args):
+                await authorize(conn, *args)
+                if conn.is_in_transaction() and not confirmer_pid.done():
+                    confirmer_pid.set_result(conn.get_server_pid())
+
+            monkeypatch.setattr(publisher, 'rate', wait_for_confirmer)
+            monkeypatch.setattr(app.pricing.service, 'authorize', observe_confirmer)
+
+            async def confirm_after_lock():
+                await publisher_locked.wait()
+                return await confirm()
+
+            async with asyncio.timeout(10), asyncio.TaskGroup() as group:
+                group.create_task(publish('85'))
+                confirmation = group.create_task(confirm_after_lock())
+            accepted, ok, _ = confirmation.result()
+        else:
+            await publish('85')
+            accepted, ok, _ = await confirm()
         assert ok and accepted.id == shown.id and accepted.price == shown.price
         with pytest.raises(Rejected):
             await app.launch.confirm(user, 100, shown.id, 101, progress=lambda _: nullcontext(), background=None)
         job = await pool.fetchrow("""SELECT d.state, q.price::text FROM task_dispatch d
             JOIN task_price_quotes q ON q.id=d.quote_id WHERE q.id=$1""", shown.id)
         assert tuple(job) == ('completed', snapshot)
+        assert await pool.fetchval('SELECT count(*) FROM task_dispatch') == 1
         movements = await pool.fetch('SELECT kind,da,dr FROM ledger WHERE task_quote_id=$1 ORDER BY kind', shown.id)
         assert [tuple(row) for row in movements] == [('task_capture',0,-60), ('task_reserve',-60,60)]
         assert posts == ['/generate']
