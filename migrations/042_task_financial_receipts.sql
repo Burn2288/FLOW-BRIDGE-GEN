@@ -16,12 +16,12 @@ CREATE INDEX task_receipts_by_quote ON task_financial_receipts(quote_id);
 CREATE VIEW task_failed_billing_review AS
 SELECT q.id AS quote_id,q.provider,COALESCE(v.provider_id,i.provider_id) AS provider_job_id,
        CASE WHEN EXISTS (SELECT 1 FROM task_financial_receipts f WHERE f.quote_id=q.id AND f.outcome='full_refund')
-                 THEN 'РїРѕР»РЅС‹Р№ РІРѕР·РІСЂР°С‚ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ'
+                 THEN 'полный возврат подтверждён'
             WHEN EXISTS (SELECT 1 FROM task_financial_receipts f WHERE f.quote_id=q.id AND f.outcome='partial_refund')
-                 THEN 'С‡Р°СЃС‚РёС‡РЅС‹Р№ РІРѕР·РІСЂР°С‚ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ'
+                 THEN 'частичный возврат подтверждён'
             WHEN d.state='rejected' OR EXISTS (SELECT 1 FROM task_financial_receipts f WHERE f.quote_id=q.id AND f.outcome='rejected_unbilled')
-                 THEN 'РѕС‚РєР°Р· РґРѕ СЃРїРёСЃР°РЅРёСЏ'
-            ELSE 'РІРѕР·РІСЂР°С‚ Р°РіСЂРµРіР°С‚РѕСЂР° РЅРµ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ' END AS finding
+                 THEN 'отказ до списания'
+            ELSE 'возврат агрегатора не подтверждён' END AS finding
 FROM task_price_quotes q JOIN task_dispatch d ON d.quote_id=q.id
 LEFT JOIN video_jobs v ON v.id=q.id
 LEFT JOIN anymodel_image_jobs i ON q.provider='anymodel' AND q.operation='images.generate'
