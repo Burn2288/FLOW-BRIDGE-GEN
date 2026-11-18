@@ -34,6 +34,14 @@ class ModelPolicy:
     def __init__(self,app,keyboard):
         self.app,self.keyboard = app,keyboard
 
+    async def stage_capabilities(self, user, external, provider, model, operation, schema):
+        from .model_capabilities import stage
+        return await stage(self, user, external, provider, model, operation, schema)
+
+    async def publish_capabilities(self, user, external, provider, model, operation, version):
+        from .model_capabilities import publish
+        return await publish(self, user, external, provider, model, operation, version)
+
     async def list(self,provider,operation=None,*,snapshot=None):
         rows = await self.app.pool.fetch("""
             SELECT model_id,operation,title FROM approved_models
