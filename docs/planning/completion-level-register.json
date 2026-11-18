@@ -1,0 +1,1856 @@
+{
+  "version": 1,
+  "status": "CANDIDATE_NOT_ACCEPTED",
+  "source_registry_sha": "ce97300166b7b14166a9563d6d92897bb7156001",
+  "main_sha": "5bd86ada3c8f7af6088ac999763489ca89a5efbf",
+  "active_completion_level": "FUNCTIONAL_TEST",
+  "tasks": [
+    {
+      "list_id": "Burn2288",
+      "list_position": 1,
+      "global_list_id": "MASTER",
+      "global_list_position": 1,
+      "task_id": "IN-01",
+      "title": "Утвердить порядок интеграции и freeze SHA",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": []
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 2,
+      "global_list_id": "MASTER",
+      "global_list_position": 2,
+      "task_id": "IN-02",
+      "title": "Принять документационную базу PR #1",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 1,
+      "global_list_id": "MASTER",
+      "global_list_position": 3,
+      "task_id": "IN-08",
+      "title": "Интегрировать PR #8 и доказать supersession ранних пилотов",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-02"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 2,
+      "global_list_id": "MASTER",
+      "global_list_position": 4,
+      "task_id": "IN-09",
+      "title": "Провести отдельную приёмку и интеграцию PR #9: Veo video",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-08"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 3,
+      "global_list_id": "MASTER",
+      "global_list_position": 5,
+      "task_id": "IN-10",
+      "title": "Провести отдельную приёмку и интеграцию PR #10: AnyModel registry",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-09"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 4,
+      "global_list_id": "MASTER",
+      "global_list_position": 6,
+      "task_id": "IN-11",
+      "title": "Провести отдельную приёмку и интеграцию PR #11: FIBO async image",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-10"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 5,
+      "global_list_id": "MASTER",
+      "global_list_position": 7,
+      "task_id": "IN-12",
+      "title": "Провести отдельную приёмку и интеграцию PR #12: Grok video",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-11"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 6,
+      "global_list_id": "MASTER",
+      "global_list_position": 8,
+      "task_id": "IN-13",
+      "title": "Провести отдельную приёмку и интеграцию PR #13: AnyModel speech",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-12"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 7,
+      "global_list_id": "MASTER",
+      "global_list_position": 9,
+      "task_id": "IN-14",
+      "title": "Провести отдельную приёмку и интеграцию PR #14: Welcome/navigation",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-13"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 8,
+      "global_list_id": "MASTER",
+      "global_list_position": 10,
+      "task_id": "IN-15",
+      "title": "Провести отдельную приёмку и интеграцию PR #15: Task progress",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-14"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 9,
+      "global_list_id": "MASTER",
+      "global_list_position": 11,
+      "task_id": "IN-16",
+      "title": "Принять PR #16: финансы, каталог и Telegram Admin",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-15"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 10,
+      "global_list_id": "MASTER",
+      "global_list_position": 12,
+      "task_id": "IN-17",
+      "title": "Принять PR #17: Mini App и новый inbox",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-16"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 3,
+      "global_list_id": "MASTER",
+      "global_list_position": 13,
+      "task_id": "IN-18",
+      "title": "Согласовать фундамент и план как отдельные docs PR",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 4,
+      "global_list_id": "MASTER",
+      "global_list_position": 14,
+      "task_id": "IN-19",
+      "title": "Синхронизировать и запустить целую принятую сборку",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-17",
+        "IN-18"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 5,
+      "global_list_id": "MASTER",
+      "global_list_position": 15,
+      "task_id": "AR-01",
+      "title": "Зафиксировать реальные границы модулей и транзакций",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-03"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 6,
+      "global_list_id": "MASTER",
+      "global_list_position": 16,
+      "task_id": "AR-02",
+      "title": "Изолировать транспортные команды от финансовых деталей",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AR-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 11,
+      "global_list_id": "MASTER",
+      "global_list_position": 17,
+      "task_id": "TG-01",
+      "title": "Перевести главное меню и Back без потери старых маршрутов",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 12,
+      "global_list_id": "MASTER",
+      "global_list_position": 18,
+      "task_id": "TG-02",
+      "title": "Подключить документы и текущий consent к Telegram UX",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "SL-01",
+        "TG-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 13,
+      "global_list_id": "MASTER",
+      "global_list_position": 19,
+      "task_id": "TG-03",
+      "title": "Личный кабинет и история общего кошелька",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "PY-01",
+        "TG-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 14,
+      "global_list_id": "MASTER",
+      "global_list_position": 20,
+      "task_id": "MA-01",
+      "title": "Принять существующую Mini App в Telegram по HTTPS",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19",
+        "OP-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 15,
+      "global_list_id": "MASTER",
+      "global_list_position": 21,
+      "task_id": "MA-02",
+      "title": "Форма image quote и явное подтверждение",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AP-02",
+        "MA-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 16,
+      "global_list_id": "MASTER",
+      "global_list_position": 22,
+      "task_id": "MA-03",
+      "title": "Карточка job и безопасная отмена",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "MA-02",
+        "AP-03",
+        "JO-02"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 17,
+      "global_list_id": "MASTER",
+      "global_list_position": 23,
+      "task_id": "MA-04",
+      "title": "Довести пользовательский parity и доступность",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "MA-03",
+        "VI-02",
+        "VO-02",
+        "MU-02",
+        "ML-03",
+        "RF-03",
+        "SL-03",
+        "PY-03"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 7,
+      "global_list_id": "MASTER",
+      "global_list_position": 24,
+      "task_id": "AD-01",
+      "title": "Серверные admin roles, chooser и read-only обзор",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AP-01",
+        "TA-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 8,
+      "global_list_id": "MASTER",
+      "global_list_position": 25,
+      "task_id": "AD-02",
+      "title": "Одна typed settings-мутация с аудитом и rollback",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AD-01",
+        "MC-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 18,
+      "global_list_id": "MASTER",
+      "global_list_position": 26,
+      "task_id": "AD-03",
+      "title": "Графические admin экраны по общему API",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AD-02",
+        "OB-02"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 19,
+      "global_list_id": "MASTER",
+      "global_list_position": 27,
+      "task_id": "TA-01",
+      "title": "Зафиксировать compatibility inventory Admin Edition",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 20,
+      "global_list_id": "MASTER",
+      "global_list_position": 28,
+      "task_id": "TA-02",
+      "title": "Сохранить Telegram admin при общих admin services",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AD-02",
+        "TA-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 9,
+      "global_list_id": "MASTER",
+      "global_list_position": 29,
+      "task_id": "PR-01",
+      "title": "Расширить existing registry нормализованным manifest",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AR-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 10,
+      "global_list_id": "MASTER",
+      "global_list_position": 30,
+      "task_id": "PR-02",
+      "title": "Версии, health, staging и rollback провайдера",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "PR-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 11,
+      "global_list_id": "MASTER",
+      "global_list_position": 31,
+      "task_id": "PR-03",
+      "title": "Сверить live capability каждого включаемого адаптера",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "PR-02",
+        "IM-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 12,
+      "global_list_id": "MASTER",
+      "global_list_position": 32,
+      "task_id": "MC-01",
+      "title": "Версионировать модель и capabilities без второго каталога",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "PR-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 21,
+      "global_list_id": "MASTER",
+      "global_list_position": 33,
+      "task_id": "MC-02",
+      "title": "Общие карточки и schema-driven параметры каталога",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "MC-01",
+        "MA-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 22,
+      "global_list_id": "MASTER",
+      "global_list_position": 34,
+      "task_id": "PC-01",
+      "title": "Уточнить токены, XTR, RUB и immutable quote",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 23,
+      "global_list_id": "MASTER",
+      "global_list_position": 35,
+      "task_id": "PC-02",
+      "title": "Preview и publish versioned тарифов",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "PC-01",
+        "AD-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 13,
+      "global_list_id": "MASTER",
+      "global_list_position": 36,
+      "task_id": "JO-01",
+      "title": "Доказать topology и закрыть missing lease/fencing",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IM-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 14,
+      "global_list_id": "MASTER",
+      "global_list_position": 37,
+      "task_id": "JO-02",
+      "title": "Bounded queue, fairness, cancellation и shutdown",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 15,
+      "global_list_id": "MASTER",
+      "global_list_position": 38,
+      "task_id": "JO-03",
+      "title": "Единый job projection и состояния четырёх типов",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-02"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 24,
+      "global_list_id": "MASTER",
+      "global_list_position": 39,
+      "task_id": "IM-01",
+      "title": "Повторить штатный image путь с ordinary user",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19",
+        "PC-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 25,
+      "global_list_id": "MASTER",
+      "global_list_position": 40,
+      "task_id": "IM-02",
+      "title": "Три live изображения и временный отказ",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IM-01",
+        "ML-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 26,
+      "global_list_id": "MASTER",
+      "global_list_position": 41,
+      "task_id": "VI-01",
+      "title": "Согласовать video create/poll и финальный расчёт",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 27,
+      "global_list_id": "MASTER",
+      "global_list_position": 42,
+      "task_id": "VI-02",
+      "title": "Video формы двух клиентов и разрешённая приёмка",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "VI-01",
+        "AP-03",
+        "MC-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 16,
+      "global_list_id": "MASTER",
+      "global_list_position": 43,
+      "task_id": "VO-01",
+      "title": "Нормализовать существующие TTS голоса и units",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 28,
+      "global_list_id": "MASTER",
+      "global_list_position": 44,
+      "task_id": "VO-02",
+      "title": "Voice UI и E2E двух клиентов",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "VO-01",
+        "AP-03",
+        "MC-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 17,
+      "global_list_id": "MASTER",
+      "global_list_position": 45,
+      "task_id": "MU-01",
+      "title": "Свести CLODEX/Fal music в общий lifecycle",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-03",
+        "PR-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 29,
+      "global_list_id": "MASTER",
+      "global_list_position": 46,
+      "task_id": "MU-02",
+      "title": "Music UI, library и разрешённый live proof",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "MU-01",
+        "AP-03",
+        "MC-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 18,
+      "global_list_id": "MASTER",
+      "global_list_position": 47,
+      "task_id": "ML-01",
+      "title": "Доказать сохранность image и восстановление доставки",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 19,
+      "global_list_id": "MASTER",
+      "global_list_position": 48,
+      "task_id": "ML-02",
+      "title": "Общий LibraryItem для всех сохранённых типов",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-03",
+        "ML-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 30,
+      "global_list_id": "MASTER",
+      "global_list_position": 49,
+      "task_id": "ML-03",
+      "title": "Пять строк Telegram и карточки Mini App",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "ML-02",
+        "MA-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 31,
+      "global_list_id": "MASTER",
+      "global_list_position": 50,
+      "task_id": "WL-01",
+      "title": "Проверить атомарный reserve/capture/release/refund",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 20,
+      "global_list_id": "MASTER",
+      "global_list_position": 51,
+      "task_id": "WL-02",
+      "title": "Сверка ledger и контролируемые корректировки",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "WL-01",
+        "PY-02"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 32,
+      "global_list_id": "MASTER",
+      "global_list_position": 52,
+      "task_id": "PY-01",
+      "title": "Проверить existing Stars checkout на одном конфиге",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19",
+        "PC-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 33,
+      "global_list_id": "MASTER",
+      "global_list_position": 53,
+      "task_id": "PY-02",
+      "title": "Проверить Platega callback/reconcile без Telegram checkout",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 34,
+      "global_list_id": "MASTER",
+      "global_list_position": 54,
+      "task_id": "PY-03",
+      "title": "Mini App Stars и payment history",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AP-01",
+        "PY-01",
+        "MA-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 21,
+      "global_list_id": "MASTER",
+      "global_list_position": 55,
+      "task_id": "RF-01",
+      "title": "Адаптировать immutable attribution из донора",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AR-01",
+        "SL-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 22,
+      "global_list_id": "MASTER",
+      "global_list_position": 56,
+      "task_id": "RF-02",
+      "title": "Rewards на capture и reversal/debt",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "RF-01",
+        "WL-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 35,
+      "global_list_id": "MASTER",
+      "global_list_position": 57,
+      "task_id": "RF-03",
+      "title": "Реферальные экраны и API обоих клиентов",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "RF-02",
+        "AP-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 23,
+      "global_list_id": "MASTER",
+      "global_list_position": 58,
+      "task_id": "SL-01",
+      "title": "Общее versioned consent и юридические MD",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AR-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 24,
+      "global_list_id": "MASTER",
+      "global_list_position": 59,
+      "task_id": "SL-02",
+      "title": "Общий support ticket и operator workflow",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AD-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 36,
+      "global_list_id": "MASTER",
+      "global_list_position": 60,
+      "task_id": "SL-03",
+      "title": "Support/legal/profile в двух клиентах",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "SL-01",
+        "SL-02",
+        "MA-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 25,
+      "global_list_id": "MASTER",
+      "global_list_position": 61,
+      "task_id": "SE-01",
+      "title": "Threat model и security boundary suite",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AR-01",
+        "AD-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 26,
+      "global_list_id": "MASTER",
+      "global_list_position": 62,
+      "task_id": "SE-02",
+      "title": "Безопасные экспорт, логи и retention",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "SE-01",
+        "ML-02"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 37,
+      "global_list_id": "MASTER",
+      "global_list_position": 63,
+      "task_id": "SE-03",
+      "title": "Независимая regression security двух клиентов",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "SE-02",
+        "AD-03",
+        "MA-03"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 27,
+      "global_list_id": "MASTER",
+      "global_list_position": 64,
+      "task_id": "TQ-01",
+      "title": "Закрепить CI profile и fixtures для интегрированной базы",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 38,
+      "global_list_id": "MASTER",
+      "global_list_position": 65,
+      "task_id": "TQ-02",
+      "title": "Сквозная parity/regression matrix четырёх студий",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "MA-04",
+        "TA-02",
+        "WL-02",
+        "SE-03"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 28,
+      "global_list_id": "MASTER",
+      "global_list_position": 66,
+      "task_id": "OP-01",
+      "title": "Подготовить закрытый HTTPS test endpoint Mini App",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 29,
+      "global_list_id": "MASTER",
+      "global_list_position": 67,
+      "task_id": "OP-02",
+      "title": "Проверить миграции и полный backup/restore",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "ML-02",
+        "WL-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 30,
+      "global_list_id": "MASTER",
+      "global_list_position": 68,
+      "task_id": "OP-03",
+      "title": "Принять Ubuntu release candidate и shutdown",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "OP-02",
+        "JO-02",
+        "SE-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 31,
+      "global_list_id": "MASTER",
+      "global_list_position": 69,
+      "task_id": "OB-01",
+      "title": "Единая safe timeline job и provider request",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "JO-03"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 32,
+      "global_list_id": "MASTER",
+      "global_list_position": 70,
+      "task_id": "OB-02",
+      "title": "Операционный и финансовый read API",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "OB-01",
+        "AD-01"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 39,
+      "global_list_id": "MASTER",
+      "global_list_position": 71,
+      "task_id": "OB-03",
+      "title": "Dashboard отчётов и управляемые incident alerts",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "OB-02",
+        "AD-03"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 33,
+      "global_list_id": "MASTER",
+      "global_list_position": 72,
+      "task_id": "DC-01",
+      "title": "Устранить расхождения фундаментальных контрактов",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-18"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 34,
+      "global_list_id": "MASTER",
+      "global_list_position": 73,
+      "task_id": "DC-02",
+      "title": "Сверить финальные runbooks с реализацией",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "OP-03",
+        "TQ-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 35,
+      "global_list_id": "MASTER",
+      "global_list_position": 74,
+      "task_id": "RL-01",
+      "title": "Согласовать scope, цены и критерии пилота",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "PR-03",
+        "WL-02",
+        "PY-03",
+        "SE-03"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 40,
+      "global_list_id": "MASTER",
+      "global_list_position": 75,
+      "task_id": "RL-02",
+      "title": "Провести ограниченный коммерческий user journey",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "RL-01",
+        "TQ-02",
+        "OP-03",
+        "OB-03"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 36,
+      "global_list_id": "MASTER",
+      "global_list_position": 76,
+      "task_id": "RL-03",
+      "title": "Release decision и синхронизация двух полных сборок",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "RL-02",
+        "DC-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 37,
+      "global_list_id": "MASTER",
+      "global_list_position": 77,
+      "task_id": "AP-01",
+      "title": "Описать существующий API OpenAPI 3.1 и auth errors",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AR-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 38,
+      "global_list_id": "MASTER",
+      "global_list_position": 78,
+      "task_id": "AP-02",
+      "title": "Transport-neutral quote и image job command",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AP-01",
+        "AR-02",
+        "PC-01"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 39,
+      "global_list_id": "MASTER",
+      "global_list_position": 79,
+      "task_id": "AP-03",
+      "title": "Owned job status, list и cancel API",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AP-02",
+        "JO-02"
+      ]
+    },
+    {
+      "list_id": "Burn2288",
+      "list_position": 40,
+      "global_list_id": "MASTER",
+      "global_list_position": 80,
+      "task_id": "AU-01",
+      "title": "Согласовать audit-artifacts lifecycle и schema gate",
+      "owner": "Burn2288",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "IN-18"
+      ]
+    },
+    {
+      "list_id": "vankhu21",
+      "list_position": 41,
+      "global_list_id": "MASTER",
+      "global_list_position": 81,
+      "task_id": "AU-02",
+      "title": "Доказать передачу и повторный аудит без потери истории",
+      "owner": "vankhu21",
+      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "target_level": "FUNCTIONAL_TEST",
+      "completed_level": null,
+      "pr_ref": null,
+      "tested_sha": null,
+      "integrated_sha": null,
+      "global_audit_status": "NOT_ASSESSED",
+      "deferred_work": [
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+      ],
+      "dependencies": [
+        "AU-01"
+      ]
+    }
+  ]
+}

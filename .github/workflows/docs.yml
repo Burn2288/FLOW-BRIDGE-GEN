@@ -19,3 +19,4 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 .github/check_docs.py
+      - run: python3 .github/check_completion_register.py

@@ -1,0 +1,47 @@
+# vankhu21: functional-test task list — candidate
+
+Позиции воспроизведены из исторического личного списка ce973001; все статусы ожидают сверки с main и доказательствами. Фактическая готовность и зависимости определяются [реестром](../planning/completion-level-register.json), а не порядком строк. Исторические формулировки сохранены в [исходном реестре](../planning/historical-tasks-v1.json). Действует [регламент уровней](../planning/COMPLETION_LEVELS.md).
+
+| № | TASK_ID | Задача | Зависимости |
+| --- | --- | --- | --- |
+| 1 | IN-08 | Интегрировать PR #8 и доказать supersession ранних пилотов | IN-02 |
+| 2 | IN-09 | Провести отдельную приёмку и интеграцию PR #9: Veo video | IN-08 |
+| 3 | IN-10 | Провести отдельную приёмку и интеграцию PR #10: AnyModel registry | IN-09 |
+| 4 | IN-11 | Провести отдельную приёмку и интеграцию PR #11: FIBO async image | IN-10 |
+| 5 | IN-12 | Провести отдельную приёмку и интеграцию PR #12: Grok video | IN-11 |
+| 6 | IN-13 | Провести отдельную приёмку и интеграцию PR #13: AnyModel speech | IN-12 |
+| 7 | IN-14 | Провести отдельную приёмку и интеграцию PR #14: Welcome/navigation | IN-13 |
+| 8 | IN-15 | Провести отдельную приёмку и интеграцию PR #15: Task progress | IN-14 |
+| 9 | IN-16 | Принять PR #16: финансы, каталог и Telegram Admin | IN-15 |
+| 10 | IN-17 | Принять PR #17: Mini App и новый inbox | IN-16 |
+| 11 | TG-01 | Перевести главное меню и Back без потери старых маршрутов | IN-19 |
+| 12 | TG-02 | Подключить документы и текущий consent к Telegram UX | SL-01, TG-01 |
+| 13 | TG-03 | Личный кабинет и история общего кошелька | PY-01, TG-01 |
+| 14 | MA-01 | Принять существующую Mini App в Telegram по HTTPS | IN-19, OP-01 |
+| 15 | MA-02 | Форма image quote и явное подтверждение | AP-02, MA-01 |
+| 16 | MA-03 | Карточка job и безопасная отмена | MA-02, AP-03, JO-02 |
+| 17 | MA-04 | Довести пользовательский parity и доступность | MA-03, VI-02, VO-02, MU-02, ML-03, RF-03, SL-03, PY-03 |
+| 18 | AD-03 | Графические admin экраны по общему API | AD-02, OB-02 |
+| 19 | TA-01 | Зафиксировать compatibility inventory Admin Edition | IN-01 |
+| 20 | TA-02 | Сохранить Telegram admin при общих admin services | AD-02, TA-01 |
+| 21 | MC-02 | Общие карточки и schema-driven параметры каталога | MC-01, MA-01 |
+| 22 | PC-01 | Уточнить токены, XTR, RUB и immutable quote | IN-19 |
+| 23 | PC-02 | Preview и publish versioned тарифов | PC-01, AD-02 |
+| 24 | IM-01 | Повторить штатный image путь с ordinary user | IN-19, PC-01 |
+| 25 | IM-02 | Три live изображения и временный отказ | IM-01, ML-01 |
+| 26 | VI-01 | Согласовать video create/poll и финальный расчёт | JO-03, PC-01 |
+| 27 | VI-02 | Video формы двух клиентов и разрешённая приёмка | VI-01, AP-03, MC-02 |
+| 28 | VO-02 | Voice UI и E2E двух клиентов | VO-01, AP-03, MC-02 |
+| 29 | MU-02 | Music UI, library и разрешённый live proof | MU-01, AP-03, MC-02 |
+| 30 | ML-03 | Пять строк Telegram и карточки Mini App | ML-02, MA-01 |
+| 31 | WL-01 | Проверить атомарный reserve/capture/release/refund | JO-03, PC-01 |
+| 32 | PY-01 | Проверить existing Stars checkout на одном конфиге | IN-19, PC-01 |
+| 33 | PY-02 | Проверить Platega callback/reconcile без Telegram checkout | IN-19 |
+| 34 | PY-03 | Mini App Stars и payment history | AP-01, PY-01, MA-01 |
+| 35 | RF-03 | Реферальные экраны и API обоих клиентов | RF-02, AP-01 |
+| 36 | SL-03 | Support/legal/profile в двух клиентах | SL-01, SL-02, MA-01 |
+| 37 | SE-03 | Независимая regression security двух клиентов | SE-02, AD-03, MA-03 |
+| 38 | TQ-02 | Сквозная parity/regression matrix четырёх студий | MA-04, TA-02, WL-02, SE-03 |
+| 39 | OB-03 | Dashboard отчётов и управляемые incident alerts | OB-02, AD-03 |
+| 40 | RL-02 | Провести ограниченный коммерческий user journey | RL-01, TQ-02, OP-03, OB-03 |
+| 41 | AU-02 | Доказать передачу и повторный аудит без потери истории | AU-01 |
