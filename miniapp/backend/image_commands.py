@@ -110,14 +110,14 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
         return web.json_response({'id': str(quote.id)}, status=201)
 
     async def get_jobs(user, job_id=None):
-        rows = await pool.fetch("""SELECT q.id,q.model_id,d.state,w.id AS work_id,
+        rows = await pool.fetch("""SELECT q.id,q.model_id,d.state,w.id AS work_id,h.cancelled_at,
                    (h.quote_id IS NOT NULL) AS http_origin
             FROM task_price_quotes q JOIN task_dispatch d ON d.quote_id=q.id
             LEFT JOIN http_image_commands h ON h.quote_id=q.id AND h.user_id=q.user_id
             LEFT JOIN image_works w ON w.update_id=q.update_id AND w.user_id=q.user_id AND w.expires_at>now()
             WHERE q.user_id=$1 AND q.operation='images.generate' AND ($2::uuid IS NULL OR q.id=$2)
             ORDER BY q.accepted_at DESC LIMIT 100""", user, job_id)
-        return [{'id': str(r['id']), 'model': r['model_id'], 'state': r['state'],
+        return [{'id': str(r['id']), 'model': r['model_id'], 'state': 'cancelled' if r['cancelled_at'] else r['state'],
                  'origin': 'http' if r['http_origin'] else 'telegram',
                  'result_url': '/api/v1/works/image/' + str(r['work_id']) if r['work_id'] else None}
                 for r in rows]
@@ -138,15 +138,20 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
         async with pool.acquire() as conn, conn.transaction():
             state = await conn.fetchval("""UPDATE task_dispatch d SET state='interrupted'
                 FROM task_price_quotes q WHERE d.quote_id=q.id AND q.id=$1 AND q.user_id=$2
-                AND q.operation='images.generate' AND d.state='pending' RETURNING d.state""", job_id, user)
+                AND q.operation='images.generate' AND d.state='pending'
+                AND EXISTS (SELECT 1 FROM http_image_commands h WHERE h.quote_id=q.id AND h.user_id=q.user_id)
+                RETURNING d.state""", job_id, user)
             if state:
+                await conn.execute('UPDATE http_image_commands SET cancelled_at=now() WHERE quote_id=$1 AND user_id=$2', job_id, user)
                 await settle_task_tokens(conn, job_id)
-                return web.json_response({'cancelled': True, 'state': state})
-            state = await conn.fetchval("""SELECT d.state FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id
+                return web.json_response({'cancelled': True, 'state': 'cancelled'})
+            row = await conn.fetchrow("""SELECT d.state,h.cancelled_at FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id
+                LEFT JOIN http_image_commands h ON h.quote_id=q.id AND h.user_id=q.user_id
                 WHERE q.id=$1 AND q.user_id=$2 AND q.operation='images.generate'""", job_id, user)
-            if state is None:
+            if row is None:
                 raise web.HTTPNotFound()
-            return web.json_response({'cancelled': state == 'interrupted', 'state': state})
+            was_cancelled = row['cancelled_at'] is not None
+            return web.json_response({'cancelled': was_cancelled, 'state': 'cancelled' if was_cancelled else row['state']})
 
     app.router.add_post('/api/v1/quotes', create_quote)
     app.router.add_post('/api/v1/jobs', create_job)

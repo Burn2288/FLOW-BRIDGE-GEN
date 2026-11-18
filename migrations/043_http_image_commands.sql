@@ -6,6 +6,7 @@ CREATE TABLE http_image_commands (
     quote_id uuid NOT NULL REFERENCES task_price_quotes(id),
     correlation_id bigint NOT NULL UNIQUE CHECK (correlation_id < 0),
     created_at timestamptz NOT NULL DEFAULT now(),
+    cancelled_at timestamptz,
     PRIMARY KEY (user_id, idempotency_key),
     UNIQUE (quote_id)
 );

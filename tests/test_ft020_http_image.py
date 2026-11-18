@@ -108,7 +108,8 @@ async def test_cancel_pending_is_idempotent_without_provider_post(image_api):
     assert (await create(client, headers[0], q)).status == 201
     for _ in range(2):
         result = await (await client.post('/api/v1/jobs/'+q+'/cancel', headers=headers[0])).json()
-        assert result == {'cancelled':True,'state':'interrupted'}
+        assert result == {'cancelled':True,'state':'cancelled'}
+    assert (await (await client.get('/api/v1/jobs/'+q, headers=headers[0])).json())['state'] == 'cancelled'
     with pytest.raises(Rejected):
         await deferred.pop()()
     assert not posts
