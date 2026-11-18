@@ -25,7 +25,7 @@ async def test_history_projects_owned_active_and_saved_jobs(env):
     other = await service.identity(101)
     await service.accept(other)
     image = await service.save_image_work(owner, 73311, 'fixture-image', 'fixture',
-                                          SimpleNamespace(image=MOCK_IMAGE, filename='fixture.png'))
+                                          SimpleNamespace(image=MOCK_IMAGE, filename='test.png'))
     owned_video, other_video = uuid4(), uuid4()
     await pool.execute("""INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,status)
                           VALUES($1,$2,'fixture-video','fixture',0,'polling'),
