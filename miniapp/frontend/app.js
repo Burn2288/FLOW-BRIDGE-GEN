@@ -50,6 +50,16 @@ async function showWorks(target) {
     const label = kinds[work.kind] ?? work.kind;
     const state = states[work.status] ?? work.status;
     const item = listItem([label, work.model, state].filter(Boolean).join(' · '));
+    const historyButton = document.createElement('button');
+    historyButton.textContent = 'История';
+    const details = document.createElement('ul');
+    historyButton.onclick = async () => {
+      try {
+        const data = await (await request('/api/v1/works/' + encodeURIComponent(work.kind) + '/' + work.id + '/timeline')).json();
+        details.replaceChildren(...data.events.map(event => listItem(event.label + (event.at ? ' · ' + event.at : ''))));
+      } catch (error) { showError(error); }
+    };
+    item.append(historyButton, details);
     if (work.available) {
       const button = document.createElement('button');
       button.textContent = 'Скачать';
