@@ -99,3 +99,16 @@ async def test_inflight_mock_keeps_snapshot_on_failure_and_rollback():
     finish.set()
     assert await task == old
     assert sent == [old]
+
+
+def test_failed_stage_does_not_replace_active_version():
+    registry, value = configured()
+    lifecycle = registry.lifecycle
+    version = lifecycle.stage(value, MockManifestProbe())['version']
+    lifecycle.activate('clodex', version)
+    changed = deepcopy(value)
+    changed['models'][0]['mode'] = 'async'
+    assert lifecycle.stage(changed, MockManifestProbe(succeeds=False))['status'] == 'MOCK_FAILED'
+    assert lifecycle.pin('clodex', 'fixture/model')['version'] == version
+    with pytest.raises(DiscoveryError):
+        lifecycle.activate('clodex', 'unvalidated')
