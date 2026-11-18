@@ -26,7 +26,7 @@ def test_source_ids_language_and_price_evidence_are_not_inferred():
     assert desc.price_available is None and desc.price_source is None
     unknown = anymodel_voice({'name':'English'}, model_id='anyvoice/x', voice_id='anyvoice/x', title='English')
     assert unknown.language is None
-    cost = ProviderCost(Decimal('4'), 'anymodel_balance_token', False, 'authenticated fixture tariff', 'units')
+    cost = ProviderCost(Decimal('4'), 'anymodel_balance_token', False, '/v1/models/info · billing · fixture', 'units')
     assert anymodel_voice(voice, model_id=voice['model'], voice_id=voice['model'], title=voice['name'], cost=cost).price_source == cost.source
     clodex = clodex_tts_voice('eleven_v4', {'id':'source-voice','name':'Voice'}, available=True)
     assert clodex.voice_id == 'source-voice' and clodex.model_id == 'eleven_v4'
@@ -34,6 +34,8 @@ def test_source_ids_language_and_price_evidence_are_not_inferred():
     clodex_quoted = clodex_tts_voice('eleven_v4', {'id':'source-voice','name':'Voice'}, available=True,
                                      price={'source':'manual:fixture'})
     assert clodex_quoted.price_source == 'manual:fixture' and clodex_quoted.price_available is True
+    assert clodex_tts_voice('eleven_v4', {'id':'source-voice','name':'Voice'}, available=True,
+                            price={'source':'public catalogue'}).price_available is None
     legacy = catalog(Config(mode='mock', generation_enabled=True))[0]
     assert legacy['id'] == 'demo' and legacy['speech_capability']['voice_id'] == 'demo'
     assert legacy['speech_capability']['counting_unit'] == 'unicode_codepoints'

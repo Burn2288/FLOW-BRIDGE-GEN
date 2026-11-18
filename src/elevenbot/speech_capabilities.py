@@ -27,10 +27,12 @@ def source_language(record):
 
 def anymodel_voice(record, *, model_id, title, voice_id=None, cost=None):
     # The authenticated catalogue proves presence, not a usable account price.
+    source = getattr(cost, 'source', None)
+    verified = isinstance(source, str) and any(source.startswith(prefix) for prefix in (
+        '/v1/models/info · billing · ', '/v1/audio/voices · billing · '))
     return SpeechCapability('anymodel', model_id, voice_id, title, source_language(record),
                             True, 'catalogue_only', 'audio/mpeg', 'utf16_code_units',
-                            True if cost is not None else None,
-                            cost.source if cost is not None else None)
+                            True if verified else None, source if verified else None)
 
 
 def legacy_voice(cfg, record):
@@ -45,10 +47,11 @@ def legacy_voice(cfg, record):
 
 def clodex_tts_voice(model_id, record, *, available, price=None):
     # The model's task tariff is an approved manual quote, not a public price.
+    source = price.get('source') if isinstance(price, dict) else None
+    verified = isinstance(source, str) and source.startswith('manual:') and source != 'manual:preview'
     return SpeechCapability('clodex', model_id, record['id'], record['name'],
                             source_language(record), bool(available), 'generation_config_only', 'audio/mpeg',
-                            None, True if price is not None else None,
-                            price.get('source') if price is not None else None)
+                            None, True if verified else None, source if verified else None)
 
 
 def utf16_units(text):
