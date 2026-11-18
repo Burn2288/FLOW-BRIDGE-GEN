@@ -14,6 +14,7 @@ from uuid import UUID
 from aiohttp import web
 
 from elevenbot.core import Rejected, Service
+from elevenbot.library import LibraryItem
 from elevenbot.admission import admitted
 
 INIT_MAX_AGE = 300
@@ -177,11 +178,7 @@ def create_app(pool, cfg):
         except ValueError:
             raise web.HTTPBadRequest() from None
         rows = await service.history(user, page * 10)
-        return web.json_response({'works': [
-            dict(id=str(row['id']), kind=row['kind'], model=row['model_id'],
-                 status=row['status'], available=bool(row['file_available']),
-                 created_at=row['created_at'].isoformat()) for row in rows
-        ]})
+        return web.json_response({'works': [LibraryItem.from_history(row).as_dict() for row in rows]})
 
     async def result(request):
         user = await account(request)
