@@ -173,3 +173,37 @@ async def test_legacy_quote_is_not_retroactively_versioned(env, confirmed_credit
         assert accepted and quote.request.model_version is None and posts == ['/generate']
         raw = await pool.fetchval('SELECT request::text FROM task_price_quotes WHERE id=$1', legacy.id)
         assert 'model_version' not in json.loads(raw)
+
+
+async def test_inflight_dispatch_keeps_pinned_version_during_republish(env, confirmed_credit):
+    pool, cfg, _, user = env
+    posts, deferred = [], []
+    def respond(request):
+        posts.append(request.url.path)
+        return httpx.Response(200, json={'answer': 'completed'})
+    async with httpx.AsyncClient(base_url='https://fixture.invalid', transport=httpx.MockTransport(respond)) as client:
+        app = app_with_fixture(pool, cfg, Bot(), client)
+        adapter = app.providers.launches['fixture']
+        adapter.prepare = AsyncMock(wraps=adapter.prepare)
+        app.pricing.adapters['fixture'].cost = AsyncMock(side_effect=NoProviderPrice)
+        await pool.execute("INSERT INTO approved_models VALUES('fixture','fixture/chat','chat','Fixture')")
+        await confirmed_credit(pool, cfg, user, 100)
+        await app.pricing.set_tariff(user, 100, 'fixture', 'fixture/chat', 'chat', {},
+            basis='request', unit='darkflow_token', amount='10', evidence='fixture')
+        schema_a = {'properties': {}, 'required': []}
+        version_a = await app.models.stage_capabilities(user, 100, 'fixture', 'fixture/chat', 'chat', schema_a)
+        await app.models.publish_capabilities(user, 100, 'fixture', 'fixture/chat', 'chat', version_a)
+        shown = await app.pricing.quote(user, Request('fixture', 'fixture/chat', 'chat', 'Fixture', 'prompt'))
+        quote, accepted, _ = await app.launch.confirm(user, 100, shown.id, 9494,
+            progress=lambda _: nullcontext(), background=None, defer=lambda q, run: deferred.append((q, run)))
+        assert accepted and len(deferred) == 1
+        assert adapter.prepare.await_args.args[3].request.model_version['version'] == str(version_a)
+        assert await pool.fetchval('SELECT state FROM task_dispatch WHERE quote_id=$1', shown.id) == 'pending'
+        schema_b = {'properties': {'max_tokens': {'type': 'integer', 'minimum': 1, 'maximum': 100}}, 'required': []}
+        version_b = await app.models.stage_capabilities(user, 100, 'fixture', 'fixture/chat', 'chat', schema_b)
+        await app.models.publish_capabilities(user, 100, 'fixture', 'fixture/chat', 'chat', version_b)
+        assert quote.request.model_version['version'] == str(version_a)
+        await deferred[0][1]()
+        assert posts == ['/generate']
+        assert await pool.fetchval('SELECT state FROM task_dispatch WHERE quote_id=$1', shown.id) == 'completed'
+        assert await app.svc.chat_work(user, shown.id) == 'completed'
