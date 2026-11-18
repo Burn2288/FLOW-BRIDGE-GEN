@@ -1,11 +1,14 @@
 """Cross-boundary regression on existing jobs; no live provider or payment."""
 import hashlib
+from types import SimpleNamespace
 
 from elevenbot.providers import MockProvider
 from elevenbot.worker import Worker
 
 
-async def test_repeated_confirmation_preserves_saved_result_and_single_capture(env):
+async def test_repeated_confirmation_preserves_saved_result_and_single_capture(env, monkeypatch):
+    # The transaction test validates stored bytes, not external ffprobe itself.
+    monkeypatch.setattr("elevenbot.storage.subprocess.run", lambda *args, **kwargs: SimpleNamespace(stdout=b'{"format":{"duration":"1"}}'))
     pool, cfg, service, user = env
     quote, _ = await service.quote(user, 'Boundaries', 'demo')
     job = await service.confirm(user, quote)
