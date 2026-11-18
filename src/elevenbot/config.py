@@ -22,6 +22,7 @@ class Config:
     cost_per_char: int = 0
     retail_per_char: int = 1
     concurrency: int = 2
+    queue_max_pending: int = 100
     token: str = ''
     miniapp_url: str = ''
     storage: Path = Path('data/audio')
@@ -95,7 +96,7 @@ class Config:
               budget=int(budget) if budget else None,
               cost_per_char=int(os.getenv('PROVIDER_COST_BOUND_PER_CHAR','0')),
               retail_per_char=int(os.getenv('RETAIL_CREDITS_PER_CHAR','1')),
-              concurrency=int(os.getenv('PROVIDER_CONCURRENCY','2')),token=os.getenv('TELEGRAM_BOT_TOKEN',''),
+              concurrency=int(os.getenv('PROVIDER_CONCURRENCY','2')),queue_max_pending=int(os.getenv('QUEUE_MAX_PENDING','100')),token=os.getenv('TELEGRAM_BOT_TOKEN',''),
               miniapp_url=os.getenv('MINIAPP_URL','').strip(),
               storage=Path(local(os.getenv('AUDIO_STORAGE_DIR','data/audio'))),
               support=os.getenv('SUPPORT_CONTACT',cls.support),terms=os.getenv('TERMS_TEXT',cls.terms),
@@ -181,7 +182,7 @@ class Config:
             parsed=urlparse(c.telegram_api_base)
             if not(flag('ALLOW_LOCAL_TELEGRAM_STUB') and c.mode=='mock' and not c.payments_enabled and parsed.hostname=='127.0.0.1' and parsed.scheme=='http' and not parsed.username and not parsed.password):
                 raise ValueError('Local Telegram stub allowed only in explicit unpaid mock mode')
-        if c.mode not in ('mock','clodex','catalogue') or c.concurrency<1 or c.retail_per_char<1: raise ValueError('Invalid configuration')
+        if c.mode not in ('mock','clodex','catalogue') or c.concurrency<1 or c.queue_max_pending<1 or c.retail_per_char<1: raise ValueError('Invalid configuration')
         if c.mode=='mock' and c.payments_enabled: raise ValueError('Real payments forbidden in mock')
         if c.mode=='clodex' and (c.generation_enabled or c.payments_enabled):
             if not(c.economy_verified and c.clodex_key and c.clodex_model and c.voice_catalogue_path and c.cost_per_char>0 and (c.budget is None or c.budget>0)):
