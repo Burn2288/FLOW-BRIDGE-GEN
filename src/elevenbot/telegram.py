@@ -1582,6 +1582,11 @@ class TelegramApp:
             if provider not in self.pricing.adapters:
                 raise Rejected('Агрегатор недоступен.')
             await self.pricing.set_rate(u,ext,unit,target,provider=provider,source_amount=source)
+        elif command=='/price_account' and len(args)==1:
+            from .task_receipts import reconcile_generation
+            result=await reconcile_generation(self.pool,uid(args[0]),self.providers.financial_sources)
+            await self.say(ext,result)
+            return
         elif command=='/price_account' and len(args)==5:
             await self.pricing.reconcile(u,ext,uid(args[0]),*args[1:])
         else:
