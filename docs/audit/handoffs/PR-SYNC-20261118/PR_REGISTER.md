@@ -1,6 +1,6 @@
 # Snapshot of 36 open public PRs — 2026-11-18
 
-This is a **reconciliation inventory**, not a merge recommendation or proof of peer review. `main` at inventory: `60254e9ba24acb71d5694a230eebdb547f0e092e`. All below are OPEN; #11 is non-Draft and has one **APPROVED** review by Burn2288, other 35 are Draft. No blanket approval for stacked heads.
+This is a **reconciliation inventory**, not a merge recommendation or proof of peer review. `main` at inventory: `60254e9ba24acb71d5694a230eebdb547f0e092e`. All below are OPEN; #2 and #11 are non-Draft, while 34 are Draft. #11 has one **APPROVED** review by Burn2288; #2 has no review submission in the inspected PR review list. No blanket approval for stacked heads.
 
 | PR | Owner | Integration treatment pending individual verification |
 |---|---|---|
@@ -22,7 +22,7 @@ This is a **reconciliation inventory**, not a merge recommendation or proof of p
 | #43 | vankhu21 | DEV fixture and split bot/worker execution; requires combined CI |
  
 ## Counts and procedure
-- **36 open:** 14 vankhu21, 22 Burn2288 (check exact per-PR owner on each action). 35 Draft; one (#11) non-Draft and APPROVED. Historical approved PR #1 and #8–#10 are already merged and **not** in this inventory.
+- **36 open:** 15 vankhu21, 21 Burn2288 (check exact per-PR owner on each action). 34 Draft; #2 and #11 non-Draft, of which #11 has an APPROVED review. Historical approved PR #1 and #8–#10 are already merged and **not** in this inventory.
 - No PR should be simply closed as an alternative to integration until its unique commits are proven included in the accepted final SHA or deliberately rejected with rationale.
 - Decide the smallest safe sequence. Prefer one coherent integration PR from an exact SHA + documented supersession for redundant stacked drafts rather than merging the same code dozens of times.
 - Verify `git merge-base`, parent history, changed-file inventory, migration checksums and full exact SHA CI; then owner-approved merge and a comment on each superseded PR linking the accepting commit.
