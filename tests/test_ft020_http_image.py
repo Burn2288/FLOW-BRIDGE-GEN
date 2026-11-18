@@ -94,6 +94,9 @@ async def test_http_image_end_to_end_idempotency_and_isolation(image_api):
     assert data['state'] == 'completed' and data['origin'] == 'http' and data['result_url']
     assert posts == ['/v1/images/generations']
     assert (await client.get(data['result_url'], headers=headers[1])).status == 404
+    foreign_wallet = await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'", users[1])
+    assert tuple(foreign_wallet) == (100, 0)
+    assert not await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1 AND task_quote_id IS NOT NULL", users[1])
     assert await (await client.get(data['result_url'], headers=headers[0])).read() == MOCK_IMAGE
     works = await (await client.get('/api/v1/works', headers=headers[0])).json()
     assert any(w['result_url'] == data['result_url'] for w in works['works'])
