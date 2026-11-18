@@ -345,6 +345,15 @@ class Service:
             await self.authorize(c,u)
             return await c.fetchrow('SELECT * FROM wallets WHERE user_id=$1 AND mode=$2',u,self.cfg.balance_wallet_mode)
 
+    async def wallet_operations(self, user, page):
+        async with self.pool.acquire() as conn:
+            await self.authorize(conn, user)
+            return await conn.fetch("""
+                SELECT created_at, kind, da, dr, coalesce(task_quote_id, job_id) AS task
+                FROM ledger WHERE user_id=$1 AND mode=$2
+                ORDER BY created_at DESC, id DESC LIMIT 11 OFFSET $3
+            """, user, self.cfg.balance_wallet_mode, page * 10)
+
     async def redeliver(self,u,j):
         r=await self.owned(u,j)
         if r['status']!='succeeded' or not r['storage_key'] or r['deleted_at'] or r['expires_at']<=datetime.now(timezone.utc): raise Rejected('Файл пока недоступен или срок хранения истёк.')

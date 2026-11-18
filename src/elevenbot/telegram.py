@@ -820,6 +820,9 @@ class TelegramApp:
             w=await self.svc.wallet(u)
             await self.refresh_balance_keyboard(ext)
             text=f"{'Демо-кредиты' if self.cfg.balance_wallet_mode=='demo' else 'Кредиты'}: {w['available']}\nЗарезервировано: {w['reserved']}"
+            text=f"Личный кабинет · Telegram ID {ext}\n"+text
+            if self.pool is not None:
+                rows.extend([[('История операций','walletlog:0')],[('Мои платежи','tuhistory:0')]])
             if self.music_access(ext):
                 pilot=await self.music.balance(u)
                 text+=f"\n\nLeonardo Music · тестовый баланс: {display(pilot['available'])}\nРезерв пилота: {display(pilot['reserved'])}"
@@ -834,6 +837,14 @@ class TelegramApp:
         route=data.partition(':')[0]
         if admin_callback(data) and not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
+        if route=='walletlog':
+            page=data.partition(':')[2]
+            if self.pool is None or not page.isascii() or not page.isdigit() or len(page)>8:
+                raise Rejected('Откройте историю из раздела «Баланс».')
+            from .wallet_history import history_screen
+            text, rows = history_screen(await self.svc.wallet_operations(u,int(page)), int(page))
+            await self.catalogue_screen(ext,text,buttons(rows),panel='balance')
+            return
         if route in MUSIC_ROUTES:
             await self.music_callback(u,ext,route,data.partition(':')[2],request_id);return
         if route in REGISTERED_PILOT_ROUTES:

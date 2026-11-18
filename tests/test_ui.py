@@ -201,10 +201,10 @@ async def test_admin_balance_keyboard_uses_current_wallet_and_opens_stale_labels
     async with pool.acquire() as conn:
         await app.svc.movement(conn,user,'live','fixture:second-top-up','pilot_grant',500,0)
     await app.handle(event(label))
-    assert bot.sent[-1][0]=='Кредиты: 1750\nЗарезервировано: 0'
+    assert bot.sent[-1][0]=='Личный кабинет · Telegram ID 100\nКредиты: 1750\nЗарезервировано: 0'
     check_keyboard(bot.sent[-2][1],'💳 1\u202f750 токенов ≈ 175 ₽')
     await app.handle(event('💳 Баланс'))
-    assert bot.sent[-1][0]=='Кредиты: 1750\nЗарезервировано: 0'
+    assert bot.sent[-1][0]=='Личный кабинет · Telegram ID 100\nКредиты: 1750\nЗарезервировано: 0'
 
     await pool.execute('DELETE FROM task_ruble_equivalent')
     await app.handle(event(MENU[0]))
