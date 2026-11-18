@@ -253,7 +253,9 @@ class VideoPilot:
                 WHERE id=$1 AND status='submitting'
                 """, job, provider_id,connection)
         except ProviderRefused:
-            await self.pool.execute("UPDATE video_jobs SET status='failed',expires_at=now()+interval '7 days' WHERE id=$1 AND status='submitting'", job)
+            async with self.pool.acquire() as conn, conn.transaction():
+                await conn.execute("UPDATE video_jobs SET status='failed',expires_at=now()+interval '7 days' WHERE id=$1 AND status='submitting'", job)
+                await conn.execute("UPDATE task_dispatch SET state='rejected' WHERE quote_id=$1 AND state='dispatching'",job)
             raise
         except (httpx.HTTPError, TimeoutError, VideoProtocolError) as error:
             await self.pool.execute("UPDATE video_jobs SET status='uncertain',expires_at=now()+interval '7 days' WHERE id=$1 AND status='submitting'", job)

@@ -31,7 +31,7 @@ async def settle_task_tokens(conn, quote_id=None):
                 CASE
                     WHEN d.state='completed' OR v.status='succeeded' OR i.status IN ('ready','delivered')
                         THEN 'task_capture'
-                    WHEN d.state IN ('interrupted','rejected') OR v.status='failed' OR i.status='failed'
+                    WHEN d.state IN ('interrupted','rejected')
                         THEN 'task_release'
                 END AS kind
             FROM ledger r

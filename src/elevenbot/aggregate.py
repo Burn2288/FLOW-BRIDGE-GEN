@@ -51,13 +51,16 @@ class ProviderRegistry:
         self.prices = {}
         self.launches = {}
         self.interactive = {}
+        self.financial_sources = {}
 
-    def register(self,provider,adapter=None,*,price=None,launch=None,title=None):
+    def register(self,provider,adapter=None,*,price=None,launch=None,title=None,financial_lookup=None):
         if not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}',provider) or provider in self.adapters:
             raise DiscoveryError('Invalid/duplicate provider')
         if title is not None and (len(provider)>15 or adapter is None or price is None or launch is None):
             raise DiscoveryError('Interactive provider requires catalogue, price and execution')
         self.adapters[provider] = adapter
+        if financial_lookup is not None:
+            self.financial_sources[provider] = financial_lookup
         if price is not None:
             self.prices[provider] = price
         if launch is not None:
