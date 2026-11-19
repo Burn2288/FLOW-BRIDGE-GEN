@@ -800,13 +800,16 @@ class TelegramApp:
             kind,_,music_provider=r.get('kind','audio').partition(':')
             name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата','music':'Музыка'}[kind]
             price=f" · {r['price']} кредитов" if r['price'] is not None else ''
-            lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {STATUS[r['status']]}{price}")
+            music_status={'queued':'В очереди','dispatching':'Выполняется','failed':'Не удалось выполнить',
+                          'uncertain':'Результат требует проверки','succeeded':'Результат сохранён'}
+            status=music_status[r['status']] if kind=='music' else STATUS[r['status']]
+            lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {status}{price}")
             if r['status']=='succeeded' and r.get('file_available',True):
                 route={'image':'image','audio':'get','video':'video','chat':'chatwork','music':'musicwork'}[kind]
                 if music_provider:route=f'pilotwork:{music_provider}'
                 if model and kind in ('audio','image'):route='m'+route
                 rows.append([(f"Открыть работу №{index}",f"{route}:{r['id']}")])
-            if r['status']=='queued':
+            if r['status']=='queued' and kind!='music':
                 rows.append([(f'Отменить №{index}',f"cancel:{r['id']}")])
         nav=[]
         if page:nav.append(('Назад',f'{origin}:{page-1}'))

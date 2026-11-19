@@ -25,8 +25,8 @@ def entry(model, category='text-to-audio'):
     }}
 
 
-@pytest.mark.parametrize('timeout', [False,True])
-async def test_fal_registered_pilot(env, timeout):
+@pytest.mark.parametrize('outcome', ['success','timeout','refused'])
+async def test_fal_registered_pilot(env, outcome):
     pool,cfg,svc,owner=env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),admin_password='fixture-password',
                 fal_music_owner=100,fal_music_live=True,fal_key='fixture-fal')
@@ -66,8 +66,10 @@ async def test_fal_registered_pilot(env, timeout):
         if req.method=='POST':
             assert path==f'/{LYRIA}' and json.loads(req.content)=={'prompt':'A piano track'}
             assert tuple(await pilot.balance(owner))==(20,80)
-            if timeout:
+            if outcome=='timeout':
                 raise httpx.ReadTimeout('fixture',request=req)
+            if outcome=='refused':
+                return httpx.Response(400,json={'error':'fixture'})
             return httpx.Response(200,json={'request_id':task})
         if path==f'/{LYRIA}/requests/{task}/status':
             return httpx.Response(200,json={'status':'COMPLETED'})
@@ -148,18 +150,51 @@ async def test_fal_registered_pilot(env, timeout):
     await send(callback=current)
     create=('POST','queue.fal.run',f'/{LYRIA}')
     assert requests.count(create)==0
+    job=await pool.fetchrow("SELECT id FROM clodex_music_jobs WHERE provider='fal'")
+    row=(await app.svc.history(owner,music_providers=['fal']))[0]
+    assert (row['id'],row['kind'],row['model_id'],row['status'])==(job['id'],'music:fal',LYRIA,'queued')
+    assert not await app.svc.history(owner,include_pending_tasks=True)
+    await send(text=MENU[1])
+    assert 'В очереди' in (await screen())[1]
+    assert not any(v.startswith('cancel:') for v in routes(await screen()).values())
     assert await pilot.tick(bot)
     restarted=FalMusicPilot(pool,cfg,api=adapter)
-    if timeout:
+    if outcome=='timeout':
         assert await pool.fetchval("SELECT status FROM clodex_music_jobs WHERE provider='fal'")=='unknown'
         assert tuple(await restarted.balance(owner))==(20,80)
+        assert (await app.svc.history(owner,music_providers=['fal']))[0]['status']=='uncertain'
+        await send(text=MENU[1])
+        assert 'Результат требует проверки' in (await screen())[1]
+    elif outcome=='refused':
+        assert tuple(await restarted.balance(owner))==(100,0)
+        assert await pool.fetchval("SELECT count(*) FROM clodex_music_ledger WHERE provider='fal' AND kind='release'")==1
+        assert (await app.svc.history(owner,music_providers=['fal']))[0]['status']=='failed'
+        await send(text=MENU[1])
+        assert 'Не удалось выполнить' in (await screen())[1]
     else:
         assert await pool.fetchval("SELECT provider_id FROM clodex_music_jobs WHERE provider='fal'")==task
+        assert (await app.svc.history(owner,music_providers=['fal']))[0]['status']=='dispatching'
         assert await restarted.tick(bot) and await restarted.tick(bot)
         assert tuple(await restarted.balance(owner))==(20,0)
         await send(text=MENU[1])
         await send(callback=routes(await screen())['Открыть работу №1'])
         assert len(bot.audio)==2 and all(args[1].data==mp3 for args,_ in bot.audio)
+        await pool.execute("UPDATE clodex_music_jobs SET status='delivery_unknown' WHERE id=$1",job['id'])
+        disabled=replace(cfg,fal_music_live=False)
+        app=TelegramApp(pool,disabled,bot)
+        app.providers.launches['fal']=FalMusicPilot(pool,disabled,api=adapter)
+        await send(text='/admin')
+        await send(text=cfg.admin_password)
+        await send(text=MENU[1])
+        assert 'Результат сохранён' in (await screen())[1]
+        await send(callback=routes(await screen())['Открыть работу №1'])
+        assert bot.audio[-1][0][1].data==mp3
+        await send(text='/admin_logout')
+        await send(text=MENU[1])
+        assert 'Работ пока нет' in (await screen())[1]
+    ledger=await pool.fetch('SELECT * FROM clodex_music_ledger ORDER BY kind')
+    await app.svc.history(owner,music_providers=['fal'])
+    assert await pool.fetch('SELECT * FROM clodex_music_ledger ORDER BY kind')==ledger
     assert not await restarted.tick(bot)
     assert requests.count(create)==1 and await pool.fetchval('SELECT halted FROM settings WHERE id=1')
 
