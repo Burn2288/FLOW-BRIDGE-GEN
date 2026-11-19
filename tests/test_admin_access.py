@@ -64,12 +64,21 @@ async def test_admin_inventory_commands_reject_missing_session(env, chat, denial
                 '/tariff clodex fixture images.generate', '/voice_tariff fixture',
                 '/tariff_set fixture', '/tariff_scope fixture',
                 '/refund 00000000-0000-0000-0000-000000000000')
+    tables = ('approved_models', 'task_manual_tariffs', 'payments')
+
+    async def protected_rows():
+        rows = {}
+        for table in tables:
+            rows[table] = await pool.fetch(
+                f'SELECT to_jsonb(t)::text AS row FROM {table} t ORDER BY row'
+            )
+        return rows
+
+    original = await protected_rows()
     for number, command in enumerate(commands, 100):
         await app.handle(event(number, command, chat=chat))
         assert bot.sent[-1][0] == denial
-    assert await pool.fetchval('SELECT count(*) FROM approved_models') == 0
-    assert await pool.fetchval('SELECT count(*) FROM task_manual_tariffs') == 0
-    assert await pool.fetchval('SELECT count(*) FROM payments') == 0
+    assert await protected_rows() == original
 
 
 async def test_password_updates_skip_inbox_and_logout_blocks_old_buttons(env):
