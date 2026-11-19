@@ -1366,9 +1366,9 @@
       "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/56",
-      "tested_sha": "ce8c105fb36afad953eeb3dce340205d0f40e8da",
-      "integrated_sha": "83c78faac823687b34ae7828e62b3cc4f887e0f3",
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/83",
+      "tested_sha": "f25f1a3de61241bb0b09f498ad22d32a38e2ea04",
+      "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
@@ -1409,6 +1409,21 @@
           "limitations": "Existing image identifiers retained; full type coverage and live clients pending.",
           "integrated_sha": "83c78faac823687b34ae7828e62b3cc4f887e0f3",
           "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/ce8c105fb36afad953eeb3dce340205d0f40e8da...83c78faac823687b34ae7828e62b3cc4f887e0f3"
+        },
+        {
+          "list_id": "Burn2288",
+          "list_position": 19,
+          "task_id": "ML-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/83",
+          "tested_sha": "f25f1a3de61241bb0b09f498ad22d32a38e2ea04",
+          "checkout_sha": "f25f1a3de61241bb0b09f498ad22d32a38e2ea04",
+          "tree_relation": "EXACT_HEAD",
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44560786915",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "PostgreSQL 16 media integrity, owner isolation and backup restore; 35 passed. S2 608 passed: https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44560786963",
+          "limitations": "Candidate only, list-time external file checks not performed; live and manual tests deferred.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
         }
       ]
     },
@@ -2460,7 +2475,7 @@
       "dependency_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/80",
       "dependency_sha": "9f6a90886b57342875374041f966939ef35ea3ca",
       "candidate_branch": "work/burn2288/ft030-library-integrity",
-      "status": "CI_PENDING",
+      "status": "TEST_EVIDENCE_PASS_ON_RECORDED_SHA",
       "note": "Exact candidate SHA and CI evidence recorded in candidate PR and private register after execution; historical ML-02 remains partial."
     }
   }
