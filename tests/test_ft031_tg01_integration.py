@@ -94,5 +94,12 @@ async def test_tg01_tg03_balance_history_round_trip(env, tmp_path):
     assert 'Личный кабинет' in back[1] and 'walletlog:0' in back[2] and 'home' in back[2]
     final = await press(back, 'home')
     assert final[1:] == main[1:]
+    # A new navigation object must still reject a callback from the old balance view.
+    app = TelegramApp(pool, cfg, bot)
+    before_events = len(bot.events)
+    sequence += 1
+    await app.handle(event(sequence, callback='walletlog:0', source_message_id=balance[0]))
+    assert await view() == final
+    assert len(bot.events) == before_events
     assert tuple(await pool.fetchrow('SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode=$2', owner, cfg.balance_wallet_mode)) == wallet
     assert [tuple(row) for row in await pool.fetch('SELECT * FROM ledger ORDER BY id')] == ledger
