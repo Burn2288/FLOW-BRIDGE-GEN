@@ -507,8 +507,8 @@
       "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/85",
-      "tested_sha": "a74db1fd4dc62a5c6c2f0df7dcd2d9213b3a6ac8",
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/88",
+      "tested_sha": "e868119d78c81f2e74802284ee95ae81d337b5d9",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2498,4 +2498,3 @@
     }
   }
 }
-
