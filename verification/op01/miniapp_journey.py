@@ -32,6 +32,8 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                        operations=['video'], protocols=['openai-video']))
     await telegram.pricing.set_tariff(owner, 100, 'clodex', 'flux-schnell', 'images.generate', {'n': 1},
                                       basis='request', unit='darkflow_token', amount='10', expires=None, evidence='fixture')
+    models.append(dict(provider='clodex', id='eleven-v4', title='ElevenLabs v4', availability='key_available',
+                       operations=['audio.speech']))
     SnapshotStore(cfg.catalogue_path).write(make_snapshot(
         models, [], [dict(provider='clodex', scope='key_available')]))
     await telegram.pool.execute("INSERT INTO approved_models VALUES('clodex','fixture/image','images.generate','Image')")
@@ -79,6 +81,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                 session = await login.value
                 assert session.status == 200
                 original_token = (await session.json())['token']
+                session_token = original_token
                 if external == 101:
                     tester_headers = {'Authorization': 'Bearer ' + original_token}
                 await expect(page.locator('#catalogue')).to_be_visible()
@@ -104,6 +107,8 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await page.get_by_role('button', name='Каталог').click()
                     await check_flux_confirmation(page, telegram.pool, owner, pending_jobs)
                     video_job = await check_veo_video(page, telegram, owner, pending_jobs)
+                    speech_job = await check_speech(page, telegram, owner, pending_jobs)
+                    music_job = await check_music(page, telegram, owner, client, base, session_token)
                     # A different signed Telegram launch must obtain its own session.
                     launch_data = signed(cfg.token, external, query_id='ma01-other-launch')
                     async with page.expect_response(lambda response: response.url == base + '/api/v1/session') as login:
@@ -118,6 +123,8 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     assert denied.status == 403
                     assert (await client.get(base + '/api/v1/works/video/' + video_job, headers=tester_headers)).status == 404
                     assert (await client.get(base + '/api/v1/jobs/' + video_job, headers=tester_headers)).status == 404
+                    assert (await client.get(base + '/api/v1/works/audio/' + speech_job, headers=tester_headers)).status == 404
+                    assert (await client.get(base + '/api/v1/works/music/' + music_job, headers=tester_headers)).status == 404
                     await check_job_card(page, telegram.pool, tester)
                     await compare_model_cards(page, telegram, owner, tester)
                 await context.close()
@@ -348,3 +355,155 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     await settle_task_tokens(telegram.pool)
     assert await telegram.pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_capture'", job) == 1
     return job
+
+
+async def check_speech(page, telegram, owner, pending_jobs):
+    from playwright.async_api import expect
+
+    voice = 'fixture-voice'
+    prompt = 'Я😀!'
+    mp3 = Path(__file__).resolve().parents[2].joinpath('assets/demo.mp3').read_bytes()
+    await telegram.pricing.set_tariff(owner, 100, 'clodex', 'eleven_v4', 'audio.speech', {'voice': voice},
+                                      basis='utf16', unit='darkflow_token', amount='20', expires=None, evidence='fixture')
+    def buttons():
+        return {b.text: b.callback_data for row in telegram.bot.sent[-1][1].inline_keyboard for b in row}
+
+    await telegram.callback(owner, 100, 'slist:current:speech:0')
+    await telegram.callback(owner, 100, buttons()['ElevenLabs v4'])
+    launch, = [data for data in buttons().values() if data.startswith('srun:')]
+    with patch('elevenbot.providers.voice_candidates', AsyncMock(return_value={'candidates': [
+            {'id': voice, 'name': 'Голос стенда'}]})):
+        await telegram.callback(owner, 100, launch)
+    await telegram.callback(owner, 100, buttons()['Голос стенда'])
+    await telegram.handle(event(4200, prompt))
+    assert 'Оценка: 80 ' in telegram.bot.sent[-1][0], telegram.bot.sent[-1][0]
+
+    await page.get_by_role('button', name='Каталог').click()
+    await page.reload()
+    card = page.locator('#models > li').filter(has_text='ElevenLabs v4')
+    await card.get_by_role('button', name='Выбрать голос').click()
+    await card.get_by_label('Голос').select_option(label='Голос стенда')
+    await card.get_by_label('Текст для озвучки').fill(prompt)
+    await card.get_by_role('button', name='Рассчитать стоимость').click()
+    confirm = card.get_by_role('button', name='Подтвердить за 80 токенов')
+    await expect(confirm).to_be_visible()
+    assert not await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id WHERE q.user_id=$1 AND q.operation='audio.speech'", owner)
+    await confirm.dblclick()
+    await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
+    job = await page.locator('#job-id').inner_text()
+    assert await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch WHERE quote_id=$1::uuid", job) == 1
+    posts = []
+    def provider(request):
+        assert request.method == 'POST' and request.url.path == '/v1/audio/speech'
+        posts.append(json.loads(request.content))
+        return httpx.Response(200, content=mp3, headers={'Content-Type': 'audio/mpeg'})
+
+    client_class = httpx.AsyncClient
+    assert len(pending_jobs) == 1
+    with patch.object(httpx, 'AsyncClient', side_effect=lambda **kw: client_class(transport=httpx.MockTransport(provider), **kw)):
+        await pending_jobs.pop()()
+    assert posts == [dict(model='eleven_v4', voice=voice, input=prompt)]
+    await page.get_by_role('button', name='Обновить статус').click()
+    await expect(page.locator('#job-status')).to_have_text('Завершено')
+    ledger = await telegram.pool.fetch("""
+        SELECT l.kind,l.da,l.dr FROM ledger l JOIN task_price_quotes q ON q.id=l.task_quote_id
+        WHERE q.user_id=$1 AND q.operation='audio.speech' ORDER BY l.kind
+    """, owner)
+    assert [tuple(row) for row in ledger] == [('task_capture', 0, -80), ('task_reserve', -80, 80)]
+    await page.get_by_role('button', name='К списку').click()
+    work = page.locator('#works > li').filter(has_text='Аудио')
+    async with page.expect_download() as downloaded:
+        await work.get_by_role('button', name='Скачать').click()
+    file = await downloaded.value
+    assert file.suggested_filename == 'darkflow.mp3' and (await file.path()).read_bytes() == mp3
+    await telegram.handle(event(4201, '📁 Мои работы'))
+    callback = 'get:' + job
+    assert callback in buttons().values()
+    telegram.bot.audio.clear()
+    await telegram.handle(event(4202, callback=callback))
+    (args, _), = telegram.bot.audio
+    assert args[0] == 100 and args[1].data == mp3
+    return job
+
+
+async def check_music(page, view, owner, client, base, token):
+    from playwright.async_api import expect
+    from elevenbot.clodex_music import AUDIOS, MODEL
+
+    # A different Telegram process owns the Admin Edition session and worker.
+    bot = TelegramApp(view.pool, view.cfg, view.bot)
+    prompt = 'Ночная прогулка, спокойное фортепиано'
+    mp3 = Path(__file__).resolve().parents[2].joinpath('assets/demo.mp3').read_bytes()
+    creates = []
+    def provider(req):
+        if req.url.path == AUDIOS + '/estimate':
+            return httpx.Response(200, json={'success': True, 'data': {'model': MODEL, 'cost_usd': '0.1'}})
+        if req.url.path == AUDIOS:
+            assert req.method == 'POST'
+            creates.append(json.loads(req.content))
+            return httpx.Response(202, json={'id': 'fixture-track'})
+        if req.url.path == AUDIOS + '/fixture-track':
+            return httpx.Response(200, json={'status': 'done'})
+        assert req.url.path == AUDIOS + '/fixture-track/content'
+        return httpx.Response(200, content=mp3, headers={'content-type': 'audio/mpeg'})
+
+    bot.music.api.transport = view.music.api.transport = httpx.MockTransport(provider)
+    headers = {'Authorization': 'Bearer ' + token}
+    async def counts():
+        return tuple(await view.pool.fetchrow("""
+            SELECT (SELECT count(*) FROM clodex_music_jobs WHERE user_id=$1),
+                   (SELECT count(*) FROM clodex_music_ledger WHERE user_id=$1 AND kind='capture')
+        """, owner))
+
+    async with bot.music.host_miniapp_session():
+        assert (await client.post(base + '/api/v1/quotes', headers=headers,
+                                  json={'model': MODEL, 'prompt': prompt})).status == 403
+        await bot.handle(event(4300, '/admin'))
+        await bot.handle(event(4301, bot.cfg.admin_password))
+        assert bot.music_access(100) and not view.music_access(100)
+        await page.get_by_role('button', name='Каталог').click()
+        await page.reload()
+        card = page.locator('#models > li').filter(has_text='Leonardo Music')
+        for limit in ('Одна попытка', 'Один MP3', 'До 5000 символов', 'Хранение 7 дней', 'Лицензия не указана'):
+            await expect(card).to_contain_text(limit)
+        await card.get_by_role('button', name='Выбрать Leonardo Music').click()
+        await card.get_by_label('Описание трека').fill(prompt)
+        async with page.expect_response(lambda r: r.url.endswith('/api/v1/quotes')) as quoted:
+            await card.get_by_role('button', name='Рассчитать стоимость').click()
+        quote = await (await quoted.value).json()
+        confirm = card.get_by_role('button', name='Подтвердить за 100 токенов')
+        await expect(confirm).to_be_visible()
+        # The operator funds the isolated pilot wallet using the existing MU-01 grant.
+        assert await bot.music.grant(owner, 100, quote['quote_id']) == 100
+        assert await counts() == (0, 0) and creates == []
+        await confirm.click()
+        work = page.locator('#works > li').filter(has_text=MODEL)
+        await expect(work).to_contain_text('В очереди')
+        for _ in range(3):
+            assert await bot.music.tick(bot.bot)
+        assert creates == [dict(model=MODEL, prompt=prompt, n=1)]
+        await page.get_by_role('button', name='Мои работы').click()
+        await expect(work).to_contain_text('Готово')
+        job = quote['quote_id']
+        assert await counts() == (1, 1)
+        replay = await client.post(base + '/api/v1/jobs', json={'quote_id': job},
+                                   headers={**headers, 'Idempotency-Key': job})
+        assert replay.status == 200 and (await replay.json())['id'] == job
+        for attempt in range(2):
+            async with page.expect_download() as downloaded:
+                await work.get_by_role('button', name='Скачать').click()
+            file = await downloaded.value
+            assert (await file.path()).read_bytes() == mp3
+            await bot.handle(event(4302 + 2*attempt, '📁 Мои работы'))
+            keys = [b.callback_data for row in bot.bot.sent[-1][1].inline_keyboard for b in row]
+            assert 'musicwork:' + job in keys
+            bot.bot.audio.clear()
+            await bot.handle(event(4303 + 2*attempt, callback='musicwork:' + job))
+            (args, _), = bot.bot.audio
+            assert args[0] == 100 and args[1].data == mp3
+        assert await counts() == (1, 1) and len(creates) == 1
+        assert tuple(await bot.music.balance(owner)) == (0, 0)
+        assert not await view.pool.fetchval('SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid', job)
+        await bot.handle(event(4309, '/admin_logout'))
+        assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
+        return job

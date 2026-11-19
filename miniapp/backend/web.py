@@ -14,6 +14,7 @@ from uuid import UUID
 from aiohttp import web
 
 from elevenbot.model_capabilities import FLUX_MODEL, flux_card, veo_card
+from elevenbot.providers import catalog
 from elevenbot.core import Rejected, Service
 from elevenbot.library import LibraryItem
 from elevenbot.job_timeline import get_timeline
@@ -139,9 +140,14 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         user = await account(request)
         return web.json_response(await service.referral_info(user))
 
+    async def music_access(user):
+        if not cfg.clodex_music_owner:
+            return False
+        chat = await pool.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1", user)
+        return await view.music.miniapp_access(pool, chat)
+
     async def catalogue(request):
         user = await account(request)
-        # The HTTP account is read-only and has no Admin Edition session.
         rows = []
         availability = {}
         try:
@@ -152,14 +158,17 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         availability[label] = snap is not None
         if snap is not None:
             veo_titles = {}
-            if view.video.enabled():
+            pilot = False
+            if view.video.enabled() or cfg.speech_pilot:
                 external = await pool.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1", user)
                 try:
                     await view.launch.authorize_pilot(pool, user, external)
                 except Rejected:
                     pass
                 else:
-                    veo_titles = {model: 'Veo 3.1 · '+label for model,label,_ in
+                    pilot = True
+            if pilot and view.video.enabled():
+                veo_titles = {model: 'Veo 3.1 · '+label for model,label,_ in
                                   (await view.admitted_veo_modes(snap)).values()}
             for section, (_, operation) in STORE_SECTIONS.items():
                 for index in await view.store_models(snap, section, None):
@@ -173,6 +182,9 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                         card = await veo_card(pool, item['id'])
                         if card:
                             row.update(title=veo_titles[item['id']], video_card=card)
+                    if pilot and cfg.speech_pilot and operation == 'audio.speech' and view.model_can_run(item, operation):
+                        voices = [voice['task_speech_capability'] for voice in catalog(cfg)]
+                        row['speech_card'] = {'model': cfg.clodex_model, 'voices': voices}
                     rows.append(row)
 
         if anymodel_available(cfg):
@@ -190,6 +202,9 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                         for operation in item['operations']:
                             if (item['id'], operation) in approved:
                                 rows.append(dict(aggregator=label,id=item['id'],title=item['title'],operation=operation))
+        if view.music.enabled() and await music_access(user):
+            rows.append(dict(aggregator='CLODEX', id=view.music.model, title=view.music.title, operation='audio.generate',
+                             music_card={'used': await view.music.used(user)}))
         # fal is restricted in the bot to its owner's active Admin Edition.
         # A regular HTTP session never inherits that privilege.
         return web.json_response({'models': rows, 'availability': availability})
@@ -202,7 +217,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                 raise ValueError()
         except ValueError:
             raise web.HTTPBadRequest() from None
-        rows = await service.history(user, page * 10, include_pending_tasks=True)
+        rows = await service.history(user, page * 10, include_pending_tasks=True,
+                                     include_music=await music_access(user))
         return web.json_response({'works': [LibraryItem.from_history(row).as_dict() for row in rows]})
 
     async def timeline(request):
@@ -218,7 +234,12 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         kind = request.match_info['kind']
         try:
             work_id = UUID(request.match_info['id'])
-            if kind == 'chat':
+            if kind == 'music':
+                if not await music_access(user):
+                    raise web.HTTPNotFound()
+                data = await view.music.work(user, work_id)
+                suffix = 'mp3'
+            elif kind == 'chat':
                 data = (await service.chat_work(user, work_id)).encode()
                 suffix = 'txt'
             else:

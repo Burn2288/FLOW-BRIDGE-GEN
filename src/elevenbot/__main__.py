@@ -115,7 +115,9 @@ async def main():
                     tasks.append(asyncio.create_task(FalMusicPilot(pool,cfg).loop(bot)))
                 from .broadcasts import Broadcasts,BroadcastWorker
                 tasks.append(asyncio.create_task(BroadcastWorker(Broadcasts(pool),bot,buttons).loop()))
-                try:await poll(pool,cfg,bot,app=app)
+                try:
+                    async with app.music.host_miniapp_session():
+                        await poll(pool,cfg,bot,app=app)
                 finally:
                     for task in tasks:
                         task.cancel()

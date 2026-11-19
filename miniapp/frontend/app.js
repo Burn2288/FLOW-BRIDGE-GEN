@@ -44,7 +44,7 @@ async function showWorks(target) {
   const data = await (await request('/api/v1/works?page=' + target)).json();
   works.replaceChildren();
   for (const work of data.works) {
-    const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст' };
+    const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст', music: 'Музыка' };
     const states = { queued: 'В очереди', dispatching: 'Выполняется', succeeded: 'Готово',
       failed: 'Ошибка', cancelled: 'Отменено', uncertain: 'Требует проверки' };
     const label = kinds[work.kind] ?? work.kind;
@@ -59,7 +59,7 @@ async function showWorks(target) {
         details.replaceChildren(...data.events.map(event => listItem(event.label + (event.at ? ' · ' + event.at : ''))));
       } catch (error) { showError(error); }
     };
-    item.append(historyButton, details);
+    if (work.kind !== 'music') item.append(historyButton, details);
     if (work.available) {
       const button = document.createElement('button');
       button.textContent = 'Скачать';
@@ -74,9 +74,24 @@ async function showWorks(target) {
   document.querySelector('#next').disabled = data.works.length < 10;
 }
 
-function generationForm(model, video = false) {
+function generationForm(model, operation, voices) {
   const form = document.querySelector('#image-form').content.firstElementChild.cloneNode(true);
-  if (video) form.querySelector('label span').textContent = 'Описание видео';
+  if (operation === 'video') form.querySelector('label span').textContent = 'Описание видео';
+  if (operation === 'audio.generate') {
+    form.querySelector('label span').textContent = 'Описание трека';
+    form.elements.prompt.maxLength = 5000;
+  }
+  let voice;
+  if (operation === 'audio.speech') {
+    form.querySelector('label span').textContent = 'Текст для озвучки';
+    const label = document.createElement('label');
+    label.textContent = 'Голос';
+    voice = document.createElement('select');
+    for (const entry of voices) voice.add(new Option(entry.title, entry.voice_id));
+    voice.onchange = invalidate;
+    label.append(voice);
+    form.prepend(label);
+  }
   const prompt = form.elements.prompt;
   const calculate = form.querySelector('[type=submit]');
   const confirm = form.querySelector('[type=button]');
@@ -102,7 +117,7 @@ function generationForm(model, video = false) {
     try {
       const response = await request('/api/v1/quotes', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, prompt: prompt.value }),
+        body: JSON.stringify({ model, prompt: prompt.value, ...(voice ? { voice: voice.value } : {}) }),
       });
       const result = await response.json();
       if (requested !== revision) return;
@@ -121,6 +136,7 @@ function generationForm(model, video = false) {
   confirm.onclick = async () => {
     if (!quote || confirm.disabled) return;
     confirm.disabled = prompt.disabled = true;
+    if (voice) voice.disabled = true;
     message.textContent = 'Отправляем задание…';
     try {
       const response = await request('/api/v1/jobs', {
@@ -131,7 +147,10 @@ function generationForm(model, video = false) {
       prompt.value = '';
       invalidate();
       message.textContent = 'Задание принято.';
-      if (video) {
+      if (operation === 'audio.generate') {
+        form.replaceWith(document.createTextNode('Попытка использована.'));
+        navigate('library');
+      } else if (operation !== 'images.generate') {
         const job = await response.json();
         selectPanel('library');
         await openJob(job.id);
@@ -145,6 +164,7 @@ function generationForm(model, video = false) {
       }
     } finally {
       confirm.disabled = prompt.disabled = false;
+      if (voice) voice.disabled = false;
     }
   };
   return form;
@@ -186,6 +206,29 @@ async function start() {
   const models = document.querySelector('#models');
   for (const model of catalogue.models) {
     const item = listItem(model.aggregator + ' · ' + model.title);
+    if (model.music_card) {
+      const limits = document.createElement('small');
+      limits.textContent = 'Одна попытка · Один MP3 · До 5000 символов · Хранение 7 дней · Отдельный тестовый баланс. Лицензия не указана.';
+      item.append(limits);
+      if (model.music_card.used) item.append(document.createTextNode('Попытка использована.'));
+      else {
+        const choose = document.createElement('button');
+        choose.textContent = 'Выбрать ' + model.title;
+        choose.onclick = () => choose.replaceWith(generationForm(model.id, model.operation));
+        item.append(choose);
+      }
+    }
+    if (model.speech_card) {
+      const { model: id, voices } = model.speech_card;
+      if (voices.length) {
+        const select = document.createElement('button');
+        select.textContent = 'Выбрать голос';
+        select.onclick = () => select.replaceWith(generationForm(id, model.operation, voices));
+        item.append(select);
+      } else {
+        item.append(document.createTextNode(' · Нет доступных голосов'));
+      }
+    }
     const card = model.image_card ?? model.video_card;
     if (card) {
       const parameters = document.createElement('small');
@@ -194,10 +237,10 @@ async function start() {
       if (model.video_card) {
         const select = document.createElement('button');
         select.textContent = 'Выбрать ' + model.title;
-        select.onclick = () => select.replaceWith(generationForm(model.id, true));
+        select.onclick = () => select.replaceWith(generationForm(model.id, model.operation));
         item.append(select);
       } else {
-        item.append(generationForm(model.id));
+        item.append(generationForm(model.id, model.operation));
       }
     }
     models.append(item);
@@ -295,7 +338,7 @@ async function openJob(id, cancel = false) {
     const job = await (await request(path)).json();
     if (revision !== cardRevision) return;
     jobStatus.textContent = states[job.state] ?? job.state;
-    cancelJob.hidden = !(job.operation !== 'video' && job.origin === 'http' && job.state === 'pending');
+    cancelJob.hidden = !(job.operation === 'images.generate' && job.origin === 'http' && job.state === 'pending');
   } catch (error) {
     if (revision === cardRevision) jobStatus.textContent = error.message;
   } finally {
