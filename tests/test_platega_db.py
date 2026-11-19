@@ -55,6 +55,17 @@ async def test_platega_create_timeout_persisted(env):
     with pytest.raises(PaymentUnknown):await svc.create_order(u)
     async with pool.acquire() as c:assert await c.fetchval("SELECT count(*) FROM payments WHERE creation_state='uncertain'")==1
     assert client.calls==1
+    stored=await pool.fetchrow("SELECT id,created_at FROM payments WHERE creation_state='uncertain'")
+    async def find(order,created):
+        assert (order,created)==tuple(stored)
+        return REMOTE
+    client.find=find
+    client.order=stored['id']
+    restarted=PlategaPayments(pool,cfg,client)
+    assert await restarted.reconcile_pending()=={'checked':1,'failed':0,'limit':100}
+    await restarted.sync(REMOTE)
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='payment' AND payment_id=$1",client.order)==1
+    assert (await restarted.svc.wallet(u))['available']==10000 and client.calls==1
 
 async def test_A13_manual_redelivery_after_retry_exhaustion(env):
     from elevenbot.worker import Worker
@@ -65,3 +76,12 @@ async def test_A13_manual_redelivery_after_retry_exhaustion(env):
     await s.redeliver(u,j)
     async with pool.acquire() as c:
         r=await c.fetchrow('SELECT * FROM deliveries WHERE job_id=$1',j);assert r['status']=='pending' and r['attempts']==0
+
+
+@pytest.mark.parametrize('wrong', [{'amount':101}, {'payload':str(uuid.UUID(int=8888))}])
+async def test_legacy_callback_fields_match_canonical_order(env,wrong):
+    svc,client,order,user=await setup(env)
+    event={'id':str(REMOTE),'payload':str(order),'amount':100,'currency':'RUB','status':'CONFIRMED'}
+    with pytest.raises(PaymentInvalid):
+        await svc.callback({'X-Secret':'fixture'},json.dumps(event|wrong).encode())
+    assert (await svc.svc.wallet(user))['available']==0
