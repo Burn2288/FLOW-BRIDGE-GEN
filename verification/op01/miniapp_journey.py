@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 
@@ -25,9 +25,11 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
 
     cfg = telegram.cfg
     models = [dict(provider='clodex', id='fixture/image', title='MA-01 Image',
-                   availability='key_available', operations=['images.generate'])]
+                   availability='key_available', operations=['images.generate'], protocols=['image-generation'])]
     models.append(dict(provider='clodex', id='flux-schnell', title='FLUX Schnell', availability='key_available',
                        operations=['images.generate'], protocols=['image-generation']))
+    models.append(dict(provider='clodex', id='clodex-video/veo-3.1', title='Veo 3.1', availability='key_available',
+                       operations=['video'], protocols=['openai-video']))
     await telegram.pricing.set_tariff(owner, 100, 'clodex', 'flux-schnell', 'images.generate', {'n': 1},
                                       basis='request', unit='darkflow_token', amount='10', expires=None, evidence='fixture')
     SnapshotStore(cfg.catalogue_path).write(make_snapshot(
@@ -101,6 +103,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                 if external == 100:
                     await page.get_by_role('button', name='Каталог').click()
                     await check_flux_confirmation(page, telegram.pool, owner, pending_jobs)
+                    video_job = await check_veo_video(page, telegram, owner, pending_jobs)
                     # A different signed Telegram launch must obtain its own session.
                     launch_data = signed(cfg.token, external, query_id='ma01-other-launch')
                     async with page.expect_response(lambda response: response.url == base + '/api/v1/session') as login:
@@ -109,6 +112,11 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     assert replacement.status == 200
                     assert (await replacement.json())['token'] != original_token
                 else:
+                    await expect(page.get_by_role('button', name='Выбрать Veo', include_hidden=True)).to_have_count(0)
+                    denied = await client.post(base + '/api/v1/quotes', headers=tester_headers,
+                                               json={'model': 'clodex-video/veo-3.1', 'prompt': 'fixture'})
+                    assert denied.status == 403
+                    assert (await client.get(base + '/api/v1/works/video/' + video_job, headers=tester_headers)).status == 404
                     await check_job_card(page, telegram.pool, tester)
                     await compare_model_cards(page, telegram, owner, tester)
                 await context.close()
@@ -269,3 +277,65 @@ async def compare_model_cards(page, telegram, owner, tester):
     await catalogue()
     assert 'FLUX Schnell' not in buttons()
     await expect(flux).to_have_count(0)
+
+
+async def check_veo_video(page, telegram, owner, pending_jobs):
+    from playwright.async_api import expect
+
+    model = 'clodex-video/veo-3.1'
+    prompt = 'Маяк на рассвете'
+    mp4 = Path(__file__).resolve().parents[2].joinpath('src/elevenbot/darkflow-energy-strip-1200x80-2x.mp4').read_bytes()
+    calls = []
+    def provider(request):
+        calls.append((request.method, request.url.path))
+        if request.method == 'POST':
+            assert json.loads(request.content) == dict(model=model, prompt=prompt, duration=4,
+                                                      resolution='720p', aspect_ratio='16:9')
+            if request.url.path.endswith('/estimate'):
+                return httpx.Response(200, json={'success': True, 'data': {'model': model, 'cost_usd': '0.45'}})
+            assert request.url.path == '/v1/videos'
+            return httpx.Response(200, json={'id': 'veo-fixture'})
+        if request.url.path == '/v1/videos/veo-fixture/content':
+            return httpx.Response(200, content=mp4, headers={'Content-Type': 'video/mp4'})
+        assert request.url.path == '/v1/videos/veo-fixture'
+        return httpx.Response(200, json={'status': 'done'})
+
+    telegram.video.api.transport = httpx.MockTransport(provider)
+    telegram.bot.send_video = AsyncMock(return_value=SimpleNamespace(message_id=4100))
+    await telegram.pricing.set_rate(owner, 100, 'USD', '1000')
+    await page.get_by_role('button', name='Выбрать Veo 3.1 · Обычный').click()
+    card = page.locator('#models > li').filter(has_text='Veo 3.1')
+    await expect(card).to_contain_text('4 с · 720p · 16:9')
+    await card.get_by_label('Описание видео').fill(prompt)
+    await card.get_by_role('button', name='Рассчитать стоимость').click()
+    confirm = card.get_by_role('button', name='Подтвердить за 450 токенов')
+    await expect(confirm).to_be_visible()
+    assert calls == [('POST', '/v1/videos/estimate')]
+    await confirm.click()
+    await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
+    job = await page.locator('#job-id').inner_text()
+    assert len(pending_jobs) == 1
+    await pending_jobs.pop()()
+    await page.get_by_role('button', name='Обновить статус').click()
+    await expect(page.locator('#job-status')).to_have_text('Передано исполнителю')
+    assert await telegram.video.poll_one(telegram.bot)
+    await page.get_by_role('button', name='Обновить статус').click()
+    await expect(page.locator('#job-status')).to_have_text('Завершено')
+    await page.get_by_role('button', name='К списку').click()
+    work = page.locator('#works > li').filter(has_text='Видео')
+    async with page.expect_download() as downloaded:
+        await work.get_by_role('button', name='Скачать').click()
+    file = await downloaded.value
+    assert file.suggested_filename == 'darkflow.mp4' and (await file.path()).read_bytes() == mp4
+
+    await telegram.handle(event(4000, '📁 Мои работы'))
+    keys = [b.callback_data for row in telegram.bot.sent[-1][1].inline_keyboard for b in row]
+    assert 'video:' + job in keys
+    telegram.bot.send_video.reset_mock()
+    await telegram.handle(event(4001, callback='video:' + job))
+    telegram.bot.send_video.assert_awaited_once()
+    chat, upload = telegram.bot.send_video.await_args.args
+    assert chat == 100 and upload.data == mp4
+    assert calls.count(('POST', '/v1/videos')) == 1
+    assert calls.count(('GET', '/v1/videos/veo-fixture/content')) == 1
+    return job
