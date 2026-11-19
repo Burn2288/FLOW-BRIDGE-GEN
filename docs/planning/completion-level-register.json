@@ -2334,11 +2334,11 @@
       "task_id": "AU-01",
       "title": "Согласовать audit-artifacts lifecycle и schema gate",
       "owner": "Burn2288",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/27",
+      "tested_sha": "151c3b7914248662bdf1704830285d8474ed150e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2346,6 +2346,24 @@
       ],
       "dependencies": [
         "IN-18"
+      ],
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 40,
+          "task_id": "AU-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/27",
+          "tested_sha": "151c3b7914248662bdf1704830285d8474ed150e",
+          "checkout_sha": "151c3b7914248662bdf1704830285d8474ed150e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44132381146",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Historical six-package audit register candidate with offline checks and deferred review mapping.",
+          "limitations": "Historical design draft tied to six packages; not a current mandatory standard or final AU-01 acceptance.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
