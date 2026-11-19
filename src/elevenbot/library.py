@@ -34,7 +34,7 @@ class LibraryItem:
 def result_url(row):
     """A result link exists only for a saved, available work of a supported kind."""
     kind = row['kind']
-    if row['status'] != 'succeeded' or not row['file_available'] or kind not in ('image', 'video', 'audio', 'chat'):
+    if row['status'] != 'succeeded' or not row['file_available'] or kind not in ('image', 'video', 'audio', 'chat', 'music'):
         return None
     return f"/api/v1/works/{kind}/{row['id']}"
 
