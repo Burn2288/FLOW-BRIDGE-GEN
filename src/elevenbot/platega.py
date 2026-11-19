@@ -113,7 +113,9 @@ class PlategaClient:
     async def close(self):await self.client.aclose()
 
 class PlategaPayments:
-    def __init__(self,pool,app_cfg,client):self.pool=pool;self.svc=Service(pool,app_cfg);self.client=client
+    def __init__(self,pool,app_cfg,client):
+        self.pool=pool;self.svc=Service(pool,app_cfg);self.client=client
+        self._reconcile_cursor=(None,None)
     async def create_order(self,u,amount_minor=10000,credits=10000):
         # Trusted external checkout use case, not exposed as a Telegram payment button.
         if not self.client.cfg.enabled or self.svc.cfg.mode=='mock' or not self.svc.cfg.payments_enabled or self.svc.cfg.payment_backend!='platega':raise PaymentInvalid('Real payments disabled')
@@ -200,10 +202,14 @@ class PlategaPayments:
                 WHERE p.provider='platega' AND p.status IN ('pending','refunding','review')
                 AND (p.remote_id IS NOT NULL OR (p.creation_state IN ('sending','uncertain')
                     AND NOT EXISTS (SELECT 1 FROM topup_orders WHERE payment_id=p.id)))
-                ORDER BY p.created_at LIMIT $1
-                """,limit)
+                ORDER BY coalesce((p.created_at,p.id)<=($2::timestamptz,$3::uuid),false),p.created_at,p.id
+                LIMIT $1
+                """,limit,*self._reconcile_cursor)
         checked=0;failed=0
         for row in rows:
+            # Continue past empty/failed lookups next time, wrapping at the end.
+            # A new service starts at the oldest order; payment state is unchanged.
+            self._reconcile_cursor=(row['created_at'],row['id'])
             try:
                 remote=row['remote_id']
                 if remote is None:
