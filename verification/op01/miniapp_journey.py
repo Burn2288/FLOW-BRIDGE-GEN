@@ -6,6 +6,9 @@ import shutil
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
+
+import httpx
 
 from elevenbot.aggregate import make_snapshot
 from elevenbot.discovery import SnapshotStore
@@ -14,12 +17,16 @@ from miniapp.tests.test_miniapp import signed
 from test_admin_access import event
 
 
-async def check_miniapp_journey(telegram, owner, tester, base, cert, client):
+async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pending_jobs):
     from playwright.async_api import async_playwright, expect
 
     cfg = telegram.cfg
     models = [dict(provider='clodex', id='fixture/image', title='MA-01 Image',
                    availability='key_available', operations=['images.generate'])]
+    models.append(dict(provider='clodex', id='flux-schnell', title='FLUX Schnell', availability='key_available',
+                       operations=['images.generate'], protocols=['image-generation']))
+    await telegram.pricing.set_tariff(owner, 100, 'clodex', 'flux-schnell', 'images.generate', {'n': 1},
+                                      basis='request', unit='darkflow_token', amount='10', expires=None, evidence='fixture')
     SnapshotStore(cfg.catalogue_path).write(make_snapshot(
         models, [], [dict(provider='clodex', scope='key_available')]))
     await telegram.pool.execute("INSERT INTO approved_models VALUES('clodex','fixture/image','images.generate','Image')")
@@ -87,6 +94,9 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client):
                     await page.get_by_label('Светлая').check()
                     await expect(page.locator('#theme-status')).to_have_text('Тема сохранена.')
                     await expect(page.locator('html')).to_have_attribute('data-theme', 'light')
+                if external == 100:
+                    await page.get_by_role('button', name='Каталог').click()
+                    await check_flux_confirmation(page, telegram.pool, owner, pending_jobs)
                 await context.close()
         finally:
             await browser.close()
@@ -94,3 +104,43 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client):
     foreign = await client.get(f'{base}/api/v1/works/image/{work_ids[0]}', headers=tester_headers)
     assert foreign.status == 404 and 'Content-Disposition' not in foreign.headers
     assert await foreign.text() == '404: Not Found'
+
+
+async def check_flux_confirmation(page, pool, owner, pending_jobs):
+    from playwright.async_api import expect
+
+    async def counts():
+        return tuple(await pool.fetchrow("""
+            SELECT (SELECT count(*) FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id
+                    WHERE q.user_id=$1),
+                   (SELECT count(*) FROM ledger WHERE user_id=$1 AND kind='task_reserve')
+        """, owner))
+
+    prompt = page.get_by_label('Описание изображения')
+    calculate = page.get_by_role('button', name='Рассчитать стоимость')
+    confirm = page.get_by_role('button', name='Подтвердить за 10 токенов')
+    await prompt.fill('Первоначальный эскиз')
+    await calculate.click()
+    await expect(confirm).to_be_visible()
+    await prompt.fill('Маяк под снегом')
+    await expect(confirm).to_have_count(0)
+    await calculate.click()
+    await expect(confirm).to_be_visible()
+    assert await counts() == (0, 0) and not pending_jobs
+    await confirm.dblclick()
+    await expect(page.locator('.image-form [role=status]')).to_have_text('Задание принято.')
+    assert await counts() == (1, 1) and len(pending_jobs) == 1
+    assert await pool.fetchval("SELECT dr FROM ledger WHERE user_id=$1 AND kind='task_reserve'", owner) == 10
+
+    posts = []
+    def provider(request):
+        assert request.method == 'POST' and request.url.path == '/v1/images/generations'
+        posts.append(json.loads(request.content))
+        return httpx.Response(200, json={'data': [{'b64_json': base64.b64encode(MOCK_IMAGE).decode()}]})
+
+    client_class = httpx.AsyncClient
+    with patch.object(httpx, 'AsyncClient', side_effect=lambda **kw: client_class(transport=httpx.MockTransport(provider), **kw)):
+        await pending_jobs.pop()()
+    assert [(post['model'], post['prompt']) for post in posts] == [('flux-schnell', 'Маяк под снегом')]
+    assert await counts() == (1, 1)
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1 AND kind='task_capture'", owner) == 1

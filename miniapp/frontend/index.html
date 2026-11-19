@@ -14,6 +14,16 @@
   <p id="status" class="notice" role="status">Подключение…</p>
   <section id="catalogue" aria-labelledby="catalogue-title">
     <h1 id="catalogue-title">Каталог</h1>
+    <template id="image-form">
+      <form class="image-form">
+        <label>Описание изображения
+          <textarea name="prompt" rows="3" maxlength="3000" required></textarea>
+        </label>
+        <button type="submit" disabled>Рассчитать стоимость</button>
+        <p role="status" aria-live="polite"></p>
+        <button type="button" hidden></button>
+      </form>
+    </template>
     <ul id="models" class="cards"></ul>
   </section>
   <section id="library" aria-labelledby="works-title" hidden>

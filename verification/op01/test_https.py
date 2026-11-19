@@ -78,8 +78,9 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
         await admin.execute('CREATE SCHEMA '+schema)
         pool=await asyncpg.create_pool(dsn,min_size=1,max_size=4,server_settings={'search_path':schema})
         await migrate(pool)
-        cfg=Config(token=FIXTURE_TOKEN,mode='mock',access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),
-                   payments_enabled=False,generation_enabled=False,storage=tmp_path/'storage',
+        cfg=Config(token=FIXTURE_TOKEN,mode='clodex',access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),
+                   payments_enabled=False,generation_enabled=True,economy_verified=True,clodex_key='fixture-only',
+                   public_image_models=('clodex:flux-schnell',),interaction_limit=100,storage=tmp_path/'storage',
                    miniapp_url=f'https://localhost:{tls_port}/', interaction_mode='mock',
                    catalogue_path=str(tmp_path/'catalogue.json'))
         telegram=TelegramApp(pool,cfg,Bot())
@@ -91,8 +92,10 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
         assert await pool.fetchval('SELECT count(*) FROM wallets WHERE user_id=$1',owner)==2
         assert not telegram.has_admin_session(101)
 
+        pending_jobs=[]
+
         async def start_backend(config):
-            app=create_app(pool,config)
+            app=create_app(pool,config,job_scheduler=pending_jobs.append)
             async def observed(request):
                 return web.json_response({k:request.headers.get(k,'') for k in
                     ('Host','Forwarded','X-Forwarded-For','X-Forwarded-Proto','X-Forwarded-Host')})
@@ -163,7 +166,7 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
             headers={'Authorization':'Bearer '+owner_token}
             assert (await client.get(base+'/api/v1/wallet',headers=headers)).status==200
             assert (await client.get(base+'/api/v1/admin',headers={'Authorization':'Bearer '+tester_token})).status==404
-            await check_miniapp_journey(telegram,owner,tester,base,cert,client)
+            await check_miniapp_journey(telegram,owner,tester,base,cert,client,pending_jobs)
             assert (await client.post(base+'/api/v1/session',data='x'*13000,headers={'Content-Type':'application/json'})).status==413
             crash=await client.get(base+'/api/v1/_op01-error');crash_body=await crash.text()
             assert crash.status==500 and 'Traceback' not in crash_body and 'fixture-exception-marker' not in crash_body
