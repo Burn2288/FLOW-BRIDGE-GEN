@@ -433,15 +433,13 @@ class Service:
             return True
 
     async def reconcile(self):
+        from .reconciliation import read_report
         async with self.pool.acquire() as c,c.transaction():
-            bad=await c.fetchval('''SELECT count(*) FROM wallets w LEFT JOIN
-              (SELECT user_id,mode,sum(da) a,sum(dr) r FROM ledger GROUP BY user_id,mode) l USING(user_id,mode)
-              WHERE w.available<>coalesce(l.a,0) OR w.reserved<>coalesce(l.r,0)''')
-            bad+=await c.fetchval('''SELECT count(*) FROM wallets w WHERE w.reserved<>
-              coalesce((SELECT sum(j.price) FROM jobs j WHERE j.user_id=w.user_id AND j.mode=w.mode AND j.settlement IS NULL),0)
-              + CASE WHEN w.mode='live' THEN
-                  coalesce((SELECT sum(p.credits) FROM payments p WHERE p.user_id=w.user_id AND p.status='refunding'),0)
-                  + coalesce((SELECT sum(r.dr) FROM ledger r WHERE r.user_id=w.user_id AND r.task_quote_id IS NOT NULL),0)
-                ELSE 0 END''')
+            bad=(await read_report(c,1))['wallet_mismatches']
             if bad: await c.execute('UPDATE settings SET halted=true WHERE id=1')
             return bad
+
+    async def reconciliation_report(self,limit=100):
+        from .reconciliation import read_report
+        async with self.pool.acquire() as c,c.transaction(readonly=True):
+            return await read_report(c,limit)
