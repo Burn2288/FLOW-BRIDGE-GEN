@@ -1,0 +1,21 @@
+name: FT024 native backup restore
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Targeted disposable PostgreSQL backup and restore
+        run: >-
+          docker compose -p ft024-${{ github.run_id }} -f compose.test.yaml run --build --rm tests
+          sh -ec 'sh scripts/check-pg16-tools.sh && python -m pytest -q -ra -p no:cacheprovider
+          tests/test_ft024_backup_restore.py tests/test_ubuntu_release.py tests/test_restore.py
+          tests/test_ft023_combined.py tests/test_upgrade_042.py'
+      - name: Remove disposable services
+        if: always()
+        run: docker compose -p ft024-${{ github.run_id }} -f compose.test.yaml down --remove-orphans
