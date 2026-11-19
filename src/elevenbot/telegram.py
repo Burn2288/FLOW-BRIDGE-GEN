@@ -233,6 +233,7 @@ class TelegramApp:
             if any(detail in reason for detail in ('message to edit not found', "message can't be edited")):
                 return False
             raise
+        await self.navigation.save_screen(chat,state,markup)
         return True
 
     async def catalogue_screen(self, chat, text, markup=None, *, animation=None,
@@ -302,11 +303,18 @@ class TelegramApp:
             if panel=='chooser' and state.active_panel=='main' and state.animation in (
                     str(AGGREGATORS_ANIMATION), str(AGGREGATORS_ANIMATION.with_name('darkflow-energy-strip.gif'))):
                 state=state.adopt_legacy_chooser()
-            old_main={state.panel_ids.get('chooser'),state.panel_ids.get('main_hint')}
+            # An inline transition replaces its source. Reply-keyboard shortcuts
+            # have no source and continue to maintain their independent panels.
+            source_slot=next((name for name,mid in state.panel_ids.items()
+                              if mid==source and name!='main_hint'),None)
+            if source_slot and panel and source_slot!=panel:
+                state=state.retire(source, panel_ids={name:mid for name,mid in state.panel_ids.items()
+                                                       if name!=source_slot})
+            old_main={source,state.panel_ids.get('chooser'),state.panel_ids.get('main_hint')}
             state=state.publish(message.message_id,animation_key,panel)
             if hint is not None:
                 state=state.publish_main_hint(hint.message_id,keyboard_changes)
-            await self.navigation.save(chat,state)
+            await self.navigation.save_screen(chat,state,markup)
             await self.navigation.cleanup(chat,state,only=old_main if panel=='chooser' else None)
 
     async def open_work(self,u,ext,kind,job,*,prompt_only=False,show_prompt=False):
@@ -566,7 +574,6 @@ class TelegramApp:
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
                         or command in RATE_COMMANDS or command=='/miniapp')
-            await self.svc.rate(u,navigation=navigation)
             if update.callback_query:
                 e=update.callback_query
                 try:
@@ -574,6 +581,9 @@ class TelegramApp:
                 except TelegramBadRequest as error:
                     if not any(reason in str(error).lower() for reason in ('query is too old', 'query id is invalid')):
                         raise
+                if e.message and not await self.navigation.allows(ext,e.message.message_id,data):
+                    return
+                await self.svc.rate(u,navigation=navigation)
                 catalogue_callback = data=='accept' or data=='providers' or data.partition(':')[0] in SCREEN_CALLBACKS
                 source = self.panel_source.set(e.message.message_id if e.message else None)
                 try:
@@ -584,6 +594,7 @@ class TelegramApp:
                 finally:
                     self.panel_source.reset(source)
                 return
+            await self.svc.rate(u,navigation=navigation)
             if command=='/miniapp':
                 if not self.cfg.miniapp_url:
                     await self.say(ext,'Приложение временно недоступно.')
@@ -776,7 +787,7 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,'Выберите голос.' if voices else 'Проверенные голоса пока не подключены.',buttons(rows))
 
-    async def history(self,u,ext,page=0,*,model=None,panel=None):
+    async def history(self,u,ext,page=0,*,model=None,panel=None,list_page=0):
         await self.svc.conversation(u,'home')
         model_id,origin=model if model else (None,'history')
         music_providers=[key for key in self.providers.interactive if self.registered_pilot(ext,key)]
@@ -808,7 +819,7 @@ class TelegramApp:
         if nav:rows.append(nav)
         if model:
             _,version,section,index=origin.split(':')
-            back=f'mdl:{version}:{index}' if section=='dev' else f'smodel:{version}:{section}:0:{index}'
+            back=f'mdl:{version}:{index}' if section=='dev' else f'smodel:{version}:{section}:{list_page}:{index}'
             rows.append([('← К модели',back)])
         rows.append([('Главное меню','providers')])
         await self.catalogue_screen(ext,'\n'.join(lines),buttons(rows),panel=panel)
@@ -883,17 +894,21 @@ class TelegramApp:
             _,version,section,index,page=data.split(':')
             snapshot=self.catalogue_snapshot(version)
             index=int(index)
+            list_page=0
             if section=='dev':
                 allowed=self.has_admin_session(ext) and 0<=index<len(snapshot['models'])
             else:
-                allowed=index in await self.store_models(snapshot,section,ext)
+                models=await self.store_models(snapshot,section,ext)
+                allowed=index in models
+                if allowed:
+                    list_page=models.index(index)//10
             if not allowed:
                 raise Rejected('Модель больше не доступна в этом разделе.')
             model_id=snapshot['models'][index]['id']
             if model_id.replace('-','_')==self.cfg.clodex_model.replace('-','_'):
                 model_id=self.cfg.clodex_model
             await self.history(u,ext,min(10000,max(0,int(page))),
-                               model=(model_id,f'mwork:{version}:{section}:{index}'));return
+                               model=(model_id,f'mwork:{version}:{section}:{index}'),list_page=list_page);return
         if route=='slist':
             _,version,section,page=data.split(':')
             await self.show_store_models(ext,version,section,int(page));return
