@@ -443,13 +443,13 @@
           "task_id": "TG-02",
           "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/55",
           "tested_sha": "aea1204d372ad0cbf415ddd6b60282adbc96da13",
-          "checkout_sha": "9231a6dc42312e302cb4eeb95a39a6bfe0ff3512",
-          "tree_relation": "SYNTHETIC_EQUAL_TREE",
-          "tree_proof_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/aea1204d372ad0cbf415ddd6b60282adbc96da13...9231a6dc42312e302cb4eeb95a39a6bfe0ff3512",
-          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44362413456",
+          "checkout_sha": "aea1204d372ad0cbf415ddd6b60282adbc96da13",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44362413721",
           "ci_conclusion": "SUCCESS",
-          "coverage": "Telegram consent and delivery fixtures against shared SL-01.",
-          "limitations": "Legal approval and real Telegram delivery remain deferred.",
+          "coverage": "Mock Telegram first login, delivery of both consent documents and stale consent version in the 497-test full regression.",
+          "limitations": "Documents remain test-only pending legal approval; real Telegram delivery and manual acceptance deferred.",
           "integrated_sha": "83c78faac823687b34ae7828e62b3cc4f887e0f3",
           "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/aea1204d372ad0cbf415ddd6b60282adbc96da13...83c78faac823687b34ae7828e62b3cc4f887e0f3"
         }
@@ -1530,11 +1530,11 @@
       "task_id": "PY-02",
       "title": "Проверить Platega callback/reconcile без Telegram checkout",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/77",
+      "tested_sha": "b467c4041de79fdba3ea1eca5336b892900f3c56",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -1542,6 +1542,40 @@
       ],
       "dependencies": [
         "IN-19"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 33,
+          "task_id": "PY-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/77",
+          "tested_sha": "fd30ed08cd3e6dec900f4c138b585a91eef0a925",
+          "checkout_sha": "fd30ed08cd3e6dec900f4c138b585a91eef0a925",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44539073025",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Mock Platega callback, lookup, idempotent credit and process-interruption recovery; 556-test S2 on source HEAD.",
+          "limitations": "Unmerged candidate; external checkout only, real payments and final independent integration acceptance remain deferred.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 33,
+          "task_id": "PY-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/77",
+          "tested_sha": "b467c4041de79fdba3ea1eca5336b892900f3c56",
+          "checkout_sha": "b467c4041de79fdba3ea1eca5336b892900f3c56",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44544944499",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Source fix rotates bounded reconciliation past unknown legacy payment; full isolated S2 on exact source HEAD.",
+          "limitations": "Service-level mock test; runtime polling and durable cursor across restart not established; unmerged.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
@@ -1822,8 +1856,8 @@
       "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/73",
-      "tested_sha": "294f1ede1252f04162b079460f3914a7d5640753",
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/79",
+      "tested_sha": "739b989f1af731c546015d08c4f813104149c7fe",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -1846,6 +1880,22 @@
           "ci_conclusion": "SUCCESS",
           "coverage": "Composite PostgreSQL smoke for source packages, quote and model version.",
           "limitations": "One separate workflow failed on Ubuntu mirror; combined candidate remains unmerged.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "Burn2288",
+          "list_position": 27,
+          "task_id": "TQ-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/79",
+          "tested_sha": "739b989f1af731c546015d08c4f813104149c7fe",
+          "checkout_sha": "739b989f1af731c546015d08c4f813104149c7fe",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44546593549",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "FT-028 external mock top-up and HTTP image combined scenarios, including payment history.",
+          "limitations": "Historical combined HEAD; later PY-02 fix requires its own exact-SHA checks; no live payment or final acceptance.",
           "integrated_sha": null,
           "integration_evidence_url": null
         }
@@ -2397,6 +2447,13 @@
     "integration_ref": "integration/functional-test-v1",
     "integration_sha": "83c78faac823687b34ae7828e62b3cc4f887e0f3",
     "candidate_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/76",
-    "candidate_sha": "4c2df69503b7eb0ae249f5816e0868799961eb75"
+    "candidate_sha": "4c2df69503b7eb0ae249f5816e0868799961eb75",
+    "ft028_fix_01": {
+      "previous_candidate_sha": "739b989f1af731c546015d08c4f813104149c7fe",
+      "source_fix_sha": "b467c4041de79fdba3ea1eca5336b892900f3c56",
+      "source_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/77",
+      "candidate_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/79",
+      "candidate_head": "See live PR head; final exact SHA and its CI are recorded externally in private global register."
+    }
   }
 }

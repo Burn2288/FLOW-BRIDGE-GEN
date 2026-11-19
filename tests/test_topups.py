@@ -235,9 +235,10 @@ async def test_topup_ui_and_admin_isolation(env):
     await send(callback=own)
     order=await send('100,00')
     assert 'Будет зачислено 1 000 токенов' in order[1]
-    created=await send(callback=routes(order)['Перейти к оплате'])
-    assert created[2].inline_keyboard[0][0].url=='https://pay.platega.io/test'
-    await send(callback=routes(created)['Проверить оплату'])
+    check=routes(order)['Проверить оплату']
+    assert 'Перейти к оплате' not in routes(order)
+    await payments.create(user,uid(check.split(':')[1]),test_session=True)
+    await send(callback=check)
     assert len(gateway.posts)==1
     await payments.notify(app.bot)
     posts={ident for ident,screen in app.bot.messages.items() if 'Баланс пополнен' in screen[1]}
@@ -407,3 +408,73 @@ async def test_topup_notice_waits_for_payment_review(env):
     assert len(bot.messages)==1
     assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='topup'")==1
     await payments.client.close()
+
+
+async def test_py02_telegram_cannot_create_or_link_external_checkout(env):
+    pool,cfg,user,fixture_payments,gateway=await fixture(env)
+    cfg=replace(cfg,topup_mode='live',payments_enabled=True,platega_enabled=True,payment_backend='platega')
+    payments=Topups(pool,cfg,fixture_payments.client)
+    app=TelegramApp(pool,cfg,BroadcastTransport(pool))
+    app.topup_ui.payments=payments
+    order=await quote(payments,user)
+    try:
+        await app.handle(event(910,callback=f"tucreate:{order['id']}"))
+        assert gateway.posts==[]
+        await payments.create(user,order['id'])  # trusted external checkout
+        await app.handle(event(911,callback=f"tuorder:{order['id']}"))
+        active=(await app.navigation.read(100)).active_id
+        markup=app.bot.messages[active][2]
+        assert all(not b.url for row in markup.inline_keyboard for b in row)
+        assert 'tucheck:'+str(order['id']) in routes(app.bot.messages[active]).values()
+    finally:
+        await payments.client.close()
+
+
+async def test_unknown_export_must_match_original_order(env,monkeypatch):
+    pool,cfg,user,payments,gateway=await fixture(env)
+    try:
+        first,second=await quote(payments,user),await quote(payments,user)
+        gateway.drop_response=True
+        for row in (first,second):
+            with pytest.raises(Rejected):
+                await payments.create(user,row['id'],test_session=True)
+        original_find=payments.client.find
+        async def mismatched_export(order,created):
+            assert order==first['id']
+            return await original_find(second['id'],created)
+        monkeypatch.setattr(payments.client,'find',mismatched_export)
+        with pytest.raises(PaymentInvalid):
+            await payments.check(user,first['id'])
+        assert not await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='topup'")
+        assert len(gateway.posts)==2
+    finally:
+        await payments.client.close()
+
+
+async def test_out_of_order_callback_uses_canonical_status_after_chargeback(env):
+    pool,cfg,user,payments,gateway=await fixture(env)
+    headers={'X-MerchantId':MERCHANT,'X-Secret':SECRET}
+    try:
+        row=await quote(payments,user)
+        order=row['id']
+        await payments.create(user,order,test_session=True)
+        async def available():
+            return await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='demo'",user)
+        before=await available()
+        confirmed=gateway.event(order)
+        gateway.states[str(order)]='PENDING'
+        await payments.callback(headers,confirmed)
+        assert await available()==before
+        gateway.states[str(order)]='CONFIRMED'
+        await payments.callback(headers,gateway.event(order,'CANCELED'))
+        assert await available()==before+row['credits']
+        gateway.states[str(order)]='CHARGEBACKED'
+        await payments.check(user,order)
+        restarted=Topups(pool,cfg,payments.client)
+        await restarted.callback(headers,confirmed)
+        assert await available()==before
+        assert (await restarted.owned(user,order))['state']=='refunded'
+        moves=await pool.fetch('SELECT kind,da FROM ledger WHERE payment_id=$1 ORDER BY kind',order)
+        assert [tuple(r) for r in moves]==[('topup',row['credits']),('topup_reversal',-row['credits'])]
+    finally:
+        await payments.client.close()
