@@ -54,18 +54,6 @@ class CheckoutClient(PlategaClient):
             raise PaymentUnknown('Creation expiry invalid')
         return remote,url,datetime.now(timezone.utc)+timedelta(seconds=duration)
 
-    async def find(self,order,created):
-        # A lost create response never authorizes another /transaction/process.
-        body={'from':created.isoformat(),'to':datetime.now(timezone.utc).isoformat(),'timeZoneId':'UTC'}
-        rows=await self.request('POST','/transaction/export/json',body,allow_list=True)
-        if not isinstance(rows,list):
-            raise PaymentUnknown('Export response contract')
-        matches={uid(row['recordId']) for row in rows
-                 if isinstance(row,dict) and row.get('payload')==str(order)}
-        if len(matches)>1:
-            raise PaymentInvalid('Multiple transactions for order')
-        return next(iter(matches),None)
-
 
 class Topups:
     def __init__(self,pool,cfg,client=None):
@@ -162,7 +150,7 @@ class Topups:
     async def check(self,user,order):
         row=await self.owned(user,order)
         if row['remote_id']:
-            await self.sync(row['remote_id'])
+            await self.sync(row['remote_id'],expected_order=row['id'])
         elif row['state'] in ('creating','unknown'):
             await self.recover(row)
         return await self.owned(user,row['id'])
@@ -170,10 +158,10 @@ class Topups:
     async def recover(self,row):
         remote=await self.client.find(row['id'],row['created_at'])
         if remote:
-            await self.sync(remote)
+            await self.sync(remote,expected_order=row['id'])
         # An empty or delayed export is not evidence that creation never happened.
 
-    async def sync(self,remote,event=None):
+    async def sync(self,remote,event=None,*,expected_order=None):
         remote=uid(remote)
         async with self.pool.acquire() as conn:
             lock='topup-sync:'+str(remote)
@@ -182,7 +170,7 @@ class Topups:
                 status=await self.client.status(remote)
                 try:
                     order=uid(status['payload'])
-                    if uid(status['id'])!=remote:
+                    if uid(status['id'])!=remote or (expected_order is not None and order!=expected_order):
                         raise PaymentInvalid('Transaction identity mismatch')
                     merchant=uid(status.get('merchantId',status.get('mechantId')))
                     minor=kopecks(status['paymentDetails']['amount'])
@@ -296,7 +284,7 @@ class Topups:
         order=await self.pool.fetchrow(ORDER+' WHERE p.id=$1',row['payment_id'])
         try:
             if order['remote_id']:
-                await self.sync(order['remote_id'])
+                await self.sync(order['remote_id'],expected_order=order['id'])
             elif order['state'] in ('creating','unknown'):
                 await self.recover(order)
         except (PaymentInvalid,PaymentUnknown,Rejected):

@@ -32,6 +32,14 @@ class TopupUI:
 
     async def panel(self,user,chat,page=0,*,fresh=False):
         await self.app.svc.conversation(user,'home')
+        if self.app.cfg.topup_mode=='live' or (self.app.cfg.payments_enabled and self.app.cfg.payment_backend=='stars'):
+            rows=[]
+            if self.app.cfg.payments_enabled and self.app.cfg.payment_backend=='stars' and self.app.cfg.mode!='mock':
+                rows.append([('Пополнить через Telegram Stars','buy')])
+            rows.extend([[('Мои платежи','tuhistory:0')],[('← Назад','section:2')]])
+            await self.screen(chat,'Пополнение баланса. Покупки в Telegram оплачиваются в Stars.',rows,
+                              panel='topup' if fresh else None)
+            return
         settings=await self.payments.settings()
         rate=await self.app.pool.fetchrow('SELECT * FROM task_ruble_equivalent WHERE id=1')
         choices=await self.app.pool.fetch("""SELECT * FROM topup_presets
@@ -66,13 +74,8 @@ class TopupUI:
         title='Тестовое пополнение' if row['mode']=='demo' else 'Пополнение баланса'
         text=(f"{title}\nК оплате {rubles(row['amount'])} ₽\n"
               f"Будет зачислено {display(row['credits'])} токенов\n{LABELS[row['state']]}")
-        rows=[]
-        if row['checkout_url'] and row['state']=='pending':
-            rows.append([InlineKeyboardButton(text='Перейти к оплате',url=row['checkout_url'])])
-        elif row['state']=='new':
-            rows.append([InlineKeyboardButton(text='Перейти к оплате',callback_data=f"tucreate:{row['id']}")])
-        rows += [[InlineKeyboardButton(text='Проверить оплату',callback_data=f"tucheck:{row['id']}")],
-                 [InlineKeyboardButton(text='← Назад',callback_data='topups:0')]]
+        rows=[[InlineKeyboardButton(text='Проверить оплату',callback_data=f"tucheck:{row['id']}")],
+              [InlineKeyboardButton(text='← Назад',callback_data='topups:0')]]
         await self.app.catalogue_screen(chat,text,InlineKeyboardMarkup(inline_keyboard=rows))
 
     async def callback(self,user,chat,route,arg):
@@ -84,11 +87,11 @@ class TopupUI:
             await self.panel(user,chat,int(arg or 0));return
         if route=='tuhistory':
             await self.history(user,chat,int(arg));return
-        if route in ('tucreate','tucheck','tuorder'):
+        if route=='tucreate' or (self.app.cfg.topup_mode=='live' and route in ('tupick','tuown')):
+            raise Rejected('Покупки в Telegram оплачиваются в Stars.')
+        if route in ('tucheck','tuorder'):
             try:
-                if route=='tucreate':
-                    await self.payments.create(user,uid(arg),test_session=self.app.has_admin_session(chat))
-                elif route=='tucheck':
+                if route=='tucheck':
                     await self.payments.check(user,uid(arg))
             except (PaymentInvalid,PaymentUnknown):
                 raise Rejected('Платёж пока не подтверждён. Проверку можно повторить позже.') from None
@@ -112,6 +115,8 @@ class TopupUI:
         await self.quote(user,chat,choice['amount'],code)
 
     async def quote(self,user,chat,minor,code):
+        if self.app.cfg.topup_mode=='live':
+            raise Rejected('Покупки в Telegram оплачиваются в Stars.')
         row=await self.payments.quote(user,chat,minor,code,test_session=self.app.has_admin_session(chat))
         await self.order(user,chat,row['id'])
 
