@@ -216,7 +216,7 @@ class Service:
     async def owned(self,u,j):
         async with self.pool.acquire() as c:
             await self.authorize(c,u)
-            r=await c.fetchrow('SELECT j.*,f.storage_key,f.expires_at,f.deleted_at FROM jobs j LEFT JOIN files f ON f.job_id=j.id WHERE j.id=$1 AND j.user_id=$2',uid(j),u)
+            r=await c.fetchrow('SELECT j.*,f.storage_key,f.expires_at,f.deleted_at,f.sha256 AS file_sha256,f.size AS file_size FROM jobs j LEFT JOIN files f ON f.job_id=j.id WHERE j.id=$1 AND j.user_id=$2',uid(j),u)
             if not r: raise Rejected('Работа не найдена.')
             return r
 
@@ -244,7 +244,7 @@ class Service:
                     AND ($3::text IS NULL OR j.model_id=$3)
                     AND NOT EXISTS (SELECT 1 FROM image_works w WHERE w.update_id=j.update_id AND w.user_id=j.user_id)
                     UNION ALL
-                    SELECT id::text,'succeeded',NULL,created_at,'video',model_id,true
+                    SELECT id::text,'succeeded',NULL,created_at,'video',model_id,(video IS NOT NULL)
                     FROM video_jobs WHERE user_id=$1 AND status='succeeded' AND expires_at>now()
                     AND ($3::text IS NULL OR model_id=$3)
                     UNION ALL
@@ -322,7 +322,7 @@ class Service:
                        COALESCE(q.request->>'title',CASE WHEN v.provider='anymodel' THEN 'Grok Imagine Video 1.5'
                             ELSE 'Veo 3.1' END) AS caption
                 FROM video_jobs v LEFT JOIN task_price_quotes q ON q.id=v.id
-                WHERE v.id=$1 AND v.user_id=$2 AND v.status='succeeded' AND v.expires_at>now()
+                WHERE v.id=$1 AND v.user_id=$2 AND v.status='succeeded' AND v.video IS NOT NULL AND v.expires_at>now()
                 """,uid(j),u)
             if not row:raise Rejected('Файл недоступен или срок хранения истёк.')
             return row
@@ -344,8 +344,11 @@ class Service:
         from .storage import Storage
         try:
             audio=await asyncio.to_thread(Storage(self.cfg.storage).path(r['storage_key']).read_bytes)
-        except FileNotFoundError:
+        except (OSError, ValueError):
             raise Rejected('Файл недоступен или срок хранения истёк.') from None
+        import hashlib
+        if len(audio) != r['file_size'] or hashlib.sha256(audio).hexdigest() != r['file_sha256']:
+            raise Rejected('Файл недоступен или срок хранения истёк.')
         return {'prompt':prompt,'audio':audio,'filename':'ozvuchka.mp3'}
 
     async def chat_work(self,u,j):
