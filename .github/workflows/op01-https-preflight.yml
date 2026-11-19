@@ -26,5 +26,5 @@ jobs:
         with:
           python-version: '3.12'
       - run: sudo apt-get update && sudo apt-get install -y caddy openssl
-      - run: python -m pip install -r requirements-acceptance.txt
+      - run: python -m pip install -r requirements-acceptance.txt playwright==1.56.0
       - run: python -m pytest -q -s -p no:cacheprovider verification/op01/test_https.py

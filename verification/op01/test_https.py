@@ -25,6 +25,7 @@ from elevenbot.telegram import TelegramApp
 from miniapp.backend.web import create_app
 from miniapp.tests.test_miniapp import signed
 from test_ui import Bot, event
+from verification.op01.miniapp_journey import check_miniapp_journey
 
 FIXTURE_TOKEN = 'op01-test-token-not-a-real-telegram-token'
 
@@ -78,7 +79,9 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
         pool=await asyncpg.create_pool(dsn,min_size=1,max_size=4,server_settings={'search_path':schema})
         await migrate(pool)
         cfg=Config(token=FIXTURE_TOKEN,mode='mock',access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),
-                   payments_enabled=False,generation_enabled=False,storage=tmp_path/'storage')
+                   payments_enabled=False,generation_enabled=False,storage=tmp_path/'storage',
+                   miniapp_url=f'https://localhost:{tls_port}/', interaction_mode='mock',
+                   catalogue_path=str(tmp_path/'catalogue.json'))
         telegram=TelegramApp(pool,cfg,Bot())
         await telegram.handle(event('/start'))
         await telegram.handle(event(callback=telegram.bot.sent[-1][1].inline_keyboard[0][0].callback_data))
@@ -160,10 +163,7 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
             headers={'Authorization':'Bearer '+owner_token}
             assert (await client.get(base+'/api/v1/wallet',headers=headers)).status==200
             assert (await client.get(base+'/api/v1/admin',headers={'Authorization':'Bearer '+tester_token})).status==404
-            work=await telegram.svc.save_image_work(owner,9001,'fixture','fixture',
-                        type('Image',(),{'image':b'fixture-image','filename':'test.png'})())
-            foreign=await client.get(base+'/api/v1/works/image/'+str(work),headers={'Authorization':'Bearer '+tester_token})
-            assert foreign.status==404
+            await check_miniapp_journey(telegram,owner,tester,base,cert,client)
             assert (await client.post(base+'/api/v1/session',data='x'*13000,headers={'Content-Type':'application/json'})).status==413
             crash=await client.get(base+'/api/v1/_op01-error');crash_body=await crash.text()
             assert crash.status==500 and 'Traceback' not in crash_body and 'fixture-exception-marker' not in crash_body
