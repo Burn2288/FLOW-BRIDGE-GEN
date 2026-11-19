@@ -76,8 +76,9 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await page.goto(keyboard_url if external == 100 else inline_url)
                 session = await login.value
                 assert session.status == 200
+                original_token = (await session.json())['token']
                 if external == 101:
-                    tester_headers = {'Authorization': 'Bearer ' + (await session.json())['token']}
+                    tester_headers = {'Authorization': 'Bearer ' + original_token}
                 await expect(page.locator('#catalogue')).to_be_visible()
                 await expect(page.locator('#models')).to_contain_text('MA-01 Image')
                 await page.get_by_role('button', name='Баланс').click()
@@ -100,6 +101,13 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                 if external == 100:
                     await page.get_by_role('button', name='Каталог').click()
                     await check_flux_confirmation(page, telegram.pool, owner, pending_jobs)
+                    # A different signed Telegram launch must obtain its own session.
+                    launch_data = signed(cfg.token, external, query_id='ma01-other-launch')
+                    async with page.expect_response(lambda response: response.url == base + '/api/v1/session') as login:
+                        await page.reload()
+                    replacement = await login.value
+                    assert replacement.status == 200
+                    assert (await replacement.json())['token'] != original_token
                 else:
                     await check_job_card(page, telegram.pool, tester)
                     await compare_model_cards(page, telegram, owner, tester)
