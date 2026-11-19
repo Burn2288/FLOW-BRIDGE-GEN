@@ -342,5 +342,9 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     assert chat == 100 and upload.data == mp4
     assert calls.count(('POST', '/v1/videos')) == 1
     assert calls.count(('GET', '/v1/videos/veo-fixture/content')) == 1
+    # The bot's maintenance loop settles terminal work independently of polling.
+    from elevenbot.task_wallet import settle_task_tokens
+    await settle_task_tokens(telegram.pool)
+    await settle_task_tokens(telegram.pool)
     assert await telegram.pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_capture'", job) == 1
     return job
