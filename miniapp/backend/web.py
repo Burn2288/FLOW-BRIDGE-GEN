@@ -13,6 +13,7 @@ from uuid import UUID
 
 from aiohttp import web
 
+from elevenbot.model_capabilities import FLUX_MODEL, flux_card
 from elevenbot.core import Rejected, Service
 from elevenbot.library import LibraryItem
 from elevenbot.job_timeline import get_timeline
@@ -149,7 +150,12 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             for section, (_, operation) in STORE_SECTIONS.items():
                 for index in await view.store_models(snap, section, None):
                     item = snap['models'][index]
-                    rows.append(dict(aggregator=label,id=item['id'],title=item['title'],operation=operation))
+                    row = dict(aggregator=label,id=item['id'],title=item['title'],operation=operation)
+                    if item['id'] == FLUX_MODEL and operation == 'images.generate' and view.public_clodex_image(FLUX_MODEL, operation):
+                        card = await flux_card(pool)
+                        if card:
+                            row['image_card'] = card
+                    rows.append(row)
 
         if anymodel_available(cfg):
             label = view.provider_title(None, 'anymodel')

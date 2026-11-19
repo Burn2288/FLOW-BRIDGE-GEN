@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from .core import Rejected
 
+FLUX_MODEL = 'flux-schnell'
 POLICY_LOCK = 921189
 NAME = re.compile(r'^[a-z][a-z0-9_]{0,63}$')
 
@@ -40,19 +41,37 @@ def validate_params(schema, params):
             raise Rejected('Недопустимые параметры модели.')
 
 
-async def snapshot(conn, request):
+async def published_version(conn, provider, model, operation):
     from .model_policy import canonical
-    model = canonical(request.provider, request.model, request.operation)
+    model = canonical(provider, model, operation)
     row = await conn.fetchrow('''
         SELECT v.version, v.schema::text FROM model_capability_versions v
         JOIN approved_models a ON (a.provider,a.model_id,a.operation)=(v.provider,v.model_id,v.operation)
         WHERE v.provider=$1 AND v.model_id=$2 AND v.operation=$3 AND v.published
-        ''', request.provider, model, request.operation)
+        ''', provider, model, operation)
     if not row:
         return None
-    schema = json.loads(row['schema'])
-    validate_params(schema, request.params)
-    return {'version': str(row['version']), 'schema': schema}
+    return {'version': str(row['version']), 'schema': json.loads(row['schema'])}
+
+
+async def snapshot(conn, request):
+    version = await published_version(conn, request.provider, request.model, request.operation)
+    if version:
+        validate_params(version['schema'], request.params)
+    return version
+
+
+async def flux_card(conn):
+    """Intersect the adapter's single-image request with the current published rules."""
+    from .tariff_admin import default_params
+    params = default_params('clodex', 'images.generate')
+    version = await published_version(conn, 'clodex', FLUX_MODEL, 'images.generate') if conn is not None else None
+    if version:
+        try:
+            validate_params(version['schema'], params)
+        except Rejected:
+            return None
+    return {'params': params, 'label': f"Количество изображений: {params['n']}"}
 
 
 async def validate_pinned(conn, request):

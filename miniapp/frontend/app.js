@@ -106,7 +106,8 @@ function imageForm(model) {
       const result = await response.json();
       if (requested !== revision) return;
       quote = result;
-      message.textContent = `Стоимость: ${quote.price.total} токенов.`;
+      const priceLabel = quote.price.estimate ? 'Оценка' : 'Стоимость';
+      message.textContent = `${priceLabel}: ${quote.price.total} токенов.`;
       confirm.textContent = `Подтвердить за ${quote.price.total} токенов`;
       confirm.hidden = false;
     } catch (error) {
@@ -179,7 +180,10 @@ async function start() {
   const models = document.querySelector('#models');
   for (const model of catalogue.models) {
     const item = listItem(model.aggregator + ' · ' + model.title);
-    if (model.id === 'flux-schnell' && model.operation === 'images.generate') {
+    if (model.image_card) {
+      const parameters = document.createElement('small');
+      parameters.textContent = model.image_card.label;
+      item.append(parameters);
       item.append(imageForm(model.id));
     }
     models.append(item);

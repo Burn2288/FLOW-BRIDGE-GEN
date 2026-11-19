@@ -7,12 +7,13 @@ from uuid import UUID
 from aiohttp import web
 
 from elevenbot.core import Rejected
+from elevenbot.model_capabilities import FLUX_MODEL
+from elevenbot.tariff_admin import default_params
 from elevenbot.model_policy import admitted
 from elevenbot.pricing import Request
 from elevenbot.task_wallet import settle_task_tokens
 
 KEY = re.compile(r'^[A-Za-z0-9_-]{8,96}$')
-MODEL = 'flux-schnell'
 
 
 def parse_uuid(value):
@@ -40,15 +41,15 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
     async def create_quote(request):
         user = await account(request)
         data = await body(request)
-        if set(data) != {'model', 'prompt'} or data['model'] != MODEL or not isinstance(data['prompt'], str):
+        if set(data) != {'model', 'prompt'} or data['model'] != FLUX_MODEL or not isinstance(data['prompt'], str):
             raise web.HTTPBadRequest()
         prompt = data['prompt'].strip()
         if not 1 <= len(prompt) <= 3000 or any(ord(c) < 32 and c not in '\n\r\t' for c in prompt):
             raise web.HTTPBadRequest()
         external = await external_for(user)
-        if not cfg.allows_public_image('clodex', MODEL, 'images.generate'):
+        if not cfg.allows_public_image('clodex', FLUX_MODEL, 'images.generate'):
             raise web.HTTPForbidden()
-        req = Request('clodex', MODEL, 'images.generate', 'FLUX Schnell', prompt, {'n': 1})
+        req = Request('clodex', FLUX_MODEL, 'images.generate', 'FLUX Schnell', prompt, default_params('clodex', 'images.generate'))
         try:
             async with pool.acquire() as conn:
                 if not await admitted(conn, req.provider, req.model, req.operation):
@@ -93,7 +94,7 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
                         raise web.HTTPConflict(text='Ключ уже использован для другой команды.')
                     return web.json_response({'id': str(quote_id)}, status=200)
                 owned = await conn.fetchval("""SELECT 1 FROM task_price_quotes WHERE id=$1 AND user_id=$2
-                    AND provider='clodex' AND model_id=$3 AND operation='images.generate'""", quote_id, user, MODEL)
+                    AND provider='clodex' AND model_id=$3 AND operation='images.generate'""", quote_id, user, FLUX_MODEL)
                 if not owned:
                     raise web.HTTPNotFound()
                 correlation = await conn.fetchval("SELECT -nextval('http_image_correlation_seq')")
