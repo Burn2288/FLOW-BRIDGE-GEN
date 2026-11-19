@@ -2454,6 +2454,14 @@
       "source_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/77",
       "candidate_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/79",
       "candidate_head": "See live PR head; final exact SHA and its CI are recorded externally in private global register."
+    },
+    "ft030_library_integrity": {
+      "task_id": "ML-02",
+      "dependency_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/80",
+      "dependency_sha": "9f6a90886b57342875374041f966939ef35ea3ca",
+      "candidate_branch": "work/burn2288/ft030-library-integrity",
+      "status": "CI_PENDING",
+      "note": "Exact candidate SHA and CI evidence recorded in candidate PR and private register after execution; historical ML-02 remains partial."
     }
   }
 }
