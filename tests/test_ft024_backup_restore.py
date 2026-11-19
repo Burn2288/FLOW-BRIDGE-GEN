@@ -82,6 +82,11 @@ async def test_full_backup_restore_of_combined_candidate(image_api, account_db, 
     runtime.write_text('DATABASE_URL='+creds['DATABASE_URL']+'\nAUDIO_STORAGE_DIR=audio\nCATALOGUE_PATH=catalogue.json\n', encoding='utf-8')
     target = tmp_path/'backup'
     assert (await backup(runtime, target))['catalogue_present']
+    bad_runtime = tmp_path/'bad.env'
+    bad_runtime.write_text('DATABASE_URL='+creds['DATABASE_URL']+'\nAUDIO_STORAGE_DIR=audio\nCATALOGUE_PATH=bad.env\n', encoding='utf-8')
+    with pytest.raises(ValueError, match='Runtime configuration'):
+        await backup(bad_runtime, tmp_path/'bad-backup')
+    assert not (tmp_path/'bad-backup/catalogue/models.json').exists()
     manifest = verify(target)
     assert manifest['catalogue']['present'] and manifest['files']['catalogue/models.json'] == hashlib.sha256(catalogue_bytes).hexdigest()
     tables = ('identities', 'wallets', 'ledger', 'referral_codes', 'referral_attributions',

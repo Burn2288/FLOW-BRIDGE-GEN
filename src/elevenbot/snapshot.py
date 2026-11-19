@@ -69,6 +69,7 @@ async def backup(config,output):
     if values.get('CATALOGUE_PATH'):
         catalogue=Path(values['CATALOGUE_PATH'])
         if not catalogue.is_absolute():catalogue=Path(config).resolve().parent/catalogue
+        if catalogue.resolve()==Path(config).resolve() or catalogue.name.endswith('.env') or catalogue.name=='.env':raise ValueError('Runtime configuration cannot be a catalogue')
         if catalogue.is_symlink():raise ValueError('Catalogue symlink forbidden')
         if catalogue.exists():
             if not catalogue.is_file():raise ValueError('Invalid catalogue file')
