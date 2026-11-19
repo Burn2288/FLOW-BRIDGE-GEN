@@ -69,6 +69,7 @@ async def test_full_backup_restore_of_combined_candidate(image_api, account_db, 
                           VALUES('clodex','fixture-operation','fixture-provider-job',$1::uuid,'charged',10,'darkflow_token')""", q)
     audio_cfg = replace(cfg, mode='mock', generation_enabled=True, access_mode='public')
     audio_svc = Service(pool, audio_cfg)
+    await audio_svc.accept(users[0])  # existing demo grant, isolated fixture only
     aq, _ = await audio_svc.quote(users[0], 'backup fixture', 'demo')
     job = await audio_svc.confirm(users[0], aq)
     await Worker(pool, audio_cfg, MockProvider()).run_one()
