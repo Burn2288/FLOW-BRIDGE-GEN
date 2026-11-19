@@ -1909,8 +1909,8 @@
           "tree_proof_url": null,
           "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44341737526",
           "ci_conclusion": "SUCCESS",
-          "coverage": "Local HTTPS preview and HTTPS preflight.",
-          "limitations": "Self-signed local preview only; no real account, Telegram WebView or production endpoint.",
+          "coverage": "Local HTTPS preview present; cited CI verifies separate HTTPS preflight on this SHA, not the preview itself.",
+          "limitations": "Self-signed local preview only; preview CI not demonstrated; no real account, Telegram WebView or production endpoint.",
           "integrated_sha": "83c78faac823687b34ae7828e62b3cc4f887e0f3",
           "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/02d23c8e5766642319ce7f5aa86a19e02f5bf239...83c78faac823687b34ae7828e62b3cc4f887e0f3"
         }
