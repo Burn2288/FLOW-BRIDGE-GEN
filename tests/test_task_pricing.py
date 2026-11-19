@@ -210,6 +210,7 @@ async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit
     from unittest.mock import AsyncMock
 
     from elevenbot.pricing import NoProviderPrice
+    from test_admin_access import event as tg_event
     from test_provider_extensibility import app_with_fixture
 
     pool, cfg, _, user = env
@@ -236,6 +237,11 @@ async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit
         await publish('60')
         shown = await app.pricing.quote(user, req)
         snapshot = await pool.fetchval('SELECT price::text FROM task_price_quotes WHERE id=$1', shown.id)
+        await app.show_price(100, shown)
+        text, markup = app.bot.sent[-1]
+        assert '60 токенов DarkFlow | Gen' in text
+        button = next(b for row in markup.inline_keyboard for b in row if b.text == 'Генерировать')
+
         async def confirm():
             return await app.launch.confirm(user, 100, shown.id, 100, progress=lambda _: nullcontext(), background=None)
 
@@ -267,16 +273,15 @@ async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit
 
             async def confirm_after_lock():
                 await publisher_locked.wait()
-                return await confirm()
+                await app.handle(tg_event(100, callback=button.callback_data))
 
             async with asyncio.timeout(10), asyncio.TaskGroup() as group:
                 group.create_task(publish('85'))
-                confirmation = group.create_task(confirm_after_lock())
-            accepted, ok, _ = confirmation.result()
+                group.create_task(confirm_after_lock())
         else:
             await publish('85')
             accepted, ok, _ = await confirm()
-        assert ok and accepted.id == shown.id and accepted.price == shown.price
+            assert ok and accepted.id == shown.id and accepted.price == shown.price
         with pytest.raises(Rejected):
             await app.launch.confirm(user, 100, shown.id, 101, progress=lambda _: nullcontext(), background=None)
         job = await pool.fetchrow("""SELECT d.state, q.price::text FROM task_dispatch d
@@ -287,4 +292,17 @@ async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit
         assert [tuple(row) for row in movements] == [('task_capture',0,-60), ('task_reserve',-60,60)]
         assert posts == ['/generate']
         assert (await app.svc.wallet(user))['available'] == 40
-        assert (await app.pricing.quote(user, req)).price['total'] == '85'
+        await app.handle(tg_event(102, '💳 Баланс'))
+        text, markup = app.bot.sent[-1]
+        assert 'Кредиты: 40\nЗарезервировано: 0' in text
+        history = next(b for row in markup.inline_keyboard for b in row if b.text == 'История операций')
+        await app.handle(tg_event(103, callback=history.callback_data))
+        text = app.bot.sent[-1][0]
+        reference = str(shown.id)[:8]
+        for label in ('Пополнение: 100', f'В резерв под задание: 60 · задание {reference}',
+                      f'Списано из резерва за задание: 60 · задание {reference}'):
+            assert text.count(label) == 1
+        following = await app.pricing.quote(user, req)
+        assert following.price['total'] == '85'
+        await app.show_price(100, following)
+        assert '85 токенов DarkFlow | Gen' in app.bot.sent[-1][0]

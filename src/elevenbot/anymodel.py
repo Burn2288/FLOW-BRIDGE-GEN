@@ -265,7 +265,7 @@ class AnyModelProvider:
 
     async def submit_image(self,model,prompt,*,params=None):
         return await self.read_response('POST',IMAGE_ENDPOINT,authenticated=True,max_body=8*1024*1024,
-                                        accepted=(200,202),json={'model':model,'prompt':prompt,'background':True, **(params or {})})
+                                        accepted=(200,202),submission=True,json={'model':model,'prompt':prompt,'background':True, **(params or {})})
 
     async def poll_image(self,job_id):
         if not JOB_ID.fullmatch(job_id):

@@ -397,3 +397,84 @@ async def exercise_reply_keyboard(pool,cfg,user,admin,populated):
                           'aggregators':aggregates,'works':works,'balance':balance,'help':help_screen,
                           'ruble':ruble_screen,'failed_input_retained':True},
           flush=True)
+
+
+@pytest.mark.parametrize('route', ['studio', 'account', 'information', 'model_history'])
+async def test_main_menu_client_views(env, tmp_path, monkeypatch, route):
+    from unittest.mock import AsyncMock
+    from aiogram.methods import EditMessageText
+
+    pool, cfg, _, _ = env
+    cfg = replace(cfg, catalogue_path=str(tmp_path / 'catalogue.json'))
+    title = 'Очень длинное название модели ' * 5
+    models = [dict(provider='clodex', id=f'model-{i:02}', title=title + str(i), operations=['images.generate'])
+              for i in range(11)]
+    snapshot = make_snapshot(models, [], [dict(provider='clodex', scope='key_available')])
+    SnapshotStore(cfg.catalogue_path).write(snapshot)
+    bot = Transport(pool)
+    app = TelegramApp(pool, cfg, bot)
+    monkeypatch.setattr(app, 'store_models', AsyncMock(return_value=list(range(11))))
+    sequence = 1
+
+    async def view():
+        state = await app.navigation.read(100)
+        _, text, markup = bot.messages[state.active_id]
+        keys = {b.callback_data: b.text for row in markup.inline_keyboard for b in row}
+        return state.active_id, text, keys
+
+    async def press(client_view, prefix):
+        nonlocal sequence
+        action, = [key for key in client_view[2] if key.startswith(prefix)]
+        sequence += 1
+        await app.handle(event(sequence, callback=action, source_message_id=client_view[0]))
+        return await view()
+
+    await app.handle(event(sequence, '/menu'))
+    main = await view()
+    if route in ('account', 'information'):
+        action = 'section:2' if route == 'account' else 'section:3'
+        detail = await press(main, action)
+        assert ('Зарезервировано' if route == 'account' else '/support') in detail[1]
+        # TG-03 adds this button to the same account entry point.
+        if 'walletlog:0' in detail[2]:
+            history = await press(detail, 'walletlog:0')
+            assert 'История операций' in history[1]
+            detail = await press(history, 'section:2')
+        reply, duplicate = await asyncio.gather(press(detail, 'home'), press(detail, 'home'))
+        assert reply == duplicate and reply[1:] == main[1:]
+    else:
+        studio = await press(main, 'provider:')
+        if route == 'studio':
+            assert (await press(studio, 'providers'))[1:] == main[1:]
+        else:
+            first = await press(studio, 'slist:current:image:')
+            second = await press(first, f"slist:{snapshot['version']}:image:1")
+            assert title in next(value for key, value in second[2].items() if key.startswith('smodel:'))
+            assert all(len(key.encode()) <= 64 for key in second[2])
+            card = await press(second, 'smodel:')
+            assert title in card[1]
+            works = await press(card, 'mwork:')
+            back = await press(works, 'smodel:')
+            assert back[1:] == card[1:]
+            edit = bot.edit_message_text
+
+            async def refuse_once(text, **kwargs):
+                monkeypatch.setattr(bot, 'edit_message_text', edit)
+                raise TelegramBadRequest(EditMessageText(text=text, **kwargs), "message can't be edited")
+
+            monkeypatch.setattr(bot, 'edit_message_text', refuse_once)
+            bot.deny_delete.add(back[0])
+            restored = await press(back, 'slist:')
+            assert restored[1:] == second[1:] and restored[0] != back[0]
+            assert bot.messages[back[0]][2] is None
+            # A second device has the old card cached; its callback arrives after fallback.
+            start = len(bot.events)
+            assert await press(back, 'mwork:') == restored
+            assert len(bot.events) == start
+            assert (await press(restored, 'smodel:'))[1:] == card[1:]
+    live = [i for i, (_, _, kb) in bot.messages.items() if hasattr(kb, 'inline_keyboard')]
+    assert live == [(await view())[0]]
+    start = len(bot.events)
+    current = await view()
+    assert await press(main, 'provider:') == current
+    assert len(bot.events) == start

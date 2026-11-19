@@ -15,6 +15,7 @@ from elevenbot.core import Rejected
 from elevenbot.clodex_pricing import ClodexPricing
 from elevenbot.discovery import SnapshotStore, snapshot
 from elevenbot.telegram import TelegramApp
+from elevenbot.task_wallet import settle_task_tokens
 from elevenbot.video import DEFAULT_VIDEO_MODELS, MODES, VideoAPI, VideoPilot
 from test_anymodel import routes
 from test_ui import Bot, event
@@ -46,15 +47,19 @@ def video():
     ])
 
 
-@pytest.mark.parametrize('mode', ['standard', 'fast'])
-async def test_video_quote_confirmation_recovery_and_library(funded_env, tmp_path, video, mode):
-    pool, cfg, service, user = funded_env
+@pytest.mark.parametrize('mode', ['standard', 'fast', 'cancel'])
+async def test_video_quote_confirmation_recovery_and_library(env, confirmed_credit, tmp_path, video, mode):
+    pool, cfg, service, user = env
+    await confirmed_credit(pool,cfg,user,1000)
+
+    async def balance():
+        return tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))
     path = tmp_path / 'catalogue.json'
     catalogue(path, MODES)
     cfg = settings(cfg, path)
     bot = Bot()
     bot.send_video = AsyncMock(return_value=SimpleNamespace(message_id=30))
-    model, label, action = MODES[mode]
+    model, label, action = MODES['standard' if mode=='cancel' else mode]
     requests = []
     task = 'task_fixture_1'
     statuses = iter(['pending', 'done'])
@@ -90,8 +95,18 @@ async def test_video_quote_confirmation_recovery_and_library(funded_env, tmp_pat
     assert f'Veo 3.1 · {label}' in bot.sent[-1][0]
     assert '0.45 USD' in bot.sent[-1][0] and 'Оценка: 500' in bot.sent[-1][0]
     confirmation = button(bot, 'Генерировать')
+    cancel = button(bot, 'Отмена')
     expected = {'model': model, 'prompt': 'A blue square', 'duration': 4, 'resolution': '720p', 'aspect_ratio': '16:9'}
     assert requests == [('POST', '/v1/videos/estimate', expected)]
+    assert await balance() == (1000,0)
+    if mode=='cancel':
+        await app.callback(user,100,cancel)
+        with pytest.raises(Rejected):
+            await app.callback(user,100,confirmation,request_id=2)
+        assert await balance() == (1000,0)
+        assert not any(path=='/v1/videos' for _,path,_ in requests)
+        assert not await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_reserve'")
+        return
 
     await asyncio.gather(*(app.callback(user, 100, confirmation, request_id=i) for i in (2, 3)),
                          return_exceptions=True)
@@ -99,13 +114,28 @@ async def test_video_quote_confirmation_recovery_and_library(funded_env, tmp_pat
     assert await pool.fetchval('SELECT count(*) FROM interaction_attempts') == 1
     row = await pool.fetchrow('SELECT provider_id,status FROM video_jobs')
     assert (row['provider_id'], row['status']) == (task, 'polling')
+    assert await balance() == (500,500)
+    with pytest.raises(Rejected):
+        await app.callback(user,100,cancel)
+    assert await balance() == (500,500)
     assert await app.video.poll_one(bot)
+    await app.progress.refresh()
+    assert await pool.fetchval("SELECT last_text LIKE '⏳%' FROM task_progress")
     bot.send_video.assert_not_awaited()
 
     await pool.execute('UPDATE video_jobs SET next_poll_at=now()')
     restarted = TelegramApp(pool, cfg, bot)
     restarted.video = VideoPilot(pool, cfg, api=api)
     assert await restarted.video.poll_one(bot)
+    await settle_task_tokens(pool)
+    await settle_task_tokens(pool)
+    await restarted.progress.refresh()
+    assert any(text.startswith('✅') and 'Готово.' in text for text,_ in bot.sent)
+    assert await balance() == (500,0)
+    assert await pool.fetchval("SELECT price->>'total' FROM task_price_quotes WHERE state='accepted'") == '500'
+    assert [tuple(r) for r in await pool.fetch(
+        "SELECT kind,da,dr FROM ledger WHERE task_quote_id IS NOT NULL ORDER BY kind"
+    )] == [('task_capture',0,-500),('task_reserve',-500,500)]
     assert [r for r in requests if r[0]=='GET'] == [
         ('GET', f'/v1/videos/{task}', None), ('GET', f'/v1/videos/{task}', None),
         ('GET', f'/v1/videos/{task}/content', None),
