@@ -42,15 +42,24 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
     async def create_quote(request):
         user = await account(request)
         data = await body(request)
-        if set(data) != {'model', 'prompt'} or data['model'] not in (FLUX_MODEL, *DEFAULT_VIDEO_MODELS) or not isinstance(data['prompt'], str):
+        speech = cfg.speech_pilot and cfg.clodex_model and data.get('model') == cfg.clodex_model
+        fields = {'model', 'prompt', 'voice'} if speech else {'model', 'prompt'}
+        if set(data) != fields or not isinstance(data['prompt'], str):
             raise web.HTTPBadRequest()
-        prompt = data['prompt'].strip()
+        if speech and not isinstance(data['voice'], str):
+            raise web.HTTPBadRequest()
+        if not speech and data['model'] not in (FLUX_MODEL, *DEFAULT_VIDEO_MODELS):
+            raise web.HTTPBadRequest()
+        prompt = data['prompt'] if speech else data['prompt'].strip()
         if not 1 <= len(prompt) <= 3000 or any(ord(c) < 32 and c not in '\n\r\t' for c in prompt):
             raise web.HTTPBadRequest()
         external = await external_for(user)
         model = data['model']
         try:
-            if model in DEFAULT_VIDEO_MODELS:
+            if speech:
+                await view.launch.authorize_pilot(pool, user, external)
+                req = view.speech_request(prompt, data['voice'])
+            elif model in DEFAULT_VIDEO_MODELS:
                 await view.launch.authorize_pilot(pool, user, external)
                 modes = await view.admitted_veo_modes(view.catalogue_snapshot())
                 title = next((label for ident,label,_ in modes.values() if ident == model), None)
@@ -109,7 +118,9 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
                     return web.json_response({'id': str(quote_id)}, status=200)
                 owned = await conn.fetchval("""SELECT 1 FROM task_price_quotes WHERE id=$1 AND user_id=$2
                     AND provider='clodex' AND ((model_id=$3 AND operation='images.generate')
-                    OR (model_id=ANY($4::text[]) AND operation='video'))""", quote_id, user, FLUX_MODEL, list(DEFAULT_VIDEO_MODELS))
+                    OR (model_id=ANY($4::text[]) AND operation='video')
+                    OR (model_id=$5 AND operation='audio.speech'))""", quote_id, user, FLUX_MODEL,
+                    list(DEFAULT_VIDEO_MODELS), cfg.clodex_model if cfg.speech_pilot else None)
                 if not owned:
                     raise web.HTTPNotFound()
                 correlation = await conn.fetchval("SELECT -nextval('http_image_correlation_seq')")
@@ -130,18 +141,20 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
                    CASE WHEN v.status='succeeded' THEN 'completed' WHEN v.status='failed' THEN 'failed'
                         WHEN v.status='uncertain' THEN 'uncertain' ELSE d.state END AS state,
                    CASE WHEN q.operation='video' AND v.status='succeeded' AND v.expires_at>now() THEN v.id
-                        ELSE w.id END AS work_id,
+                        WHEN q.operation='audio.speech' THEN s.id ELSE w.id END AS work_id,
                    (h.quote_id IS NOT NULL OR q.update_id < 0) AS http_origin
             FROM task_price_quotes q JOIN task_dispatch d ON d.quote_id=q.id
             LEFT JOIN http_image_commands h ON h.quote_id=q.id AND h.user_id=q.user_id
             LEFT JOIN video_jobs v ON v.id=q.id AND v.user_id=q.user_id
+            LEFT JOIN task_speech_works s ON s.id=q.id AND s.user_id=q.user_id AND s.audio IS NOT NULL AND s.expires_at>now()
             LEFT JOIN image_works w ON q.operation='images.generate' AND w.update_id=q.update_id AND w.user_id=q.user_id AND w.expires_at>now()
-            WHERE q.user_id=$1 AND (q.operation='images.generate' OR (q.operation='video' AND h.quote_id IS NOT NULL))
+            WHERE q.user_id=$1 AND (q.operation='images.generate' OR (q.operation IN ('video','audio.speech') AND h.quote_id IS NOT NULL))
                   AND ($2::uuid IS NULL OR q.id=$2)
             ORDER BY q.accepted_at DESC LIMIT 100""", user, job_id)
+        kinds = {'video': 'video', 'audio.speech': 'audio', 'images.generate': 'image'}
         return [{'id': str(r['id']), 'model': r['model_id'], 'operation': r['operation'], 'state': 'cancelled' if r['cancelled_at'] else r['state'],
                  'origin': 'http' if r['http_origin'] else 'telegram',
-                 'result_url': ('/api/v1/works/video/' if r['operation']=='video' else '/api/v1/works/image/') + str(r['work_id']) if r['work_id'] else None}
+                 'result_url': f"/api/v1/works/{kinds[r['operation']]}/{r['work_id']}" if r['work_id'] else None}
                 for r in rows]
 
     async def list_jobs(request):

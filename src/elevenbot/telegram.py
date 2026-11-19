@@ -2313,18 +2313,21 @@ class TelegramApp:
             '\nСовместимость модели: '+('подтверждена метаданными' if request['model_operation_verified'] else 'не подтверждена')+
             '\nЗапрос не отправлен, списаний нет.',menu())
 
+    def speech_request(self,text,voice):
+        name=next((v['name'] for v in catalog(self.cfg) if v['id']==voice),None)
+        if not name or not text or not text.strip() or len(text)>3000 or '\x00' in text:
+            raise Rejected('CLODEX: укажите голос и текст до 3000 символов.')
+        model=next((m for m in self.catalogue_snapshot()['models'] if m.get('provider')=='clodex'
+                    and m['id'].replace('-','_')==self.cfg.clodex_model.replace('-','_')),None)
+        if not model or not self.model_can_run(model,'audio.speech'):
+            raise Rejected('CLODEX: тестовая озвучка недоступна.')
+        return Request('clodex',self.cfg.clodex_model,'audio.speech',f"{model['title']} · {name}",text,{'voice':voice})
+
     async def make_quote(self,u,ext,text,voice,speed):
         if self.cfg.speech_pilot and self.cfg.mode=='clodex':
             if speed!=1.0:
                 raise Rejected('CLODEX: тестовая озвучка недоступна.')
-            name=next((v['name'] for v in catalog(self.cfg) if v['id']==voice),None)
-            if not name or not text or not text.strip() or len(text)>3000 or '\x00' in text:
-                raise Rejected('CLODEX: укажите голос и текст до 3000 символов.')
-            model=next((m for m in self.catalogue_snapshot()['models'] if m.get('provider')=='clodex'
-                        and m['id'].replace('-','_')==self.cfg.clodex_model.replace('-','_')),None)
-            if not model or not self.model_can_run(model,'audio.speech'):
-                raise Rejected('CLODEX: тестовая озвучка недоступна.')
-            request=Request('clodex',self.cfg.clodex_model,'audio.speech',f"{model['title']} · {name}",text,{'voice':voice})
+            request=self.speech_request(text,voice)
             await self.show_price(ext,await self.pricing.quote(u,request))
             return
         q,price=await self.svc.quote(u,text,voice,speed)

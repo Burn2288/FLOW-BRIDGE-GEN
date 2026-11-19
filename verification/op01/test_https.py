@@ -81,7 +81,7 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
         cfg=Config(token=FIXTURE_TOKEN,mode='clodex',access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),
                    payments_enabled=False,generation_enabled=True,economy_verified=True,clodex_key='fixture-only',
                    public_image_models=('clodex:flux-schnell',),interaction_limit=100,storage=tmp_path/'storage',
-                   miniapp_url=f'https://localhost:{tls_port}/', interaction_mode='live', video_pilot=True,
+                   miniapp_url=f'https://localhost:{tls_port}/', interaction_mode='live', video_pilot=True, speech_pilot=True, clodex_model='eleven_v4',
                    catalogue_path=str(tmp_path/'catalogue.json'))
         telegram=TelegramApp(pool,cfg,Bot())
         await telegram.handle(event('/start'))

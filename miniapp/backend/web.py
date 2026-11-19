@@ -14,6 +14,7 @@ from uuid import UUID
 from aiohttp import web
 
 from elevenbot.model_capabilities import FLUX_MODEL, flux_card, veo_card
+from elevenbot.providers import catalog
 from elevenbot.core import Rejected, Service
 from elevenbot.library import LibraryItem
 from elevenbot.job_timeline import get_timeline
@@ -148,14 +149,17 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         availability[label] = snap is not None
         if snap is not None:
             veo_titles = {}
-            if view.video.enabled():
+            pilot = False
+            if view.video.enabled() or cfg.speech_pilot:
                 external = await pool.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1", user)
                 try:
                     await view.launch.authorize_pilot(pool, user, external)
                 except Rejected:
                     pass
                 else:
-                    veo_titles = {model: 'Veo 3.1 · '+label for model,label,_ in
+                    pilot = True
+            if pilot and view.video.enabled():
+                veo_titles = {model: 'Veo 3.1 · '+label for model,label,_ in
                                   (await view.admitted_veo_modes(snap)).values()}
             for section, (_, operation) in STORE_SECTIONS.items():
                 for index in await view.store_models(snap, section, None):
@@ -169,6 +173,9 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                         card = await veo_card(pool, item['id'])
                         if card:
                             row.update(title=veo_titles[item['id']], video_card=card)
+                    if pilot and cfg.speech_pilot and operation == 'audio.speech' and view.model_can_run(item, operation):
+                        voices = [voice['task_speech_capability'] for voice in catalog(cfg)]
+                        row['speech_card'] = {'model': cfg.clodex_model, 'voices': voices}
                     rows.append(row)
 
         if anymodel_available(cfg):

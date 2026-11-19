@@ -32,6 +32,8 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                        operations=['video'], protocols=['openai-video']))
     await telegram.pricing.set_tariff(owner, 100, 'clodex', 'flux-schnell', 'images.generate', {'n': 1},
                                       basis='request', unit='darkflow_token', amount='10', expires=None, evidence='fixture')
+    models.append(dict(provider='clodex', id='eleven-v4', title='ElevenLabs v4', availability='key_available',
+                       operations=['audio.speech']))
     SnapshotStore(cfg.catalogue_path).write(make_snapshot(
         models, [], [dict(provider='clodex', scope='key_available')]))
     await telegram.pool.execute("INSERT INTO approved_models VALUES('clodex','fixture/image','images.generate','Image')")
@@ -103,12 +105,14 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await page.get_by_role('button', name='Каталог').click()
                     await check_flux_confirmation(page, telegram.pool, owner, pending_jobs)
                     video_job = await check_veo_video(page, telegram, owner, pending_jobs)
+                    speech_job = await check_speech(page, telegram, owner, pending_jobs)
                 else:
                     await expect(page.get_by_role('button', name='Выбрать Veo', include_hidden=True)).to_have_count(0)
                     denied = await client.post(base + '/api/v1/quotes', headers=tester_headers,
                                                json={'model': 'clodex-video/veo-3.1', 'prompt': 'fixture'})
                     assert denied.status == 403
                     assert (await client.get(base + '/api/v1/works/video/' + video_job, headers=tester_headers)).status == 404
+                    assert (await client.get(base + '/api/v1/works/audio/' + speech_job, headers=tester_headers)).status == 404
                     await check_job_card(page, telegram.pool, tester)
                     await compare_model_cards(page, telegram, owner, tester)
                 await context.close()
@@ -312,4 +316,71 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     assert chat == 100 and upload.data == mp4
     assert calls.count(('POST', '/v1/videos')) == 1
     assert calls.count(('GET', '/v1/videos/veo-fixture/content')) == 1
+    return job
+
+
+async def check_speech(page, telegram, owner, pending_jobs):
+    from playwright.async_api import expect
+
+    voice = 'fixture-voice'
+    prompt = 'Я😀!'
+    mp3 = Path(__file__).resolve().parents[2].joinpath('assets/demo.mp3').read_bytes()
+    await telegram.pricing.set_tariff(owner, 100, 'clodex', 'eleven_v4', 'audio.speech', {'voice': voice},
+                                      basis='utf16', unit='darkflow_token', amount='20', expires=None, evidence='fixture')
+    def buttons():
+        return {b.text: b.callback_data for row in telegram.bot.sent[-1][1].inline_keyboard for b in row}
+
+    await telegram.callback(owner, 100, 'slist:current:speech:0')
+    await telegram.callback(owner, 100, buttons()['ElevenLabs v4'])
+    launch, = [data for data in buttons().values() if data.startswith('srun:')]
+    with patch('elevenbot.providers.voice_candidates', AsyncMock(return_value={'candidates': [
+            {'id': voice, 'name': 'Голос стенда'}]})):
+        await telegram.callback(owner, 100, launch)
+    await telegram.callback(owner, 100, buttons()['Голос стенда'])
+    await telegram.handle(event(4200, prompt))
+    assert 'Оценка: 80 ' in telegram.bot.sent[-1][0], telegram.bot.sent[-1][0]
+
+    await page.get_by_role('button', name='Каталог').click()
+    await page.reload()
+    card = page.locator('#models > li').filter(has_text='ElevenLabs v4')
+    await card.get_by_role('button', name='Выбрать голос').click()
+    await card.get_by_label('Голос').select_option(label='Голос стенда')
+    await card.get_by_label('Текст для озвучки').fill(prompt)
+    await card.get_by_role('button', name='Рассчитать стоимость').click()
+    confirm = card.get_by_role('button', name='Подтвердить за 80 токенов')
+    await expect(confirm).to_be_visible()
+    await confirm.click()
+    await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
+    job = await page.locator('#job-id').inner_text()
+    posts = []
+    def provider(request):
+        assert request.method == 'POST' and request.url.path == '/v1/audio/speech'
+        posts.append(json.loads(request.content))
+        return httpx.Response(200, content=mp3, headers={'Content-Type': 'audio/mpeg'})
+
+    client_class = httpx.AsyncClient
+    assert len(pending_jobs) == 1
+    with patch.object(httpx, 'AsyncClient', side_effect=lambda **kw: client_class(transport=httpx.MockTransport(provider), **kw)):
+        await pending_jobs.pop()()
+    assert posts == [dict(model='eleven_v4', voice=voice, input=prompt)]
+    await page.get_by_role('button', name='Обновить статус').click()
+    await expect(page.locator('#job-status')).to_have_text('Завершено')
+    ledger = await telegram.pool.fetch("""
+        SELECT l.kind,l.da,l.dr FROM ledger l JOIN task_price_quotes q ON q.id=l.task_quote_id
+        WHERE q.user_id=$1 AND q.operation='audio.speech' ORDER BY l.kind
+    """, owner)
+    assert [tuple(row) for row in ledger] == [('task_capture', 0, -80), ('task_reserve', -80, 80)]
+    await page.get_by_role('button', name='К списку').click()
+    work = page.locator('#works > li').filter(has_text='Аудио')
+    async with page.expect_download() as downloaded:
+        await work.get_by_role('button', name='Скачать').click()
+    file = await downloaded.value
+    assert file.suggested_filename == 'darkflow.mp3' and (await file.path()).read_bytes() == mp3
+    await telegram.handle(event(4201, '📁 Мои работы'))
+    callback = 'get:' + job
+    assert callback in buttons().values()
+    telegram.bot.audio.clear()
+    await telegram.handle(event(4202, callback=callback))
+    (args, _), = telegram.bot.audio
+    assert args[0] == 100 and args[1].data == mp3
     return job
