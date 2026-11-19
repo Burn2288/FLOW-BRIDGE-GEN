@@ -464,7 +464,8 @@ async def check_music(page, view, owner, client, base, token):
         await page.get_by_role('button', name='Каталог').click()
         await page.reload()
         card = page.locator('#models > li').filter(has_text='Leonardo Music')
-        await expect(card).to_contain_text('Лицензия не указана')
+        for limit in ('Одна попытка', 'Один MP3', 'До 5000 символов', 'Хранение 7 дней', 'Лицензия не указана'):
+            await expect(card).to_contain_text(limit)
         await card.get_by_role('button', name='Выбрать Leonardo Music').click()
         await card.get_by_label('Описание трека').fill(prompt)
         async with page.expect_response(lambda r: r.url.endswith('/api/v1/quotes')) as quoted:
@@ -502,6 +503,7 @@ async def check_music(page, view, owner, client, base, token):
             assert args[0] == 100 and args[1].data == mp3
         assert await counts() == (1, 1) and len(creates) == 1
         assert tuple(await bot.music.balance(owner)) == (0, 0)
+        assert not await view.pool.fetchval('SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid', job)
         await bot.handle(event(4309, '/admin_logout'))
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
         return job
