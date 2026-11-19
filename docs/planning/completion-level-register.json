@@ -545,11 +545,11 @@
       "task_id": "MA-02",
       "title": "Форма image quote и явное подтверждение",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/91",
+      "tested_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -558,6 +558,40 @@
       "dependencies": [
         "AP-02",
         "MA-01"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 15,
+          "task_id": "MA-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/86",
+          "tested_sha": "9e4bb048a938682f6eb19f75b907039e58407fae",
+          "checkout_sha": "9e4bb048a938682f6eb19f75b907039e58407fae",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44571402373",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Source candidate: Quote, prompt replacement and idempotent confirmation",
+          "limitations": "Telegram WebApp bridge emulated; real Telegram manual verification deferred; independent and global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 15,
+          "task_id": "MA-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/91",
+          "tested_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
+          "checkout_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44583739545",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Joint candidate Ubuntu HTTPS Chromium: Quote, prompt replacement and idempotent confirmation; 3 passed.",
+          "limitations": "Telegram WebApp bridge emulated; real Telegram manual verification deferred; independent and global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
@@ -568,11 +602,11 @@
       "task_id": "MA-03",
       "title": "Карточка job и безопасная отмена",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/91",
+      "tested_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -582,6 +616,40 @@
         "MA-02",
         "AP-03",
         "JO-02"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 16,
+          "task_id": "MA-03",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/87",
+          "tested_sha": "eb7a80ec874609b2dd7b093975c7d31fa7b7390d",
+          "checkout_sha": "eb7a80ec874609b2dd7b093975c7d31fa7b7390d",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44574325209",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Source candidate: Job card, reload and safe cancellation",
+          "limitations": "Telegram WebApp bridge emulated; real Telegram manual verification deferred; independent and global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 16,
+          "task_id": "MA-03",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/91",
+          "tested_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
+          "checkout_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44583739545",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Joint candidate Ubuntu HTTPS Chromium: Job card, reload and safe cancellation; 3 passed.",
+          "limitations": "Telegram WebApp bridge emulated; real Telegram manual verification deferred; independent and global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
@@ -878,11 +946,11 @@
       "task_id": "MC-02",
       "title": "Общие карточки и schema-driven параметры каталога",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/91",
+      "tested_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -891,6 +959,40 @@
       "dependencies": [
         "MC-01",
         "MA-01"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 21,
+          "task_id": "MC-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/89",
+          "tested_sha": "dd5254d831c94d1e6185580afdf0d2ad48188df6",
+          "checkout_sha": "dd5254d831c94d1e6185580afdf0d2ad48188df6",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44579554101",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Source candidate: Shared Telegram and Mini App model parameters and availability",
+          "limitations": "Telegram WebApp bridge emulated; real Telegram manual verification deferred; independent and global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 21,
+          "task_id": "MC-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/91",
+          "tested_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
+          "checkout_sha": "68604855a22ca3df066f8d6d6e0f9076a2560a5f",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44583739545",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Joint candidate Ubuntu HTTPS Chromium: Shared Telegram and Mini App model parameters and availability; 3 passed.",
+          "limitations": "Telegram WebApp bridge emulated; real Telegram manual verification deferred; independent and global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
