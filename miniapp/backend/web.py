@@ -69,10 +69,10 @@ async def headers(request, handler):
     return response
 
 
-def create_app(pool, cfg):
+def create_app(pool, cfg, *, view=None, job_scheduler=None):
     service = Service(pool, cfg)
     from elevenbot.telegram import TelegramApp, STORE_SECTIONS, anymodel_available
-    view = TelegramApp(pool, cfg, None)
+    view = view if view is not None else TelegramApp(pool, cfg, None)
     app = web.Application(client_max_size=12 * 1024, middlewares=[headers])
 
     async def health(request):
@@ -258,6 +258,8 @@ def create_app(pool, cfg):
     app.router.add_get('/api/v1/works', history)
     app.router.add_get('/api/v1/works/{kind}/{id}/timeline', timeline)
     app.router.add_get('/api/v1/works/{kind}/{id}', result)
+    from .image_commands import add_routes
+    add_routes(app, pool=pool, cfg=cfg, view=view, account=account, scheduler=job_scheduler)
     return app
 
 
