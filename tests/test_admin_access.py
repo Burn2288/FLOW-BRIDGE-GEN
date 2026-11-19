@@ -51,6 +51,27 @@ async def test_empty_password_and_unlisted_chat_are_closed(env):
     assert bot.sent[-1][0]=='Войдите через /admin.'
 
 
+@pytest.mark.parametrize('chat,denial', [(100, 'Войдите через /admin.'), (101, 'Админ-доступ закрыт.')])
+async def test_admin_inventory_commands_reject_missing_session(env, chat, denial):
+    """Inventory groups 4, 6, 9 and 13 deny before dispatch for both actors."""
+    pool, cfg, _, _ = env
+    cfg = replace(cfg, access_mode='private', admin_ids=(100,), pilot_user_ids=(101,),
+                  admin_password='fixture-password')
+    bot = Bot()
+    app = TelegramApp(pool, cfg, bot)
+    commands = ('/models', '/functions', '/admit clodex fixture images.generate',
+                '/revoke clodex fixture images.generate', '/markup_value fixture 1',
+                '/tariff clodex fixture images.generate', '/voice_tariff fixture',
+                '/tariff_set fixture', '/tariff_scope fixture',
+                '/refund 00000000-0000-0000-0000-000000000000')
+    for number, command in enumerate(commands, 100):
+        await app.handle(event(number, command, chat=chat))
+        assert bot.sent[-1][0] == denial
+    assert await pool.fetchval('SELECT count(*) FROM approved_models') == 0
+    assert await pool.fetchval('SELECT count(*) FROM task_manual_tariffs') == 0
+    assert await pool.fetchval('SELECT count(*) FROM payments') == 0
+
+
 async def test_password_updates_skip_inbox_and_logout_blocks_old_buttons(env):
     pool,cfg,_,_=env
     password='fixture-admin-password'

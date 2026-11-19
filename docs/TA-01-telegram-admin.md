@@ -23,3 +23,25 @@
 | `/refund <payment_id>` для Stars | [telegram](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/83c78faac823687b34ae7828e62b3cc4f887e0f3/src/elevenbot/telegram.py#L648) | С, возврат ограничен провайдером telegram | [возврат на уровне сервиса](https://github.com/Burn2288/FLOW-BRIDGE-GEN/blob/83c78faac823687b34ae7828e62b3cc4f887e0f3/tests/test_financial.py#L59); сквозной вызов команды не подтверждён | Прямой тест отказа для этого входа не найден. |
 
 Профиль на одноразовой PostgreSQL 16.15 и тестовых транспортах прошёл **51 тест за 23,14 с**. Файлы под `tests/` для воспроизведения через pytest: `test_admin_access.py test_admin_edition.py test_broadcasts.py test_topups.py test_tariff_catalogue.py test_aggregator_menu.py test_chat_isolation.py`. Ссылки на другие профильные тесты обозначают просмотр исходников.
+
+## Сверка FT-036 с FT-035
+
+Историческая таблица и ссылки выше закреплены за SHA `83c78faac823687b34ae7828e62b3cc4f887e0f3`; номера строк не относятся к текущему коду. На базе FT-035 `0d84fa4dc3f78fa198108a9cbc71dad13dba0646` проверены актуальные [точка входа и общий отказ](../src/elevenbot/telegram.py), [сессия и лимит попыток](../src/elevenbot/admin_access.py), [тарифная авторизация](../src/elevenbot/tariff_admin.py), [управление моделями](../src/elevenbot/model_policy.py) и [музыкальный пилот](../src/elevenbot/clodex_music.py). Правило С и дополнительное правило Т выше сохраняются; публичные маршруты помечены отдельно. Новый тест проверяет отказ для администратора без сессии и допущенного стороннего пользователя, а также отсутствие добавленных моделей, тарифов и платежей.
+
+| № | Группа | Актуальный обработчик и допуск | Доказательство и предел |
+|---|---|---|---|
+| 1 | Вход | `intercept_admin_update`: перечисленный ID и пароль; сессия создаётся после проверки | `test_empty_password_and_unlisted_chat_are_closed`, `test_admin_attempt_limit_expiry_restart_and_password_change`: чужой ID, пустой пароль, лимит и срок сессии |
+| 2 | Выход | `intercept_admin_update`, собственная сессия | `test_password_updates_skip_inbox_and_logout_blocks_old_buttons`: выход и старая кнопка |
+| 3 | Меню и агрегаторы | `handle_chat`, `show_providers`: общий экран, привилегии по С | `test_user_and_admin_editions_share_catalogue_and_settings`: обычный интерфейс без сессии |
+| 4 | `/models`, `/functions` | `handle_chat`, `ADMIN_COMMANDS`: С до диспетчеризации | `test_admin_inventory_commands_reject_missing_session`: прямой отказ обеих команд для двух акторов |
+| 5 | Управление агрегатором | `admin_callback`, `callback`: С; тарифное управление дополнительно Т | `test_admin_aggregator_menu_routes_and_permissions`; тесты сессии для старой кнопки |
+| 6 | `/admit`, `/revoke`, `/markup_value` | `handle_chat` и `ModelPolicy.command`: С и `TariffAdmin.authorize` (Т) | `test_admin_inventory_commands_reject_missing_session`: прямой отказ трёх команд; отказ каждой возможной комбинации аргументов не исчерпан |
+| 7 | Черновики рассылок | `Broadcasts.authorize` и `callback`: С | `test_broadcast_ui_self_preview_delivery_and_permissions`: отказ после выхода и другому ID; отдельный отказ ввода вложения NOT_PROVEN |
+| 8 | Отправка и остановка рассылок | `Broadcasts.authorize` и `callback`: С | `test_broadcast_ui_self_preview_delivery_and_permissions`, `test_broadcast_bulk_snapshot_restart_and_stop` |
+| 9 | Тарифы и голоса | `handle_chat`, `TariffAdmin.authorize` и `command`: С, для закрытых действий Т | `test_admin_inventory_commands_reject_missing_session`: прямой отказ `/tariff`, `/voice_tariff`, `/tariff_set`, `/tariff_scope`; не доказывает каждый callback редактирования |
+| 10 | Курсы и калькулятор | `handle_chat`, `TariffAdmin.authorize`: С и Т для закрытых форм | `test_password_updates_skip_inbox_and_logout_blocks_old_buttons`: старая кнопка курса; отдельный отказ `/price_rate` NOT_PROVEN |
+| 11 | Наценка и отчёты | `handle_chat`, `ADMIN_COMMANDS`: С | `test_empty_password_and_unlisted_chat_are_closed`: `/price_report`; отдельные отказы `/markup` и `/price_account` NOT_PROVEN |
+| 12 | Настройки пополнений | `TopupUI.authorize` и `callback`: Т для административных маршрутов | `test_topup_presets_limits_and_session_isolation`: устаревшая кнопка; отдельный отказ `tuaudit` NOT_PROVEN |
+| 13 | `/refund` Stars | `handle_chat`: С до `prepare_refund`, ограничение провайдером Telegram | `test_admin_inventory_commands_reject_missing_session`: прямой отказ до вызова возврата и отсутствие платежей; успешный сквозной Telegram refund не проверен |
+
+Исходные четыре пробела — группы 4, 6, 9 и 13. Адресный тест добавляет прямые отрицательные сценарии перечисленных команд; это не доказывает все кнопки и все аргументы внутри групп. Авторизация музыки расширилась после исторической базы: доступ к музыкальному пилоту дополнительно ограничен владельцем и действующей Admin Edition, а Mini App использует серверное подтверждение сессии. Исторические ссылки и счёт 9/13 относятся только к исходной версии; независимая приёмка и реальные Telegram-клиенты остаются за пределами этого доказательства.
