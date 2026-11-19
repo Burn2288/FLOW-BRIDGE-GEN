@@ -152,11 +152,20 @@ async function start() {
     status.textContent = hint;
     return;
   }
-  const session = await request('/api/v1/session', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initData: telegram.initData }),
-  });
-  token = (await session.json()).token;
+  // initData is single-use. Resume only the session for this launch in this tab.
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(telegram.initData));
+  const launch = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  const saved = JSON.parse(sessionStorage.getItem('miniapp.session'));
+  if (saved?.launch === launch) token = saved.token;
+  if (!token) {
+    history.replaceState({ ...history.state, jobId: null }, '');
+    const session = await request('/api/v1/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: telegram.initData }),
+    });
+    token = (await session.json()).token;
+    sessionStorage.setItem('miniapp.session', JSON.stringify({ launch, token }));
+  }
   const [wallet, catalogue, settings] = await Promise.all([
     request('/api/v1/wallet').then(response => response.json()),
     request('/api/v1/catalogue').then(response => response.json()),
@@ -180,6 +189,10 @@ async function start() {
   }
   if (!models.children.length) models.append(listItem('Нет доступных моделей.'));
   status.textContent = '';
+  if (history.state?.jobId) {
+    selectPanel('library');
+    await openJob(history.state.jobId);
+  }
 }
 
 function applyTheme(theme) {
@@ -215,14 +228,76 @@ for (const input of themeInputs) input.onchange = () => {
 retryTheme.onclick = saveTheme;
 
 const tabs = [...document.querySelectorAll('nav [data-panel]')];
-for (const tab of tabs) tab.onclick = () => {
+const card = document.querySelector('#job-card');
+const overview = document.querySelector('#library-overview');
+const jobStatus = document.querySelector('#job-status');
+const cancelJob = document.querySelector('#cancel-job');
+const reloadJob = document.querySelector('#reload-job');
+const states = {
+  pending: 'Ожидает запуска', dispatching: 'Выполняется', delegated: 'Передано исполнителю',
+  completed: 'Завершено', interrupted: 'Прервано', rejected: 'Отклонено',
+  uncertain: 'Результат пока неизвестен', cancelled: 'Отменено',
+};
+let cardRevision = 0;
+
+function selectPanel(panel) {
   for (const button of tabs) {
-    const selected = button === tab;
+    const selected = button.dataset.panel === panel;
     document.getElementById(button.dataset.panel).hidden = !selected;
     if (selected) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
-};
+}
+
+async function showJobs() {
+  const { jobs } = await (await request('/api/v1/jobs')).json();
+  document.querySelector('#jobs-title').hidden = jobs.length === 0;
+  document.querySelector('#jobs').replaceChildren(...jobs.map(job => {
+    const item = listItem(job.model + ' · ' + (states[job.state] ?? job.state));
+    const open = document.createElement('button');
+    open.textContent = 'Открыть задание ' + job.id;
+    open.onclick = () => openJob(job.id);
+    item.append(open);
+    return item;
+  }));
+}
+
+async function openJob(id, cancel = false) {
+  const revision = ++cardRevision;
+  history.replaceState({ ...history.state, jobId: id }, '');
+  overview.hidden = true;
+  card.hidden = false;
+  document.querySelector('#job-id').textContent = id;
+  cancelJob.hidden = true;
+  reloadJob.disabled = true;
+  jobStatus.textContent = cancel ? 'Проверяем отмену…' : 'Получаем статус…';
+  try {
+    const path = '/api/v1/jobs/' + encodeURIComponent(id);
+    if (cancel) await request(path + '/cancel', { method: 'POST' });
+    const job = await (await request(path)).json();
+    if (revision !== cardRevision) return;
+    jobStatus.textContent = states[job.state] ?? job.state;
+    cancelJob.hidden = !(job.origin === 'http' && job.state === 'pending');
+  } catch (error) {
+    if (revision === cardRevision) jobStatus.textContent = error.message;
+  } finally {
+    if (revision === cardRevision) reloadJob.disabled = false;
+  }
+}
+
+function navigate(panel) {
+  cardRevision++;
+  history.replaceState({ ...history.state, jobId: null }, '');
+  overview.hidden = false;
+  card.hidden = true;
+  selectPanel(panel);
+  if (panel === 'library' && token) showJobs().catch(showError);
+}
+
+for (const tab of tabs) tab.onclick = () => navigate(tab.dataset.panel);
+cancelJob.onclick = () => openJob(history.state.jobId, true);
+reloadJob.onclick = () => openJob(history.state.jobId);
+document.querySelector('#back-to-works').onclick = () => navigate('library');
 
 document.querySelector('#previous').onclick = () => showWorks(page - 1).catch(showError);
 document.querySelector('#next').onclick = () => showWorks(page + 1).catch(showError);

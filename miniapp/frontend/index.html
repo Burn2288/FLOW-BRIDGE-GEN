@@ -28,8 +28,20 @@
   </section>
   <section id="library" aria-labelledby="works-title" hidden>
     <h1 id="works-title">Мои работы</h1>
-    <ul id="works" class="cards"></ul>
-    <div class="paging"><button id="previous" disabled>Назад</button><button id="next" disabled>Далее</button></div>
+    <div id="library-overview">
+      <h2 id="jobs-title" hidden>Задания</h2>
+      <ul id="jobs" class="cards"></ul>
+      <ul id="works" class="cards"></ul>
+      <div class="paging"><button id="previous" disabled>Назад</button><button id="next" disabled>Далее</button></div>
+    </div>
+    <article id="job-card" class="card" hidden>
+      <h2>Карточка задания</h2>
+      <p id="job-id"></p>
+      <p id="job-status" role="status"></p>
+      <button id="cancel-job" hidden>Отменить</button>
+      <button id="reload-job">Обновить статус</button>
+      <button id="back-to-works">К списку</button>
+    </article>
   </section>
   <section id="balance" aria-labelledby="balance-title" hidden>
     <h1 id="balance-title">Баланс</h1>
