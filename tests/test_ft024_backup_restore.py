@@ -67,7 +67,7 @@ async def test_full_backup_restore_of_combined_candidate(image_api, account_db, 
     # Synthetic provider evidence: no provider or payment endpoint is contacted.
     await pool.execute("""INSERT INTO task_financial_receipts(provider,operation_id,provider_job_id,quote_id,outcome,amount,unit)
                           VALUES('clodex','fixture-operation','fixture-provider-job',$1::uuid,'charged',10,'darkflow_token')""", q)
-    audio_cfg = replace(cfg, mode='mock', generation_enabled=True)
+    audio_cfg = replace(cfg, mode='mock', generation_enabled=True, access_mode='public')
     audio_svc = Service(pool, audio_cfg)
     aq, _ = await audio_svc.quote(users[0], 'backup fixture', 'demo')
     job = await audio_svc.confirm(users[0], aq)
