@@ -134,6 +134,10 @@ def create_app(pool, cfg):
         row = await service.wallet(user)
         return web.json_response({key: str(row[key]) for key in ('available', 'reserved')})
 
+    async def referral(request):
+        user = await account(request)
+        return web.json_response(await service.referral_info(user))
+
     async def catalogue(request):
         await account(request)
         # The HTTP account is read-only and has no Admin Edition session.
@@ -253,6 +257,7 @@ def create_app(pool, cfg):
     app.router.add_delete('/api/v1/session', logout)
     app.router.add_get('/api/v1/catalogue', catalogue)
     app.router.add_get('/api/v1/wallet', wallet)
+    app.router.add_get('/api/v1/referral', referral)
     app.router.add_get('/api/v1/settings', settings)
     app.router.add_put('/api/v1/settings', settings)
     app.router.add_get('/api/v1/works', history)

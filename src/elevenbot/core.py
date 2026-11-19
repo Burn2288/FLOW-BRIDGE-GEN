@@ -27,7 +27,7 @@ class Service:
             "UPDATE identities SET welcome_message_id=$2 WHERE platform='telegram' AND external_id=$1",chat,message_id,
         )
 
-    async def identity(self,external,platform='telegram'):
+    async def identity(self,external,platform='telegram',*,referral_code=None):
         from .admission import admitted
         if not admitted(self.cfg,external,platform):
             raise Rejected('Доступ к закрытому пилоту ограничен.')
@@ -40,7 +40,13 @@ class Service:
                 await c.execute('INSERT INTO identities(platform,external_id,user_id) VALUES($1,$2,$3)',platform,external,u)
                 await c.executemany('INSERT INTO wallets(user_id,mode) VALUES($1,$2)',[(u,'demo'),(u,'live')])
                 await c.execute('INSERT INTO conversations(user_id) VALUES($1)',u)
+                from .referrals import attribute_new_user
+                await attribute_new_user(c,u,referral_code)
             return u
+
+    async def referral_info(self,u):
+        from .referrals import own_info
+        return await own_info(self,u)
 
     async def authorize(self,c,u,terms=True):
         r=await c.fetchrow('SELECT * FROM users WHERE id=$1',u)
