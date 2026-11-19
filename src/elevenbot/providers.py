@@ -16,7 +16,10 @@ class Provider(Protocol):
     async def synthesize(self,text: str,voice: str,speed: float) -> bytes: ...
 
 def catalog(cfg):
-    if cfg.mode=='mock':return [{'id':'demo','name':'Демо-звук (не озвучка ElevenLabs)','preview':'assets/demo.mp3'}]
+    from .speech_capabilities import legacy_voice, clodex_tts_voice
+    if cfg.mode=='mock':
+        voice={'id':'demo','name':'Демо-звук (не озвучка ElevenLabs)','preview':'assets/demo.mp3'}
+        return [dict(voice, speech_capability=legacy_voice(cfg,voice).as_dict())]
     path=cfg.voice_catalogue_path
     if path is None:return []
     try:
@@ -25,7 +28,10 @@ def catalog(cfg):
         if cfg.speech_pilot:return []
         raise
     if not isinstance(data,list) or any(not isinstance(v.get('id'),str) or not isinstance(v.get('name'),str) for v in data): raise ValueError('Invalid voice catalog')
-    return data
+    return [dict(voice, speech_capability=legacy_voice(cfg,voice).as_dict(),
+                 **({'task_speech_capability': clodex_tts_voice(cfg.clodex_model,voice,
+                       available=cfg.generation_enabled).as_dict()}
+                    if cfg.mode == 'clodex' and cfg.clodex_model else {})) for voice in data]
 
 class DisabledProvider:
     async def synthesize(self,*args,**kwargs):raise DefinitiveFailure('GENERATION_DISABLED')
