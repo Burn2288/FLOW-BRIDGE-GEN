@@ -1530,11 +1530,11 @@
       "task_id": "PY-02",
       "title": "Проверить Platega callback/reconcile без Telegram checkout",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/77",
+      "tested_sha": "fd30ed08cd3e6dec900f4c138b585a91eef0a925",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -1542,6 +1542,24 @@
       ],
       "dependencies": [
         "IN-19"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 33,
+          "task_id": "PY-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/77",
+          "tested_sha": "fd30ed08cd3e6dec900f4c138b585a91eef0a925",
+          "checkout_sha": "fd30ed08cd3e6dec900f4c138b585a91eef0a925",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44539073025",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Mock Platega callback, lookup, idempotent credit and process-interruption recovery; 556-test S2 on source HEAD.",
+          "limitations": "Unmerged candidate; external checkout only, real payments and final independent integration acceptance remain deferred.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
