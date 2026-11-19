@@ -16,11 +16,15 @@ def admin_already_signed_in():
     pass
 
 
-def event(number, text=None, *, chat=100, callback=None, reply=None):
+def event(number, text=None, *, chat=100, callback=None, reply=None, source_message_id=None):
     actor={'id':chat,'is_bot':False,'first_name':'Fixture'}
     message={'message_id':number,'date':int(datetime.now(timezone.utc).timestamp()),
              'chat':{'id':chat,'type':'private'},'from':actor}
     if callback:
+        # Legacy route tests inject a standalone keyboard. Its ID must not
+        # collide with a panel emitted by a fake bot during the same test.
+        message['message_id'] = 1_000_000 + number if source_message_id is None else source_message_id
+        message['from'] = {'id':999,'is_bot':True,'first_name':'Fixture bot'}
         return Update.model_validate({'update_id':number,'callback_query':{
             'id':str(number),'from':actor,'chat_instance':'fixture','message':message,'data':callback,
         }})
