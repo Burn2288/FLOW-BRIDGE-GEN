@@ -132,3 +132,19 @@ async def test_invitation_requires_consent_and_admission(env):
     with pytest.raises(Rejected):
         await private.identity(406, referral_code='AAAAAAAAAAAAAAAA')
     assert not await pool.fetchval("SELECT 1 FROM identities WHERE platform='telegram' AND external_id=406")
+
+
+async def test_concurrent_code_issuance_and_database_immutability(env):
+    pool, _, svc, user = env
+    await svc.accept(user)
+    values = await asyncio.gather(*(svc.referral_info(user) for _ in range(5)))
+    assert len({v['code'] for v in values}) == 1
+    assert await pool.fetchval('SELECT count(*) FROM referral_codes WHERE user_id=$1',user) == 1
+    other = await ready(svc, 120)
+    code = values[0]['code']
+    invited = await svc.identity(121,referral_code=code)
+    with pytest.raises(asyncpg.PostgresError):
+        await pool.execute('UPDATE referral_attributions SET referrer_id=$2 WHERE user_id=$1', invited, other)
+    with pytest.raises(asyncpg.PostgresError):
+        await pool.execute('DELETE FROM referral_codes WHERE user_id=$1', user)
+    assert await pool.fetchval('SELECT referrer_id FROM referral_attributions WHERE user_id=$1', invited) == user
