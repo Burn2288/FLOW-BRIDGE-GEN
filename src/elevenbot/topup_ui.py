@@ -213,15 +213,24 @@ class TopupUI:
         await self.admin(user,chat,'tupresets','0')
 
     async def history(self,user,chat,page,admin=False):
-        rows=await self.app.pool.fetch(ORDER+(' ORDER BY p.created_at DESC LIMIT 11 OFFSET $1' if admin
-                      else ' WHERE p.user_id=$2 ORDER BY p.created_at DESC LIMIT 11 OFFSET $1'),
-                      *([max(0,page)*10] if admin else [max(0,page)*10,user]))
+        offset=max(0,page)*10
+        if admin:
+            rows=await self.app.pool.fetch(ORDER+' ORDER BY p.created_at DESC,p.id DESC LIMIT 11 OFFSET $1',offset)
+        else:
+            rows=await self.app.pool.fetch("""
+                SELECT p.id,p.amount,p.currency,p.status,t.mode,t.state
+                FROM payments p LEFT JOIN topup_orders t ON t.payment_id=p.id
+                WHERE p.user_id=$1 ORDER BY p.created_at DESC,p.id DESC LIMIT 11 OFFSET $2
+            """,user,offset)
         lines=['История платежей' if admin else 'Мои платежи']
         buttons=[]
         for row in rows[:10]:
-            lines.append(f"{str(row['id'])[:8]} · {rubles(row['amount'])} ₽ · {LABELS[row['state']]}"
+            state=row['state'] or {'succeeded':'paid','refunding':'refunding'}.get(row['status'],row['status'])
+            label='Возврат в обработке' if state=='refunding' else LABELS[state]
+            value=f"{row['amount']} XTR" if row['currency']=='XTR' else rubles(row['amount'])+' ₽'
+            lines.append(f"{str(row['id'])[:8]} · {value} · {label}"
                          +(' · тест' if row['mode']=='demo' else ''))
-            if not admin:
+            if not admin and row['state'] is not None:
                 buttons.append([(str(row['id'])[:8],f"tuorder:{row['id']}")])
         prefix='tuaudit' if admin else 'tuhistory'
         nav=[]

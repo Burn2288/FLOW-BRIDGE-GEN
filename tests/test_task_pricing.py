@@ -147,3 +147,162 @@ def test_image_scale_order_and_video_mode():
     assert tariff(metadata,req).amount == 60
     with pytest.raises(PriceUnavailable):
         tariff(metadata,replace(req,params=req.params|{'mode':'unknown'}))
+
+async def test_pc01_confirm_preserves_presented_snapshot_during_rate_change(env):
+    pool, cfg, _, owner = env
+    checking, resume = asyncio.Event(), asyncio.Event()
+
+    class Adapter:
+        wait = False
+
+        async def cost(self, request):
+            if self.wait:
+                checking.set()
+                await asyncio.wait_for(resume.wait(), 5)
+            return ProviderCost(Decimal('1'), 'fixture_unit', False, 'fixture', '1 request')
+
+    adapter = Adapter()
+    pricing = Pricing(pool, replace(cfg, admin_ids=(100,), interaction_limit=10), {'anymodel':adapter})
+    request = Request('anymodel', 'fixture/chat', 'chat', 'Fixture', 'prompt')
+    await pricing.set_rate(owner, 100, 'fixture_unit', '1.1')
+    shown = await pricing.quote(owner, request)
+    query = 'SELECT price::text FROM task_price_quotes WHERE id=$1'
+    before = await pool.fetchval(query, shown.id)
+    prepared = []
+
+    async def prepare(conn, quote):
+        prepared.append(quote.price)
+
+    adapter.wait = True
+    confirmation = asyncio.create_task(pricing.confirm(owner, shown.id, 901, prepare))
+    try:
+        await asyncio.wait_for(checking.wait(), 5)
+        await pricing.set_rate(owner, 100, 'fixture_unit', '1.2')
+    finally:
+        resume.set()
+        accepted, ok = await confirmation
+    assert ok and accepted.id == shown.id
+    assert prepared == [shown.price] and shown.price['total'] == '2'
+    assert await pool.fetchval(query, shown.id) == before
+    next_quote = await pricing.quote(owner, request)
+    assert next_quote.price['total'] == '2'
+    assert Decimal(next_quote.price['rate']) == Decimal('1.2')
+    assert next_quote.price['rate_revision'] != shown.price['rate_revision']
+
+def test_pc01_variable_tariff_caps_and_precision():
+    from elevenbot.pricing import manual_amount, number
+
+    request = Request('anymodel', 'fixture/chat', 'chat', 'Fixture', 'A', {'max_tokens':4096})
+    amount, _ = manual_amount(request, 'token', number('0.000000000001'), number('0.1'))
+    assert amount == Decimal('409.600000000012')
+    for limit in (0, 4097, True, None):
+        invalid = replace(request, params={'max_tokens':limit})
+        with pytest.raises(PriceUnavailable):
+            manual_amount(invalid, 'token', number('1'), number('1'))
+    for invalid in ('-1', 'NaN', 'Infinity', '0.0000000000001', '1000000000001'):
+        with pytest.raises(PriceUnavailable):
+            number(invalid)
+
+
+@pytest.mark.parametrize('overlap', [False, True], ids=['sequential', 'overlapping-transactions'])
+async def test_pc01_republished_tariff_one_job_one_reserve(env, confirmed_credit, monkeypatch, overlap):
+    from contextlib import nullcontext
+    from unittest.mock import AsyncMock
+
+    from elevenbot.pricing import NoProviderPrice
+    from test_admin_access import event as tg_event
+    from test_provider_extensibility import app_with_fixture
+
+    pool, cfg, _, user = env
+    posts = []
+
+    def generate(request):
+        assert request.method == 'POST' and request.url.path == '/generate'
+        posts.append(request.url.path)
+        return httpx.Response(200, json={'answer':'fixture'})
+
+    async with httpx.AsyncClient(base_url='https://fixture.invalid', transport=httpx.MockTransport(generate)) as http:
+        app = app_with_fixture(pool, cfg, Bot(), http)
+        app.pricing.adapters['fixture'].cost = AsyncMock(side_effect=NoProviderPrice)
+        req = Request('fixture', 'fixture/chat', 'chat', 'Fixture', 'prompt')
+        await confirmed_credit(pool, cfg, user, 100)
+        await pool.execute("INSERT INTO approved_models VALUES('fixture',$1,'chat','Fixture')", req.model)
+
+        publisher = Pricing(pool, app.cfg, app.pricing.adapters)
+
+        async def publish(amount):
+            await publisher.set_tariff(user, 100, req.provider, req.model, req.operation, {},
+                                         basis='request', unit='darkflow_token', amount=amount, evidence='fixture')
+
+        await publish('60')
+        shown = await app.pricing.quote(user, req)
+        snapshot = await pool.fetchval('SELECT price::text FROM task_price_quotes WHERE id=$1', shown.id)
+        await app.show_price(100, shown)
+        text, markup = app.bot.sent[-1]
+        assert '60 токенов DarkFlow | Gen' in text
+        button = next(b for row in markup.inline_keyboard for b in row if b.text == 'Генерировать')
+
+        async def confirm():
+            return await app.launch.confirm(user, 100, shown.id, 100, progress=lambda _: nullcontext(), background=None)
+
+        if overlap:
+            # set_tariffs calls rate inside its transaction after taking POLICY_LOCK.
+            publisher_locked = asyncio.Event()
+            confirmer_pid = asyncio.get_running_loop().create_future()
+            read_rate = publisher.rate
+            authorize = app.pricing.service.authorize
+
+            async def wait_for_confirmer(conn, *args):
+                rate = await read_rate(conn, *args)
+                publisher_locked.set()
+                waiter = await confirmer_pid
+                assert waiter != conn.get_server_pid()
+                while not await conn.fetchval(
+                    'SELECT pg_backend_pid() = ANY(pg_blocking_pids($1))', waiter
+                ):
+                    await asyncio.sleep(0.01)
+                return rate
+
+            async def observe_confirmer(conn, *args):
+                await authorize(conn, *args)
+                if conn.is_in_transaction() and not confirmer_pid.done():
+                    confirmer_pid.set_result(conn.get_server_pid())
+
+            monkeypatch.setattr(publisher, 'rate', wait_for_confirmer)
+            monkeypatch.setattr(app.pricing.service, 'authorize', observe_confirmer)
+
+            async def confirm_after_lock():
+                await publisher_locked.wait()
+                await app.handle(tg_event(100, callback=button.callback_data))
+
+            async with asyncio.timeout(10), asyncio.TaskGroup() as group:
+                group.create_task(publish('85'))
+                group.create_task(confirm_after_lock())
+        else:
+            await publish('85')
+            accepted, ok, _ = await confirm()
+            assert ok and accepted.id == shown.id and accepted.price == shown.price
+        with pytest.raises(Rejected):
+            await app.launch.confirm(user, 100, shown.id, 101, progress=lambda _: nullcontext(), background=None)
+        job = await pool.fetchrow("""SELECT d.state, q.price::text FROM task_dispatch d
+            JOIN task_price_quotes q ON q.id=d.quote_id WHERE q.id=$1""", shown.id)
+        assert tuple(job) == ('completed', snapshot)
+        assert await pool.fetchval('SELECT count(*) FROM task_dispatch') == 1
+        movements = await pool.fetch('SELECT kind,da,dr FROM ledger WHERE task_quote_id=$1 ORDER BY kind', shown.id)
+        assert [tuple(row) for row in movements] == [('task_capture',0,-60), ('task_reserve',-60,60)]
+        assert posts == ['/generate']
+        assert (await app.svc.wallet(user))['available'] == 40
+        await app.handle(tg_event(102, '💳 Баланс'))
+        text, markup = app.bot.sent[-1]
+        assert 'Кредиты: 40\nЗарезервировано: 0' in text
+        history = next(b for row in markup.inline_keyboard for b in row if b.text == 'История операций')
+        await app.handle(tg_event(103, callback=history.callback_data))
+        text = app.bot.sent[-1][0]
+        reference = str(shown.id)[:8]
+        for label in ('Пополнение: 100', f'В резерв под задание: 60 · задание {reference}',
+                      f'Списано из резерва за задание: 60 · задание {reference}'):
+            assert text.count(label) == 1
+        following = await app.pricing.quote(user, req)
+        assert following.price['total'] == '85'
+        await app.show_price(100, following)
+        assert '85 токенов DarkFlow | Gen' in app.bot.sent[-1][0]
