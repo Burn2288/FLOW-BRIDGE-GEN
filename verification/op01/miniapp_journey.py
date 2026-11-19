@@ -387,9 +387,11 @@ async def check_speech(page, telegram, owner, pending_jobs):
     await card.get_by_role('button', name='Рассчитать стоимость').click()
     confirm = card.get_by_role('button', name='Подтвердить за 80 токенов')
     await expect(confirm).to_be_visible()
-    await confirm.click()
+    assert not await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id WHERE q.user_id=$1 AND q.operation='audio.speech'", owner)
+    await confirm.dblclick()
     await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
     job = await page.locator('#job-id').inner_text()
+    assert await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch WHERE quote_id=$1::uuid", job) == 1
     posts = []
     def provider(request):
         assert request.method == 'POST' and request.url.path == '/v1/audio/speech'

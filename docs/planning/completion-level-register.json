@@ -1388,11 +1388,11 @@
       "task_id": "VO-02",
       "title": "Voice UI и E2E двух клиентов",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/94",
+      "tested_sha": "d08216d2394f6edba5708aa07b114ad1bbd696cf",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -1402,6 +1402,40 @@
         "VO-01",
         "AP-03",
         "MC-02"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 28,
+          "task_id": "VO-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/92",
+          "tested_sha": "5ca0f8d29494cb4043f8e98225817000e4432c33",
+          "checkout_sha": "5ca0f8d29494cb4043f8e98225817000e4432c33",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44592980123",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Source PR #92: ElevenLabs v4 UTF-16 quote, confirmation, mock MP3 and owner isolation",
+          "limitations": "Telegram WebApp and providers emulated; real Telegram and paid live verification deferred; independent and global acceptance pending. Music license unspecified.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 28,
+          "task_id": "VO-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/94",
+          "tested_sha": "d08216d2394f6edba5708aa07b114ad1bbd696cf",
+          "checkout_sha": "d08216d2394f6edba5708aa07b114ad1bbd696cf",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44600223607",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Joint FT-035 HTTPS Chromium 3 passed: ElevenLabs v4 UTF-16 quote, confirmation, mock MP3 and owner isolation",
+          "limitations": "Telegram WebApp and providers emulated; real Telegram and paid live verification deferred; independent and global acceptance pending. Music license unspecified.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
@@ -1453,11 +1487,11 @@
       "task_id": "MU-02",
       "title": "Music UI, library и разрешённый live proof",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/94",
+      "tested_sha": "d08216d2394f6edba5708aa07b114ad1bbd696cf",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -1467,6 +1501,40 @@
         "MU-01",
         "AP-03",
         "MC-02"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 29,
+          "task_id": "MU-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/92",
+          "tested_sha": "5ca0f8d29494cb4043f8e98225817000e4432c33",
+          "checkout_sha": "5ca0f8d29494cb4043f8e98225817000e4432c33",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44592980123",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Source PR #92: Leonardo Music admin session, isolated music balance, mock MP3 and owner isolation",
+          "limitations": "Telegram WebApp and providers emulated; real Telegram and paid live verification deferred; independent and global acceptance pending. Music license unspecified.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 29,
+          "task_id": "MU-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/94",
+          "tested_sha": "d08216d2394f6edba5708aa07b114ad1bbd696cf",
+          "checkout_sha": "d08216d2394f6edba5708aa07b114ad1bbd696cf",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44600223607",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Joint FT-035 HTTPS Chromium 3 passed: Leonardo Music admin session, isolated music balance, mock MP3 and owner isolation",
+          "limitations": "Telegram WebApp and providers emulated; real Telegram and paid live verification deferred; independent and global acceptance pending. Music license unspecified.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
