@@ -3,6 +3,9 @@ import json
 import sys
 
 import pytest
+from elevenbot.core import Service
+from miniapp.tests.test_miniapp import account_db
+from test_ft020_http_image import image_api, quote, create
 
 
 async def test_report_has_both_checks_and_does_not_mutate(env, monkeypatch, capsys):
@@ -58,3 +61,41 @@ async def test_report_has_both_checks_and_does_not_mutate(env, monkeypatch, caps
     await cli.main()
     assert json.loads(capsys.readouterr().out)=={'wallet_mismatches':2}
     assert await pool.fetchval('SELECT halted FROM settings WHERE id=1') is True
+
+
+async def test_live_refund_obligation_component(env, confirmed_credit):
+    pool, cfg, _, user = env
+    service, order = await confirmed_credit(pool,cfg,user,100)
+    await service.prepare_refund(order)
+    assert (await service.reconciliation_report())['wallet_mismatches']==0
+    async with pool.acquire() as conn:
+        await conn.execute('ALTER TABLE wallets DISABLE TRIGGER wallet_consistent')
+        try:
+            await conn.execute("UPDATE wallets SET reserved=reserved+1 WHERE user_id=$1 AND mode='live'",user)
+        finally:
+            await conn.execute('ALTER TABLE wallets ENABLE TRIGGER wallet_consistent')
+    report=await service.reconciliation_report()
+    item=next(r for r in report['details'] if r['check']=='reserved_vs_obligations' and r['mode']=='live')
+    assert item['reserved']=={'actual':101,'expected':100}
+    assert item['components']=={'unsettled_jobs':0,'refunding_payments':100,'task_ledger':0}
+    assert await pool.fetchval('SELECT halted FROM settings WHERE id=1') is False
+
+
+async def test_live_task_ledger_obligation_component(image_api, account_db):
+    pool, users, client, headers, _, deferred, _, _ = image_api
+    _, cfg = account_db
+    q=await quote(client,headers[0])
+    assert (await create(client,headers[0],q)).status==201 and len(deferred)==1
+    service=Service(pool,cfg)
+    assert (await service.reconciliation_report())['wallet_mismatches']==0
+    async with pool.acquire() as conn:
+        await conn.execute('ALTER TABLE wallets DISABLE TRIGGER wallet_consistent')
+        try:
+            await conn.execute("UPDATE wallets SET reserved=reserved+1 WHERE user_id=$1 AND mode='live'",users[0])
+        finally:
+            await conn.execute('ALTER TABLE wallets ENABLE TRIGGER wallet_consistent')
+    report=await service.reconciliation_report()
+    item=next(r for r in report['details'] if r['check']=='reserved_vs_obligations' and r['user_id']==str(users[0]))
+    assert item['reserved']=={'actual':11,'expected':10}
+    assert item['components']=={'unsettled_jobs':0,'refunding_payments':0,'task_ledger':10}
+    assert await pool.fetchval('SELECT halted FROM settings WHERE id=1') is False
