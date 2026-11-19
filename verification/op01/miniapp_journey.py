@@ -97,6 +97,8 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                 if external == 100:
                     await page.get_by_role('button', name='Каталог').click()
                     await check_flux_confirmation(page, telegram.pool, owner, pending_jobs)
+                else:
+                    await check_job_card(page, telegram.pool, tester)
                 await context.close()
         finally:
             await browser.close()
@@ -144,3 +146,32 @@ async def check_flux_confirmation(page, pool, owner, pending_jobs):
     assert [(post['model'], post['prompt']) for post in posts] == [('flux-schnell', 'Маяк под снегом')]
     assert await counts() == (1, 1)
     assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1 AND kind='task_capture'", owner) == 1
+
+
+async def check_job_card(page, pool, tester):
+    from playwright.async_api import expect
+
+    await page.get_by_role('button', name='Каталог').click()
+    await page.get_by_label('Описание изображения').fill('Ледяной маяк')
+    await page.get_by_role('button', name='Рассчитать стоимость').click()
+    await page.get_by_role('button', name='Подтвердить за 10 токенов').click()
+    await expect(page.locator('.image-form [role=status]')).to_have_text('Задание принято.')
+    job = str(await pool.fetchval("SELECT quote_id FROM http_image_commands WHERE user_id=$1", tester))
+    await page.get_by_role('button', name='Мои работы').click()
+    await page.get_by_role('button', name='Открыть задание ' + job, exact=True).click()
+    cancel = page.get_by_role('button', name='Отменить', exact=True)
+    await expect(page.locator('#job-id')).to_have_text(job)
+    await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
+    await expect(cancel).to_be_visible()
+    await page.reload()
+    await expect(page.locator('#job-id')).to_have_text(job)
+    await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
+    await cancel.click()
+    await expect(page.locator('#job-status')).to_have_text('Отменено')
+    await page.reload()
+    await expect(page.locator('#job-id')).to_have_text(job)
+    await expect(page.locator('#job-status')).to_have_text('Отменено')
+    await expect(cancel).to_have_count(0)
+    ledger = await pool.fetch('SELECT kind, dr FROM ledger WHERE user_id=$1 AND task_quote_id=$2::uuid ORDER BY kind',
+                              tester, job)
+    assert [tuple(row) for row in ledger] == [('task_release', -10), ('task_reserve', 10)]
