@@ -1,6 +1,6 @@
 # Подготовка эксплуатации
 
-Целевая среда приёмки — Ubuntu 24.04 и PostgreSQL. Исходный стенд предоставляет Telegram gateway, worker и миграции. HTTP API запланирован на S4. Точки запуска приведены в [руководстве Ubuntu](../../README_UBUNTU_RU.md) и [сервисном runbook](../../SERVICE_RUNBOOK_RU.md). Эти инструкции описывают импортированный стенд, включая исторические результаты.
+Целевая среда приёмки — Ubuntu 24.04 и PostgreSQL. Исходный стенд предоставляет Telegram gateway, worker и миграции; непринятый функциональный кандидат также содержит [HTTP API Mini App](../../miniapp/openapi.json), с ограниченным image-сценарием, а не полный целевой API. Точки запуска приведены в [руководстве Ubuntu](../../README_UBUNTU_RU.md) и [сервисном runbook](../../SERVICE_RUNBOOK_RU.md). Эти инструкции описывают импортированный стенд, включая исторические результаты.
 
 ## Проверки без реальных запросов
 
@@ -11,7 +11,7 @@ python -m pip install -r requirements-acceptance.txt
 python -m pytest -q -ra
 ```
 
-Для проверки аудио нужен `ffprobe`. Для проверок с БД установите `TEST_DATABASE_URL` на отдельную тестовую PostgreSQL и предоставьте `pg_dump` и `pg_restore`. Тесты создают временные схемы и базы. GitHub Actions поднимает отдельный экземпляр PostgreSQL и использует заглушки внешних сервисов.
+Для проверки аудио нужен `ffprobe`. Для проверок с БД используйте только одноразовый PostgreSQL-профиль с предусмотренными `TEST_DATABASE_URL`, `DISPOSABLE_POSTGRES_PROFILE` и `DISPOSABLE_POSTGRES_CONFIRM`; точные допустимые значения проверяет [guard](../../scripts/disposable_test_db.py). Также нужны `pg_dump` и `pg_restore`. Тесты создают временные схемы и базы. GitHub Actions поднимает отдельный экземпляр PostgreSQL и использует заглушки внешних сервисов.
 
 ## Локальный Docker-стенд flowbridge-dev
 
@@ -33,6 +33,8 @@ docker compose -f compose.dev.yaml -f compose.dev.override.yaml stop
 ```
 
 ## Конфигурация стенда
+
+[Config.env](../../src/elevenbot/config.py) читает `ADMIN_TELEGRAM_IDS`, `TELEGRAM_BOT_TOKEN` и `MINIAPP_URL`; имя `ADMIN_TELEGRAM_USER_IDS` не является установленным alias. Telegram Admin Edition использует отдельный вход администратора. Обычная HTTP session Mini App не наследует эту административную сессию; целевая общая RBAC-модель остаётся открытой (D-04).
 
 Локальная копия оригинальной конфигурации находится в игнорируемом каталоге `.local/archive/`. При переносе в новый клон возьмите значения из своего тестового окружения, начиная с `.env.example`. Проверьте, что конфигурация указывает на тестовую БД и тестовый бот, `PAYMENTS_ENABLED=false`, а относительные пути каталога и хранилища считаются от расположения файла, переданного в `--env-file`. Для безрасходного прогона используйте `CLODEX_INTERACTION_MODE=mock`. Живой вызов CLODEX проверяется отдельно на согласованных условиях расхода. Реальные ID пользователей остаются в локальной конфигурации и базе.
 

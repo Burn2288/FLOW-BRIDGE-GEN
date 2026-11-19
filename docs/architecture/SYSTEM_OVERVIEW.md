@@ -1,5 +1,13 @@
 # Целевая архитектура
 
+## Подтверждённый кандидат
+
+Непринятый [PR #75 на `856a6b4407dc91e0f25e016d5f18d12aa2dcd0d4`](https://github.com/Burn2288/FLOW-BRIDGE-GEN/tree/856a6b4407dc91e0f25e016d5f18d12aa2dcd0d4) содержит Telegram, [HTTP Mini App](../../miniapp/backend/web.py) и [общий Service](../../src/elevenbot/core.py). [Карта границ FT-014](FT014_BOUNDARIES.md) относится к своему снимку; она не является гарантией всех текущих transport-границ. [Library](../../src/elevenbot/library.py) проецирует существующие работы и часть состояний, в том числе ограниченную Telegram-историю музыкальных пилотов. В HTTP присутствуют quote и команды изображений, а не универсальная очередь всех типов.
+
+[ProviderRegistry](../../src/elevenbot/aggregate.py) включает адаптеры, manifests и отдельные источники финансовой сверки; [lifecycle](../../src/elevenbot/provider_lifecycle.py) охватывает offline-метаданные, а не полноценный runtime health, failover или rollback. [Worker](../../src/elevenbot/worker.py) и [TaskLaunch](../../src/elevenbot/task_launch.py) используют существующие механизмы; полная унификация всех путей и внешняя приёмка остаются открытыми. Исходные файлы сами по себе не являются доказательством прохождения полного контракта; привязанные к SHA тесты приведены в [матрице](../acceptance/TEST_MATRIX.md).
+
+## Целевое направление
+
 Направление для проверки после S0 — модульный монолит на Python и PostgreSQL с отдельными процессами HTTP API, Telegram gateway, worker и обслуживания. Границы ниже описывают проектное намерение. [Фактическая архитектура](../audit/AS_IS_ARCHITECTURE.md) фиксируется по исходникам.
 
 - Telegram Gateway и Public API используют публичные операции Identity & Access, Generation Orchestration, Model Catalog, Billing и User Library. Mini App использует тот же backend.
