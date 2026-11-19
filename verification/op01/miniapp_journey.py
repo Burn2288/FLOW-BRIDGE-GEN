@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -15,6 +16,8 @@ from elevenbot.discovery import SnapshotStore
 from elevenbot.interaction import MOCK_IMAGE
 from miniapp.tests.test_miniapp import signed
 from test_admin_access import event
+from test_ui import Bot
+from elevenbot.telegram import TelegramApp
 
 
 async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pending_jobs):
@@ -99,6 +102,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await check_flux_confirmation(page, telegram.pool, owner, pending_jobs)
                 else:
                     await check_job_card(page, telegram.pool, tester)
+                    await compare_model_cards(page, telegram, owner, tester)
                 await context.close()
         finally:
             await browser.close()
@@ -175,3 +179,67 @@ async def check_job_card(page, pool, tester):
     ledger = await pool.fetch('SELECT kind, dr FROM ledger WHERE user_id=$1 AND task_quote_id=$2::uuid ORDER BY kind',
                               tester, job)
     assert [tuple(row) for row in ledger] == [('task_release', -10), ('task_reserve', 10)]
+
+
+async def compare_model_cards(page, telegram, owner, tester):
+    from playwright.async_api import expect
+
+    model = 'flux-schnell'
+    key = ('clodex', model, 'images.generate')
+    admin = TelegramApp(telegram.pool, replace(telegram.cfg, admin_password='fixture-password'), Bot())
+    await admin.handle(event(2000, '/admin'))
+    await admin.handle(event(2001, admin.cfg.admin_password))
+    assert admin.has_admin_session(100)
+
+    async def publish(n):
+        schema = {'properties': {'n': {'type': 'integer', 'minimum': n, 'maximum': n}}, 'required': ['n']}
+        version = await admin.models.stage_capabilities(owner, 100, *key, schema)
+        await admin.models.publish_capabilities(owner, 100, *key, version)
+        return str(version)
+
+    def buttons():
+        return {b.text: b.callback_data for row in telegram.bot.sent[-1][1].inline_keyboard for b in row}
+
+    async def catalogue():
+        await telegram.callback(tester, 101, 'slist:current:image:0')
+        await page.reload()
+        await expect(page.locator('#models')).to_contain_text('MA-01 Image')
+
+    version = await publish(1)
+    await page.get_by_role('button', name='Каталог').click()
+    await catalogue()
+    await telegram.callback(tester, 101, buttons()['FLUX Schnell'])
+    label = 'Количество изображений: 1'
+    assert label in telegram.bot.sent[-1][0]
+    flux = page.locator('#models > li').filter(has_text='FLUX Schnell')
+    await expect(flux).to_contain_text(label)
+    launch, = [data for data in buttons().values() if data.startswith('srun:')]
+    await telegram.callback(tester, 101, launch)
+    prompt = 'Один маяк на берегу'
+    await telegram.handle(event(2010, prompt, chat=101))
+    telegram_price = telegram.bot.sent[-1][0]
+    assert 'Оценка: 10 ' in telegram_price, telegram_price
+    await flux.get_by_label('Описание изображения').fill(prompt)
+    await flux.get_by_role('button', name='Рассчитать стоимость').click()
+    await expect(flux.get_by_role('button', name='Подтвердить за 10 токенов')).to_be_visible()
+    await expect(flux.locator('[role=status]')).to_have_text('Оценка: 10 токенов.')
+    quotes = await telegram.pool.fetch(
+        "SELECT request::text,price::text FROM task_price_quotes WHERE user_id=$1 AND request->>'prompt'=$2",
+        tester, prompt)
+    assert len(quotes) == 2
+    for row in quotes:
+        request = json.loads(row['request'])
+        assert request['params'] == {'n': 1} and request['model_version']['version'] == version
+        assert json.loads(row['price'])['total'] == '10'
+
+    # This adapter produces one image. A published rule requiring two has no runnable choice.
+    await publish(2)
+    await catalogue()
+    await telegram.callback(tester, 101, buttons()['FLUX Schnell'])
+    assert not any(data.startswith('srun:') for data in buttons().values())
+    await expect(flux.get_by_role('button', name='Рассчитать стоимость')).to_have_count(0)
+
+    await admin.handle(event(2011, '/revoke ' + ' '.join(key)))
+    await catalogue()
+    assert 'FLUX Schnell' not in buttons()
+    await expect(flux).to_have_count(0)
