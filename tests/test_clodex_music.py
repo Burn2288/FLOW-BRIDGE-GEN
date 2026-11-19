@@ -156,6 +156,9 @@ async def test_music_closed_pilot(env,tmp_path,outcome):
         await send(text='/admin_logout')
         await send(text=MENU[1])
         assert 'Работ пока нет' in (await screen())[1]
+        await pool.execute("UPDATE clodex_music_jobs SET expires_at=now()-interval '1 second' WHERE id=$1",job['id'])
+        assert not await app.svc.history(owner,include_music=True)
+        with pytest.raises(Rejected):await app.music.work(owner,job['id'])
     elif outcome=='refused':
         assert tuple(await restarted.balance(owner))==(100,0)
         assert await pool.fetchval("SELECT count(*) FROM clodex_music_ledger WHERE kind='release'")==1
