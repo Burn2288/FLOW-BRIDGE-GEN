@@ -6,6 +6,7 @@ from uuid import UUID
 
 from aiohttp import web
 
+from elevenbot.clodex_music import MODEL as MUSIC_MODEL, request as music_request
 from elevenbot.core import Rejected
 from elevenbot.model_capabilities import FLUX_MODEL
 from elevenbot.tariff_admin import default_params
@@ -48,14 +49,19 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
             raise web.HTTPBadRequest()
         if speech and not isinstance(data['voice'], str):
             raise web.HTTPBadRequest()
-        if not speech and data['model'] not in (FLUX_MODEL, *DEFAULT_VIDEO_MODELS):
+        if not speech and data['model'] not in (FLUX_MODEL, MUSIC_MODEL, *DEFAULT_VIDEO_MODELS):
             raise web.HTTPBadRequest()
         prompt = data['prompt'] if speech else data['prompt'].strip()
-        if not 1 <= len(prompt) <= 3000 or any(ord(c) < 32 and c not in '\n\r\t' for c in prompt):
+        if not 1 <= len(prompt) <= (5000 if data['model'] == MUSIC_MODEL else 3000) or any(ord(c) < 32 and c not in '\n\r\t' for c in prompt):
             raise web.HTTPBadRequest()
         external = await external_for(user)
         model = data['model']
         try:
+            if model == MUSIC_MODEL:
+                if not view.music.enabled() or not await view.music.miniapp_access(pool, external) or await view.music.used(user):
+                    raise web.HTTPForbidden()
+                quote = await view.pricing.quote(user, music_request(prompt))
+                return web.json_response({'quote_id': str(quote.id), 'price': quote.price}, status=201)
             if speech:
                 await view.launch.authorize_pilot(pool, user, external)
                 req = view.speech_request(prompt, data['voice'])
@@ -116,6 +122,14 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
                     if old['quote_id'] != quote_id:
                         raise web.HTTPConflict(text='Ключ уже использован для другой команды.')
                     return web.json_response({'id': str(quote_id)}, status=200)
+                music = await conn.fetchval("""SELECT 1 FROM task_price_quotes WHERE id=$1 AND user_id=$2
+                    AND provider='clodex' AND operation='audio.generate' AND model_id=$3""", quote_id, user, MUSIC_MODEL)
+                if music:
+                    correlation = await conn.fetchval("SELECT -nextval('http_image_correlation_seq')")
+                    quote, accepted = await view.music.confirm(view.pricing, user, external, quote_id, correlation, None, http_key=key)
+                    if not accepted:
+                        raise web.HTTPConflict(text='Стоимость изменилась. Запросите новую оценку.')
+                    return web.json_response({'id': str(quote.id)}, status=201)
                 owned = await conn.fetchval("""SELECT 1 FROM task_price_quotes WHERE id=$1 AND user_id=$2
                     AND provider='clodex' AND ((model_id=$3 AND operation='images.generate')
                     OR (model_id=ANY($4::text[]) AND operation='video')

@@ -136,9 +136,14 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         row = await service.wallet(user)
         return web.json_response({key: str(row[key]) for key in ('available', 'reserved')})
 
+    async def music_access(user):
+        if not cfg.clodex_music_owner:
+            return False
+        chat = await pool.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1", user)
+        return await view.music.miniapp_access(pool, chat)
+
     async def catalogue(request):
         user = await account(request)
-        # The HTTP account is read-only and has no Admin Edition session.
         rows = []
         availability = {}
         try:
@@ -193,6 +198,9 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                         for operation in item['operations']:
                             if (item['id'], operation) in approved:
                                 rows.append(dict(aggregator=label,id=item['id'],title=item['title'],operation=operation))
+        if view.music.enabled() and await music_access(user):
+            rows.append(dict(aggregator='CLODEX', id=view.music.model, title=view.music.title, operation='audio.generate',
+                             music_card={'used': await view.music.used(user)}))
         # fal is restricted in the bot to its owner's active Admin Edition.
         # A regular HTTP session never inherits that privilege.
         return web.json_response({'models': rows, 'availability': availability})
@@ -205,7 +213,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                 raise ValueError()
         except ValueError:
             raise web.HTTPBadRequest() from None
-        rows = await service.history(user, page * 10, include_pending_tasks=True)
+        rows = await service.history(user, page * 10, include_pending_tasks=True,
+                                     include_music=await music_access(user))
         return web.json_response({'works': [LibraryItem.from_history(row).as_dict() for row in rows]})
 
     async def timeline(request):
@@ -221,7 +230,12 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         kind = request.match_info['kind']
         try:
             work_id = UUID(request.match_info['id'])
-            if kind == 'chat':
+            if kind == 'music':
+                if not await music_access(user):
+                    raise web.HTTPNotFound()
+                data = await view.music.work(user, work_id)
+                suffix = 'mp3'
+            elif kind == 'chat':
                 data = (await service.chat_work(user, work_id)).encode()
                 suffix = 'txt'
             else:

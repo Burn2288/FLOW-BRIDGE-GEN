@@ -44,7 +44,7 @@ async function showWorks(target) {
   const data = await (await request('/api/v1/works?page=' + target)).json();
   works.replaceChildren();
   for (const work of data.works) {
-    const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст' };
+    const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст', music: 'Музыка' };
     const states = { queued: 'В очереди', dispatching: 'Выполняется', succeeded: 'Готово',
       failed: 'Ошибка', cancelled: 'Отменено', uncertain: 'Требует проверки' };
     const label = kinds[work.kind] ?? work.kind;
@@ -59,7 +59,7 @@ async function showWorks(target) {
         details.replaceChildren(...data.events.map(event => listItem(event.label + (event.at ? ' · ' + event.at : ''))));
       } catch (error) { showError(error); }
     };
-    item.append(historyButton, details);
+    if (work.kind !== 'music') item.append(historyButton, details);
     if (work.available) {
       const button = document.createElement('button');
       button.textContent = 'Скачать';
@@ -77,6 +77,10 @@ async function showWorks(target) {
 function generationForm(model, operation, voices) {
   const form = document.querySelector('#image-form').content.firstElementChild.cloneNode(true);
   if (operation === 'video') form.querySelector('label span').textContent = 'Описание видео';
+  if (operation === 'audio.generate') {
+    form.querySelector('label span').textContent = 'Описание трека';
+    form.elements.prompt.maxLength = 5000;
+  }
   let voice;
   if (operation === 'audio.speech') {
     form.querySelector('label span').textContent = 'Текст для озвучки';
@@ -143,7 +147,10 @@ function generationForm(model, operation, voices) {
       prompt.value = '';
       invalidate();
       message.textContent = 'Задание принято.';
-      if (operation !== 'images.generate') {
+      if (operation === 'audio.generate') {
+        form.replaceWith(document.createTextNode('Попытка использована.'));
+        navigate('library');
+      } else if (operation !== 'images.generate') {
         const job = await response.json();
         selectPanel('library');
         await openJob(job.id);
@@ -199,6 +206,18 @@ async function start() {
   const models = document.querySelector('#models');
   for (const model of catalogue.models) {
     const item = listItem(model.aggregator + ' · ' + model.title);
+    if (model.music_card) {
+      const limits = document.createElement('small');
+      limits.textContent = 'Одна попытка · Один MP3 · До 5000 символов · Хранение 7 дней · Отдельный тестовый баланс. Лицензия не указана.';
+      item.append(limits);
+      if (model.music_card.used) item.append(document.createTextNode('Попытка использована.'));
+      else {
+        const choose = document.createElement('button');
+        choose.textContent = 'Выбрать ' + model.title;
+        choose.onclick = () => choose.replaceWith(generationForm(model.id, model.operation));
+        item.append(choose);
+      }
+    }
     if (model.speech_card) {
       const { model: id, voices } = model.speech_card;
       if (voices.length) {

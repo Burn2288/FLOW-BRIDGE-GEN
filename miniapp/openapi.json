@@ -3,7 +3,7 @@
   "info": {
     "title": "FLOW-BRIDGE-GEN Mini App API",
     "version": "1.0.0",
-    "description": "Сессионный HTTP API изображений, видео Veo и озвучки. Генерация зависит от конфигурации сервера и допуска пользователя."
+    "description": "Сессионный HTTP API изображений, видео Veo, озвучки и музыки. Генерация зависит от конфигурации сервера и допуска пользователя."
   },
   "paths": {
     "/healthz": {
@@ -386,7 +386,8 @@
                 "chat",
                 "image",
                 "audio",
-                "video"
+                "video",
+                "music"
               ]
             }
           },
@@ -453,7 +454,7 @@
     },
     "/api/v1/quotes": {
       "post": {
-        "summary": "Рассчитать стоимость изображения, видео Veo или озвучки",
+        "summary": "Рассчитать стоимость изображения, видео Veo, озвучки или музыки",
         "security": [
           {
             "bearerAuth": []
@@ -511,6 +512,26 @@
                       "prompt",
                       "voice"
                     ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "model": {
+                        "enum": [
+                          "clodex-video/music-v1"
+                        ]
+                      },
+                      "prompt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 5000
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "prompt"
+                    ]
                   }
                 ]
               }
@@ -561,7 +582,7 @@
     },
     "/api/v1/jobs": {
       "post": {
-        "summary": "Подтвердить оценку изображения, видео Veo или озвучки",
+        "summary": "Подтвердить оценку изображения, видео Veo, озвучки или музыки",
         "security": [
           {
             "bearerAuth": []
