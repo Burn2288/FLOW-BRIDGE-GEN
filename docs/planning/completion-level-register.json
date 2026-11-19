@@ -504,11 +504,11 @@
       "task_id": "MA-01",
       "title": "Принять существующую Mini App в Telegram по HTTPS",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/85",
+      "tested_sha": "a74db1fd4dc62a5c6c2f0df7dcd2d9213b3a6ac8",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -517,6 +517,24 @@
       "dependencies": [
         "IN-19",
         "OP-01"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 14,
+          "task_id": "MA-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/88",
+          "tested_sha": "e868119d78c81f2e74802284ee95ae81d337b5d9",
+          "checkout_sha": "e868119d78c81f2e74802284ee95ae81d337b5d9",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44576374335",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Ubuntu HTTPS, Caddy, PostgreSQL and Chromium: 3 passed; two accounts and mock Telegram WebApp bridge. Source PR #85 at a74db1fd4dc62a5c6c2f0df7dcd2d9213b3a6ac8; source OP01 CI: https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44567797530.",
+          "limitations": "Mock Telegram bridge; real Telegram Android and Desktop manual tests deferred. Global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
@@ -2480,3 +2498,4 @@
     }
   }
 }
+
