@@ -21,7 +21,7 @@ def admin_already_signed_in():
 @pytest.mark.parametrize('outcome', ['success','refused','unknown'])
 async def test_music_closed_pilot(env,tmp_path,outcome):
     pool,cfg,svc,owner=env
-    cfg=replace(cfg,access_mode='private',admin_ids=(100,102),admin_password='fixture-password',
+    cfg=replace(cfg,token='fixture',access_mode='private',admin_ids=(100,102),admin_password='fixture-password',
                 clodex_music_owner=100,clodex_music_live=True,clodex_key='fixture',
                 catalogue_path=str(tmp_path/'models.json'))
     SnapshotStore(cfg.catalogue_path).write(make_snapshot([],[],[{'provider':'clodex','scope':'key_available'}]))
@@ -108,11 +108,30 @@ async def test_music_closed_pilot(env,tmp_path,outcome):
     await send(callback=current)
     await send(callback=current)
     assert not creates
+    job=await pool.fetchrow('SELECT id,provider FROM clodex_music_jobs')
+    history=await app.svc.history(owner,include_music=True)
+    assert [(r['id'],r['kind'],r['status'],r['model_id']) for r in history] == [(job['id'],'music','queued',MODEL)]
+    assert not await app.svc.history(other,include_music=True)
+    assert not await app.svc.history(owner,music_providers=['fal'])
+    assert not await app.svc.history(owner,include_pending_tasks=True)
+    from aiohttp.test_utils import TestClient, TestServer
+    from miniapp.backend.web import create_app
+    from miniapp.tests.test_miniapp import signed
+    async with TestClient(TestServer(create_app(pool,cfg))) as web:
+        session=await web.post('/api/v1/session',json={'initData':signed(cfg.token,100)})
+        assert session.status==200
+        headers={'Authorization':'Bearer '+(await session.json())['token']}
+        assert not (await (await web.get('/api/v1/works',headers=headers)).json())['works']
+        assert (await web.get(f'/api/v1/works/music/{job["id"]}',headers=headers)).status in (404,400)
+    await send(text=MENU[1])
+    assert 'В очереди' in (await screen())[1]
+    assert not any(v.startswith('cancel:') for v in routes(await screen()).values())
     assert await app.music.tick(bot)
     assert len(creates)==1
     restarted=MusicPilot(pool,cfg,api=api)
     if outcome=='success':
         assert await pool.fetchval('SELECT provider_id FROM clodex_music_jobs')=='fixture-audio-01'
+        assert (await app.svc.history(owner,include_music=True))[0]['status']=='dispatching'
         assert await restarted.tick(bot) and await restarted.tick(bot)
         assert status_calls==[AUDIOS+'/fixture-audio-01']
         assert tuple(await restarted.balance(owner))==(10,0)
@@ -121,15 +140,41 @@ async def test_music_closed_pilot(env,tmp_path,outcome):
         await send(callback=routes(await screen())['Открыть работу №1'])
         assert len(bot.audio)==2
         assert all(args[0]==100 and args[1].data==mp3 for args,_ in bot.audio)
+        from elevenbot.core import Rejected
+        with pytest.raises(Rejected):await app.music.work(other,job['id'])
+        for state in ('ready','delivering','delivered','delivery_unknown'):
+            await pool.execute('UPDATE clodex_music_jobs SET status=$1 WHERE id=$2',state,job['id'])
+            row=(await app.svc.history(owner,include_music=True))[0]
+            assert row['id']==job['id'] and row['status']=='succeeded' and row['file_available']
+        app=TelegramApp(pool,replace(cfg,clodex_music_live=False),bot)
+        await send(text='/admin')
+        await send(text=cfg.admin_password)
+        await send(text=MENU[1])
+        assert 'Результат сохранён' in (await screen())[1]
+        await send(callback=routes(await screen())['Открыть работу №1'])
+        assert bot.audio[-1][0][1].data==mp3
         await send(text='/admin_logout')
         await send(text=MENU[1])
         assert 'Работ пока нет' in (await screen())[1]
+        await pool.execute("UPDATE clodex_music_jobs SET expires_at=now()-interval '1 second' WHERE id=$1",job['id'])
+        assert not await app.svc.history(owner,include_music=True)
+        with pytest.raises(Rejected):await app.music.work(owner,job['id'])
     elif outcome=='refused':
         assert tuple(await restarted.balance(owner))==(100,0)
         assert await pool.fetchval("SELECT count(*) FROM clodex_music_ledger WHERE kind='release'")==1
+        assert (await app.svc.history(owner,include_music=True))[0]['status']=='failed'
+        await send(text=MENU[1])
+        assert 'Не удалось выполнить' in (await screen())[1]
     else:
         assert tuple(await restarted.balance(owner))==(10,90)
         assert await pool.fetchval('SELECT status FROM clodex_music_jobs')=='unknown'
+        assert (await app.svc.history(owner,include_music=True))[0]['status']=='uncertain'
+        await send(text=MENU[1])
+        assert 'Результат требует проверки' in (await screen())[1]
+        assert 'create_' not in (await screen())[1]
+    ledger=await pool.fetch('SELECT * FROM clodex_music_ledger ORDER BY kind')
+    await app.svc.history(owner,include_music=True)
+    assert await pool.fetch('SELECT * FROM clodex_music_ledger ORDER BY kind')==ledger
     assert not await restarted.tick(bot)
     assert len(creates)==1 and wallets==await pool.fetch('SELECT * FROM wallets ORDER BY user_id,mode')
     assert await pool.fetchval('SELECT halted FROM settings WHERE id=1') is True

@@ -266,9 +266,17 @@ class Service:
                     FROM task_chat_works w JOIN task_price_quotes q ON q.id=w.quote_id
                     WHERE q.user_id=$1 AND w.expires_at>now() AND ($3::text IS NULL OR q.model_id=$3)
                     UNION ALL
-                    SELECT m.id::text,'succeeded',NULL,m.created_at,CASE m.provider WHEN 'clodex' THEN 'music' ELSE 'music:'||m.provider END,q.model_id,true
+                    SELECT m.id::text,
+                           CASE WHEN m.mp3 IS NOT NULL AND m.status IN ('ready','delivering','delivered','delivery_unknown') THEN 'succeeded'
+                                WHEN m.status='queued' THEN 'queued'
+                                WHEN m.status IN ('submitting','polling') THEN 'dispatching'
+                                WHEN m.status='failed' THEN 'failed' ELSE 'uncertain' END,
+                           NULL,m.created_at,CASE m.provider WHEN 'clodex' THEN 'music' ELSE 'music:'||m.provider END,q.model_id,
+                           (m.mp3 IS NOT NULL AND m.status IN ('ready','delivering','delivered','delivery_unknown'))
                     FROM clodex_music_jobs m JOIN task_price_quotes q ON q.id=m.id
-                    WHERE m.provider=ANY($4::text[]) AND m.user_id=$1 AND m.mp3 IS NOT NULL AND m.expires_at>now()
+                    WHERE m.provider=ANY($4::text[]) AND m.user_id=$1 AND m.expires_at>now()
+                    AND ((m.mp3 IS NOT NULL AND m.status IN ('ready','delivering','delivered','delivery_unknown'))
+                         OR (m.mp3 IS NULL AND m.status IN ('queued','submitting','polling','failed','unknown')))
                     AND ($3::text IS NULL OR q.model_id=$3)
                 ) works ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $2
                 """,u,max(0,offset),model_id,music_providers if music_providers is not None else ['clodex'] if include_music else [],include_pending_tasks)

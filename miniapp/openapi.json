@@ -3,7 +3,7 @@
   "info": {
     "title": "FLOW-BRIDGE-GEN Mini App API",
     "version": "1.0.0",
-    "description": "Сессионный HTTP API изображений и видео Veo. Генерация зависит от конфигурации сервера и допуска пользователя."
+    "description": "Сессионный HTTP API изображений, видео Veo, озвучки и музыки. Генерация зависит от конфигурации сервера и допуска пользователя."
   },
   "paths": {
     "/healthz": {
@@ -386,7 +386,8 @@
                 "chat",
                 "image",
                 "audio",
-                "video"
+                "video",
+                "music"
               ]
             }
           },
@@ -453,7 +454,7 @@
     },
     "/api/v1/quotes": {
       "post": {
-        "summary": "Рассчитать стоимость изображения или видео Veo",
+        "summary": "Рассчитать стоимость изображения, видео Veo, озвучки или музыки",
         "security": [
           {
             "bearerAuth": []
@@ -464,25 +465,74 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "model": {
-                    "enum": [
-                      "flux-schnell",
-                      "clodex-video/veo-3.1",
-                      "clodex-video/veo-3.1-fast"
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "model": {
+                        "enum": [
+                          "flux-schnell",
+                          "clodex-video/veo-3.1",
+                          "clodex-video/veo-3.1-fast"
+                        ]
+                      },
+                      "prompt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "prompt"
                     ]
                   },
-                  "prompt": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 3000
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "model": {
+                        "enum": [
+                          "eleven_v4"
+                        ]
+                      },
+                      "prompt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      "voice": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "prompt",
+                      "voice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "model": {
+                        "enum": [
+                          "clodex-video/music-v1"
+                        ]
+                      },
+                      "prompt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 5000
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "prompt"
+                    ]
                   }
-                },
-                "required": [
-                  "model",
-                  "prompt"
                 ]
               }
             }
@@ -532,7 +582,7 @@
     },
     "/api/v1/jobs": {
       "post": {
-        "summary": "Подтвердить оценку изображения или видео Veo",
+        "summary": "Подтвердить оценку изображения, видео Veo, озвучки или музыки",
         "security": [
           {
             "bearerAuth": []
@@ -670,7 +720,8 @@
                           "operation": {
                             "enum": [
                               "images.generate",
-                              "video"
+                              "video",
+                              "audio.speech"
                             ]
                           }
                         },
@@ -762,7 +813,8 @@
                     "operation": {
                       "enum": [
                         "images.generate",
-                        "video"
+                        "video",
+                        "audio.speech"
                       ]
                     }
                   },

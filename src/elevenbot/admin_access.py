@@ -28,6 +28,9 @@ class AdminAccess:
         self.sessions.pop(chat,None)
         return False
 
+    def remaining(self, chat):
+        return max(0, self.sessions[chat][0] - monotonic())
+
     def locked(self, chat):
         failure = self.failures.get(chat)
         if failure and monotonic()<failure[1]:

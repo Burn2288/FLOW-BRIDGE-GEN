@@ -6,6 +6,7 @@ import json
 
 from .anymodel import AnyModelError, AnyModelProvider, BASE, MODEL_ID
 from .pricing import NoProviderPrice, PriceUnavailable, ProviderCost, chat_token_estimate, number
+from .speech_capabilities import utf16_units
 
 UNIT = 'anymodel_balance_token'
 OPERATIONS = {
@@ -69,7 +70,7 @@ def tariff(metadata, request, *, source='/v1/models/info'):
             raw = duration * number(rate) * output
             details = f'{duration} с · {resolution} · {ratio}' + (f' · {mode}' if mode else '')
         else:
-            units = len(request.prompt.encode('utf-16-le')) // 2
+            units = utf16_units(request.prompt)
             if not 1 <= units <= 4000:
                 raise PriceUnavailable()
             raw = units * number(billing['base_tokens']) * output
@@ -106,6 +107,11 @@ class AnyModelPricing:
     async def cost(self, request):
         if not request.prompt.strip() or len(request.prompt) > 4000 or '\x00' in request.prompt:
             raise PriceUnavailable()
+        if request.operation == 'audio.speech':
+            try:
+                utf16_units(request.prompt)
+            except UnicodeError:
+                raise PriceUnavailable() from None
         source = '/v1/models/info'
         try:
             data = await self.metadata(request.model, request.operation)

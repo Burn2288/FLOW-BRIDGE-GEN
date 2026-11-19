@@ -5,7 +5,7 @@ import pytest
 from elevenbot.library import LibraryItem
 
 
-@pytest.mark.parametrize('kind', ['image', 'audio', 'video', 'chat'])
+@pytest.mark.parametrize('kind', ['image', 'audio', 'video', 'chat', 'music'])
 def test_saved_results_have_shared_projection(kind):
     row = {'id': UUID('00000000-0000-0000-0000-000000000001'), 'kind': kind,
            'model_id': 'fixture-model', 'status': 'succeeded', 'file_available': True,
@@ -51,4 +51,4 @@ async def test_http_lists_all_types_from_existing_history(monkeypatch):
         result = (await response.json())['works']
         assert [item['kind'] for item in result] == ['image', 'audio', 'video', 'chat']
         assert all(item['available'] and item['status'] == 'succeeded' for item in result)
-        history.assert_awaited_once_with(owner, 0, include_pending_tasks=True)
+        history.assert_awaited_once_with(owner, 0, include_pending_tasks=True, include_music=False)

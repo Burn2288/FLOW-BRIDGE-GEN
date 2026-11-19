@@ -416,6 +416,8 @@ class TelegramApp:
             finally:
                 await self.delete_input_message(message)
             if status=='ok':
+                if self.music.owner(ext):
+                    await self.music.publish_session(ext, self.admin_access.remaining(ext))
                 u=await self.svc.identity(ext)
                 try:
                     await self.svc.conversation(u,'home')
@@ -437,6 +439,8 @@ class TelegramApp:
             if not eligible:
                 await self.say(ext,'Админ-доступ закрыт.')
             elif command=='/admin_logout':
+                if self.music.owner(ext):
+                    await self.pool.execute('DELETE FROM miniapp_music_sessions WHERE chat_id=$1',ext)
                 self.admin_access.logout(ext)
                 try:
                     u=await self.svc.identity(ext)
@@ -795,13 +799,16 @@ class TelegramApp:
             kind,_,music_provider=r.get('kind','audio').partition(':')
             name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата','music':'Музыка'}[kind]
             price=f" · {r['price']} кредитов" if r['price'] is not None else ''
-            lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {STATUS[r['status']]}{price}")
+            music_status={'queued':'В очереди','dispatching':'Выполняется','failed':'Не удалось выполнить',
+                          'uncertain':'Результат требует проверки','succeeded':'Результат сохранён'}
+            status=music_status[r['status']] if kind=='music' else STATUS[r['status']]
+            lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {status}{price}")
             if r['status']=='succeeded' and r.get('file_available',True):
                 route={'image':'image','audio':'get','video':'video','chat':'chatwork','music':'musicwork'}[kind]
                 if music_provider:route=f'pilotwork:{music_provider}'
                 if model and kind in ('audio','image'):route='m'+route
                 rows.append([(f"Открыть работу №{index}",f"{route}:{r['id']}")])
-            if r['status']=='queued':
+            if r['status']=='queued' and kind!='music':
                 rows.append([(f'Отменить №{index}',f"cancel:{r['id']}")])
         nav=[]
         if page:nav.append(('Назад',f'{origin}:{page-1}'))
@@ -2313,18 +2320,21 @@ class TelegramApp:
             '\nСовместимость модели: '+('подтверждена метаданными' if request['model_operation_verified'] else 'не подтверждена')+
             '\nЗапрос не отправлен, списаний нет.',menu())
 
+    def speech_request(self,text,voice):
+        name=next((v['name'] for v in catalog(self.cfg) if v['id']==voice),None)
+        if not name or not text or not text.strip() or len(text)>3000 or '\x00' in text:
+            raise Rejected('CLODEX: укажите голос и текст до 3000 символов.')
+        model=next((m for m in self.catalogue_snapshot()['models'] if m.get('provider')=='clodex'
+                    and m['id'].replace('-','_')==self.cfg.clodex_model.replace('-','_')),None)
+        if not model or not self.model_can_run(model,'audio.speech'):
+            raise Rejected('CLODEX: тестовая озвучка недоступна.')
+        return Request('clodex',self.cfg.clodex_model,'audio.speech',f"{model['title']} · {name}",text,{'voice':voice})
+
     async def make_quote(self,u,ext,text,voice,speed):
         if self.cfg.speech_pilot and self.cfg.mode=='clodex':
             if speed!=1.0:
                 raise Rejected('CLODEX: тестовая озвучка недоступна.')
-            name=next((v['name'] for v in catalog(self.cfg) if v['id']==voice),None)
-            if not name or not text or not text.strip() or len(text)>3000 or '\x00' in text:
-                raise Rejected('CLODEX: укажите голос и текст до 3000 символов.')
-            model=next((m for m in self.catalogue_snapshot()['models'] if m.get('provider')=='clodex'
-                        and m['id'].replace('-','_')==self.cfg.clodex_model.replace('-','_')),None)
-            if not model or not self.model_can_run(model,'audio.speech'):
-                raise Rejected('CLODEX: тестовая озвучка недоступна.')
-            request=Request('clodex',self.cfg.clodex_model,'audio.speech',f"{model['title']} · {name}",text,{'voice':voice})
+            request=self.speech_request(text,voice)
             await self.show_price(ext,await self.pricing.quote(u,request))
             return
         q,price=await self.svc.quote(u,text,voice,speed)
