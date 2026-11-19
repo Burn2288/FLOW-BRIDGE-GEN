@@ -3,7 +3,7 @@
   "info": {
     "title": "FLOW-BRIDGE-GEN Mini App API",
     "version": "1.0.0",
-    "description": "Сессионный HTTP API с поддерживаемым сценарием изображений; реальная генерация зависит от серверной конфигурации."
+    "description": "Сессионный HTTP API изображений и видео Veo. Генерация зависит от конфигурации сервера и допуска пользователя."
   },
   "paths": {
     "/healthz": {
@@ -453,7 +453,7 @@
     },
     "/api/v1/quotes": {
       "post": {
-        "summary": "Создать оценку изображения",
+        "summary": "Рассчитать стоимость изображения или видео Veo",
         "security": [
           {
             "bearerAuth": []
@@ -468,7 +468,11 @@
                 "additionalProperties": false,
                 "properties": {
                   "model": {
-                    "const": "flux-schnell"
+                    "enum": [
+                      "flux-schnell",
+                      "clodex-video/veo-3.1",
+                      "clodex-video/veo-3.1-fast"
+                    ]
                   },
                   "prompt": {
                     "type": "string",
@@ -528,7 +532,7 @@
     },
     "/api/v1/jobs": {
       "post": {
-        "summary": "Подтвердить оценку изображения",
+        "summary": "Подтвердить оценку изображения или видео Veo",
         "security": [
           {
             "bearerAuth": []
@@ -622,7 +626,7 @@
         }
       },
       "get": {
-        "summary": "Список своих image-заданий",
+        "summary": "Список своих заданий",
         "security": [
           {
             "bearerAuth": []
@@ -662,6 +666,12 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "operation": {
+                            "enum": [
+                              "images.generate",
+                              "video"
+                            ]
                           }
                         },
                         "required": [
@@ -669,7 +679,8 @@
                           "model",
                           "state",
                           "origin",
-                          "result_url"
+                          "result_url",
+                          "operation"
                         ]
                       }
                     }
@@ -701,7 +712,7 @@
     },
     "/api/v1/jobs/{id}": {
       "get": {
-        "summary": "Состояние своего image-задания",
+        "summary": "Состояние своего задания",
         "security": [
           {
             "bearerAuth": []
@@ -747,6 +758,12 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "operation": {
+                      "enum": [
+                        "images.generate",
+                        "video"
+                      ]
                     }
                   },
                   "required": [
@@ -754,7 +771,8 @@
                     "model",
                     "state",
                     "origin",
-                    "result_url"
+                    "result_url",
+                    "operation"
                   ]
                 }
               }

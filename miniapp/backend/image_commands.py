@@ -1,4 +1,4 @@
-"""Owned HTTP image commands over existing pricing, dispatch and wallet services."""
+"""Owned HTTP image and Veo commands over existing pricing, dispatch and wallet services."""
 import asyncio
 import re
 from contextlib import nullcontext
@@ -11,6 +11,7 @@ from elevenbot.model_capabilities import FLUX_MODEL
 from elevenbot.tariff_admin import default_params
 from elevenbot.model_policy import admitted
 from elevenbot.pricing import Request
+from elevenbot.video import DEFAULT_VIDEO_MODELS, VIDEO_PARAMS
 from elevenbot.task_wallet import settle_task_tokens
 
 KEY = re.compile(r'^[A-Za-z0-9_-]{8,96}$')
@@ -41,16 +42,25 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
     async def create_quote(request):
         user = await account(request)
         data = await body(request)
-        if set(data) != {'model', 'prompt'} or data['model'] != FLUX_MODEL or not isinstance(data['prompt'], str):
+        if set(data) != {'model', 'prompt'} or data['model'] not in (FLUX_MODEL, *DEFAULT_VIDEO_MODELS) or not isinstance(data['prompt'], str):
             raise web.HTTPBadRequest()
         prompt = data['prompt'].strip()
         if not 1 <= len(prompt) <= 3000 or any(ord(c) < 32 and c not in '\n\r\t' for c in prompt):
             raise web.HTTPBadRequest()
         external = await external_for(user)
-        if not cfg.allows_public_image('clodex', FLUX_MODEL, 'images.generate'):
-            raise web.HTTPForbidden()
-        req = Request('clodex', FLUX_MODEL, 'images.generate', 'FLUX Schnell', prompt, default_params('clodex', 'images.generate'))
+        model = data['model']
         try:
+            if model in DEFAULT_VIDEO_MODELS:
+                await view.launch.authorize_pilot(pool, user, external)
+                modes = await view.admitted_veo_modes(view.catalogue_snapshot())
+                title = next((label for ident,label,_ in modes.values() if ident == model), None)
+                if not view.video.enabled() or title is None:
+                    raise Rejected('Пилот видео недоступен.')
+                req = Request('clodex', model, 'video', 'Veo 3.1 · '+title, prompt, VIDEO_PARAMS.copy())
+            else:
+                if not cfg.allows_public_image('clodex', model, 'images.generate'):
+                    raise web.HTTPForbidden()
+                req = Request('clodex', model, 'images.generate', 'FLUX Schnell', prompt, default_params('clodex', 'images.generate'))
             async with pool.acquire() as conn:
                 if not await admitted(conn, req.provider, req.model, req.operation):
                     raise Rejected('Model unavailable')
@@ -76,6 +86,10 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
         running.add(task)
         task.add_done_callback(running.discard)
 
+    async def background_started(request, kind, job):
+        # HTTP clients read progress from the persisted job.
+        pass
+
     async def create_job(request):
         user = await account(request)
         key = request.headers.get('Idempotency-Key', '')
@@ -94,12 +108,13 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
                         raise web.HTTPConflict(text='Ключ уже использован для другой команды.')
                     return web.json_response({'id': str(quote_id)}, status=200)
                 owned = await conn.fetchval("""SELECT 1 FROM task_price_quotes WHERE id=$1 AND user_id=$2
-                    AND provider='clodex' AND model_id=$3 AND operation='images.generate'""", quote_id, user, FLUX_MODEL)
+                    AND provider='clodex' AND ((model_id=$3 AND operation='images.generate')
+                    OR (model_id=ANY($4::text[]) AND operation='video'))""", quote_id, user, FLUX_MODEL, list(DEFAULT_VIDEO_MODELS))
                 if not owned:
                     raise web.HTTPNotFound()
                 correlation = await conn.fetchval("SELECT -nextval('http_image_correlation_seq')")
                 quote, accepted, _ = await view.launch.confirm(user, external, quote_id, correlation,
-                    progress=lambda _: nullcontext(), background=None,
+                    progress=lambda _: nullcontext(), background=background_started,
                     defer=lambda q, run: deferred.append(run))
                 if not accepted:
                     raise web.HTTPConflict(text='Стоимость изменилась. Запросите новую оценку.')
@@ -111,16 +126,22 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
         return web.json_response({'id': str(quote.id)}, status=201)
 
     async def get_jobs(user, job_id=None):
-        rows = await pool.fetch("""SELECT q.id,q.model_id,d.state,w.id AS work_id,h.cancelled_at,
+        rows = await pool.fetch("""SELECT q.id,q.model_id,q.operation,h.cancelled_at,
+                   CASE WHEN v.status='succeeded' THEN 'completed' WHEN v.status='failed' THEN 'failed'
+                        WHEN v.status='uncertain' THEN 'uncertain' ELSE d.state END AS state,
+                   CASE WHEN q.operation='video' AND v.status='succeeded' AND v.expires_at>now() THEN v.id
+                        ELSE w.id END AS work_id,
                    (h.quote_id IS NOT NULL OR q.update_id < 0) AS http_origin
             FROM task_price_quotes q JOIN task_dispatch d ON d.quote_id=q.id
             LEFT JOIN http_image_commands h ON h.quote_id=q.id AND h.user_id=q.user_id
-            LEFT JOIN image_works w ON w.update_id=q.update_id AND w.user_id=q.user_id AND w.expires_at>now()
-            WHERE q.user_id=$1 AND q.operation='images.generate' AND ($2::uuid IS NULL OR q.id=$2)
+            LEFT JOIN video_jobs v ON v.id=q.id AND v.user_id=q.user_id
+            LEFT JOIN image_works w ON q.operation='images.generate' AND w.update_id=q.update_id AND w.user_id=q.user_id AND w.expires_at>now()
+            WHERE q.user_id=$1 AND (q.operation='images.generate' OR (q.operation='video' AND h.quote_id IS NOT NULL))
+                  AND ($2::uuid IS NULL OR q.id=$2)
             ORDER BY q.accepted_at DESC LIMIT 100""", user, job_id)
-        return [{'id': str(r['id']), 'model': r['model_id'], 'state': 'cancelled' if r['cancelled_at'] else r['state'],
+        return [{'id': str(r['id']), 'model': r['model_id'], 'operation': r['operation'], 'state': 'cancelled' if r['cancelled_at'] else r['state'],
                  'origin': 'http' if r['http_origin'] else 'telegram',
-                 'result_url': '/api/v1/works/image/' + str(r['work_id']) if r['work_id'] else None}
+                 'result_url': ('/api/v1/works/video/' if r['operation']=='video' else '/api/v1/works/image/') + str(r['work_id']) if r['work_id'] else None}
                 for r in rows]
 
     async def list_jobs(request):
