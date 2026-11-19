@@ -56,8 +56,10 @@ class TaskLaunch:
         adapter = prepared = None
         async def validate(conn, request):
             from .model_policy import admitted
+            from .model_capabilities import validate_pinned
             if request.operation=='audio.generate' or not await admitted(conn,request.provider,request.model,request.operation):
                 raise Rejected('Модель не допущена к этой операции.')
+            await validate_pinned(conn, request)
 
         async def prepare(conn,quote):
             nonlocal adapter,prepared
