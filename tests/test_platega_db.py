@@ -67,6 +67,60 @@ async def test_platega_create_timeout_persisted(env):
     assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='payment' AND payment_id=$1",client.order)==1
     assert (await restarted.svc.wallet(u))['available']==10000 and client.calls==1
 
+
+async def test_reconcile_limit_does_not_starve_confirmed_legacy_payment(env):
+    import httpx
+    from test_topups import Gateway, MERCHANT, SECRET
+
+    pool,cfg,_,user=env
+    cfg=replace(cfg,mode='clodex',payments_enabled=True,payment_backend='platega')
+    gateway=Gateway()
+    export_visible=False
+
+    def transport(request):
+        if request.url.path=='/transaction/export/json' and not export_visible:
+            gateway.exports+=1
+            return httpx.Response(200,json=[])
+        return gateway.handler(request)
+
+    config=PlategaConfig(merchant=MERCHANT,secret=SECRET,enabled=True,
+                        return_url='https://example.org/paid',failed_url='https://example.org/failed')
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as http:
+        payments=PlategaPayments(pool,cfg,PlategaClient(config,http))
+        gateway.drop_response=True
+        with pytest.raises(PaymentUnknown):
+            await payments.create_order(user,credits=1000)
+        unknown=await pool.fetchval("SELECT id FROM payments WHERE creation_state='uncertain'")
+        await pool.execute("UPDATE payments SET created_at=now()-interval '1 minute' WHERE id=$1",unknown)
+        gateway.drop_response=False
+        confirmed,_=await payments.create_order(user,credits=2000)
+
+        # A still-unresolved older order must not monopolize every bounded pass.
+        for _ in range(4):
+            await payments.reconcile_pending(limit=1)
+        assert (await payments.svc.wallet(user))['available']==2000
+        assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='payment' AND payment_id=$1",confirmed)==1
+        pending=await pool.fetchrow('SELECT status,creation_state,remote_id FROM payments WHERE id=$1',unknown)
+        assert tuple(pending)==('pending','uncertain',None)
+        assert gateway.exports>=1
+
+        # Repeated empty searches neither create a payment nor credit it early.
+        for _ in range(3):
+            await payments.reconcile_pending(limit=1)
+        assert (await payments.svc.wallet(user))['available']==2000
+        assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='payment'")==1
+        assert len(gateway.posts)==2
+
+        # The older order is still eligible when the provider finally exports it.
+        export_visible=True
+        for _ in range(3):
+            await payments.reconcile_pending(limit=1)
+        assert (await payments.svc.wallet(user))['available']==3000
+        assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='payment'")==2
+        assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='payment' AND payment_id=$1",unknown)==1
+        assert await pool.fetchval('SELECT status FROM payments WHERE id=$1',unknown)=='succeeded'
+        assert len(gateway.posts)==2
+
 async def test_A13_manual_redelivery_after_retry_exhaustion(env):
     from elevenbot.worker import Worker
     from elevenbot.providers import MockProvider
