@@ -13,7 +13,7 @@ from uuid import UUID
 
 from aiohttp import web
 
-from elevenbot.model_capabilities import FLUX_MODEL, flux_card
+from elevenbot.model_capabilities import FLUX_MODEL, flux_card, veo_card
 from elevenbot.core import Rejected, Service
 from elevenbot.library import LibraryItem
 from elevenbot.job_timeline import get_timeline
@@ -136,7 +136,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         return web.json_response({key: str(row[key]) for key in ('available', 'reserved')})
 
     async def catalogue(request):
-        await account(request)
+        user = await account(request)
         # The HTTP account is read-only and has no Admin Edition session.
         rows = []
         availability = {}
@@ -147,6 +147,16 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         label = view.provider_title(None, 'clodex')
         availability[label] = snap is not None
         if snap is not None:
+            veo_titles = {}
+            if view.video.enabled():
+                external = await pool.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1", user)
+                try:
+                    await view.launch.authorize_pilot(pool, user, external)
+                except Rejected:
+                    pass
+                else:
+                    veo_titles = {model: 'Veo 3.1 · '+label for model,label,_ in
+                                  (await view.admitted_veo_modes(snap)).values()}
             for section, (_, operation) in STORE_SECTIONS.items():
                 for index in await view.store_models(snap, section, None):
                     item = snap['models'][index]
@@ -155,6 +165,10 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                         card = await flux_card(pool)
                         if card:
                             row['image_card'] = card
+                    if operation == 'video' and item['id'] in veo_titles:
+                        card = await veo_card(pool, item['id'])
+                        if card:
+                            row.update(title=veo_titles[item['id']], video_card=card)
                     rows.append(row)
 
         if anymodel_available(cfg):
