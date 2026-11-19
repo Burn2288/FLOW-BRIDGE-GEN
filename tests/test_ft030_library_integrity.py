@@ -40,13 +40,14 @@ async def test_postgres_library_integrity_and_owner(env):
                                 ($2,$3,'fixture','fixture',0,'succeeded',$4,now()+interval '1 day')""", empty, valid, owner, video)
     ledger = [tuple(x) for x in await pool.fetch('SELECT * FROM ledger ORDER BY id')]
     calls = provider.calls
+    headers = []
     async def check_app():
         async with TestClient(TestServer(create_app(pool, cfg))) as client:
-            headers = []
-            for external in (100, 101):
-                response = await client.post('/api/v1/session', json={'initData': signed('fixture', external)})
-                assert response.status == 200
-                headers.append({'Authorization': 'Bearer ' + (await response.json())['token']})
+            if not headers:
+                for external in (100, 101):
+                    response = await client.post('/api/v1/session', json={'initData': signed('fixture', external)})
+                    assert response.status == 200
+                    headers.append({'Authorization': 'Bearer ' + (await response.json())['token']})
             own, foreign = headers
             response = await client.get('/api/v1/works', headers=own)
             works = {x['id']: x for x in (await response.json())['works']}
