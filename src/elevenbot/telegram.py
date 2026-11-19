@@ -25,6 +25,7 @@ from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
 from .navigation import Navigation
+from .model_capabilities import FLUX_MODEL, flux_card
 from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
 from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request,decimal_text,display,ruble_value
 from .clodex_pricing import ClodexPricing
@@ -1845,11 +1846,18 @@ class TelegramApp:
         version=snapshot['version']
         rows=[]
         status='Запуск этой модели пока недоступен.'
-        if operation=='video' or self.model_can_run(model,operation):
+        runnable = operation=='video' or self.model_can_run(model,operation)
+        card = None
+        if runnable and model.get('provider')=='clodex' and model['id']==FLUX_MODEL and operation==IMAGE_OP:
+            card = await flux_card(self.pool)
+            runnable = card is not None
+        if runnable:
             rows.append([(('Выбрать голос' if operation=='audio.speech' and self.cfg.speech_pilot else title),f'srun:{version}:{section}:{page}:{index}')])
             if operation=='images.generate' and model['id'] in HIGH_QUALITY_IMAGE_MODELS:
                 rows.append([('Качество: high',f'srun:{version}:{section}:{page}:{index}:high')])
             status='Выберите действие, чтобы продолжить.'
+        if card:
+            status = card['label']+'\n'+status
         if section in ('image','speech'):
             rows.append([('Работы этой модели',f'mwork:{version}:{section}:{index}:0')])
         rows.append([(MODEL_LIST_BACK,f'slist:{version}:{section}:{page}')])

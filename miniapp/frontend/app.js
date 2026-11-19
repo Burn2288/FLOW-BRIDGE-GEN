@@ -15,7 +15,7 @@ async function request(path, options = {}) {
   });
   if (response.status === 401) throw Error('Откройте приложение заново из Telegram.');
   if (response.status === 403) throw Error('Откройте бот и проверьте доступ к аккаунту.');
-  if (!response.ok) throw Error('Не удалось получить данные.');
+  if (!response.ok) throw Object.assign(Error('Не удалось получить данные.'), { status: response.status });
   return response;
 }
 
@@ -74,6 +74,76 @@ async function showWorks(target) {
   document.querySelector('#next').disabled = data.works.length < 10;
 }
 
+function imageForm(model) {
+  const form = document.querySelector('#image-form').content.firstElementChild.cloneNode(true);
+  const prompt = form.elements.prompt;
+  const calculate = form.querySelector('[type=submit]');
+  const confirm = form.querySelector('[type=button]');
+  const message = form.querySelector('[role=status]');
+  let quote;
+  let revision = 0;
+
+  function invalidate() {
+    revision++;
+    quote = null;
+    confirm.hidden = true;
+    calculate.disabled = !prompt.value.trim();
+    message.textContent = '';
+  }
+  prompt.oninput = invalidate;
+  form.onsubmit = async event => {
+    event.preventDefault();
+    if (calculate.disabled || prompt.disabled) return;
+    invalidate();
+    const requested = revision;
+    calculate.disabled = true;
+    message.textContent = 'Рассчитываем стоимость…';
+    try {
+      const response = await request('/api/v1/quotes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt: prompt.value }),
+      });
+      const result = await response.json();
+      if (requested !== revision) return;
+      quote = result;
+      const priceLabel = quote.price.estimate ? 'Оценка' : 'Стоимость';
+      message.textContent = `${priceLabel}: ${quote.price.total} токенов.`;
+      confirm.textContent = `Подтвердить за ${quote.price.total} токенов`;
+      confirm.hidden = false;
+    } catch (error) {
+      if (requested === revision) {
+        message.textContent = error.message;
+        calculate.disabled = false;
+      }
+    }
+  };
+  confirm.onclick = async () => {
+    if (!quote || confirm.disabled) return;
+    confirm.disabled = prompt.disabled = true;
+    message.textContent = 'Отправляем задание…';
+    try {
+      await request('/api/v1/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': quote.quote_id },
+        body: JSON.stringify({ quote_id: quote.quote_id }),
+      });
+      prompt.value = '';
+      invalidate();
+      message.textContent = 'Задание принято.';
+    } catch (error) {
+      if (error.status === 409) {
+        invalidate();
+        message.textContent = 'Рассчитайте стоимость заново.';
+      } else {
+        message.textContent = error.message;
+      }
+    } finally {
+      confirm.disabled = prompt.disabled = false;
+    }
+  };
+  return form;
+}
+
 async function start() {
   telegram?.ready();
   if (!telegram?.initData) {
@@ -83,11 +153,20 @@ async function start() {
     status.textContent = hint;
     return;
   }
-  const session = await request('/api/v1/session', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initData: telegram.initData }),
-  });
-  token = (await session.json()).token;
+  // initData is single-use. Resume only the session for this launch in this tab.
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(telegram.initData));
+  const launch = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  const saved = JSON.parse(sessionStorage.getItem('miniapp.session'));
+  if (saved?.launch === launch) token = saved.token;
+  if (!token) {
+    history.replaceState({ ...history.state, jobId: null }, '');
+    const session = await request('/api/v1/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: telegram.initData }),
+    });
+    token = (await session.json()).token;
+    sessionStorage.setItem('miniapp.session', JSON.stringify({ launch, token }));
+  }
   const [wallet, catalogue, settings] = await Promise.all([
     request('/api/v1/wallet').then(response => response.json()),
     request('/api/v1/catalogue').then(response => response.json()),
@@ -99,12 +178,25 @@ async function start() {
   applyTheme(settings.theme);
   themeInputs.forEach(input => input.disabled = false);
   const models = document.querySelector('#models');
-  for (const model of catalogue.models) models.append(listItem(model.aggregator + ' · ' + model.title));
+  for (const model of catalogue.models) {
+    const item = listItem(model.aggregator + ' · ' + model.title);
+    if (model.image_card) {
+      const parameters = document.createElement('small');
+      parameters.textContent = model.image_card.label;
+      item.append(parameters);
+      item.append(imageForm(model.id));
+    }
+    models.append(item);
+  }
   for (const [name, available] of Object.entries(catalogue.availability)) {
     if (!available) models.append(listItem(name + ' · каталог временно недоступен'));
   }
   if (!models.children.length) models.append(listItem('Нет доступных моделей.'));
   status.textContent = '';
+  if (history.state?.jobId) {
+    selectPanel('library');
+    await openJob(history.state.jobId);
+  }
 }
 
 function applyTheme(theme) {
@@ -140,14 +232,76 @@ for (const input of themeInputs) input.onchange = () => {
 retryTheme.onclick = saveTheme;
 
 const tabs = [...document.querySelectorAll('nav [data-panel]')];
-for (const tab of tabs) tab.onclick = () => {
+const card = document.querySelector('#job-card');
+const overview = document.querySelector('#library-overview');
+const jobStatus = document.querySelector('#job-status');
+const cancelJob = document.querySelector('#cancel-job');
+const reloadJob = document.querySelector('#reload-job');
+const states = {
+  pending: 'Ожидает запуска', dispatching: 'Выполняется', delegated: 'Передано исполнителю',
+  completed: 'Завершено', interrupted: 'Прервано', rejected: 'Отклонено',
+  uncertain: 'Результат пока неизвестен', cancelled: 'Отменено',
+};
+let cardRevision = 0;
+
+function selectPanel(panel) {
   for (const button of tabs) {
-    const selected = button === tab;
+    const selected = button.dataset.panel === panel;
     document.getElementById(button.dataset.panel).hidden = !selected;
     if (selected) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
-};
+}
+
+async function showJobs() {
+  const { jobs } = await (await request('/api/v1/jobs')).json();
+  document.querySelector('#jobs-title').hidden = jobs.length === 0;
+  document.querySelector('#jobs').replaceChildren(...jobs.map(job => {
+    const item = listItem(job.model + ' · ' + (states[job.state] ?? job.state));
+    const open = document.createElement('button');
+    open.textContent = 'Открыть задание ' + job.id;
+    open.onclick = () => openJob(job.id);
+    item.append(open);
+    return item;
+  }));
+}
+
+async function openJob(id, cancel = false) {
+  const revision = ++cardRevision;
+  history.replaceState({ ...history.state, jobId: id }, '');
+  overview.hidden = true;
+  card.hidden = false;
+  document.querySelector('#job-id').textContent = id;
+  cancelJob.hidden = true;
+  reloadJob.disabled = true;
+  jobStatus.textContent = cancel ? 'Проверяем отмену…' : 'Получаем статус…';
+  try {
+    const path = '/api/v1/jobs/' + encodeURIComponent(id);
+    if (cancel) await request(path + '/cancel', { method: 'POST' });
+    const job = await (await request(path)).json();
+    if (revision !== cardRevision) return;
+    jobStatus.textContent = states[job.state] ?? job.state;
+    cancelJob.hidden = !(job.origin === 'http' && job.state === 'pending');
+  } catch (error) {
+    if (revision === cardRevision) jobStatus.textContent = error.message;
+  } finally {
+    if (revision === cardRevision) reloadJob.disabled = false;
+  }
+}
+
+function navigate(panel) {
+  cardRevision++;
+  history.replaceState({ ...history.state, jobId: null }, '');
+  overview.hidden = false;
+  card.hidden = true;
+  selectPanel(panel);
+  if (panel === 'library' && token) showJobs().catch(showError);
+}
+
+for (const tab of tabs) tab.onclick = () => navigate(tab.dataset.panel);
+cancelJob.onclick = () => openJob(history.state.jobId, true);
+reloadJob.onclick = () => openJob(history.state.jobId);
+document.querySelector('#back-to-works').onclick = () => navigate('library');
 
 document.querySelector('#previous').onclick = () => showWorks(page - 1).catch(showError);
 document.querySelector('#next').onclick = () => showWorks(page + 1).catch(showError);
