@@ -758,11 +758,11 @@
       "task_id": "TA-01",
       "title": "Зафиксировать compatibility inventory Admin Edition",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/95",
+      "tested_sha": "81a77e74638035a44c1518af1fbb38776de26eff",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -770,6 +770,40 @@
       ],
       "dependencies": [
         "IN-01"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 19,
+          "task_id": "TA-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/81",
+          "tested_sha": "03e8a516ae511988448c0b0ac722619eef66bc01",
+          "checkout_sha": "03e8a516ae511988448c0b0ac722619eef66bc01",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44552557927",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Source admin inventory, 13 access rules and 9 groups with historical negative evidence.",
+          "limitations": "Individual callback coverage remains partial: broadcast attachment, /price_rate, /markup, /price_account and tuaudit not individually proven. Manual Telegram and global acceptance deferred.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 19,
+          "task_id": "TA-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/95",
+          "tested_sha": "81a77e74638035a44c1518af1fbb38776de26eff",
+          "checkout_sha": "81a77e74638035a44c1518af1fbb38776de26eff",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44613593279",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Integrated inventory, direct denial tests for groups 4, 6, 9 and 13 on seeded PostgreSQL in S2.",
+          "limitations": "Individual callback coverage remains partial: broadcast attachment, /price_rate, /markup, /price_account and tuaudit not individually proven. Manual Telegram and global acceptance deferred.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
