@@ -74,8 +74,9 @@ async function showWorks(target) {
   document.querySelector('#next').disabled = data.works.length < 10;
 }
 
-function imageForm(model) {
+function generationForm(model, video = false) {
   const form = document.querySelector('#image-form').content.firstElementChild.cloneNode(true);
+  if (video) form.querySelector('label span').textContent = 'Описание видео';
   const prompt = form.elements.prompt;
   const calculate = form.querySelector('[type=submit]');
   const confirm = form.querySelector('[type=button]');
@@ -122,7 +123,7 @@ function imageForm(model) {
     confirm.disabled = prompt.disabled = true;
     message.textContent = 'Отправляем задание…';
     try {
-      await request('/api/v1/jobs', {
+      const response = await request('/api/v1/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': quote.quote_id },
         body: JSON.stringify({ quote_id: quote.quote_id }),
@@ -130,6 +131,11 @@ function imageForm(model) {
       prompt.value = '';
       invalidate();
       message.textContent = 'Задание принято.';
+      if (video) {
+        const job = await response.json();
+        selectPanel('library');
+        await openJob(job.id);
+      }
     } catch (error) {
       if (error.status === 409) {
         invalidate();
@@ -180,11 +186,19 @@ async function start() {
   const models = document.querySelector('#models');
   for (const model of catalogue.models) {
     const item = listItem(model.aggregator + ' · ' + model.title);
-    if (model.image_card) {
+    const card = model.image_card ?? model.video_card;
+    if (card) {
       const parameters = document.createElement('small');
-      parameters.textContent = model.image_card.label;
+      parameters.textContent = card.label;
       item.append(parameters);
-      item.append(imageForm(model.id));
+      if (model.video_card) {
+        const select = document.createElement('button');
+        select.textContent = 'Выбрать ' + model.title;
+        select.onclick = () => select.replaceWith(generationForm(model.id, true));
+        item.append(select);
+      } else {
+        item.append(generationForm(model.id));
+      }
     }
     models.append(item);
   }
@@ -239,7 +253,7 @@ const cancelJob = document.querySelector('#cancel-job');
 const reloadJob = document.querySelector('#reload-job');
 const states = {
   pending: 'Ожидает запуска', dispatching: 'Выполняется', delegated: 'Передано исполнителю',
-  completed: 'Завершено', interrupted: 'Прервано', rejected: 'Отклонено',
+  completed: 'Завершено', failed: 'Ошибка обработки', interrupted: 'Прервано', rejected: 'Отклонено',
   uncertain: 'Результат пока неизвестен', cancelled: 'Отменено',
 };
 let cardRevision = 0;
@@ -281,7 +295,7 @@ async function openJob(id, cancel = false) {
     const job = await (await request(path)).json();
     if (revision !== cardRevision) return;
     jobStatus.textContent = states[job.state] ?? job.state;
-    cancelJob.hidden = !(job.origin === 'http' && job.state === 'pending');
+    cancelJob.hidden = !(job.operation !== 'video' && job.origin === 'http' && job.state === 'pending');
   } catch (error) {
     if (revision === cardRevision) jobStatus.textContent = error.message;
   } finally {
@@ -295,7 +309,7 @@ function navigate(panel) {
   overview.hidden = false;
   card.hidden = true;
   selectPanel(panel);
-  if (panel === 'library' && token) showJobs().catch(showError);
+  if (panel === 'library' && token) Promise.all([showJobs(), showWorks(0)]).catch(showError);
 }
 
 for (const tab of tabs) tab.onclick = () => navigate(tab.dataset.panel);

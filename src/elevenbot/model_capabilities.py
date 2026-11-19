@@ -61,17 +61,28 @@ async def snapshot(conn, request):
     return version
 
 
-async def flux_card(conn):
-    """Intersect the adapter's single-image request with the current published rules."""
-    from .tariff_admin import default_params
-    params = default_params('clodex', 'images.generate')
-    version = await published_version(conn, 'clodex', FLUX_MODEL, 'images.generate') if conn is not None else None
+async def parameter_card(conn, model, operation, params, label):
+    """Intersect the adapter request with the published rules."""
+    version = await published_version(conn, 'clodex', model, operation) if conn is not None else None
     if version:
         try:
             validate_params(version['schema'], params)
         except Rejected:
             return None
-    return {'params': params, 'label': f"Количество изображений: {params['n']}"}
+    return {'params': params, 'label': label}
+
+
+async def flux_card(conn):
+    from .tariff_admin import default_params
+    params = default_params('clodex', 'images.generate')
+    return await parameter_card(conn, FLUX_MODEL, 'images.generate', params, f"Количество изображений: {params['n']}")
+
+
+async def veo_card(conn, model):
+    from .video import VIDEO_PARAMS
+    p = VIDEO_PARAMS
+    return await parameter_card(conn, model, 'video', p,
+                                f"{p['duration']} с · {p['resolution']} · {p['aspect_ratio']}")
 
 
 async def validate_pinned(conn, request):

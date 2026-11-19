@@ -1289,11 +1289,11 @@
       "task_id": "VI-02",
       "title": "Video формы двух клиентов и разрешённая приёмка",
       "owner": "vankhu21",
-      "current_stage": "EVIDENCE_RECONCILIATION_REQUIRED",
+      "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/93",
+      "tested_sha": "0d72b68e7d67f12a61740895ea69cc70a5340d45",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -1303,6 +1303,40 @@
         "VI-01",
         "AP-03",
         "MC-02"
+      ],
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 27,
+          "task_id": "VI-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/90",
+          "tested_sha": "b623f468a99ff88b59d6153c150065be68bf9e20",
+          "checkout_sha": "b623f468a99ff88b59d6153c150065be68bf9e20",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44582641185",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Source VI-02 candidate browser HTTPS test.",
+          "limitations": "Telegram WebApp bridge emulated; provider, data and payments mocked. Real Telegram manual checks and independent/global acceptance deferred.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 27,
+          "task_id": "VI-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/93",
+          "tested_sha": "0d72b68e7d67f12a61740895ea69cc70a5340d45",
+          "checkout_sha": "0d72b68e7d67f12a61740895ea69cc70a5340d45",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44591998828",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Joint candidate Chromium HTTPS Veo and FLUX journeys with PostgreSQL and mock provider.",
+          "limitations": "Telegram WebApp bridge emulated; provider, data and payments mocked. Real Telegram manual checks and independent/global acceptance deferred.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
       ]
     },
     {
