@@ -520,7 +520,9 @@ class TelegramApp:
             u=await self.pool.fetchval("SELECT user_id FROM identities WHERE platform='telegram' AND external_id=$1",ext)
             if u is None:return
         else:
-            u=await self.svc.identity(ext)
+            from .referrals import start_code
+            referral = start_code(update.message.text) if update.message else None
+            u=await self.svc.identity(ext,referral_code=referral) if referral else await self.svc.identity(ext)
         if self.pool is not None and chat_event:
             await self.broadcasts.queue.observe_private(ext)
         catalogue_callback = False
@@ -565,7 +567,7 @@ class TelegramApp:
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
-                        or command in RATE_COMMANDS or command=='/miniapp')
+                        or command in RATE_COMMANDS or command in ('/miniapp','/referral'))
             await self.svc.rate(u,navigation=navigation)
             if update.callback_query:
                 e=update.callback_query
@@ -583,6 +585,10 @@ class TelegramApp:
                         await self.callback(u,ext,data,request_id=update.update_id)
                 finally:
                     self.panel_source.reset(source)
+                return
+            if command=='/referral':
+                info=await self.svc.referral_info(u)
+                await self.say(ext,'Ваш код приглашения: '+info['code']+'\nКоманда для приглашения: /start ref_'+info['code'])
                 return
             if command=='/miniapp':
                 if not self.cfg.miniapp_url:
@@ -2343,6 +2349,7 @@ class TelegramApp:
 async def register_commands(bot, admin_ids):
     base = [BotCommand(command='start',description='Запустить бота'),
             BotCommand(command='menu',description='Главное меню'),
+            BotCommand(command='referral',description='Код приглашения'),
             BotCommand(command='cancel',description='Отменить текущее действие')]
     admin = [*base,BotCommand(command='price_report',description='Отчёт по ценам и расходам'),
              BotCommand(command='admin',description='Войти в админку'),
