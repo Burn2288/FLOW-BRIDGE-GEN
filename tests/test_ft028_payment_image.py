@@ -17,7 +17,7 @@ from test_topups import fixture, MERCHANT, SECRET
 from test_ui import Bot
 
 
-async def test_external_topup_then_http_image_is_idempotent_and_owned(env, monkeypatch, tmp_path):
+async def test_external_topup_then_http_image_is_idempotent_and_owned(env, monkeypatch, tmp_path, confirmed_credit):
     pool, original, owner, existing_payments, gateway = await fixture(env)
     cfg = replace(original, token='fixture', mode='clodex', generation_enabled=True, economy_verified=True,
                   topup_mode='live', payments_enabled=True, platega_enabled=True,
@@ -76,5 +76,17 @@ async def test_external_topup_then_http_image_is_idempotent_and_owned(env, monke
         assert [(r['kind'],r['da'],r['dr']) for r in rows]==[('task_capture',0,-600),('task_reserve',-600,600)]
         assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",owner))==(400,0)
         assert await app.svc.reconcile()==0
+        # TG-03 history survives PY-02: RUB orders are actionable, XTR receipts are not.
+        _, stars = await confirmed_credit(pool,cfg,owner,17,charge='fixture-ft028-stars')
+        await app.topup_ui.history(owner,100,0)
+        text, markup = app.bot.sent[-1]
+        assert f'{str(stars)[:8]} · 100 XTR' in text
+        assert f"{str(order['id'])[:8]} · 100 ₽" in text
+        assert text.index(str(stars)[:8]) < text.index(str(order['id'])[:8])
+        callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
+        assert f"tuorder:{order['id']}" in callbacks
+        assert f'tuorder:{stars}' not in callbacks
+        await app.topup_ui.history(other,101,0)
+        assert str(order['id'])[:8] not in app.bot.sent[-1][0]
     finally:
         await existing_payments.client.close()
