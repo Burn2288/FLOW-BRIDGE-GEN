@@ -117,6 +117,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                                                json={'model': 'clodex-video/veo-3.1', 'prompt': 'fixture'})
                     assert denied.status == 403
                     assert (await client.get(base + '/api/v1/works/video/' + video_job, headers=tester_headers)).status == 404
+                    assert (await client.get(base + '/api/v1/jobs/' + video_job, headers=tester_headers)).status == 404
                     await check_job_card(page, telegram.pool, tester)
                     await compare_model_cards(page, telegram, owner, tester)
                 await context.close()
@@ -311,10 +312,13 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     confirm = card.get_by_role('button', name='Подтвердить за 450 токенов')
     await expect(confirm).to_be_visible()
     assert calls == [('POST', '/v1/videos/estimate')]
-    await confirm.click()
+    assert not await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id WHERE q.user_id=$1 AND q.operation='video'", owner)
+    await confirm.dblclick()
     await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
     job = await page.locator('#job-id').inner_text()
     assert len(pending_jobs) == 1
+    assert await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch WHERE quote_id=$1::uuid", job) == 1
+    assert await telegram.pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_reserve'", job) == 1
     await pending_jobs.pop()()
     await page.get_by_role('button', name='Обновить статус').click()
     await expect(page.locator('#job-status')).to_have_text('Передано исполнителю')
@@ -338,4 +342,5 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     assert chat == 100 and upload.data == mp4
     assert calls.count(('POST', '/v1/videos')) == 1
     assert calls.count(('GET', '/v1/videos/veo-fixture/content')) == 1
+    assert await telegram.pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_capture'", job) == 1
     return job
