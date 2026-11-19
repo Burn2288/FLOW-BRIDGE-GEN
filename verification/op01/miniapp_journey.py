@@ -188,6 +188,24 @@ async def check_job_card(page, pool, tester):
                               tester, job)
     assert [tuple(row) for row in ledger] == [('task_release', -10), ('task_reserve', 10)]
 
+    # An unknown provider outcome must remain visible without offering cancellation.
+    await page.get_by_role('button', name='Каталог').click()
+    await page.get_by_label('Описание изображения').fill('Неопределённый результат')
+    await page.get_by_role('button', name='Рассчитать стоимость').click()
+    await page.get_by_role('button', name='Подтвердить за 10 токенов').click()
+    await expect(page.locator('.image-form [role=status]')).to_have_text('Задание принято.')
+    uncertain = str(await pool.fetchval("""SELECT quote_id FROM http_image_commands
+        WHERE user_id=$1 AND quote_id<>$2::uuid""", tester, job))
+    await pool.execute("UPDATE task_dispatch SET state='uncertain' WHERE quote_id=$1::uuid", uncertain)
+    await page.get_by_role('button', name='Мои работы').click()
+    await page.get_by_role('button', name='Открыть задание ' + uncertain, exact=True).click()
+    await expect(page.locator('#job-status')).to_have_text('Результат пока неизвестен')
+    await expect(cancel).to_have_count(0)
+    await page.reload()
+    await expect(page.locator('#job-status')).to_have_text('Результат пока неизвестен')
+    await expect(cancel).to_have_count(0)
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_release'", uncertain) == 0
+
 
 async def compare_model_cards(page, telegram, owner, tester):
     from playwright.async_api import expect
