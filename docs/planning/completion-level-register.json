@@ -761,8 +761,8 @@
       "current_stage": "FUNCTIONAL_CANDIDATE_PARTIAL",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/95",
-      "tested_sha": "81a77e74638035a44c1518af1fbb38776de26eff",
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/101",
+      "tested_sha": "4a37e5051057194a1eba0c698c6755c1b5515892",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -801,6 +801,22 @@
           "ci_conclusion": "SUCCESS",
           "coverage": "Integrated inventory, direct denial tests for groups 4, 6, 9 and 13 on seeded PostgreSQL in S2.",
           "limitations": "Individual callback coverage remains partial: broadcast attachment, /price_rate, /markup, /price_account and tuaudit not individually proven. Manual Telegram and global acceptance deferred.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 19,
+          "task_id": "TA-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/101",
+          "tested_sha": "4a37e5051057194a1eba0c698c6755c1b5515892",
+          "checkout_sha": "4a37e5051057194a1eba0c698c6755c1b5515892",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44762391126",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Admin price commands, stale draft attachment and top-up audit denied for fixture users on isolated PostgreSQL. Music expiry browser test separately: https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44762392514.",
+          "limitations": "Mock Telegram and providers; music quote denial also enforces single-use limit. Other command arguments and callbacks remain unproven; real Telegram, production and global acceptance deferred.",
           "integrated_sha": null,
           "integration_evidence_url": null
         }

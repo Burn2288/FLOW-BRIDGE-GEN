@@ -509,7 +509,10 @@ async def check_music(page, view, owner, client, base, token):
         before_job = await view.pool.fetchrow('SELECT * FROM clodex_music_jobs WHERE id=$1::uuid', job)
         before_ledger = await view.pool.fetch('SELECT * FROM clodex_music_ledger ORDER BY user_id,kind,provider')
         before_wallet = await view.pool.fetch('SELECT * FROM ledger ORDER BY id')
+        before_quotes = await view.pool.fetch('SELECT * FROM task_price_quotes ORDER BY id')
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 200
+        visible = await (await client.get(base + '/api/v1/works', headers=headers)).json()
+        assert any(item['id'] == job for item in visible['works'])
         await view.pool.execute("UPDATE miniapp_music_sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE chat_id=100")
         from elevenbot import admin_access
         bot.admin_access.sessions[100] = (admin_access.monotonic() - 1, bot.admin_access.sessions[100][1])
@@ -517,19 +520,24 @@ async def check_music(page, view, owner, client, base, token):
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
         assert (await client.post(base + '/api/v1/quotes', headers=headers,
                                   json={'model': MODEL, 'prompt': prompt})).status == 403
-        catalogue = await (await client.get(base + '/api/v1/catalogue', headers=headers)).json()
-        history = await (await client.get(base + '/api/v1/works', headers=headers)).json()
+        catalogue_response = await client.get(base + '/api/v1/catalogue', headers=headers)
+        history_response = await client.get(base + '/api/v1/works', headers=headers)
+        assert catalogue_response.status == history_response.status == 200
+        catalogue, history = await catalogue_response.json(), await history_response.json()
         assert not any(item['id'] == MODEL for item in catalogue['models'])
         assert not any(item['id'] == job for item in history['works'])
         assert await view.pool.fetchrow('SELECT * FROM clodex_music_jobs WHERE id=$1::uuid', job) == before_job
         assert await view.pool.fetch('SELECT * FROM clodex_music_ledger ORDER BY user_id,kind,provider') == before_ledger
         assert await view.pool.fetch('SELECT * FROM ledger ORDER BY id') == before_wallet
+        assert await view.pool.fetch('SELECT * FROM task_price_quotes ORDER BY id') == before_quotes
         assert len(creates) == 1
         await bot.handle(event(4307, '/admin'))
         await bot.handle(event(4308, bot.cfg.admin_password))
         restored = await client.get(base + '/api/v1/works/music/' + job, headers=headers)
         assert restored.status == 200 and await restored.read() == mp3
         assert await view.music.miniapp_access(view.pool, 100)
+        visible_again = await (await client.get(base + '/api/v1/works', headers=headers)).json()
+        assert any(item['id'] == job for item in visible_again['works'])
         await bot.handle(event(4309, '/admin_logout'))
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
         return job

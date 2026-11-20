@@ -13,6 +13,7 @@ from aiogram.types import MessageEntity, PhotoSize
 from elevenbot.aggregate import make_snapshot
 from elevenbot.anymodel import model_store
 from elevenbot.broadcasts import CAPTION_MEDIA, MEDIA, VISUAL_MEDIA, Broadcasts, BroadcastWorker, report_text, send_post
+from elevenbot.core import Rejected
 from elevenbot.discovery import SnapshotStore
 from elevenbot.pricing import NoProviderPrice, Pricing, Request
 from elevenbot.telegram import MENU, TelegramApp, buttons
@@ -162,6 +163,8 @@ async def test_draft_attachment_after_logout_is_not_saved(env):
     photo = PhotoSize(file_id='fixture-photo', file_unique_id='fixture', width=64, height=64)
     message = update.message.model_copy(update={'text': None, 'caption': 'fixture', 'photo': [photo]})
     await app.handle(update.model_copy(update={'message': message}))
+    with pytest.raises(Rejected, match='Войдите через /admin'):
+        await app.broadcasts.post(owner, 100, f"{draft['id']}:{draft['revision']}", message)
     assert await pool.fetchrow('SELECT * FROM telegram_broadcasts WHERE id=$1', draft['id']) == before
     assert await pool.fetch('SELECT * FROM telegram_broadcast_deliveries') == deliveries
     assert not bot.posts
