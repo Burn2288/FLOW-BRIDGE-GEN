@@ -799,14 +799,16 @@ class TelegramApp:
         if music_providers:
             if self.music_access(ext):
                 music_providers.append('clodex')
-            jobs=await self.svc.history(u,page*10,model_id,music_providers=music_providers)
+            jobs=await self.svc.history(u,page*5,model_id,music_providers=music_providers)
         elif self.music_access(ext):
-            jobs=await self.svc.history(u,page*10,model_id,include_music=True)
+            jobs=await self.svc.history(u,page*5,model_id,include_music=True)
         else:
-            jobs=await (self.svc.history(u,page*10,model_id) if model else self.svc.history(u,page*10))
+            jobs=await (self.svc.history(u,page*5,model_id) if model else self.svc.history(u,page*5))
+        has_more = len(jobs) > 5
+        jobs = jobs[:5]
         lines=[f'Работы модели {model_id}:' if model else 'Ваши работы:'] if jobs else ['Работ пока нет.']
         rows=[]
-        for index,r in enumerate(jobs,start=page*10+1):
+        for index,r in enumerate(jobs,start=page*5+1):
             kind,_,music_provider=r.get('kind','audio').partition(':')
             name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата','music':'Музыка'}[kind]
             price=f" · {r['price']} кредитов" if r['price'] is not None else ''
@@ -823,7 +825,7 @@ class TelegramApp:
                 rows.append([(f'Отменить №{index}',f"cancel:{r['id']}")])
         nav=[]
         if page:nav.append(('Назад',f'{origin}:{page-1}'))
-        if len(jobs)==10:nav.append(('Далее',f'{origin}:{page+1}'))
+        if has_more:nav.append(('Далее',f'{origin}:{page+1}'))
         if nav:rows.append(nav)
         if model:
             _,version,section,index=origin.split(':')
