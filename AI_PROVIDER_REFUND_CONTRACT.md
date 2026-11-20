@@ -6,17 +6,21 @@
 
 При подтверждённом отсутствии возврата выдать исходные байты без автоматической компенсации. При неизвестном исходе не создавать фиктивную проводку, не делать повторный POST, сохранять байты и направлять случай на ручную сверку RECONCILIATION_REQUIRED. Изменение общего баланса не доказывает возврат конкретной операции.
 
-## Проверенные ограничения реализации
+## Статус доказательств
 
-`src/elevenbot/task_wallet.py` реализует резерв и один settlement capture/release; неопределённые результаты сохраняют резерв. `pricing.reconcile` записывает бухгалтерские сведения в task_price_accounting и сам по себе не начисляет средства в кошелёк. `prepare_refund` относится к платежам пополнения. Наличие достоверного события возврата конкретного провайдера, компенсации после capture, идемпотентной обработки поздних/конкурентных событий и ручной очереди здесь НЕ ДОКАЗАНО. Это требования кандидата, не утверждение о готовой функции. До подтверждения схемы провайдера автоматическую компенсацию считать NOT_PROVEN.
+`IMPLEMENTED_WITH_MOCKS`: `task_receipts.reconcile_generation` связывает provider receipt с quote, provider и job ID; валидирует refund ID, сумму и единицу против исходной операции списания. Миграция 046 сохраняет `refunded_operation_id`, включает DB guard и делает receipts неизменяемыми. Код освобождает резерв до capture или создаёт единственную `task_refund` после capture. Неизвестное состояние остаётся без зачисления и записывается в долговечную очередь. Тесты покрывают конфликт ID, неправильную сумму, повторы, параллельные вызовы и поздний refund.
+
+`NOT_PROVEN_REAL_PROVIDER`: в production `financial_sources` не зарегистрирован адаптер для AnyModel или Clodex. Тестовый source является доверенной fixture, а не доказательством API-контракта/подписи реального агрегатора. Возвраты настоящих провайдеров и реальные банковские операции не проверялись. `task_price_accounting` остаётся отчётностью, `prepare_refund` — возвратом пополнения; они не заменяют task compensation.
+
+`DEFERRED`: физическая ручная проверка Telegram/Mini App и независимая итоговая ревизия. `BLOCKED`: отсутствует подтверждённый production provider financial adapter; это не блокирует тестовый функциональный уровень.
 
 Telegram `image_delivery.send_saved_image` уже имеет fallback в документ для распознанных Telegram format errors; прочие ошибки пробрасываются. Полный пользовательский сценарий, сохранение состояния доставки и HTTP-поведение требуют физической проверки.
 
 ## Повторная сверка кандидата #104, 20.11.2026
 
-В дереве кандидата `9fb3ee7b86728687417c4588a34c86a7f266c785` фактически присутствуют миграция `042_task_financial_receipts.sql`, `src/elevenbot/task_receipts.py` и PostgreSQL тест `tests/test_generation_finance.py`. Код сохраняет immutable receipt, связывает его с provider job и quote, принимает full refund как основание для `task_release` до capture или отдельной `task_refund` после capture. Ledger migration защищает task refund триггером и уникальным индексом. Mock-тест проверяет неизвестный результат, charged/full refund, конкурентный повтор, дубликаты, рестарт и отсутствие второго генерационного POST.
+Исторический snapshot `9fb3ee7...` подтверждал наличие базовых migrations `042` и receipt settlement. Дополнительное покрытие изображений, строгая связь refund к charge и аудит ручной сверки описаны ниже; старые замечания в этом историческом блоке не являются текущим статусом.
 
-Граница доказательства: в production-коде нет зарегистрированного `financial_lookup` для AnyModel или другого провайдера; fixture передаёт источник напрямую в тест. Поэтому endpoint/подпись/история расчётов, которые достоверно подтверждают refund конкретного `provider_job_id`, не установлены. Автоматическое возмещение в реальном окружении остаётся `NOT_PROVEN`. Тест охватывает видео; генерация изображения не проходила аналогичный финансовый сценарий. Частичный возврат только сохраняется для ручной сверки. Тесты на точном HEAD #104 прошли на GitHub Actions, но локальная PostgreSQL/Windows проверка в текущем окружении не выполнялась.
+Текущая граница: machine-readable refund источника в production не найден, поэтому автоматическое получение настоящего подтверждения остаётся `NOT_PROVEN`. Mock PostgreSQL покрывает также AnyModel image path.
 
 ## FT-039: текущий кодовый срез
 
@@ -24,5 +28,11 @@ Telegram `image_delivery.send_saved_image` уже имеет fallback в док�
 
 Миграция `045_task_financial_reconciliation.sql` добавляет долговечную очередь `task_financial_reconciliation_queue`. Неизвестный, отсутствующий или неоднозначный provider receipt создаёт/обновляет кейс; он не вызывает ledger credit и не запускает provider POST. Подтверждённый normal/full-refund outcome закрывает кейс после обработки ledger, а partial refund остаётся в очереди для ручного решения. Операторский readout: `SELECT quote_id,provider,provider_job_id,finding,attempts,first_seen_at,last_seen_at FROM task_financial_reconciliation_queue ORDER BY last_seen_at;`. Реальный `financial_lookup` адаптер всё ещё не зарегистрирован, поэтому этот механизм фиксирует `RECONCILIATION_REQUIRED`, но не доказывает получение refund.
 
-Официальная справка AnyModel описывает просмотр списаний в request history/dashboard, но не документирует API для подтверждения refund конкретного generation operation: [AnyModel FAQ](https://anymodel.org/en/faq). Следовательно, автоматический refund lookup по AnyModel остаётся `NOT_PROVEN`; наличие dashboard history не является машинно-проверяемым receipt.
+Для отсутствующего или неоднозначного provider job ID обработчик не синтезирует идентификатор: он записывает кейс `RECONCILIATION_REQUIRED` и не вызывает source lookup/ledger credit. Операторская команда `/price_account <quote> manual-review <operation_id> <amount> <unit> <evidence_ref>` требует admin session, сохраняет immutable audit trail и закрывает кейс как ручную проверку без проводки кошелька. Повтор с теми же данными идемпотентен; повтор ID с иными данными отклоняется.
+
+## FT-039-FIX-01 — статус реализации
+
+Полученные байты из успешного media поля сохраняются как `result.png`, `result.jpg` или непрозрачный `result.bin`. Для URL остаются HTTPS, DNS pinning, защита от private IP и лимит 5 MiB; JSON/HTML/error payload, неизвестный HTTP content type и слишком большие файлы отклоняются. `result.bin` сразу отправляется как документ и Mini App скачивает его с безопасным именем `darkflow.bin`.
+
+Refund receipt принимается автоматически только при совпадающих provider, quote/job, исходном charge operation ID, amount и unit. Для refund до capture source receipt может содержать связанный исходный charge ID/amount/unit; эти данные сохраняются как отдельная charge receipt, затем резерв освобождается. Установленная лишь по ручному доказательству операция записывается в аудит, но сама по себе не создаёт деньги пользователю.
 

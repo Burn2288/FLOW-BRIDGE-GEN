@@ -1,6 +1,6 @@
 """Reconcile normalized, authenticated provider billing operations. Server-side only."""
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import re
 
 import httpx
@@ -16,6 +16,9 @@ class FinancialOperation:
     outcome: str
     amount: Decimal
     unit: str
+    refunded_operation_id: str | None = None
+    original_charge_amount: Decimal | None = None
+    original_charge_unit: str | None = None
 
 
 UNKNOWN = 'RECONCILIATION_REQUIRED: возврат агрегатора не подтверждён'
@@ -34,7 +37,9 @@ async def _record_review_on(conn, quote_id, remote, finding, *, reopen=False):
             finding=EXCLUDED.finding,
             attempts=task_financial_reconciliation_cases.attempts+1,
             last_seen_at=now(),
-            status='required',resolved_at=NULL,resolution_operation_id=NULL
+            status='required',resolved_at=NULL,resolution_operation_id=NULL,
+            manual_operation_id=NULL,manual_amount=NULL,manual_unit=NULL,
+            manual_evidence_ref=NULL,manual_reviewer_external_id=NULL
         WHERE task_financial_reconciliation_cases.status='required' OR $4::boolean
         """, quote_id, remote, finding, reopen)
 
@@ -57,6 +62,18 @@ def _valid_operation(operation, provider, remote):
         and bool(re.fullmatch(r'[A-Za-z0-9._:-]{1,100}', operation.unit))
         and ((operation.outcome == 'rejected_unbilled' and operation.amount == 0)
              or (operation.outcome != 'rejected_unbilled' and operation.amount > 0))
+        and ((operation.outcome in ('full_refund','partial_refund')
+              and isinstance(operation.refunded_operation_id,str)
+              and bool(re.fullmatch(r'[A-Za-z0-9._:-]{1,200}',operation.refunded_operation_id))
+              and isinstance(operation.original_charge_amount,Decimal)
+              and operation.original_charge_amount.is_finite() and operation.original_charge_amount > 0
+              and operation.original_charge_amount <= Decimal('1e12')
+              and isinstance(operation.original_charge_unit,str)
+              and bool(re.fullmatch(r'[A-Za-z0-9._:-]{1,100}',operation.original_charge_unit)))
+             or (operation.outcome not in ('full_refund','partial_refund')
+                 and operation.refunded_operation_id is None
+                 and operation.original_charge_amount is None
+                 and operation.original_charge_unit is None))
     )
 
 
@@ -88,7 +105,7 @@ async def reconcile_generation(pool, quote_id, sources):
     # A failed lookup leaves the wallet untouched; the caller may retry this read.
     try:
         operation = await source(remote)
-    except (httpx.HTTPError, TimeoutError):
+    except Exception:
         await _record_review(pool,quote_id,remote,'provider_financial_lookup_failed')
         return UNKNOWN
     if operation is None:
@@ -102,12 +119,38 @@ async def reconcile_generation(pool, quote_id, sources):
             WHERE task_quote_id=$1 AND kind='task_reserve' FOR UPDATE""",quote_id)
         if not hold:
             raise Rejected('Резерв задания не найден.')
-        values = (remote,quote_id,operation.outcome,operation.amount,operation.unit)
+        if operation.outcome in ('full_refund','partial_refund'):
+            charge = await conn.fetchrow("""SELECT provider_job_id,quote_id,amount,unit,outcome
+                FROM task_financial_receipts WHERE provider=$1 AND operation_id=$2 AND outcome='charged'
+                FOR SHARE""",provider,operation.refunded_operation_id)
+            original_amount = charge['amount'] if charge else operation.original_charge_amount
+            original_unit = charge['unit'] if charge else operation.original_charge_unit
+            invalid_charge = (charge and (charge['outcome'] != 'charged'
+                or charge['provider_job_id'] != remote or charge['quote_id'] != quote_id
+                or charge['amount'] != operation.original_charge_amount
+                or charge['unit'] != operation.original_charge_unit))
+            if (invalid_charge or operation.unit != original_unit
+                    or operation.amount > original_amount
+                    or (operation.outcome == 'full_refund' and operation.amount != original_amount)):
+                await _record_review_on(conn,quote_id,remote,'provider_refund_not_bound_to_full_charge',reopen=True)
+                return 'RECONCILIATION_REQUIRED: сумма возврата не совпала с подтверждённым списанием.'
+            if charge is None:
+                prior = await conn.fetchrow("""SELECT quote_id,outcome FROM task_financial_receipts
+                    WHERE provider=$1 AND operation_id=$2 FOR SHARE""",provider,operation.refunded_operation_id)
+                if prior:
+                    await _record_review_on(conn,quote_id,remote,'provider_charge_operation_conflict',reopen=True)
+                    return 'RECONCILIATION_REQUIRED: идентификатор списания уже использован.'
+                await conn.execute("""INSERT INTO task_financial_receipts
+                    (provider,operation_id,provider_job_id,quote_id,outcome,amount,unit)
+                    VALUES($1,$2,$3,$4,'charged',$5,$6)""",provider,operation.refunded_operation_id,
+                    remote,quote_id,operation.original_charge_amount,operation.original_charge_unit)
+        values = (remote,quote_id,operation.outcome,operation.amount,operation.unit,
+                  operation.refunded_operation_id)
         await conn.execute("""INSERT INTO task_financial_receipts
-            (provider,operation_id,provider_job_id,quote_id,outcome,amount,unit)
-            VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(provider,operation_id) DO NOTHING""",
+            (provider,operation_id,provider_job_id,quote_id,outcome,amount,unit,refunded_operation_id)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(provider,operation_id) DO NOTHING""",
             provider,operation.operation_id,*values)
-        stored = await conn.fetchrow("""SELECT provider_job_id,quote_id,outcome,amount,unit
+        stored = await conn.fetchrow("""SELECT provider_job_id,quote_id,outcome,amount,unit,refunded_operation_id
             FROM task_financial_receipts WHERE provider=$1 AND operation_id=$2""",provider,operation.operation_id)
         if tuple(stored)!=values:
             await _record_review_on(conn,quote_id,remote,'provider_operation_conflict',reopen=True)
@@ -129,6 +172,50 @@ async def reconcile_generation(pool, quote_id, sources):
         await conn.execute("""
             UPDATE task_financial_reconciliation_cases SET status='resolved',resolved_at=now(),
                 resolution_operation_id=$2,finding=$3,last_seen_at=now()
-            WHERE quote_id=$1 AND status='required'
-            """,quote_id,operation.operation_id,'provider_outcome_'+operation.outcome)
+            WHERE quote_id=$1 AND status IN ('required','resolved')
+              AND ($4::boolean OR status='required')
+            """,quote_id,operation.operation_id,'provider_outcome_'+operation.outcome,
+            operation.outcome=='full_refund')
     return operation.outcome
+
+
+async def manually_review_case(pool, quote_id, *, reviewer_external_id, operation_id, amount, unit, evidence_ref):
+    """Record an operator's evidence reference without creating any wallet movement."""
+    try:
+        amount = Decimal(str(amount))
+    except (InvalidOperation, ValueError):
+        raise Rejected('Некорректная сумма ручной сверки.') from None
+    if (not isinstance(reviewer_external_id,int) or reviewer_external_id <= 0
+            or not isinstance(operation_id,str) or not re.fullmatch(r'[A-Za-z0-9._:-]{1,200}',operation_id)
+            or not amount.is_finite() or amount <= 0 or amount > Decimal('1e12')
+            or not isinstance(unit,str) or not re.fullmatch(r'[A-Za-z0-9._:-]{1,100}',unit)
+            or not isinstance(evidence_ref,str) or not 8 <= len(evidence_ref) <= 500
+            or any(ord(c)<32 for c in evidence_ref)):
+        raise Rejected('Для ручной сверки нужны корректные operation ID, сумма, единица и ссылка на доказательство.')
+    async with pool.acquire() as conn, conn.transaction():
+        case=await conn.fetchrow("""SELECT provider,status,manual_operation_id,manual_amount,manual_unit,
+            manual_evidence_ref,manual_reviewer_external_id FROM task_financial_reconciliation_cases
+            WHERE quote_id=$1 FOR UPDATE""",quote_id)
+        if not case:
+            raise Rejected('Кейс ручной сверки не найден.')
+        if case['status']=='resolved':
+            raise Rejected('Кейс уже закрыт доверенным финансовым событием.')
+        if case['status']=='manual_reviewed' and case['manual_operation_id']!=operation_id:
+            raise Rejected('Случай уже закрыт другой ручной операцией.')
+        values=(case['provider'],operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id)
+        await conn.execute("""INSERT INTO task_financial_reconciliation_manual_audit
+            (provider,operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id)
+            VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(provider,operation_id) DO NOTHING""",*values)
+        stored=await conn.fetchrow("""SELECT provider,operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id
+            FROM task_financial_reconciliation_manual_audit WHERE provider=$1 AND operation_id=$2""",
+            case['provider'],operation_id)
+        if tuple(stored)!=values:
+            raise Rejected('Идентификатор ручной операции уже использован для другого доказательства или quote.')
+        if case['status']=='manual_reviewed':
+            return 'manual_reviewed_no_credit'
+        await conn.execute("""UPDATE task_financial_reconciliation_cases SET status='manual_reviewed',
+            resolved_at=now(),manual_operation_id=$2,manual_amount=$3,manual_unit=$4,
+            manual_evidence_ref=$5,manual_reviewer_external_id=$6,
+            finding='manual_evidence_recorded_no_wallet_movement',last_seen_at=now()
+            WHERE quote_id=$1""",quote_id,operation_id,amount,unit,evidence_ref,reviewer_external_id)
+    return 'manual_reviewed_no_credit'

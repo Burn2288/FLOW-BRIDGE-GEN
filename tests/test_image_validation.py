@@ -129,7 +129,7 @@ def test_apng_checks_each_frame_at_its_own_dimensions(default_image):
 
 @pytest.fixture
 def provider_stub(monkeypatch):
-    def make(image, source):
+    def make(image, source, *, media_type=None):
         requests = []
 
         async def resolve(host, port, *, type):
@@ -149,7 +149,8 @@ def provider_stub(monkeypatch):
             assert request.url.host == "93.184.216.34"
             assert request.headers["Host"] == "fixture.invalid"
             assert "Authorization" not in request.headers
-            return httpx.Response(200, content=image)
+            return httpx.Response(200, content=image,
+                                  headers={'content-type': media_type} if media_type else None)
 
         monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", resolve)
         return httpx.AsyncClient(transport=httpx.MockTransport(respond)), requests
@@ -193,6 +194,35 @@ async def test_corrupt_provider_image_keeps_bounded_original_bytes(provider_stub
         result = await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
     assert result.image == damaged
     assert result.filename == ("result.png" if format == "PNG" else "result.jpg")
+    assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
+
+
+@pytest.mark.parametrize("source", ["b64_json", "url"])
+@pytest.mark.parametrize("opaque", [b"\x89PNG\r\n\x1a\nIHDR-damaged", b"\x00\x01provider-media-without-known-header"])
+async def test_unrecognized_provider_media_is_kept_as_opaque_attachment(provider_stub, source, opaque):
+    client, requests = provider_stub(opaque, source, media_type='application/octet-stream')
+    async with client:
+        result = await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
+    assert result.image == opaque and result.filename == 'result.bin'
+    assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
+
+
+@pytest.mark.parametrize("source", ["b64_json", "url"])
+@pytest.mark.parametrize("payload", [b'{"error":"quota"}', b'<html>provider failure</html>'])
+async def test_provider_error_documents_are_not_saved_as_media(provider_stub, source, payload):
+    media_type = 'text/html' if payload.startswith(b'<') else 'application/json'
+    client, requests = provider_stub(payload, source, media_type=media_type)
+    async with client, pytest.raises(Rejected):
+        await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
+    assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
+
+
+@pytest.mark.parametrize("source", ["b64_json", "url"])
+async def test_oversized_provider_media_is_rejected(provider_stub, source):
+    too_large = b'\x00' * (interaction.IMAGE_LIMIT + 1)
+    client, requests = provider_stub(too_large, source, media_type='application/octet-stream')
+    async with client, pytest.raises(Rejected):
+        await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
     assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
 
 
@@ -274,8 +304,9 @@ def test_rejects_dimensions_before_pixel_decode(monkeypatch, format, limit):
 
 
 @pytest.mark.parametrize("source", ["b64_json", "url"])
-async def test_corrupt_provider_image_is_saved_delivered_and_reopened_without_regeneration(
-    funded_env, tmp_path, monkeypatch, provider_stub, source, manual_tariff,
+@pytest.mark.parametrize("media_kind", ["corrupt_image", "opaque_binary"])
+async def test_unvalidated_provider_media_is_saved_delivered_and_reopened_without_regeneration(
+    funded_env, tmp_path, monkeypatch, provider_stub, source, media_kind, manual_tariff,
 ):
     from aiohttp.test_utils import TestClient, TestServer
     from aiogram.exceptions import TelegramBadRequest
@@ -307,9 +338,14 @@ async def test_corrupt_provider_image_is_saved_delivered_and_reopened_without_re
     await manual_tariff(app,user,MODEL["id"],OPERATION,{"n":1})
     await service.aggregate_context(user, {"interaction": OPERATION, "model_id": MODEL["id"], "history": []})
     execute = interaction.execute
-    damaged = bytearray(encoded_image("PNG"))
-    damaged[damaged.index(b"IDAT") + 4] ^= 1
-    damaged = bytes(damaged)
+    if media_kind == 'corrupt_image':
+        damaged = bytearray(encoded_image("PNG"))
+        damaged[damaged.index(b"IDAT") + 4] ^= 1
+        damaged = bytes(damaged)
+        filename = 'result.png'
+    else:
+        damaged = b'\x00\x81opaque-provider-media\xff\x01'
+        filename = 'result.bin'
     client, requests = provider_stub(damaged, source)
 
     async def execute_against_stub(*args, **kwargs):
@@ -322,10 +358,11 @@ async def test_corrupt_provider_image_is_saved_delivered_and_reopened_without_re
         assert not requests
         confirm=bot.sent[-1][1].inline_keyboard[0][0].callback_data
         await app.handle(event(callback=confirm).model_copy(update={"update_id": 2}))
-        assert bot.send_photo.await_count == 1 and bot.send_document.await_count == 1
+        assert bot.send_photo.await_count == (1 if media_kind == 'corrupt_image' else 0)
+        assert bot.send_document.await_count == 1
         assert bot.send_document.await_args.args[1].data == damaged
         work = await pool.fetchrow("SELECT id,image,filename,prompt FROM image_works WHERE user_id=$1", user)
-        assert work is not None and work["image"] == damaged and work["filename"] == "result.png"
+        assert work is not None and work["image"] == damaged and work["filename"] == filename
         assert work["prompt"] == "Draw a fixture"
         ledger = [tuple(row) for row in await pool.fetch(
             "SELECT event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY event_key", user,
@@ -356,7 +393,9 @@ async def test_corrupt_provider_image_is_saved_delivered_and_reopened_without_re
                 f"/api/v1/works/image/{work['id']}", headers=owner_headers,
             )
             assert file_response.status == 200 and await file_response.read() == damaged
-            assert file_response.headers["Content-Disposition"].endswith('filename="darkflow.png"')
+            assert file_response.headers["Content-Disposition"].endswith(
+                'filename="darkflow.bin"' if media_kind == 'opaque_binary' else 'filename="darkflow.png"'
+            )
             foreign_login = await miniapp.post("/api/v1/session", json={"initData": signed("fixture", 101)})
             assert foreign_login.status == 200
             foreign_headers = {"Authorization": "Bearer " + (await foreign_login.json())["token"]}
@@ -367,4 +406,5 @@ async def test_corrupt_provider_image_is_saved_delivered_and_reopened_without_re
     assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
     assert await pool.fetchval("SELECT count(*) FROM interaction_attempts") == 1
     assert await pool.fetchval("SELECT count(*) FROM image_works") == 1
-    assert bot.send_photo.await_count == 1 and bot.send_document.await_count == 1
+    assert bot.send_photo.await_count == (1 if media_kind == 'corrupt_image' else 0)
+    assert bot.send_document.await_count == 1
