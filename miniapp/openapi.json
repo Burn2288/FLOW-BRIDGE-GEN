@@ -6,6 +6,140 @@
     "description": "Сессионный HTTP API изображений, видео Veo, озвучки и музыки. Генерация зависит от конфигурации сервера и допуска пользователя."
   },
   "paths": {
+    "/api/v1/stars/payments": {
+      "get": {
+        "summary": "История платежей Stars текущего пользователя",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkout_enabled": {
+                      "type": "boolean"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "payments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "amount": {
+                            "type": "integer"
+                          },
+                          "currency": {
+                            "const": "XTR"
+                          },
+                          "credits": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "amount",
+                          "currency",
+                          "credits",
+                          "status",
+                          "created_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "checkout_enabled",
+                    "has_more",
+                    "payments"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Требуется сессия"
+          },
+          "403": {
+            "description": "Доступ ограничен"
+          }
+        }
+      }
+    },
+    "/api/v1/stars/invoices": {
+      "post": {
+        "summary": "Создать ссылку Telegram на счёт Stars",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "url"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Требуется сессия"
+          },
+          "403": {
+            "description": "Доступ ограничен"
+          },
+          "502": {
+            "description": "Telegram не вернул ссылку на счёт"
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "summary": "Проверка соединения с базой",
