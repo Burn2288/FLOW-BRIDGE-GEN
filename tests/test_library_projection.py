@@ -14,7 +14,7 @@ def test_saved_results_have_shared_projection(kind):
     assert item == {'id': str(row['id']), 'kind': kind, 'model': 'fixture-model',
                     'status': 'succeeded', 'available': True,
                     'created_at': '2026-01-01T00:00:00+00:00', 'price': None,
-                    'result_url': f"/api/v1/works/{kind}/{row['id']}"}
+                    'result_url': f"/api/v1/works/{kind}/{row['id']}", 'prompt': None}
 
 
 def test_unavailable_item_cannot_be_presented_as_available():

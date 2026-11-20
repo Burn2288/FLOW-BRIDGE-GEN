@@ -120,6 +120,7 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path, d
         ledger_before=await pool.fetch("SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id",user)
         restarted = TelegramApp(pool,cfg,bot)
         await press(callback='history:0',target=restarted)
+        assert '600 кредитов' in bot.sent[-1][0]
         await press(callback=route('image:'),target=restarted)
         assert bot.send_photo.await_count==2
         assert all(call.args[1].data == MOCK_IMAGE for call in bot.send_photo.await_args_list)
@@ -129,6 +130,14 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path, d
         assert hashlib.sha256(bot.send_photo.await_args.args[1].data).digest() == expected
         assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1 AND kind='task_capture'", user) == 1
         assert len(posts)==1 and (await restarted.svc.wallet(user))['available']==400
+        assert await pool.fetch("SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id",user)==ledger_before
+        work_id = await pool.fetchval('SELECT id FROM image_works WHERE user_id=$1', user)
+        await restarted.pricing.set_tariff(admin,100,'clodex',model_id,'images.generate',{'n':1},
+                                          basis='request',unit='darkflow_token',amount='700',
+                                          expires=None,evidence='new fixture',temporary=False)
+        await press(callback=f'similar:{work_id}',target=restarted)
+        assert '700' in bot.sent[-1][0]
+        assert len(posts)==1 and await wallet()==(400,0)
         assert await pool.fetch("SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id",user)==ledger_before
         print('wallet=0->1000->400 payment=succeeded posts=1 debit=1 reopened=1',
               f'deferred={deferred} menu_ms={menu_ms} provider_ms={provider_timing[0]}')
