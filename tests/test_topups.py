@@ -391,6 +391,19 @@ async def test_topup_presets_limits_and_session_isolation(env):
     await payments.client.close()
 
 
+@pytest.mark.parametrize('chat,denial', [(100, 'Войдите через /admin.'), (101, 'Админ-доступ закрыт.')])
+async def test_topup_audit_denied_without_privileges(env, chat, denial):
+    pool, cfg, _, _ = env
+    cfg = replace(cfg, access_mode='private', admin_ids=(100,), pilot_user_ids=(101,),
+                  admin_password='fixture-password', topup_mode='off')
+    bot = BroadcastTransport(pool)
+    app = TelegramApp(pool, cfg, bot)
+    before = await pool.fetch('SELECT * FROM payments')
+    await app.handle(event(501, callback='tuaudit:0', chat=chat))
+    assert bot.answers[-1][1]['text'] == denial
+    assert not bot.messages and await pool.fetch('SELECT * FROM payments') == before
+
+
 
 async def test_topup_notice_waits_for_payment_review(env):
     pool,cfg,user,payments,gateway=await fixture(env)
