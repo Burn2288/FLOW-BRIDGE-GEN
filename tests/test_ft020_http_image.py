@@ -99,7 +99,14 @@ async def test_http_image_end_to_end_idempotency_and_isolation(image_api):
     assert not await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1 AND task_quote_id IS NOT NULL", users[1])
     assert await (await client.get(data['result_url'], headers=headers[0])).read() == MOCK_IMAGE
     works = await (await client.get('/api/v1/works', headers=headers[0])).json()
-    assert any(w['result_url'] == data['result_url'] for w in works['works'])
+    work = next(w for w in works['works'] if w['result_url'] == data['result_url'])
+    assert work['prompt'] == 'fixture prompt' and work['price'] == '10'
+    assert not (await (await client.get('/api/v1/works', headers=headers[1])).json())['works']
+    assert await (await client.get(data['result_url'], headers=headers[0])).read() == MOCK_IMAGE
+    next_quote = await quote(client, headers[0], work['prompt'])
+    assert next_quote != q
+    assert posts == ['/v1/images/generations']
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1 AND kind='task_capture'", users[0]) == 1
     rows = await pool.fetch('SELECT kind FROM ledger WHERE task_quote_id=$1::uuid ORDER BY kind', job)
     assert [r['kind'] for r in rows] == ['task_capture','task_reserve']
     assert await pool.fetchval('SELECT correlation_id < 0 FROM http_image_commands WHERE quote_id=$1::uuid', job)

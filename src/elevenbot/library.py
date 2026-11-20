@@ -15,6 +15,7 @@ class LibraryItem:
     created_at: datetime
     price: str | None
     result_url: str | None
+    prompt: str | None
 
     @classmethod
     def from_history(cls, row: Any):
@@ -22,13 +23,13 @@ class LibraryItem:
                    status=row['status'], available=bool(row['file_available']),
                    created_at=row['created_at'],
                    price=str(row['price']) if row['price'] is not None else None,
-                   result_url=result_url(row))
+                   result_url=result_url(row), prompt=row.get('prompt'))
 
     def as_dict(self):
         return {'id': self.id, 'kind': self.kind, 'model': self.model,
                 'status': self.status, 'available': self.available,
                 'created_at': self.created_at.isoformat(), 'price': self.price,
-                'result_url': self.result_url}
+                'result_url': self.result_url, 'prompt': self.prompt}
 
 
 def result_url(row):

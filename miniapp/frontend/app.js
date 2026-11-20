@@ -102,7 +102,24 @@ async function showWorks(target) {
       failed: 'Ошибка', cancelled: 'Отменено', uncertain: 'Требует проверки' };
     const label = kinds[work.kind] ?? work.kind;
     const state = states[work.status] ?? work.status;
-    const item = listItem([label, work.model, state].filter(Boolean).join(' · '));
+    const price = work.price === null ? 'Цена недоступна' : work.price + ' кредитов';
+    const item = listItem([label, work.model, state, price].filter(Boolean).join(' · '));
+    if (work.prompt) {
+      const prompt = document.createElement('p');
+      prompt.textContent = 'Запрос: ' + work.prompt;
+      item.append(prompt);
+      if (work.kind === 'image' && work.model === 'flux-schnell') {
+        const similar = document.createElement('button');
+        similar.textContent = 'Создать похожее';
+        similar.onclick = () => {
+          const form = generationForm(work.model, 'images.generate');
+          form.elements.prompt.value = work.prompt;
+          form.elements.prompt.dispatchEvent(new Event('input'));
+          similar.replaceWith(form);
+        };
+        item.append(similar);
+      }
+    }
     const historyButton = document.createElement('button');
     historyButton.textContent = 'История';
     const details = document.createElement('ul');
