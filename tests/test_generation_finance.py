@@ -147,7 +147,7 @@ async def test_manual_reconciliation_records_evidence_without_wallet_credit(env,
         app.anymodel_video=AnyModelVideoPilot(pool,cfg,api=AnyModelVideoProvider(cfg.anymodel_key,client=http))
         app.pricing.adapters['anymodel']=Price()
         quote=await app.pricing.quote(user,Request('anymodel',MODEL,'video','Fixture','Video',default_params('anymodel','video')))
-        await app.handle(event(1,callback=f'amconfirm:{quote.id}'))
+        await app.confirm_price(user,100,quote.id,1)
         for _ in range(100):
             if await pool.fetchval('SELECT 1 FROM task_dispatch WHERE quote_id=$1',quote.id):
                 break
