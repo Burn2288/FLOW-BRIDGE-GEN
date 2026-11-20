@@ -38,8 +38,7 @@ async def _record_review_on(conn, quote_id, remote, finding, *, reopen=False):
             attempts=task_financial_reconciliation_cases.attempts+1,
             last_seen_at=now(),
             status='required',resolved_at=NULL,resolution_operation_id=NULL,
-            manual_operation_id=NULL,manual_amount=NULL,manual_unit=NULL,
-            manual_evidence_ref=NULL,manual_reviewer_external_id=NULL
+            final_evidence_ref=NULL,final_reviewer_external_id=NULL
         WHERE task_financial_reconciliation_cases.status='required' OR $4::boolean
         """, quote_id, remote, finding, reopen)
 
@@ -171,15 +170,16 @@ async def reconcile_generation(pool, quote_id, sources):
                 ON CONFLICT(event_key) DO NOTHING""",quote_id)
         await conn.execute("""
             UPDATE task_financial_reconciliation_cases SET status='resolved',resolved_at=now(),
-                resolution_operation_id=$2,finding=$3,last_seen_at=now()
-            WHERE quote_id=$1 AND status IN ('required','resolved')
+                resolution_operation_id=$2,finding=$3,last_seen_at=now(),
+                final_evidence_ref=NULL,final_reviewer_external_id=NULL
+            WHERE quote_id=$1 AND status IN ('required','resolved','resolved_no_refund')
               AND ($4::boolean OR status='required')
             """,quote_id,operation.operation_id,'provider_outcome_'+operation.outcome,
             operation.outcome=='full_refund')
     return operation.outcome
 
 
-async def manually_review_case(pool, quote_id, *, reviewer_external_id, operation_id, amount, unit, evidence_ref):
+def _manual_evidence_values(reviewer_external_id, operation_id, amount, unit, evidence_ref):
     """Record an operator's evidence reference without creating any wallet movement."""
     try:
         amount = Decimal(str(amount))
@@ -192,16 +192,20 @@ async def manually_review_case(pool, quote_id, *, reviewer_external_id, operatio
             or not isinstance(evidence_ref,str) or not 8 <= len(evidence_ref) <= 500
             or any(ord(c)<32 for c in evidence_ref)):
         raise Rejected('Для ручной сверки нужны корректные operation ID, сумма, единица и ссылка на доказательство.')
+    return amount
+
+
+async def manually_review_case(pool, quote_id, *, reviewer_external_id, operation_id, amount, unit, evidence_ref):
+    """Record review evidence while keeping the unresolved case in the work queue."""
+    amount = _manual_evidence_values(reviewer_external_id, operation_id, amount, unit, evidence_ref)
     async with pool.acquire() as conn, conn.transaction():
         case=await conn.fetchrow("""SELECT provider,status,manual_operation_id,manual_amount,manual_unit,
             manual_evidence_ref,manual_reviewer_external_id FROM task_financial_reconciliation_cases
             WHERE quote_id=$1 FOR UPDATE""",quote_id)
         if not case:
             raise Rejected('Кейс ручной сверки не найден.')
-        if case['status']=='resolved':
+        if case['status'] in ('resolved','resolved_no_refund'):
             raise Rejected('Кейс уже закрыт доверенным финансовым событием.')
-        if case['status']=='manual_reviewed' and case['manual_operation_id']!=operation_id:
-            raise Rejected('Случай уже закрыт другой ручной операцией.')
         values=(case['provider'],operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id)
         await conn.execute("""INSERT INTO task_financial_reconciliation_manual_audit
             (provider,operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id)
@@ -211,11 +215,45 @@ async def manually_review_case(pool, quote_id, *, reviewer_external_id, operatio
             case['provider'],operation_id)
         if tuple(stored)!=values:
             raise Rejected('Идентификатор ручной операции уже использован для другого доказательства или quote.')
-        if case['status']=='manual_reviewed':
-            return 'manual_reviewed_no_credit'
-        await conn.execute("""UPDATE task_financial_reconciliation_cases SET status='manual_reviewed',
-            resolved_at=now(),manual_operation_id=$2,manual_amount=$3,manual_unit=$4,
+        if case['manual_operation_id'] is not None:
+            if (case['manual_operation_id'],case['manual_amount'],case['manual_unit'],
+                    case['manual_evidence_ref'],case['manual_reviewer_external_id']) != (
+                        operation_id,amount,unit,evidence_ref,reviewer_external_id):
+                raise Rejected('Случай уже рассмотрен с другими ручными доказательствами.')
+            return 'manual_review_recorded_no_credit'
+        await conn.execute("""UPDATE task_financial_reconciliation_cases SET
+            manual_operation_id=$2,manual_amount=$3,manual_unit=$4,
             manual_evidence_ref=$5,manual_reviewer_external_id=$6,
-            finding='manual_evidence_recorded_no_wallet_movement',last_seen_at=now()
+            manual_reviewed_at=now(),finding='manual_evidence_recorded_pending_resolution',last_seen_at=now()
             WHERE quote_id=$1""",quote_id,operation_id,amount,unit,evidence_ref,reviewer_external_id)
-    return 'manual_reviewed_no_credit'
+    return 'manual_review_recorded_no_credit'
+
+
+async def manually_resolve_no_refund_case(pool, quote_id, *, reviewer_external_id, operation_id, amount, unit, evidence_ref):
+    """Close a case only when operator evidence explicitly proves no provider refund."""
+    amount = _manual_evidence_values(reviewer_external_id, operation_id, amount, unit, evidence_ref)
+    async with pool.acquire() as conn, conn.transaction():
+        case=await conn.fetchrow("""SELECT provider,status,final_evidence_ref,final_reviewer_external_id
+            FROM task_financial_reconciliation_cases WHERE quote_id=$1 FOR UPDATE""",quote_id)
+        if not case:
+            raise Rejected('Кейс ручной сверки не найден.')
+        values=(case['provider'],operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id,'no_refund_resolution')
+        await conn.execute("""INSERT INTO task_financial_reconciliation_manual_audit
+            (provider,operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id,action)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(provider,operation_id) DO NOTHING""",*values)
+        stored=await conn.fetchrow("""SELECT provider,operation_id,quote_id,amount,unit,evidence_ref,
+            reviewer_external_id,action FROM task_financial_reconciliation_manual_audit
+            WHERE provider=$1 AND operation_id=$2""",case['provider'],operation_id)
+        if tuple(stored)!=values:
+            raise Rejected('Идентификатор ручной операции уже использован для другого доказательства или quote.')
+        if case['status']=='resolved':
+            raise Rejected('Кейс уже закрыт доверенным финансовым событием.')
+        if case['status']=='resolved_no_refund':
+            if (case['final_evidence_ref'],case['final_reviewer_external_id']) != (evidence_ref,reviewer_external_id):
+                raise Rejected('Случай уже закрыт другим доказательством отсутствия возврата.')
+            return 'no_refund_resolved_no_credit'
+        await conn.execute("""UPDATE task_financial_reconciliation_cases SET status='resolved_no_refund',
+            resolved_at=now(),resolution_operation_id=NULL,final_evidence_ref=$2,
+            final_reviewer_external_id=$3,finding='provider_refund_proven_absent_no_wallet_movement',last_seen_at=now()
+            WHERE quote_id=$1""",quote_id,evidence_ref,reviewer_external_id)
+    return 'no_refund_resolved_no_credit'

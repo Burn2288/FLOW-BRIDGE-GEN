@@ -1661,15 +1661,24 @@ class TelegramApp:
                 self.pool,uid(args[0]),reviewer_external_id=ext,operation_id=args[2],
                 amount=args[3],unit=args[4],evidence_ref=args[5],
             )
-            await self.say(ext,'Случай закрыт как проверенный вручную без проводки кошелька.'
-                            if result=='manual_reviewed_no_credit' else result)
+            await self.say(ext,'Доказательство ручной проверки сохранено; случай остаётся в очереди до финансового решения.'
+                            if result=='manual_review_recorded_no_credit' else result)
+            return
+        elif command=='/price_account' and len(args)==6 and args[1]=='no-refund':
+            from .task_receipts import manually_resolve_no_refund_case
+            result=await manually_resolve_no_refund_case(
+                self.pool,uid(args[0]),reviewer_external_id=ext,operation_id=args[2],
+                amount=args[3],unit=args[4],evidence_ref=args[5],
+            )
+            await self.say(ext,'Подтверждено отсутствие возврата провайдера; случай закрыт без проводки кошелька.'
+                            if result=='no_refund_resolved_no_credit' else result)
             return
         elif command=='/price_account' and len(args)==5:
             await self.pricing.reconcile(u,ext,uid(args[0]),*args[1:])
         else:
             raise Rejected('Формат: /markup агрегатор|* модель|* percent|fixed сумма или remove; '
                            '/price_rate единица курс; /price_account оценка списано возвращено расход|- ссылка; '
-                           '/price_account <quote> manual-review <operation_id> <amount> <unit> <evidence_ref>; '
+                           '/price_account <quote> manual-review|no-refund <operation_id> <amount> <unit> <evidence_ref>; '
                            '/price_report; /tariff агрегатор модель операция JSON [test] основание единица ставка [срок] источник или disable. Основания: request, utf16, image, second, started_minute, token (вход:выход)')
         await self.say(ext,'Настройки учёта обновлены.')
 

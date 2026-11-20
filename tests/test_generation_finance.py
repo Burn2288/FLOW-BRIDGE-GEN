@@ -134,7 +134,7 @@ asyncio.run(run())
 
 
 async def test_manual_reconciliation_records_evidence_without_wallet_credit(env,confirmed_credit):
-    from elevenbot.task_receipts import manually_review_case
+    from elevenbot.task_receipts import manually_review_case, manually_resolve_no_refund_case
     pool,cfg,_,user=env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
                 anymodel_key='fixture',anymodel_video_live=True,interaction_limit=100)
@@ -160,14 +160,16 @@ async def test_manual_reconciliation_records_evidence_without_wallet_credit(env,
             [str(quote.id),'manual-review','dashboard-op-1','2','USD','ticket:FIN-039-100'])
     result=await manually_review_case(pool,quote.id,reviewer_external_id=100,operation_id='dashboard-op-1',
                                      amount='2',unit='USD',evidence_ref='ticket:FIN-039-100')
-    assert result=='manual_reviewed_no_credit'
+    assert result=='manual_review_recorded_no_credit'
     after=tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE mode='live' AND user_id=$1",user))
     assert after==before
-    assert await pool.fetchval('SELECT status FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)=='manual_reviewed'
+    case=await pool.fetchrow("SELECT status,manual_reviewed_at FROM task_financial_reconciliation_cases WHERE quote_id=$1",quote.id)
+    assert case['status']=='required' and case['manual_reviewed_at'] is not None
+    assert await pool.fetchval('SELECT quote_id FROM task_financial_reconciliation_queue WHERE quote_id=$1',quote.id)==quote.id
     audit=await pool.fetchrow("SELECT operation_id,amount,unit,evidence_ref,reviewer_external_id FROM task_financial_reconciliation_manual_audit WHERE quote_id=$1",quote.id)
     assert tuple(audit)==('dashboard-op-1',Decimal('2'),'USD','ticket:FIN-039-100',100)
     assert await manually_review_case(pool,quote.id,reviewer_external_id=100,operation_id='dashboard-op-1',
-                                      amount='2',unit='USD',evidence_ref='ticket:FIN-039-100')=='manual_reviewed_no_credit'
+                                      amount='2',unit='USD',evidence_ref='ticket:FIN-039-100')=='manual_review_recorded_no_credit'
     with pytest.raises(Rejected):
         await manually_review_case(pool,quote.id,reviewer_external_id=101,operation_id='other-op',
                                    amount='2',unit='USD',evidence_ref='ticket:FIN-039-100')
@@ -175,3 +177,26 @@ async def test_manual_reconciliation_records_evidence_without_wallet_credit(env,
         await manually_review_case(pool,quote.id,reviewer_external_id=100,operation_id='dashboard-op-1',
                                    amount='3',unit='USD',evidence_ref='ticket:FIN-039-100')
     assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote.id)==0
+    with pytest.raises(Rejected):
+        await app.price_admin(user,101,'/price_account',
+            [str(quote.id),'no-refund','dashboard-no-refund-1','2','USD','ticket:FIN-039-101'])
+    assert await manually_resolve_no_refund_case(pool,quote.id,reviewer_external_id=100,
+        operation_id='dashboard-no-refund-1',amount='2',unit='USD',evidence_ref='ticket:FIN-039-101')=='no_refund_resolved_no_credit'
+    assert await pool.fetchval('SELECT status FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)=='resolved_no_refund'
+    assert await pool.fetchval('SELECT quote_id FROM task_financial_reconciliation_queue WHERE quote_id=$1',quote.id) is None
+    assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE mode='live' AND user_id=$1",user))==before
+    assert await manually_resolve_no_refund_case(pool,quote.id,reviewer_external_id=100,
+        operation_id='dashboard-no-refund-1',amount='2',unit='USD',evidence_ref='ticket:FIN-039-101')=='no_refund_resolved_no_credit'
+    async def receipt(remote):
+        assert remote=='manual-review-job'
+        return FinancialOperation('anymodel',remote,'late-charge','charged',Decimal('2'),'USD')
+    assert await reconcile_generation(pool,quote.id,{'anymodel':receipt})=='charged'
+    async def refund(remote):
+        assert remote=='manual-review-job'
+        return FinancialOperation('anymodel',remote,'late-refund','full_refund',Decimal('2'),'USD',
+                                  'late-charge',Decimal('2'),'USD')
+    assert await reconcile_generation(pool,quote.id,{'anymodel':refund})=='full_refund'
+    assert await reconcile_generation(pool,quote.id,{'anymodel':refund})=='full_refund'
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote.id)==1
+    assert await pool.fetchval('SELECT status FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)=='resolved'
+    assert await pool.fetchval("SELECT count(*) FROM task_financial_reconciliation_manual_audit WHERE quote_id=$1",quote.id)==2
