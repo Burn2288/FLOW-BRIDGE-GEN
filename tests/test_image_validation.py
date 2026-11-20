@@ -212,8 +212,9 @@ async def test_unrecognized_provider_media_is_kept_as_opaque_attachment(provider
 async def test_provider_error_documents_are_not_saved_as_media(provider_stub, source, payload):
     media_type = 'text/html' if payload.startswith(b'<') else 'application/json'
     client, requests = provider_stub(payload, source, media_type=media_type)
-    async with client, pytest.raises(Rejected):
-        await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
+    async with client:
+        with pytest.raises(Rejected):
+            await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
     assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
 
 
@@ -221,8 +222,9 @@ async def test_provider_error_documents_are_not_saved_as_media(provider_stub, so
 async def test_oversized_provider_media_is_rejected(provider_stub, source):
     too_large = b'\x00' * (interaction.IMAGE_LIMIT + 1)
     client, requests = provider_stub(too_large, source, media_type='application/octet-stream')
-    async with client, pytest.raises(Rejected):
-        await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
+    async with client:
+        with pytest.raises(Rejected):
+            await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
     assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
 
 
@@ -231,17 +233,17 @@ def test_provider_image_header_still_obeys_size_and_dimension_limits(monkeypatch
     monkeypatch.setattr(interaction, "IMAGE_MAX_SIDE", 16)
     with pytest.raises(Rejected):
         interaction.provider_image_result(original)
-    with pytest.raises(Rejected):
-        interaction.provider_image_result(b"\x89PNG\r\n\x1a\n")
+    opaque = interaction.provider_image_result(b"\x89PNG\r\n\x1a\n")
+    assert opaque.image == b"\x89PNG\r\n\x1a\n" and opaque.filename == "result.bin"
 
 
 @pytest.mark.parametrize("source", ["b64_json", "url"])
 @pytest.mark.parametrize("fake_image", [PNG_SIGNATURE_ONLY, JPEG_MARKERS_ONLY], ids=["png-signature", "jpeg-markers"])
-async def test_rejects_signature_only_provider_response(provider_stub, source, fake_image):
+async def test_signature_only_provider_response_is_preserved_as_attachment(provider_stub, source, fake_image):
     client, requests = provider_stub(fake_image, source)
     async with client:
-        with pytest.raises(Rejected):
-            await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
+        result = await interaction.execute(OPERATION, MODEL, "fixture", [], mode="live", key="test", client=client)
+    assert result.image == fake_image and result.filename == 'result.bin'
     assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
 
 

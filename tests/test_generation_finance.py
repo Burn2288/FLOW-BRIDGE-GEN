@@ -141,9 +141,14 @@ async def test_manual_reconciliation_records_evidence_without_wallet_credit(env,
                 anymodel_key='fixture',anymodel_video_live=True)
     await confirmed_credit(pool,cfg,user,100)
     app=TelegramApp(pool,cfg,Transport(False))
-    app.pricing.adapters['anymodel']=Price()
-    quote=await app.pricing.quote(user,Request('anymodel',MODEL,'video','Fixture','Video',default_params('anymodel','video')))
-    await app.handle(event(1,callback=f'amconfirm:{quote.id}'))
+    async def provider_response(req):
+        assert req.method=='POST' and req.url.path=='/v1/videos/generations'
+        return httpx.Response(202,json={'request_id':'manual-review-job'},headers={'x-9router-connection-id':'fixture'})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(provider_response)) as http:
+        app.anymodel_video=AnyModelVideoPilot(pool,cfg,api=AnyModelVideoProvider(cfg.anymodel_key,client=http))
+        app.pricing.adapters['anymodel']=Price()
+        quote=await app.pricing.quote(user,Request('anymodel',MODEL,'video','Fixture','Video',default_params('anymodel','video')))
+        await app.handle(event(1,callback=f'amconfirm:{quote.id}'))
     assert (await reconcile_generation(pool,quote.id,{})).startswith('RECONCILIATION_REQUIRED:')
     before=tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE mode='live' AND user_id=$1",user))
     with pytest.raises(Rejected):
