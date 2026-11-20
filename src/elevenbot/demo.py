@@ -165,24 +165,34 @@ async def run():
         privacy='Не отправляйте личные данные. Сообщения проходят через Telegram, состояние хранится только в памяти программы.',
         support='Свяжитесь с владельцем тестового бота.')
     from .aggregate import refresh_aggregate
-    cfg=replace(cfg,clodex_key=os.getenv('CLODEX_API_KEY',''),catalogue_enabled=True)
-    print('Loading public Clodex catalogue (GET only)...',flush=True)
-    try:
-        data=await refresh_aggregate(cfg,once=True)
-        print(f"Models: {len(data['models'])}; functions: {len(data['functions'])}. No paid requests.",flush=True)
-    except Exception:
-        print('Catalogue refresh unavailable. Cached catalogue may be displayed; no paid calls.',flush=True)
+    documents_demo = os.getenv('DARKFLOW_DEMO_DOCUMENTS') == '1'
+    if not documents_demo:
+        cfg=replace(cfg,clodex_key=os.getenv('CLODEX_API_KEY',''),catalogue_enabled=True)
+        print('Loading public Clodex catalogue (GET only)...',flush=True)
+        try:
+            data=await refresh_aggregate(cfg,once=True)
+            print(f"Models: {len(data['models'])}; functions: {len(data['functions'])}. No paid requests.",flush=True)
+        except Exception:
+            print('Catalogue refresh unavailable. Cached catalogue may be displayed; no paid calls.',flush=True)
     async with Bot(token) as bot:
         print('Connecting to Telegram...',flush=True)
         me=await bot.get_me(request_timeout=15)
         webhook=await bot.get_webhook_info(request_timeout=15)
         if webhook.url:
             print('BLOCKED: bot already has a webhook. Create a separate test bot; existing webhook was not changed.');return
-        pairing=Pairing();service=DemoService();app=DemoApp(cfg,bot,service)
+        pairing=Pairing();service=DemoService()
+        if documents_demo:
+            from .demo_documents import DocumentDemoApp, FixtureDocuments
+            app=DocumentDemoApp(cfg,bot,service,FixtureDocuments())
+        else:
+            app=DemoApp(cfg,bot,service)
         print('\nOpen this link in Telegram to bind your account (keep it private):',flush=True)
         print(f'https://t.me/{me.username}?start={pairing.code}',flush=True)
         print('Press START in Telegram. Stop the program: Ctrl+C. Messages and token are not saved. Public catalogue is cached.',flush=True)
-        worker=asyncio.create_task(deliver(service));refresher=asyncio.create_task(refresh_aggregate(cfg));offset=None
+        tasks=[asyncio.create_task(deliver(service))]
+        if not documents_demo:
+            tasks.append(asyncio.create_task(refresh_aggregate(cfg)))
+        offset=None
         try:
             while True:
                 await app.refresh_speech_results()
@@ -204,7 +214,9 @@ async def run():
                     elif update.message and update.message.chat.type=='private':await bot.send_message(external,'Закрытый тестовый бот. Откройте ссылку подключения из окна запуска.')
                     offset=update.update_id+1
         finally:
-            worker.cancel();refresher.cancel();await asyncio.gather(worker,refresher,return_exceptions=True)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks,return_exceptions=True)
 
 def main():
     try:asyncio.run(run())
