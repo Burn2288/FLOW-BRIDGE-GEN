@@ -131,7 +131,7 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
             assert bot.send_photo.await_args.args[1].data==(damaged if variant.startswith('refund_') or variant in ('no_job_id','unconfirmed','charged_image') else expected_image)
             assert await pool.fetchval('SELECT image FROM image_works')==(damaged if variant.startswith('refund_') or variant in ('no_job_id','unconfirmed','charged_image') else expected_image)
             if variant.startswith('refund_'):
-                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',user)
+                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
                 assert (await reconcile_generation(pool,quote_id,{})).startswith('RECONCILIATION_REQUIRED:')
                 if variant=='refund_after_capture':
                     async def lookup(remote):
@@ -155,7 +155,7 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
                 assert await pool.fetchval("SELECT count(*) FROM anymodel_image_jobs WHERE provider_id='image-job-1'")==1
                 assert sum(1 for method,path in calls if method=='POST' and path=='/v1/images/generations')==1
             elif variant=='no_job_id':
-                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',user)
+                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
                 price=int(await pool.fetchval("SELECT price->>'total' FROM task_price_quotes WHERE id=$1",quote_id))
                 assert (await reconcile_generation(pool,quote_id,{})).startswith('RECONCILIATION_REQUIRED:')
                 case=await pool.fetchrow('SELECT provider_job_id,status,finding FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote_id)
@@ -163,7 +163,7 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
                 assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote_id)==0
                 assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))==(wallet_initial[0]-price,wallet_initial[1]+price)
             elif variant=='unconfirmed':
-                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',user)
+                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
                 price=int(await pool.fetchval("SELECT price->>'total' FROM task_price_quotes WHERE id=$1",quote_id))
                 async def lookup(remote):
                     assert remote=='image-job-1'
@@ -173,7 +173,7 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
                 assert await pool.fetchval("SELECT count(*) FROM image_works WHERE user_id=$1",user)==1
                 assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote_id)==0
             elif variant=='charged_image':
-                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',user)
+                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
                 async def lookup(remote):
                     assert remote=='image-job-1'
                     return FinancialOperation('anymodel',remote,'image-charge','charged',Decimal('2'),'USD')
