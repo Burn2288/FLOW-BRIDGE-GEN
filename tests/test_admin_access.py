@@ -75,6 +75,24 @@ async def test_admin_inventory_commands_reject_missing_session(env, chat, denial
     assert await pool.fetch('SELECT * FROM payments') == payments
 
 
+@pytest.mark.parametrize('chat,denial', [(100, 'Войдите через /admin.'), (101, 'Админ-доступ закрыт.')])
+async def test_price_commands_denied_without_privileges(env, chat, denial):
+    pool, cfg, _, _ = env
+    cfg = replace(cfg, access_mode='private', admin_ids=(100,), pilot_user_ids=(101,),
+                  admin_password='fixture-password')
+    bot = Bot()
+    app = TelegramApp(pool, cfg, bot)
+    tables = ('task_manual_tariffs', 'task_price_rules', 'task_price_rates',
+              'task_price_conversions', 'task_ruble_equivalent', 'task_markup_modes',
+              'task_price_accounting', 'ledger', 'settings')
+    before = {name: await pool.fetch(f'SELECT * FROM {name}') for name in tables}
+    for number, command in enumerate(('/price_rate USD 100', '/markup clodex 10',
+                                      '/price_account clodex'), 300):
+        await app.handle(event(number, command, chat=chat))
+        assert bot.sent[-1][0] == denial
+    assert {name: await pool.fetch(f'SELECT * FROM {name}') for name in tables} == before
+
+
 async def test_password_updates_skip_inbox_and_logout_blocks_old_buttons(env):
     pool,cfg,_,_=env
     password='fixture-admin-password'
