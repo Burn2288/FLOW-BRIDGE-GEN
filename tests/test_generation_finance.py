@@ -41,7 +41,6 @@ async def test_provider_finance(env,confirmed_credit,refund_while_held):
         app.pricing.adapters['anymodel']=Price()
         quote=await app.pricing.quote(user,Request('anymodel',MODEL,'video','Fixture','Video',default_params('anymodel','video')))
         await app.handle(event(1,callback=f'amconfirm:{quote.id}'))
-
         async def balance():
             return tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE mode='live' AND user_id=$1",user))
 
@@ -149,6 +148,11 @@ async def test_manual_reconciliation_records_evidence_without_wallet_credit(env,
         app.pricing.adapters['anymodel']=Price()
         quote=await app.pricing.quote(user,Request('anymodel',MODEL,'video','Fixture','Video',default_params('anymodel','video')))
         await app.handle(event(1,callback=f'amconfirm:{quote.id}'))
+        for _ in range(100):
+            if await pool.fetchval('SELECT 1 FROM task_dispatch WHERE quote_id=$1',quote.id):
+                break
+            await asyncio.sleep(0.01)
+        assert await pool.fetchval('SELECT 1 FROM task_dispatch WHERE quote_id=$1',quote.id)
     assert (await reconcile_generation(pool,quote.id,{})).startswith('RECONCILIATION_REQUIRED:')
     before=tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE mode='live' AND user_id=$1",user))
     with pytest.raises(Rejected):
