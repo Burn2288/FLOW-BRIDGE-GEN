@@ -9,10 +9,16 @@ let token;
 let page = 0;
 
 async function request(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: { ...(options.headers ?? {}), ...(token ? { Authorization: 'Bearer ' + token } : {}) },
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      headers: { ...(options.headers ?? {}), ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    });
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    throw Object.assign(Error('Нет связи с сервером. Проверьте подключение.'), {networkError: true});
+  }
   if (response.status === 401) throw Error('Откройте приложение заново из Telegram.');
   if (response.status === 403) throw Error('Откройте бот и проверьте доступ к аккаунту.');
   if (!response.ok) throw Object.assign(Error('Не удалось получить данные.'), { status: response.status });
@@ -411,4 +417,10 @@ document.querySelector('#back-to-works').onclick = () => navigate('library');
 
 document.querySelector('#previous').onclick = () => showWorks(page - 1).catch(showError);
 document.querySelector('#next').onclick = () => showWorks(page + 1).catch(showError);
-start().catch(showError);
+const retryStartup = document.querySelector('#retry-startup');
+retryStartup.onclick = () => location.reload();
+start().catch(error => {
+  showError(error);
+  // Reload resumes the signed-in session and fetches the screens again.
+  retryStartup.hidden = !(token && (error.networkError || error.status >= 500));
+});

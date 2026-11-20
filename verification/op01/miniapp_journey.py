@@ -56,7 +56,9 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
         browser = await pw.chromium.launch(executable_path=chrome, args=['--ignore-certificate-errors-spki-list=' + pin])
         try:
             for external, _, credits, model, content in profiles:
-                context = await browser.new_context()
+                context = await browser.new_context(
+                    viewport={'width': 320 if external == 101 else 1280, 'height': 800},
+                    reduced_motion='reduce')
                 page = await context.new_page()
                 # Only the Telegram host bridge is simulated. The page and every
                 # application request go through Caddy to the real backend.
@@ -76,6 +78,8 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await page.goto(keyboard_url)
                     await expect(page.locator('#status')).to_contain_text('/miniapp')
                     launch_data = signed_data
+                    await page.route('**/api/v1/catalogue', lambda route: route.abort('internetdisconnected'),
+                                     times=1)
                 async with page.expect_response(lambda response: response.url == base + '/api/v1/session') as login:
                     await page.goto(keyboard_url if external == 100 else inline_url)
                 session = await login.value
@@ -83,8 +87,16 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                 session_token = (await session.json())['token']
                 if external == 101:
                     tester_headers = {'Authorization': 'Bearer ' + session_token}
+                    await expect(page.get_by_role('status').first).to_have_text(
+                        'Нет связи с сервером. Проверьте подключение.')
+                    await page.keyboard.press('Tab')
+                    retry = page.get_by_role('button', name='Повторить загрузку')
+                    await expect(retry).to_be_focused()
+                    assert await retry.evaluate("el => getComputedStyle(el).outlineStyle !== 'none'")
+                    await page.keyboard.press('Enter')
                 await expect(page.locator('#catalogue')).to_be_visible()
                 await expect(page.locator('#models')).to_contain_text('MA-01 Image')
+                assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 await page.get_by_role('button', name='Баланс').click()
                 await expect(page.locator('#available')).to_have_text(str(credits))
                 await expect(page.locator('#reserved')).to_have_text('0')
