@@ -367,4 +367,4 @@ async def test_corrupt_provider_image_is_saved_delivered_and_reopened_without_re
     assert [request.method for request in requests] == (["POST", "GET"] if source == "url" else ["POST"])
     assert await pool.fetchval("SELECT count(*) FROM interaction_attempts") == 1
     assert await pool.fetchval("SELECT count(*) FROM image_works") == 1
-    assert bot.send_photo.await_count == 2 and bot.send_document.await_count == 2
+    assert bot.send_photo.await_count == 1 and bot.send_document.await_count == 1
