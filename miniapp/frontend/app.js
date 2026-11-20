@@ -25,6 +25,53 @@ function listItem(text) {
   return item;
 }
 
+const buyStars = document.querySelector('#buy-stars');
+const invoiceNotice = document.querySelector('#invoice-notice');
+const paymentStates = {pending: 'Ожидает оплаты', succeeded: 'Оплачен', refunding: 'Возврат в обработке',
+  refunded: 'Возвращён', review: 'На проверке'};
+let paymentPage = 0;
+let balanceRevision = 0;
+
+async function showBalance(target = 0) {
+  const revision = ++balanceRevision;
+  const [wallet, history] = await Promise.all([
+    request('/api/v1/wallet').then(r => r.json()),
+    request('/api/v1/stars/payments?page=' + target).then(r => r.json()),
+  ]);
+  if (revision !== balanceRevision) return;
+  document.querySelector('#available').textContent = wallet.available;
+  document.querySelector('#reserved').textContent = wallet.reserved;
+  buyStars.hidden = !history.checkout_enabled || !telegram?.openInvoice || !telegram.isVersionAtLeast('6.1');
+  document.querySelector('#stars-pack').hidden = buyStars.hidden;
+  document.querySelector('#stars-history').replaceChildren(...(history.payments.length
+    ? history.payments.map(p => listItem(new Date(p.created_at).toLocaleString('ru-RU') +
+      ' · ' + p.amount + ' ' + p.currency + ' · ' + (paymentStates[p.status] ?? p.status)))
+    : [listItem('Платежей пока нет.')]));
+  paymentPage = target;
+  document.querySelector('#stars-prev').hidden = target === 0;
+  document.querySelector('#stars-next').hidden = !history.has_more;
+}
+
+buyStars.onclick = async () => {
+  if (buyStars.disabled) return;
+  buyStars.disabled = true;
+  invoiceNotice.textContent = '';
+  try {
+    const invoice = await (await request('/api/v1/stars/invoices', {method: 'POST'})).json();
+    telegram.openInvoice(invoice.url, async outcome => {
+      invoiceNotice.textContent = outcome === 'cancelled' ? 'Окно оплаты закрыто.' : '';
+      try { await showBalance(); } catch (error) { showError(error); }
+      finally { buyStars.disabled = false; }
+    });
+  } catch (error) {
+    invoiceNotice.textContent = 'Не удалось открыть счёт. ' + error.message;
+    buyStars.disabled = false;
+  }
+};
+document.querySelector('#stars-prev').onclick = () => showBalance(paymentPage - 1).catch(showError);
+document.querySelector('#stars-next').onclick = () => showBalance(paymentPage + 1).catch(showError);
+document.querySelector('#stars-refresh').onclick = () => showBalance().catch(showError);
+
 function showError(error) {
   status.dataset.error = 'true';
   status.textContent = error.message;
@@ -250,6 +297,7 @@ async function start() {
   }
   if (!models.children.length) models.append(listItem('Нет доступных моделей.'));
   status.textContent = '';
+  if (!document.querySelector('#balance').hidden) await showBalance();
   if (history.state?.jobId) {
     selectPanel('library');
     await openJob(history.state.jobId);
@@ -352,6 +400,7 @@ function navigate(panel) {
   overview.hidden = false;
   card.hidden = true;
   selectPanel(panel);
+  if (panel === 'balance' && token) showBalance().catch(showError);
   if (panel === 'library' && token) Promise.all([showJobs(), showWorks(0)]).catch(showError);
 }
 

@@ -294,6 +294,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_delete('/api/v1/session', logout)
     app.router.add_get('/api/v1/catalogue', catalogue)
     app.router.add_get('/api/v1/wallet', wallet)
+    from .stars import add_stars_routes
+    add_stars_routes(app, service, account, cfg, view.bot)
     app.router.add_get('/api/v1/settings', settings)
     app.router.add_put('/api/v1/settings', settings)
     app.router.add_get('/api/v1/works', history)
