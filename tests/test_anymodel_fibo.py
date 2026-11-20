@@ -24,13 +24,16 @@ FIBO_TARIFF={'id':FIBO_MODEL,'endpoint':'/v1/images/generations',
              'billing':{'unit':'image','base_tokens':100000,'coefficient':{'output':0.95}}}
 
 
-@pytest.mark.parametrize('variant',['base64','url','broken','timeout','connect','unsafe'])
+@pytest.mark.parametrize('variant',['base64','corrupt','url','broken','timeout','connect','unsafe'])
 async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,variant):
     pool,cfg,_,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_image_live=True,
                 anymodel_key='fixture-any',clodex_key='fixture-clodex',catalogue_path=str(tmp_path/'models.json'),
                 interaction_limit=3)
     png=encoded_image('PNG')
+    damaged=bytearray(png)
+    damaged[damaged.index(b'IDAT')+4]^=1
+    damaged=bytes(damaged)
     calls=[]
 
     async def dns(*args,**kwargs):
@@ -59,7 +62,7 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
             if variant in ('url','unsafe'):
                 url=('https' if variant=='url' else 'http')+'://images.example/fixture.png'
                 return httpx.Response(200,json={'data':[{'url':url}]})
-            image=png if variant=='base64' else png[:8]
+            image=png if variant=='base64' else damaged if variant=='corrupt' else png[:8]
             return httpx.Response(200,json={'data':[{'b64_json':b64encode(image).decode()}]})
         assert req.headers['Host']=='images.example'
         assert 'Authorization' not in req.headers
@@ -101,16 +104,17 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
         await app.handle(event(callback=action).model_copy(update={'update_id':2}))
         with pytest.raises(telegram.Rejected):
             await app.callback(user,100,action,request_id=3)
-        if variant in ('base64','url'):
+        expected_image=damaged if variant=='corrupt' else png
+        if variant in ('base64','corrupt','url'):
             jobs=AnyModelImageJobs(pool,cfg,adapter=AnyModelProvider(cfg.anymodel_key,client=http))
             assert await jobs.poll_one(bot)
             bot.send_photo.assert_awaited_once()
-            assert bot.send_photo.await_args.args[1].data==png
+            assert bot.send_photo.await_args.args[1].data==expected_image
             await app.callback(user,100,'history:0')
             await app.callback(user,100,routes(bot)['Открыть работу №1'])
             assert bot.send_photo.await_count==2
-            assert bot.send_photo.await_args.args[1].data==png
-            assert await pool.fetchval('SELECT image FROM image_works')==png
+            assert bot.send_photo.await_args.args[1].data==expected_image
+            assert await pool.fetchval('SELECT image FROM image_works')==expected_image
         else:
             assert 'Автоповтора нет' in bot.sent[-1][0]
             expected='unknown' if variant in ('timeout','connect') else 'failed'

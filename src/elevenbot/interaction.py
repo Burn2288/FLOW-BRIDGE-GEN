@@ -74,7 +74,7 @@ def decode_result(operation, payload):
                 return Result(text=text)
         else:
             image = base64.b64decode(payload['data'][0]['b64_json'], validate=True)
-            return image_result(image)
+            return provider_image_result(image)
     except (KeyError, IndexError, TypeError, ValueError, binascii.Error):
         pass
     raise Rejected('CLODEX вернул неподдерживаемый результат.')
@@ -182,6 +182,29 @@ def image_result(image):
     raise Rejected('CLODEX вернул неподдерживаемое изображение.')
 
 
+def provider_image_result(image):
+    """Keep bounded provider bytes after a small format/header check, without decoding pixels."""
+    try:
+        if not isinstance(image, bytes) or not 0 < len(image) <= IMAGE_LIMIT:
+            raise ValueError('Image size outside the accepted range')
+        if image.startswith(PNG_SIGNATURE):
+            # Read only the fixed PNG header. Corrupt IDAT/CRC/IEND data is retained verbatim.
+            if len(image) < 33 or image[8:16] != b'\x00\x00\x00\x0dIHDR':
+                raise ValueError('Missing PNG header')
+            width, height = struct.unpack_from('>II', image, 16)
+            _check_image_size(width, height)
+            return Result(image=image, filename='result.png')
+        if image.startswith(b'\xff\xd8\xff'):
+            # Header parsing checks dimensions but does not decode or repair image content.
+            height, width, _, _ = decode_jpeg_header(image, strict=True)
+            _check_image_size(width, height)
+            return Result(image=image, filename='result.jpg')
+    except (OSError, ValueError, SyntaxError, EOFError, struct.error,
+            Image.DecompressionBombError):
+        pass
+    raise Rejected('Провайдер вернул неподдерживаемый файл изображения.')
+
+
 def image_url(payload):
     if not isinstance(payload, dict):
         return None
@@ -250,7 +273,7 @@ async def download_image(http, url, request_id):
                             raise _ImageDownloadError('image_too_large')
                         image.extend(part)
                     phase = 'image_invalid'
-                    result = await asyncio.to_thread(image_result, bytes(image))
+                    result = await asyncio.to_thread(provider_image_result, bytes(image))
                     trace_interaction(request_id, 'image_download_ok', image_bytes=len(image))
                     return result
                 finally:

@@ -51,6 +51,11 @@ async def test_provider_finance(env,confirmed_credit,refund_while_held):
             if isinstance(operation,Exception):
                 raise operation
             return operation
+        assert app.providers.financial_sources == {}
+        missing_source=await reconcile_generation(pool,quote.id,{})
+        assert missing_source.startswith('RECONCILIATION_REQUIRED:')
+        case=await pool.fetchrow('SELECT provider,provider_job_id,status,finding,attempts FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)
+        assert tuple(case)==('anymodel','job-1','required','provider_financial_source_unavailable',1)
         app.providers.financial_sources['anymodel']=financial_lookup
         async def reconcile():
             return await reconcile_generation(pool,quote.id,{'anymodel':financial_lookup})
@@ -58,15 +63,19 @@ async def test_provider_finance(env,confirmed_credit,refund_while_held):
             return FinancialOperation('anymodel',remote,key,outcome,Decimal(amount),'USD')
 
         assert await app.anymodel_video.poll_one(bot)
-        assert await reconcile()=='возврат агрегатора не подтверждён'
+        assert (await reconcile()).startswith('RECONCILIATION_REQUIRED:')
+        case=await pool.fetchrow('SELECT provider,provider_job_id,status,finding,attempts FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)
+        assert tuple(case)==('anymodel','job-1','required','provider_financial_receipt_unavailable',2)
         operation=TimeoutError()
         await app.handle(event(8,text=f'/price_account {quote.id}'))
         assert await balance()==(40,60)
+        assert await pool.fetchval('SELECT attempts FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)==3
         operation=None
         if not refund_while_held:
             operation=receipt('charge','charged','2')
             await app.handle(event(9,text=f'/price_account {quote.id}'))
             assert await balance()==(40,0)
+            assert await pool.fetchval('SELECT status FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)=='resolved'
         await pool.execute('UPDATE video_jobs SET next_poll_at=now()')
         assert await app.anymodel_video.poll_one(bot)
         await settle_task_tokens(pool)
@@ -81,12 +90,14 @@ async def test_provider_finance(env,confirmed_credit,refund_while_held):
             await reconcile()
             assert await balance()==(40,0)
             operation=receipt('partial','partial_refund','0.25')
-            await reconcile()
+            assert (await reconcile()).startswith('RECONCILIATION_REQUIRED:')
             assert await balance()==(40,0)
+            assert await pool.fetchval('SELECT status FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)=='required'
             assert tuple(await pool.fetchrow("SELECT amount,unit FROM task_financial_receipts WHERE operation_id='partial'"))==(Decimal('0.25'),'USD')
         operation=receipt('full','full_refund','2')
         await asyncio.gather(reconcile(),reconcile())
         assert await balance()==(100,0)
+        assert await pool.fetchval('SELECT status FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote.id)=='resolved'
         schema=await pool.fetchval('SELECT current_schema()')
         code="""
 import asyncio,asyncpg,os
