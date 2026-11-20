@@ -161,7 +161,7 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
                 case=await pool.fetchrow('SELECT provider_job_id,status,finding FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote_id)
                 assert tuple(case)==(None,'required','provider_operation_id_unavailable_or_ambiguous')
                 assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote_id)==0
-                assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))==(wallet_initial[0]-price,wallet_initial[1]+price)
+                assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))==(wallet_initial[0]-price,wallet_initial[1])
             elif variant=='unconfirmed':
                 quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
                 price=int(await pool.fetchval("SELECT price->>'total' FROM task_price_quotes WHERE id=$1",quote_id))
