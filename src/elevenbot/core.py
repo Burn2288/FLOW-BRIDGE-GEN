@@ -230,9 +230,11 @@ class Service:
                     FROM jobs j LEFT JOIN files f ON f.job_id=j.id
                     WHERE j.user_id=$1 AND ($3::text IS NULL OR j.model_id=$3)
                     UNION ALL
-                    SELECT id::text,'succeeded',NULL,created_at,'image',model_id,true
-                    FROM image_works WHERE user_id=$1 AND expires_at>now()
-                    AND ($3::text IS NULL OR model_id=$3)
+                    SELECT w.id::text,'succeeded',(q.price->>'total')::numeric,w.created_at,'image',w.model_id,true
+                    FROM image_works w LEFT JOIN task_price_quotes q
+                         ON q.update_id=w.update_id AND q.user_id=w.user_id AND q.state='accepted'
+                    WHERE w.user_id=$1 AND w.expires_at>now()
+                    AND ($3::text IS NULL OR w.model_id=$3)
                     UNION ALL
                     SELECT 'image-job:' || j.update_id::text,
                            CASE j.status WHEN 'pending' THEN 'queued' WHEN 'submitting' THEN 'dispatching'
@@ -287,7 +289,15 @@ class Service:
                 ) works ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $2
                 """,u,max(0,offset),model_id,music_providers if music_providers is not None else ['clodex'] if include_music else [],include_pending_tasks)
             from .library import project_history
-            return [project_history(row) for row in rows]
+            result = [project_history(row) for row in rows]
+            ids = [row['id'] for row in result if row['kind'] == 'image' and row['status'] == 'succeeded']
+            prompts = await c.fetch(
+                'SELECT id,prompt FROM image_works WHERE user_id=$1 AND id=ANY($2::uuid[]) AND expires_at>now()',
+                u, ids) if ids else []
+            by_id = {row['id']: row['prompt'] for row in prompts}
+            for row in result:
+                row['prompt'] = by_id.get(row['id'])
+            return result
 
     async def save_image_work(self,u,update_id,model_id,prompt,result):
         async with self.pool.acquire() as c:
@@ -307,8 +317,11 @@ class Service:
         async with self.pool.acquire() as c:
             await self.authorize(c,u)
             row=await c.fetchrow("""
-                SELECT prompt,image,filename FROM image_works
-                WHERE id=$1 AND user_id=$2 AND expires_at>now()
+                SELECT w.prompt,w.image,w.filename,w.model_id,q.request,
+                       q.price->>'total' AS price
+                FROM image_works w LEFT JOIN task_price_quotes q
+                  ON q.update_id=w.update_id AND q.user_id=w.user_id AND q.state='accepted'
+                WHERE w.id=$1 AND w.user_id=$2 AND w.expires_at>now()
                 """,uid(j),u)
             if not row:raise Rejected('Файл недоступен или срок хранения истёк.')
             return row
