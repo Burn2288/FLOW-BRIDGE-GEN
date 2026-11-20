@@ -137,7 +137,7 @@ async def test_manual_reconciliation_records_evidence_without_wallet_credit(env,
     from elevenbot.task_receipts import manually_review_case
     pool,cfg,_,user=env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,
-                anymodel_key='fixture',anymodel_video_live=True)
+                anymodel_key='fixture',anymodel_video_live=True,interaction_limit=100)
     await confirmed_credit(pool,cfg,user,100)
     app=TelegramApp(pool,cfg,Transport(False))
     async def provider_response(req):
