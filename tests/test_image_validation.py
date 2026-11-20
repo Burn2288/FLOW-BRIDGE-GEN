@@ -290,6 +290,7 @@ async def test_corrupt_provider_image_is_saved_delivered_and_reopened_without_re
         base_config,
         access_mode="private",
         admin_ids=(100,),
+        pilot_user_ids=(101,),
         catalogue_path=str(catalogue),
         interaction_mode="live",
         interaction_pairs=(f"{OPERATION}:{MODEL['id']}",),
