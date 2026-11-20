@@ -16,8 +16,11 @@ jobs:
           sh -ec 'sh scripts/check-pg16-tools.sh && python -m pytest -q -ra -p no:cacheprovider
           tests/test_ft031_tg01_integration.py tests/test_navigation.py tests/test_admin_access.py
           tests/test_broadcasts.py tests/test_topups.py
+          tests/test_miniapp_stars.py tests/test_stars_wallet_flux.py
           tests/test_wallet_profile.py tests/test_telegram_consent.py tests/test_ft023_combined.py
           tests/test_ft028_payment_image.py tests/test_ft030_library_integrity.py'
+      - name: Stars invoice UI regression
+        run: node --test miniapp/tests/stars_ui.test.cjs
       - name: Remove disposable services
         if: always()
         run: docker compose -p ft031-${{ github.run_id }} -f compose.test.yaml down --remove-orphans

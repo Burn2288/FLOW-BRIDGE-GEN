@@ -80,8 +80,11 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
         await migrate(pool)
         migration = await pool.fetchval("SELECT sha256 FROM schema_migrations WHERE version='044_miniapp_music_session.sql'")
         assert migration and await pool.fetchval("SELECT to_regclass('miniapp_music_sessions') IS NOT NULL")
+        referral = await pool.fetchval("SELECT sha256 FROM schema_migrations WHERE version='044_referral_attribution.sql'")
+        assert referral
         await migrate(pool)
         assert await pool.fetchval("SELECT sha256 FROM schema_migrations WHERE version='044_miniapp_music_session.sql'") == migration
+        assert await pool.fetchval("SELECT sha256 FROM schema_migrations WHERE version='044_referral_attribution.sql'") == referral
         cfg=Config(token=FIXTURE_TOKEN,mode='clodex',access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),
                    clodex_music_owner=100, clodex_music_live=True, admin_password='fixture-password',
                    payments_enabled=False,generation_enabled=True,economy_verified=True,clodex_key='fixture-only',
