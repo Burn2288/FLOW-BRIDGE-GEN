@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import hashlib
 import time
 import json
 from dataclasses import replace
@@ -122,6 +123,11 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path, d
         await press(callback=route('image:'),target=restarted)
         assert bot.send_photo.await_count==2
         assert all(call.args[1].data == MOCK_IMAGE for call in bot.send_photo.await_args_list)
+        stored = await pool.fetchval("SELECT image FROM image_works WHERE user_id=$1", user)
+        expected = hashlib.sha256(MOCK_IMAGE).digest()
+        assert hashlib.sha256(stored).digest() == expected
+        assert hashlib.sha256(bot.send_photo.await_args.args[1].data).digest() == expected
+        assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1 AND kind='task_capture'", user) == 1
         assert len(posts)==1 and (await restarted.svc.wallet(user))['available']==400
         assert await pool.fetch("SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id",user)==ledger_before
         print('wallet=0->1000->400 payment=succeeded posts=1 debit=1 reopened=1',
