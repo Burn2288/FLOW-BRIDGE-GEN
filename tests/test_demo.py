@@ -9,7 +9,8 @@ from test_ui import Bot,event
 
 async def test_demo_real_ui_vertical_slice():
     bot=Bot();svc=DemoService();app=DemoApp(Config(mode='mock',generation_enabled=True),bot,svc)
-    for update in [event('/start'),event(callback='accept'),event("🎙 Создать озвучку"),event('Hello'),event(callback='voice:0'),event(callback='speed:1.0')]:await app.handle(update)
+    await app.handle(event('/start'))
+    for update in [event(callback=bot.sent[-1][1].inline_keyboard[0][0].callback_data),event("🎙 Создать озвучку"),event('Hello'),event(callback='voice:0'),event(callback='speed:1.0')]:await app.handle(update)
     cb=bot.sent[-1][1].inline_keyboard[0][0].callback_data
     await app.handle(event(callback=cb));j=next(iter(svc.jobs))
     worker=asyncio.create_task(deliver(svc))
@@ -57,9 +58,14 @@ async def test_demo_real_sdk_local_http_audio():
     from aiogram import Bot as RealBot
     from aiogram.client.session.aiohttp import AiohttpSession
     from aiogram.client.telegram import TelegramAPIServer
+    offer=[]
     calls=[]
     async def endpoint(request):
         method=request.match_info['method'];form=await request.post();calls.append(method)
+        if method=='sendMessage' and 'reply_markup' in form:
+            import json
+            for row in json.loads(form['reply_markup']).get('inline_keyboard',[]):
+                offer.extend(b['callback_data'] for b in row if b['text']=='Принять')
         if method=='sendAudio':
             attachment = form['audio']
             assert attachment.startswith('attach://')
@@ -75,7 +81,8 @@ async def test_demo_real_sdk_local_http_audio():
     try:
         async with RealBot(str(123456)+':'+('fixture_'*5),session=session) as bot:
             svc=DemoService();ui=DemoApp(Config(),bot,svc)
-            for update in [event('/start'),event(callback='accept'),event("🎙 Создать озвучку"),event('Hello'),event(callback='voice:0'),event(callback='speed:1.0')]:await ui.handle(update)
+            await ui.handle(event('/start'))
+            for update in [event(callback=offer[0]),event("🎙 Создать озвучку"),event('Hello'),event(callback='voice:0'),event(callback='speed:1.0')]:await ui.handle(update)
             q=next(iter(svc.quotes));await ui.handle(event(callback='confirm:'+str(q)))
             worker=asyncio.create_task(deliver(svc))
             try:await asyncio.wait_for(svc.requests.join(),3)

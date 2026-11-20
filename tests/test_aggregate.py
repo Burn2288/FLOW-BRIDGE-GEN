@@ -81,7 +81,7 @@ async def test_telegram_aggregate_preview_vertical_slice_and_cancel(tmp_path):
  data=await collect();path=tmp_path/'models.json';SnapshotStore(path).write(data)
  bot=Bot();svc=DemoService();app=DemoApp(replace(Config(),catalogue_path=str(path),admin_ids=(100,)),bot,svc)
  await app.handle(event('/start'));assert 'DarkFlow | Gen' in bot.sent[-1][0]
- await app.handle(event(callback='accept'))
+ await app.handle(event(callback=bot.sent[-1][1].inline_keyboard[0][0].callback_data))
  await app.handle(event('🌐 Агрегаторы'));assert 'Clodex' in bot.sent[-1][1].inline_keyboard[0][0].text
  await app.handle(event(callback=bot.sent[-1][1].inline_keyboard[0][0].callback_data))
  card={b.text:b.callback_data for row in bot.sent[-1][1].inline_keyboard for b in row}
@@ -149,7 +149,7 @@ async def test_provider_menu_isolation_with_identical_model_names(tmp_path):
  reg=ProviderRegistry();reg.register('clodex',Fake('chat'));reg.register('other',Fake('images.generate'));data=await reg.collect()
  path=tmp_path/'m.json';SnapshotStore(path).write(data)
  bot=Bot();svc=DemoService();app=DemoApp(replace(Config(),catalogue_path=str(path),admin_ids=(100,)),bot,svc)
- await app.handle(event('/start'));await app.handle(event(callback='accept'))
+ await app.handle(event('/start'));await app.handle(event(callback=bot.sent[-1][1].inline_keyboard[0][0].callback_data))
  await app.handle(event(callback='providers'))
  assert [row[0].text for row in bot.sent[-1][1].inline_keyboard[:2]]==['Clodex','other']
  v=data['version'];await app.handle(event(callback=f'provider:{v}:1'))
@@ -181,7 +181,8 @@ async def test_key_inventory_reaches_telegram_when_public_endpoints_fail(tmp_pat
     assert 'fixture-key' not in path.read_text()
     bot, service = Bot(), DemoService()
     app = DemoApp(replace(Config(), catalogue_path=str(path), admin_ids=(100,)), bot, service)
-    await app.handle(event(callback='accept'))
+    await app.handle(event('/start'))
+    await app.handle(event(callback=bot.sent[-1][1].inline_keyboard[0][0].callback_data))
     await app.handle(event('/models'))
     button = bot.sent[-1][1].inline_keyboard[0][0]
     await app.handle(event(callback=button.callback_data))

@@ -166,7 +166,7 @@ asyncio.run(main())
             result='capture'
         elif variant=='refusal':
             assert balance==(100,0) and movements=={'task_reserve':(-60,60),'task_release':(60,-60)}
-            assert state==('uncertain' if operation==IMAGE_OP else 'rejected')
+            assert state=='rejected'
             result='release'
         else:
             assert balance==(40,60) and movements=={'task_reserve':(-60,60)}

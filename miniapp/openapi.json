@@ -1,0 +1,920 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FLOW-BRIDGE-GEN Mini App API",
+    "version": "1.0.0",
+    "description": "Сессионный HTTP API изображений, видео Veo, озвучки и музыки. Генерация зависит от конфигурации сервера и допуска пользователя."
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Проверка соединения с базой",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "ok"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "База недоступна"
+          }
+        }
+      }
+    },
+    "/api/v1/session": {
+      "post": {
+        "summary": "Получить сессию по подписанному Telegram initData",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "expires_in"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "initData"
+                ],
+                "properties": {
+                  "initData": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Завершить текущую сессию",
+        "responses": {
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          },
+          "204": {
+            "description": "Сессия отозвана"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/catalogue": {
+      "get": {
+        "summary": "Каталог доступных моделей",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "availability": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "models",
+                    "availability"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/wallet": {
+      "get": {
+        "summary": "Доступный и зарезервированный баланс",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "string"
+                    },
+                    "reserved": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "available",
+                    "reserved"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "summary": "Получить тему",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "theme": {
+                      "enum": [
+                        "dark",
+                        "light"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "theme"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Изменить тему",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "theme": {
+                      "enum": [
+                        "dark",
+                        "light"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "theme"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос"
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "theme"
+                ],
+                "properties": {
+                  "theme": {
+                    "enum": [
+                      "dark",
+                      "light"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/works": {
+      "get": {
+        "summary": "Страница своих работ",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "works": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  },
+                  "required": [
+                    "works"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный запрос"
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/works/{kind}/{id}": {
+      "get": {
+        "summary": "Получить свою сохранённую работу",
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "contentEncoding": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Сессия отсутствует, истекла или недействительна"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          },
+          "404": {
+            "description": "Работа недоступна"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "image",
+                "audio",
+                "video",
+                "music"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/works/{kind}/{id}/timeline": {
+      "get": {
+        "summary": "Подтверждённая история состояния своей работы",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "image",
+                "audio",
+                "video"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "UUID сохранённой работы или image-job:<исходный update_id> для активной image job."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Имеющиеся данные о текущем состоянии без закрытых ошибок провайдера"
+          },
+          "401": {
+            "description": "Сессия недействительна"
+          },
+          "403": {
+            "description": "Нет доступа"
+          },
+          "404": {
+            "description": "Работа недоступна"
+          }
+        }
+      }
+    },
+    "/api/v1/quotes": {
+      "post": {
+        "summary": "Рассчитать стоимость изображения, видео Veo, озвучки или музыки",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "model": {
+                        "enum": [
+                          "flux-schnell",
+                          "clodex-video/veo-3.1",
+                          "clodex-video/veo-3.1-fast"
+                        ]
+                      },
+                      "prompt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "prompt"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "model": {
+                        "enum": [
+                          "eleven_v4"
+                        ]
+                      },
+                      "prompt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3000
+                      },
+                      "voice": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "prompt",
+                      "voice"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "model": {
+                        "enum": [
+                          "clodex-video/music-v1"
+                        ]
+                      },
+                      "prompt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 5000
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "prompt"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "quote_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "price": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "quote_id",
+                    "price"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос"
+          },
+          "401": {
+            "description": "Нет сессии"
+          },
+          "403": {
+            "description": "Нет доступа"
+          },
+          "404": {
+            "description": "Объект не найден"
+          },
+          "409": {
+            "description": "Конфликт или операция не выполнена"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs": {
+      "post": {
+        "summary": "Подтвердить оценку изображения, видео Veo, озвучки или музыки",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,96}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "quote_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "quote_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос"
+          },
+          "401": {
+            "description": "Нет сессии"
+          },
+          "403": {
+            "description": "Нет доступа"
+          },
+          "404": {
+            "description": "Объект не найден"
+          },
+          "409": {
+            "description": "Конфликт или операция не выполнена"
+          }
+        }
+      },
+      "get": {
+        "summary": "Список своих заданий",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "origin": {
+                            "enum": [
+                              "http",
+                              "telegram"
+                            ]
+                          },
+                          "result_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "operation": {
+                            "enum": [
+                              "images.generate",
+                              "video",
+                              "audio.speech"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "model",
+                          "state",
+                          "origin",
+                          "result_url",
+                          "operation"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "jobs"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос"
+          },
+          "401": {
+            "description": "Нет сессии"
+          },
+          "403": {
+            "description": "Нет доступа"
+          },
+          "404": {
+            "description": "Объект не найден"
+          },
+          "409": {
+            "description": "Конфликт или операция не выполнена"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{id}": {
+      "get": {
+        "summary": "Состояние своего задания",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "origin": {
+                      "enum": [
+                        "http",
+                        "telegram"
+                      ]
+                    },
+                    "result_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "operation": {
+                      "enum": [
+                        "images.generate",
+                        "video",
+                        "audio.speech"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "model",
+                    "state",
+                    "origin",
+                    "result_url",
+                    "operation"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос"
+          },
+          "401": {
+            "description": "Нет сессии"
+          },
+          "403": {
+            "description": "Нет доступа"
+          },
+          "404": {
+            "description": "Объект не найден"
+          },
+          "409": {
+            "description": "Конфликт или операция не выполнена"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{id}/cancel": {
+      "post": {
+        "summary": "Отмена до отправки провайдеру",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cancelled": {
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cancelled",
+                    "state"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос"
+          },
+          "401": {
+            "description": "Нет сессии"
+          },
+          "403": {
+            "description": "Нет доступа"
+          },
+          "404": {
+            "description": "Объект не найден"
+          },
+          "409": {
+            "description": "Конфликт или операция не выполнена"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

@@ -56,8 +56,10 @@ class TaskLaunch:
         adapter = prepared = None
         async def validate(conn, request):
             from .model_policy import admitted
+            from .model_capabilities import validate_pinned
             if request.operation=='audio.generate' or not await admitted(conn,request.provider,request.model,request.operation):
                 raise Rejected('Модель не допущена к этой операции.')
+            await validate_pinned(conn, request)
 
         async def prepare(conn,quote):
             nonlocal adapter,prepared
@@ -113,8 +115,6 @@ async def recover_interrupted(pool):
     await pool.execute("""
         UPDATE task_dispatch d SET state=CASE
             WHEN d.state='pending' THEN 'interrupted'
-            WHEN EXISTS(SELECT 1 FROM video_jobs v WHERE v.id=d.quote_id AND v.status='failed' AND v.provider_id IS NULL)
-              THEN 'rejected'
             WHEN EXISTS(SELECT 1 FROM video_jobs v WHERE v.id=d.quote_id AND v.provider_id IS NOT NULL)
               OR EXISTS(SELECT 1 FROM anymodel_image_jobs i WHERE i.update_id=q.update_id
                         AND (i.provider_id IS NOT NULL OR i.status IN ('ready','delivered')))

@@ -50,3 +50,9 @@ input { accent-color: var(--accent); }
 nav { position: fixed; inset: auto 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .2rem; padding: .4rem max(.4rem, calc((100% - 44rem)/2)) calc(.4rem + env(safe-area-inset-bottom)); background: var(--nav); border-top: 1px solid var(--stroke); }
 nav button { padding: .45rem .12rem; min-height: 2.75rem; border-color: transparent; background: transparent; font-size: clamp(.7rem, 3.2vw, .95rem); }
 nav button[aria-current] { background: var(--active); border-color: var(--stroke); font-weight: 650; }
+
+.image-form label { display: grid; gap: .4rem; margin: .75rem 0; color: var(--muted); }
+.image-form textarea { width: 100%; padding: .65rem; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--stroke); border-radius: .5rem; resize: vertical; }
+.image-form [role=status] { margin: .5rem 0; }
+.image-form [role=status]:empty { display: none; }
+.image-form [type=button] { background: var(--active); }

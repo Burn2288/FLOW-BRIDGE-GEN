@@ -12,6 +12,7 @@ import httpx
 from .anymodel import AnyModelError, AnyModelProvider, BASE, can_view
 from .core import Rejected
 from .interaction import trace_interaction
+from .speech_capabilities import anymodel_voice
 
 FISH = 'fish-farm/s2.1-pro-free'
 FISH_TITLE = 'Fish Audio S2.1 Pro Free'
@@ -63,18 +64,23 @@ class SpeechPilot:
 
     @staticmethod
     def voice_title(voice):
-        return voice['name'][:80]+' · AnyVoice'+(' (ИИ-имитация)' if voice.get('imitation') is True else '')
+        title = voice['name'][:80]+' · AnyVoice'+(' (ИИ-имитация)' if voice.get('imitation') is True else '')
+        return anymodel_voice(voice, model_id=voice['model'], voice_id=voice['model'], title=title).title
 
-    async def title(self, model):
+    async def describe(self, model, *, cost=None):
         if model == FISH:
             rows = await self.catalogue('/models/tts')
-            if not any(row.get('id') == FISH for row in rows):
+            row = next((row for row in rows if row.get('id') == FISH), None)
+            if row is None:
                 raise AnyModelError('модель недоступна', code='speech_model')
-            return FISH_TITLE
+            return anymodel_voice(row, model_id=FISH, title=FISH_TITLE, cost=cost)
         voice = (await self.voices()).get(model)
         if voice is None:
             raise AnyModelError('голос недоступен', code='speech_voice')
-        return self.voice_title(voice)
+        return anymodel_voice(voice, model_id=model, voice_id=model, title=self.voice_title(voice), cost=cost)
+
+    async def title(self, model):
+        return (await self.describe(model)).title
 
     async def prepare(self, conn, user, quote):
         req = quote.request

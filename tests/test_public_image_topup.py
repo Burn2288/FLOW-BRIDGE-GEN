@@ -13,7 +13,6 @@ from elevenbot.aggregate import make_snapshot
 from elevenbot.discovery import SnapshotStore
 from elevenbot.interaction import MOCK_IMAGE
 from elevenbot.telegram import TelegramApp
-from elevenbot.topup_ui import TOPUP_MENU
 from test_admin_access import event
 from test_topups import fixture
 from test_ui import Bot
@@ -89,12 +88,10 @@ async def test_funded_regular_user_with_one_config(env, monkeypatch, tmp_path, d
 
     try:
         assert await wallet() == (0,0)
-        await press(TOPUP_MENU)
-        menu = next(markup for text,markup in reversed(bot.sent) if 'Пополнение баланса' in text)
-        preset = next(b.callback_data for row in menu.inline_keyboard for b in row if b.text.startswith('100 ₽'))
-        await press(callback=preset)
-        await press(callback=route('tucreate:'))
-        check = route('tucheck:')
+        # Platega checkout is external. Telegram only checks the existing order.
+        order = await app.topups.quote(user,101,10000,uuid4().hex[:12])
+        await app.topups.create(user,order['id'])
+        check = f"tucheck:{order['id']}"
         await press(callback=check)
         await press(callback=check)
         assert await wallet() == (1000,0)

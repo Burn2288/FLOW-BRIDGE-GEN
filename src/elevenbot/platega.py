@@ -4,6 +4,7 @@ Callbacks are authenticated AND canonical status is re-read server-to-server.
 """
 import asyncio,hashlib,hmac,json,uuid
 from dataclasses import dataclass
+from datetime import datetime,timezone
 from decimal import Decimal,InvalidOperation
 from urllib.parse import urlparse
 import httpx
@@ -93,6 +94,18 @@ class PlategaClient:
         if r.get('merchantId') and str(uid(r['merchantId']))!=str(uid(self.cfg.merchant)):
             raise PaymentUnknown('Creation merchant mismatch')
         return remote,url,r.get('expiresIn')
+    async def find(self,order,created):
+        # A lost create response never authorizes another /transaction/process.
+        body={'from':created.isoformat(),'to':datetime.now(timezone.utc).isoformat(),'timeZoneId':'UTC'}
+        rows=await self.request('POST','/transaction/export/json',body,allow_list=True)
+        if not isinstance(rows,list):
+            raise PaymentUnknown('Export response contract')
+        matches={uid(row['recordId']) for row in rows
+                 if isinstance(row,dict) and row.get('payload')==str(order)}
+        if len(matches)>1:
+            raise PaymentInvalid('Multiple transactions for order')
+        return next(iter(matches),None)
+
     async def status(self,remote):return await self.request('GET','/transaction/'+str(uid(remote)))
     async def refund(self,remote):
         # No request body; accepted != completed. No POST retries.
@@ -100,7 +113,9 @@ class PlategaClient:
     async def close(self):await self.client.aclose()
 
 class PlategaPayments:
-    def __init__(self,pool,app_cfg,client):self.pool=pool;self.svc=Service(pool,app_cfg);self.client=client
+    def __init__(self,pool,app_cfg,client):
+        self.pool=pool;self.svc=Service(pool,app_cfg);self.client=client
+        self._reconcile_cursor=(None,None)
     async def create_order(self,u,amount_minor=10000,credits=10000):
         # Trusted external checkout use case, not exposed as a Telegram payment button.
         if not self.client.cfg.enabled or self.svc.cfg.mode=='mock' or not self.svc.cfg.payments_enabled or self.svc.cfg.payment_backend!='platega':raise PaymentInvalid('Real payments disabled')
@@ -120,7 +135,7 @@ class PlategaPayments:
         async with self.pool.acquire() as c,c.transaction():
             await c.execute("UPDATE payments SET remote_id=$2,checkout_url=$3,creation_state='created' WHERE id=$1",p,remote,url)
         return p,url
-    async def sync(self,remote):
+    async def sync(self,remote,event=None,*,expected_order=None):
         remote=uid(remote)
         # Serializes canonical GET + commit, prevents a slower stale snapshot winning.
         async with self.pool.acquire() as c:
@@ -132,9 +147,17 @@ class PlategaPayments:
                 try:
                     if uid(r['id'])!=remote:raise PaymentInvalid('Wrong remote ID')
                     p=uid(r['payload']);amount=kopecks(r['paymentDetails']['amount']);currency=r['paymentDetails']['currency'];status=r['status']
+                    if expected_order is not None and p!=expected_order:
+                        raise PaymentInvalid('Recovered order mismatch')
+                    if event is not None and (
+                        ('payload' in event and uid(event['payload']) != p)
+                        or ('amount' in event and kopecks(event['amount']) != amount)
+                        or ('currency' in event and event['currency'] != currency)
+                    ):
+                        raise PaymentInvalid('Callback mismatch')
                     if await c.fetchval('SELECT EXISTS(SELECT 1 FROM topup_orders WHERE payment_id=$1)',p):
                         from .topups import Topups
-                        return await Topups(self.pool,self.svc.cfg,self.client).sync(remote)
+                        return await Topups(self.pool,self.svc.cfg,self.client).sync(remote,expected_order=p)
                     merchant=r.get('mechantId',r.get('merchantId'))
                     if merchant and str(uid(merchant))!=str(uid(self.client.cfg.merchant)):raise PaymentInvalid('Merchant mismatch')
                 except (KeyError,TypeError,Rejected):raise PaymentInvalid('Invalid status response') from None
@@ -168,16 +191,33 @@ class PlategaPayments:
             event=json.loads(body,parse_float=Decimal);remote=uid(event['id'])
             if event['status'] not in ('CONFIRMED','CANCELED','DISPUTED','PARTIALLY_REFUNDED','CHARGEBACKED'):raise ValueError()
         except (KeyError,ValueError,TypeError,Rejected):raise PaymentInvalid('Malformed callback') from None
-        result=await self.sync(remote)
+        result=await self.sync(remote,event)
         async with self.pool.acquire() as c:await c.execute("INSERT INTO payment_callback_events(provider,remote_id,status) VALUES('platega',$1,$2)",remote,event['status'])
         return result
     async def reconcile_pending(self,limit=100):
         if not 1<=limit<=1000:raise PaymentInvalid('Invalid reconciliation limit')
         async with self.pool.acquire() as c:
-            rows=await c.fetch("SELECT remote_id FROM payments WHERE provider='platega' AND remote_id IS NOT NULL AND status IN ('pending','refunding','review') ORDER BY created_at LIMIT $1",limit)
+            rows=await c.fetch("""
+                SELECT p.id,p.remote_id,p.created_at FROM payments p
+                WHERE p.provider='platega' AND p.status IN ('pending','refunding','review')
+                AND (p.remote_id IS NOT NULL OR (p.creation_state IN ('sending','uncertain')
+                    AND NOT EXISTS (SELECT 1 FROM topup_orders WHERE payment_id=p.id)))
+                ORDER BY coalesce((p.created_at,p.id)<=($2::timestamptz,$3::uuid),false),p.created_at,p.id
+                LIMIT $1
+                """,limit,*self._reconcile_cursor)
         checked=0;failed=0
         for row in rows:
-            try:await self.sync(row['remote_id']);checked+=1
+            # Continue past empty/failed lookups next time, wrapping at the end.
+            # A new service starts at the oldest order; payment state is unchanged.
+            self._reconcile_cursor=(row['created_at'],row['id'])
+            try:
+                remote=row['remote_id']
+                if remote is None:
+                    remote=await self.client.find(row['id'],row['created_at'])
+                    if remote is None:
+                        continue
+                await self.sync(remote,expected_order=row['id'])
+                checked+=1
             except (PaymentUnknown,PaymentInvalid):failed+=1
         return {'checked':checked,'failed':failed,'limit':limit}
 

@@ -9,6 +9,7 @@ from .core import Rejected, Service
 from .interaction import trace_interaction
 from .image_delivery import send_saved_image
 from .media_delivery import claim_delivery, finish_delivery
+from .submission import ProviderRefused
 
 RETRYABLE_POLL = {'connect_error','connect_timeout','response_timeout','transport_error',
                   'http_429','http_502','http_503','http_504'}
@@ -53,6 +54,13 @@ class AnyModelImageJobs:
             else:
                 result=await self.adapter.image_result(reply,update_id)
                 await self.save(update_id,user,prompt,result)
+        except ProviderRefused:
+            async with self.pool.acquire() as conn, conn.transaction():
+                await conn.execute("UPDATE anymodel_image_jobs SET status='failed' WHERE update_id=$1 AND status='submitting'", update_id)
+                await conn.execute("""UPDATE task_dispatch d SET state='rejected' FROM task_price_quotes q
+                    WHERE d.quote_id=q.id AND q.update_id=$1 AND q.user_id=$2 AND q.provider='anymodel'
+                      AND q.operation='images.generate' AND d.state='dispatching'""",update_id,user)
+            raise
         except AnyModelError as error:
             status=reply.status if reply else error.status
             unknown=status in (None,202)

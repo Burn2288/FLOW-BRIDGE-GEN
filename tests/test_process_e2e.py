@@ -27,15 +27,17 @@ async def test_bot_worker_process_mock_e2e(env,runtime_role):
         host=('['+parts.hostname+']') if ':' in parts.hostname else parts.hostname
         parts=parts._replace(netloc=f'{role}:{secret}@{host}:{parts.port or 5432}')
     dsn=urlunsplit(parts._replace(query=urlencode(parse_qsl(parts.query)+[('search_path',schema)])))
-    received=[];stage=0
+    received=[];stage=0;offer=None
     async def api(request):
-        nonlocal stage
+        nonlocal stage,offer
         method=request.match_info['method'].lower();form=await request.post()
         if method=='getupdates':
             if stage>=7:
                 await asyncio.sleep(.05);return web.json_response({'ok':True,'result':[]})
             texts=['/start',None,'🎙 Создать озвучку','Hello integrated',None,None,None]
-            callbacks={1:'accept',4:'voice:0',5:'speed:1.0'}
+            if stage==1 and not offer:
+                await asyncio.sleep(.05);return web.json_response({'ok':True,'result':[]})
+            callbacks={1:offer,4:'voice:0',5:'speed:1.0'}
             if stage==6:
                 quote=await pool.fetchval('SELECT id FROM quotes ORDER BY created_at DESC LIMIT 1')
                 if quote is None:return web.json_response({'ok':True,'result':[]})
@@ -48,7 +50,10 @@ async def test_bot_worker_process_mock_e2e(env,runtime_role):
             return web.json_response({'ok':True,'result':[update]})
         if method in ('answercallbackquery','deletemessage'):
             return web.json_response({'ok':True,'result':True})
-        if method in ('sendmessage','editmessagetext','editmessagecaption','sendanimation','sendaudio','sendphoto'):
+        if method in ('sendmessage','editmessagetext','editmessagecaption','sendanimation','sendaudio','sendphoto','senddocument'):
+            for row in json.loads(form.get('reply_markup','{}')).get('inline_keyboard',[]):
+                for button in row:
+                    if button['text']=='Принять':offer=button['callback_data']
             received.append(method)
             message_id = int(form['message_id']) if method in ('editmessagetext','editmessagecaption') else len(received) + 100
             return web.json_response({'ok':True,'result':{'message_id':message_id,'date':int(time.time()),'chat':{'id':100,'type':'private'}}})

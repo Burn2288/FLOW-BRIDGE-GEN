@@ -25,6 +25,7 @@ from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
 from .navigation import Navigation
+from .model_capabilities import FLUX_MODEL, flux_card
 from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
 from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request,decimal_text,display,ruble_value
 from .clodex_pricing import ClodexPricing
@@ -125,6 +126,7 @@ def keyboard_signature(markup):
 class TelegramApp:
     def __init__(self,pool,cfg,bot,*,providers=None):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
+        self.consent_offers = {}
         self.admin_access=AdminAccess()
         self.navigation = Navigation(pool,bot)
         self.pending_speech = {}
@@ -154,6 +156,24 @@ class TelegramApp:
         if not isinstance(markup,ReplyKeyboardMarkup):
             return await self.bot.send_message(chat,text,reply_markup=markup)
         return await self.bot.send_message(chat,text,reply_markup=await self.reply_menu(chat))
+
+    async def consent_files(self, user, chat, names, *, offer=False):
+        if offer:
+            self.consent_offers.pop(user, None)
+        bundle = self.svc.get_consent_documents()
+        try:
+            for name in names:
+                file = BufferedInputFile(bundle[name].encode('utf-8'), filename=name + '.md')
+                await self.bot.send_document(chat, file)
+        except (TelegramAPIError, ClientDecodeError, TimeoutError):
+            await self.say(chat, 'Доставка документов не подтверждена. Повторите /start.')
+            return
+        if offer:
+            key = 'accept:' + uuid4().hex
+            title = 'Тестовые документы' if bundle['test_only'] else 'Документы'
+            await self.say(chat, f'{self.cfg.brand} · {title}. Принять показанные условия и политику?',
+                           buttons([[('Принять', key)]]))
+            self.consent_offers[user] = (key, bundle['version'])
 
     @staticmethod
     def balance_label(row):
@@ -214,6 +234,7 @@ class TelegramApp:
             if any(detail in reason for detail in ('message to edit not found', "message can't be edited")):
                 return False
             raise
+        await self.navigation.save_screen(chat,state,markup)
         return True
 
     async def catalogue_screen(self, chat, text, markup=None, *, animation=None,
@@ -283,11 +304,18 @@ class TelegramApp:
             if panel=='chooser' and state.active_panel=='main' and state.animation in (
                     str(AGGREGATORS_ANIMATION), str(AGGREGATORS_ANIMATION.with_name('darkflow-energy-strip.gif'))):
                 state=state.adopt_legacy_chooser()
-            old_main={state.panel_ids.get('chooser'),state.panel_ids.get('main_hint')}
+            # An inline transition replaces its source. Reply-keyboard shortcuts
+            # have no source and continue to maintain their independent panels.
+            source_slot=next((name for name,mid in state.panel_ids.items()
+                              if mid==source and name!='main_hint'),None)
+            if source_slot and panel and source_slot!=panel:
+                state=state.retire(source, panel_ids={name:mid for name,mid in state.panel_ids.items()
+                                                       if name!=source_slot})
+            old_main={source,state.panel_ids.get('chooser'),state.panel_ids.get('main_hint')}
             state=state.publish(message.message_id,animation_key,panel)
             if hint is not None:
                 state=state.publish_main_hint(hint.message_id,keyboard_changes)
-            await self.navigation.save(chat,state)
+            await self.navigation.save_screen(chat,state,markup)
             await self.navigation.cleanup(chat,state,only=old_main if panel=='chooser' else None)
 
     async def open_work(self,u,ext,kind,job,*,prompt_only=False,show_prompt=False):
@@ -396,6 +424,8 @@ class TelegramApp:
             finally:
                 await self.delete_input_message(message)
             if status=='ok':
+                if self.music.owner(ext):
+                    await self.music.publish_session(ext, self.admin_access.remaining(ext))
                 u=await self.svc.identity(ext)
                 try:
                     await self.svc.conversation(u,'home')
@@ -417,6 +447,8 @@ class TelegramApp:
             if not eligible:
                 await self.say(ext,'Админ-доступ закрыт.')
             elif command=='/admin_logout':
+                if self.music.owner(ext):
+                    await self.pool.execute('DELETE FROM miniapp_music_sessions WHERE chat_id=$1',ext)
                 self.admin_access.logout(ext)
                 try:
                     u=await self.svc.identity(ext)
@@ -547,7 +579,6 @@ class TelegramApp:
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
                         or command in RATE_COMMANDS or command=='/miniapp')
-            await self.svc.rate(u,navigation=navigation)
             if update.callback_query:
                 e=update.callback_query
                 try:
@@ -555,6 +586,9 @@ class TelegramApp:
                 except TelegramBadRequest as error:
                     if not any(reason in str(error).lower() for reason in ('query is too old', 'query id is invalid')):
                         raise
+                if e.message and not await self.navigation.allows(ext,e.message.message_id,data):
+                    return
+                await self.svc.rate(u,navigation=navigation)
                 catalogue_callback = data=='accept' or data=='providers' or data.partition(':')[0] in SCREEN_CALLBACKS
                 source = self.panel_source.set(e.message.message_id if e.message else None)
                 try:
@@ -565,6 +599,7 @@ class TelegramApp:
                 finally:
                     self.panel_source.reset(source)
                 return
+            await self.svc.rate(u,navigation=navigation)
             if command=='/miniapp':
                 if not self.cfg.miniapp_url:
                     await self.say(ext,'Приложение временно недоступно.')
@@ -607,12 +642,14 @@ class TelegramApp:
                 try:
                     await self.svc.conversation(u,'home')
                 except ConsentRequired:
-                    await self.catalogue_screen(ext,self.cfg.brand+' — агрегатор моделей и функций. Выберите агрегатор, затем его модели или функции.\n'+('Сейчас работает деморежим: тестовый звук, без оплаты.\n' if self.cfg.mode=='mock' else '')+'\nУсловия: '+self.cfg.terms+'\nПолитика: '+self.cfg.privacy,buttons([[('Принять','accept')]]))
+                    await self.consent_files(u,ext,('terms','privacy'),offer=True)
                 else:
                     await self.show_home(ext,replace_welcome=True)
                 return
-            if text in ('/terms','/privacy','/support','/paysupport'):
-                await self.say(ext, self.cfg.terms if text=='/terms' else self.cfg.privacy if text=='/privacy' else self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
+            if command in ('/terms','/privacy'):
+                await self.consent_files(u,ext,(command[1:],));return
+            if text in ('/support','/paysupport'):
+                await self.say(ext,self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
             if command in ('/admit','/revoke','/markup_value'):
                 await self.models.command(u,ext,command,text.split()[1:]);return
             if command in RATE_COMMANDS:
@@ -755,7 +792,7 @@ class TelegramApp:
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,'Выберите голос.' if voices else 'Проверенные голоса пока не подключены.',buttons(rows))
 
-    async def history(self,u,ext,page=0,*,model=None,panel=None):
+    async def history(self,u,ext,page=0,*,model=None,panel=None,list_page=0):
         await self.svc.conversation(u,'home')
         model_id,origin=model if model else (None,'history')
         music_providers=[key for key in self.providers.interactive if self.registered_pilot(ext,key)]
@@ -773,13 +810,16 @@ class TelegramApp:
             kind,_,music_provider=r.get('kind','audio').partition(':')
             name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата','music':'Музыка'}[kind]
             price=f" · {r['price']} кредитов" if r['price'] is not None else ''
-            lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {STATUS[r['status']]}{price}")
+            music_status={'queued':'В очереди','dispatching':'Выполняется','failed':'Не удалось выполнить',
+                          'uncertain':'Результат требует проверки','succeeded':'Результат сохранён'}
+            status=music_status[r['status']] if kind=='music' else STATUS[r['status']]
+            lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {status}{price}")
             if r['status']=='succeeded' and r.get('file_available',True):
                 route={'image':'image','audio':'get','video':'video','chat':'chatwork','music':'musicwork'}[kind]
                 if music_provider:route=f'pilotwork:{music_provider}'
                 if model and kind in ('audio','image'):route='m'+route
                 rows.append([(f"Открыть работу №{index}",f"{route}:{r['id']}")])
-            if r['status']=='queued':
+            if r['status']=='queued' and kind!='music':
                 rows.append([(f'Отменить №{index}',f"cancel:{r['id']}")])
         nav=[]
         if page:nav.append(('Назад',f'{origin}:{page-1}'))
@@ -787,7 +827,7 @@ class TelegramApp:
         if nav:rows.append(nav)
         if model:
             _,version,section,index=origin.split(':')
-            back=f'mdl:{version}:{index}' if section=='dev' else f'smodel:{version}:{section}:0:{index}'
+            back=f'mdl:{version}:{index}' if section=='dev' else f'smodel:{version}:{section}:{list_page}:{index}'
             rows.append([('← К модели',back)])
         rows.append([('Главное меню','providers')])
         await self.catalogue_screen(ext,'\n'.join(lines),buttons(rows),panel=panel)
@@ -799,6 +839,9 @@ class TelegramApp:
             w=await self.svc.wallet(u)
             await self.refresh_balance_keyboard(ext)
             text=f"{'Демо-кредиты' if self.cfg.balance_wallet_mode=='demo' else 'Кредиты'}: {w['available']}\nЗарезервировано: {w['reserved']}"
+            text=f"Личный кабинет · Telegram ID {ext}\n"+text
+            if self.pool is not None:
+                rows.extend([[('История операций','walletlog:0')],[('Мои платежи','tuhistory:0')]])
             if self.music_access(ext):
                 pilot=await self.music.balance(u)
                 text+=f"\n\nLeonardo Music · тестовый баланс: {display(pilot['available'])}\nРезерв пилота: {display(pilot['reserved'])}"
@@ -813,6 +856,14 @@ class TelegramApp:
         route=data.partition(':')[0]
         if admin_callback(data) and not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
+        if route=='walletlog':
+            page=data.partition(':')[2]
+            if self.pool is None or not page.isascii() or not page.isdigit() or len(page)>8:
+                raise Rejected('Откройте историю из раздела «Баланс».')
+            from .wallet_history import history_screen
+            text, rows = history_screen(await self.svc.wallet_operations(u,int(page)), int(page))
+            await self.catalogue_screen(ext,text,buttons(rows),panel='balance')
+            return
         if route in MUSIC_ROUTES:
             await self.music_callback(u,ext,route,data.partition(':')[2],request_id);return
         if route in REGISTERED_PILOT_ROUTES:
@@ -862,17 +913,21 @@ class TelegramApp:
             _,version,section,index,page=data.split(':')
             snapshot=self.catalogue_snapshot(version)
             index=int(index)
+            list_page=0
             if section=='dev':
                 allowed=self.has_admin_session(ext) and 0<=index<len(snapshot['models'])
             else:
-                allowed=index in await self.store_models(snapshot,section,ext)
+                models=await self.store_models(snapshot,section,ext)
+                allowed=index in models
+                if allowed:
+                    list_page=models.index(index)//10
             if not allowed:
                 raise Rejected('Модель больше не доступна в этом разделе.')
             model_id=snapshot['models'][index]['id']
             if model_id.replace('-','_')==self.cfg.clodex_model.replace('-','_'):
                 model_id=self.cfg.clodex_model
             await self.history(u,ext,min(10000,max(0,int(page))),
-                               model=(model_id,f'mwork:{version}:{section}:{index}'));return
+                               model=(model_id,f'mwork:{version}:{section}:{index}'),list_page=list_page);return
         if route=='slist':
             _,version,section,page=data.split(':')
             await self.show_store_models(ext,version,section,int(page));return
@@ -895,8 +950,20 @@ class TelegramApp:
                 await self.begin_interaction(u,ext,version,index,STORE_SECTIONS[section][1],
                                              request_id=request_id,quality=options[0] if options else None);return
             await self.show_store_model(ext,snapshot,section,int(page),index);return
-        if data=='accept':
-            await self.svc.accept(u);await self.show_home(ext,open_panel=True);return
+        if route=='accept':
+            shown = self.consent_offers.get(u)
+            if shown and data == shown[0]:
+                try:
+                    await self.svc.accept(u,shown[1])
+                except ConsentRequired:
+                    pass
+                else:
+                    self.consent_offers.pop(u,None)
+                    await self.show_home(ext,open_panel=True)
+                    return
+            await self.say(ext,'Откройте актуальные документы и подтвердите их заново.')
+            await self.consent_files(u,ext,('terms','privacy'),offer=True)
+            return
         if data in ('section:1','section:2','section:3'):
             await self.svc.conversation(u,'home')
             await self.menu_section(u,ext,int(data[-1]));return
@@ -1549,6 +1616,11 @@ class TelegramApp:
             if provider not in self.pricing.adapters:
                 raise Rejected('Агрегатор недоступен.')
             await self.pricing.set_rate(u,ext,unit,target,provider=provider,source_amount=source)
+        elif command=='/price_account' and len(args)==1:
+            from .task_receipts import reconcile_generation
+            result=await reconcile_generation(self.pool,uid(args[0]),self.providers.financial_sources)
+            await self.say(ext,result)
+            return
         elif command=='/price_account' and len(args)==5:
             await self.pricing.reconcile(u,ext,uid(args[0]),*args[1:])
         else:
@@ -1772,11 +1844,18 @@ class TelegramApp:
         version=snapshot['version']
         rows=[]
         status='Запуск этой модели пока недоступен.'
-        if operation=='video' or self.model_can_run(model,operation):
+        runnable = operation=='video' or self.model_can_run(model,operation)
+        card = None
+        if runnable and model.get('provider')=='clodex' and model['id']==FLUX_MODEL and operation==IMAGE_OP:
+            card = await flux_card(self.pool)
+            runnable = card is not None
+        if runnable:
             rows.append([(('Выбрать голос' if operation=='audio.speech' and self.cfg.speech_pilot else title),f'srun:{version}:{section}:{page}:{index}')])
             if operation=='images.generate' and model['id'] in HIGH_QUALITY_IMAGE_MODELS:
                 rows.append([('Качество: high',f'srun:{version}:{section}:{page}:{index}:high')])
             status='Выберите действие, чтобы продолжить.'
+        if card:
+            status = card['label']+'\n'+status
         if section in ('image','speech'):
             rows.append([('Работы этой модели',f'mwork:{version}:{section}:{index}:0')])
         rows.append([(MODEL_LIST_BACK,f'slist:{version}:{section}:{page}')])
@@ -2272,18 +2351,21 @@ class TelegramApp:
             '\nСовместимость модели: '+('подтверждена метаданными' if request['model_operation_verified'] else 'не подтверждена')+
             '\nЗапрос не отправлен, списаний нет.',menu())
 
+    def speech_request(self,text,voice):
+        name=next((v['name'] for v in catalog(self.cfg) if v['id']==voice),None)
+        if not name or not text or not text.strip() or len(text)>3000 or '\x00' in text:
+            raise Rejected('CLODEX: укажите голос и текст до 3000 символов.')
+        model=next((m for m in self.catalogue_snapshot()['models'] if m.get('provider')=='clodex'
+                    and m['id'].replace('-','_')==self.cfg.clodex_model.replace('-','_')),None)
+        if not model or not self.model_can_run(model,'audio.speech'):
+            raise Rejected('CLODEX: тестовая озвучка недоступна.')
+        return Request('clodex',self.cfg.clodex_model,'audio.speech',f"{model['title']} · {name}",text,{'voice':voice})
+
     async def make_quote(self,u,ext,text,voice,speed):
         if self.cfg.speech_pilot and self.cfg.mode=='clodex':
             if speed!=1.0:
                 raise Rejected('CLODEX: тестовая озвучка недоступна.')
-            name=next((v['name'] for v in catalog(self.cfg) if v['id']==voice),None)
-            if not name or not text or not text.strip() or len(text)>3000 or '\x00' in text:
-                raise Rejected('CLODEX: укажите голос и текст до 3000 символов.')
-            model=next((m for m in self.catalogue_snapshot()['models'] if m.get('provider')=='clodex'
-                        and m['id'].replace('-','_')==self.cfg.clodex_model.replace('-','_')),None)
-            if not model or not self.model_can_run(model,'audio.speech'):
-                raise Rejected('CLODEX: тестовая озвучка недоступна.')
-            request=Request('clodex',self.cfg.clodex_model,'audio.speech',f"{model['title']} · {name}",text,{'voice':voice})
+            request=self.speech_request(text,voice)
             await self.show_price(ext,await self.pricing.quote(u,request))
             return
         q,price=await self.svc.quote(u,text,voice,speed)

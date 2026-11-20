@@ -1,6 +1,6 @@
 """Provider-neutral quote, conversion, markup and confirmation lifecycle."""
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 from fractions import Fraction
@@ -162,6 +162,7 @@ class Request:
     prompt: str
     params: dict = field(default_factory=dict)
     history: list = field(default_factory=list)
+    model_version: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -321,10 +322,15 @@ class Pricing:
         return quote
 
     async def quote(self, user, request):
+        from .model_capabilities import snapshot
+        async with self.pool.acquire() as conn:
+            await self.service.authorize(conn, user)
+            await snapshot(conn, request)  # Reject invalid input before any provider call.
         cost = await self.cost(request)
         async with self.pool.acquire() as conn, conn.transaction():
             await self.service.authorize(conn, user)
             await conn.execute('SELECT pg_advisory_xact_lock($1::bigint)', POLICY_LOCK)
+            request = replace(request, model_version=await snapshot(conn, request))
             await conn.execute("""
                 UPDATE task_price_quotes SET state='superseded' WHERE user_id=$1 AND state='pending'
                 AND provider=$2 AND model_id=$3 AND operation=$4
@@ -367,18 +373,27 @@ class Pricing:
                 await validate(conn,request)
             price = await self.calculate(conn, request, cost)
             previous = json.loads(row['price'])
-            if row['expired'] or price['total'] != previous['total']:
+            # Publishing a replacement manual tariff prices future quotes. An
+            # unexpired offer remains binding while its rate and markup still apply.
+            replaced_tariff = (
+                cost is None and previous['source'].startswith('manual:')
+                and previous['source'] != price['source']
+                and previous['rate_revision'] == price['rate_revision']
+                and previous['rule_revision'] == price['rule_revision']
+                and previous['provider_unit'] == price['provider_unit']
+            )
+            if row['expired'] or (price['total'] != previous['total'] and not replaced_tariff):
                 await conn.execute("UPDATE task_price_quotes SET state='superseded' WHERE id=$1", quote_id)
                 return await self.insert(conn, user, request, price), False
-            quote = Quote(quote_id, request, price)
+            quote = Quote(quote_id, request, previous)
             if live_wallet:
                 await check_task_balance(conn,user,int(previous['total']))
             if track_interaction and not await self.service.reserve_interaction_on(conn, user, update_id, unlimited=False):
                 raise Rejected('Запрос уже принят.')
             await prepare(conn, quote)
             await conn.execute("""
-                UPDATE task_price_quotes SET state='accepted',accepted_at=now(),update_id=$2,price=$3::jsonb WHERE id=$1
-                """, quote_id, update_id, json.dumps(price))
+                UPDATE task_price_quotes SET state='accepted',accepted_at=now(),update_id=$2 WHERE id=$1
+                """, quote_id, update_id)
             return quote, True
 
     async def invalidate(self, user, provider, model, operation):

@@ -48,6 +48,7 @@ class Navigation:
     def __init__(self, pool, bot):
         self.pool, self.bot = pool, bot
         self.memory = {}
+        self.memory_routes = {}
         self.locks = WeakValueDictionary()
         self.owners = {}
 
@@ -77,11 +78,38 @@ class Navigation:
                                tuple(row['keyboard_labels']), tuple(row['stale_ids']),
                                row['active_panel'], json.loads(row['panel_ids']), row['keyboard_revision'])
 
-    async def save(self, chat, state):
+    async def allows(self, chat, message_id, data):
+        if self.pool is None:
+            routes = self.memory_routes.get((chat, message_id))
+        else:
+            routes = await self.pool.fetchval(
+                'SELECT routes FROM telegram_panel_callbacks WHERE chat_id=$1 AND message_id=$2',
+                chat, message_id)
+        # Other messages (consent, saved media, legacy panels) have their own handlers.
+        return routes is None or data in routes
+
+    async def save_screen(self, chat, state, markup):
+        routes = [button.callback_data for row in getattr(markup, 'inline_keyboard', ())
+                  for button in row if button.callback_data]
+        live = {state.active_id, state.keyboard_id, *state.panel_ids.values()}
+        retired = [mid for mid in state.stale_ids if mid not in live]
+        if self.pool is None:
+            self.memory_routes.update({(chat, mid): [] for mid in retired})
+            self.memory_routes[chat, state.active_id] = routes
+            await self.save(chat, state)
+            return
+        async with self.pool.acquire() as connection, connection.transaction():
+            await self.save(chat, state, connection)
+            await connection.executemany('''
+                INSERT INTO telegram_panel_callbacks(chat_id,message_id,routes) VALUES($1,$2,$3)
+                ON CONFLICT(chat_id,message_id) DO UPDATE SET routes=excluded.routes
+            ''', [(chat, mid, []) for mid in retired] + [(chat, state.active_id, routes)])
+
+    async def save(self, chat, state, connection=None):
         if self.pool is None:
             self.memory[chat] = state
             return
-        await self.pool.execute("""
+        await (connection or self.pool).execute("""
             INSERT INTO telegram_navigation(chat_id,active_id,animation,keyboard_id,keyboard_labels,stale_ids,active_panel,panel_ids,keyboard_revision)
             VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
             ON CONFLICT(chat_id) DO UPDATE SET active_id=excluded.active_id,animation=excluded.animation,

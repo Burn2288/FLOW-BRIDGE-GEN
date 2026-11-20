@@ -49,7 +49,7 @@ async def test_confirmation_uses_live_wallet_and_server_quote(env,confirmed_cred
 
         zero=await quote(guest,ids[0])
         await app.handle(event(1,'💳 9\u202f999\u202f999 токенов ≈ 999 ₽',chat=101))
-        assert bot.sent[-1][0]=='Кредиты: 0\nЗарезервировано: 0'
+        assert bot.sent[-1][0]=='Личный кабинет · Telegram ID 101\nКредиты: 0\nЗарезервировано: 0'
         await app.handle(event(2,chat=101,callback=f'amconfirm:{zero.id}'))
         assert bot.sent[-1][0]=='Недостаточно токенов'
 

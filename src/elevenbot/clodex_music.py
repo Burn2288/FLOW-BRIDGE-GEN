@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import hmac
+from contextlib import asynccontextmanager
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 
@@ -115,6 +117,43 @@ class MusicPilot:
         self.pool, self.cfg = pool, cfg
         self.api = api or MusicAPI(cfg.clodex_key)
 
+    session_host = None
+
+    @asynccontextmanager
+    async def host_miniapp_session(self):
+        if not self.cfg.clodex_music_owner:
+            yield
+            return
+        # Keep a backend exclusively for the lifetime of this bot. Its death
+        # invalidates the proof even after an unclean shutdown or PID reuse.
+        async with self.pool.acquire() as conn:
+            self.session_host = await conn.fetchrow("""
+                SELECT pid,backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()
+            """)
+            try:
+                yield
+            finally:
+                self.session_host = None
+                await conn.execute('DELETE FROM miniapp_music_sessions WHERE backend_pid=pg_backend_pid()')
+
+    def password_tag(self):
+        return hmac.digest(self.cfg.token.encode(), ('music:' + self.cfg.admin_password).encode(), 'sha256')
+
+    async def publish_session(self, chat, remaining):
+        if self.session_host and self.owner(chat):
+            await self.pool.execute("""
+                INSERT INTO miniapp_music_sessions VALUES($1,$2,$3,clock_timestamp()+$4*interval '1 second',$5)
+                ON CONFLICT(chat_id) DO UPDATE SET backend_pid=excluded.backend_pid,
+                    backend_started_at=excluded.backend_started_at,expires_at=excluded.expires_at,password_tag=excluded.password_tag
+            """, chat, *self.session_host, remaining, self.password_tag())
+
+    async def miniapp_access(self, conn, chat):
+        return self.owner(chat) and bool(self.cfg.admin_password) and await conn.fetchval("""
+            SELECT EXISTS(SELECT 1 FROM miniapp_music_sessions s JOIN pg_stat_activity a
+                ON a.pid=s.backend_pid AND a.backend_start=s.backend_started_at AND a.datname=current_database()
+                WHERE s.chat_id=$1 AND s.expires_at>clock_timestamp() AND s.password_tag=$2)
+        """, chat, self.password_tag())
+
     def owner(self, chat):
         return self.cfg.access_mode == 'private' and not self.cfg.payments_enabled and (
             chat > 0 and chat == self.cfg.clodex_music_owner and chat in self.cfg.admin_ids
@@ -155,9 +194,10 @@ class MusicPilot:
                 ON CONFLICT DO NOTHING RETURNING da
                 """, user,quote_id,amount,self.provider)
 
-    async def confirm(self, pricing, user, chat, quote_id, update_id, session):
+    async def confirm(self, pricing, user, chat, quote_id, update_id, session, *, http_key=None):
         async def validate(conn, req):
-            if not self.owner(chat) or not session() or not self.enabled():
+            active = session() if session is not None else await self.miniapp_access(conn, chat)
+            if not self.owner(chat) or not active or not self.enabled():
                 raise Rejected('Пилот закрыт. Войдите через /admin.')
             if (req.provider, req.model, req.operation, req.params) != (self.provider,self.model,OPERATION,self.params):
                 raise Rejected('Оценка недоступна.')
@@ -174,6 +214,9 @@ class MusicPilot:
             await conn.execute("""
                 INSERT INTO clodex_music_jobs(id,user_id,chat_id,status,provider) VALUES($1,$2,$3,'queued',$4)
                 """, quote.id,user,chat,self.provider)
+            if http_key is not None:
+                await conn.execute('''INSERT INTO http_image_commands(user_id,idempotency_key,quote_id,correlation_id)
+                                      VALUES($1,$2,$3,$4)''', user,http_key,quote.id,update_id)
             if amount:
                 await conn.execute("""
                     INSERT INTO clodex_music_ledger(user_id,quote_id,kind,da,dr,provider)

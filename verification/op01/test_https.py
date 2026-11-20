@@ -25,6 +25,7 @@ from elevenbot.telegram import TelegramApp
 from miniapp.backend.web import create_app
 from miniapp.tests.test_miniapp import signed
 from test_ui import Bot, event
+from verification.op01.miniapp_journey import check_miniapp_journey
 
 FIXTURE_TOKEN = 'op01-test-token-not-a-real-telegram-token'
 
@@ -77,19 +78,25 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
         await admin.execute('CREATE SCHEMA '+schema)
         pool=await asyncpg.create_pool(dsn,min_size=1,max_size=4,server_settings={'search_path':schema})
         await migrate(pool)
-        cfg=Config(token=FIXTURE_TOKEN,mode='mock',access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),
-                   payments_enabled=False,generation_enabled=False,storage=tmp_path/'storage')
+        cfg=Config(token=FIXTURE_TOKEN,mode='clodex',access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),
+                   clodex_music_owner=100, clodex_music_live=True, admin_password='fixture-password',
+                   payments_enabled=False,generation_enabled=True,economy_verified=True,clodex_key='fixture-only',
+                   public_image_models=('clodex:flux-schnell',),interaction_limit=100,storage=tmp_path/'storage',
+                   miniapp_url=f'https://localhost:{tls_port}/', interaction_mode='live', video_pilot=True, speech_pilot=True, clodex_model='eleven_v4',
+                   catalogue_path=str(tmp_path/'catalogue.json'))
         telegram=TelegramApp(pool,cfg,Bot())
         await telegram.handle(event('/start'))
-        await telegram.handle(event(callback='accept'))
+        await telegram.handle(event(callback=telegram.bot.sent[-1][1].inline_keyboard[0][0].callback_data))
         owner=await telegram.svc.identity(100)
         tester=await telegram.svc.identity(101);await telegram.svc.accept(tester)
         assert await pool.fetchval("SELECT count(*) FROM identities WHERE platform='telegram' AND external_id=100")==1
         assert await pool.fetchval('SELECT count(*) FROM wallets WHERE user_id=$1',owner)==2
         assert not telegram.has_admin_session(101)
 
+        pending_jobs=[]
+
         async def start_backend(config):
-            app=create_app(pool,config)
+            app=create_app(pool,config,view=telegram if config is cfg else None,job_scheduler=pending_jobs.append)
             async def observed(request):
                 return web.json_response({k:request.headers.get(k,'') for k in
                     ('Host','Forwarded','X-Forwarded-For','X-Forwarded-Proto','X-Forwarded-Host')})
@@ -160,10 +167,7 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
             headers={'Authorization':'Bearer '+owner_token}
             assert (await client.get(base+'/api/v1/wallet',headers=headers)).status==200
             assert (await client.get(base+'/api/v1/admin',headers={'Authorization':'Bearer '+tester_token})).status==404
-            work=await telegram.svc.save_image_work(owner,9001,'fixture','fixture',
-                        type('Image',(),{'image':b'fixture-image','filename':'test.png'})())
-            foreign=await client.get(base+'/api/v1/works/image/'+str(work),headers={'Authorization':'Bearer '+tester_token})
-            assert foreign.status==404
+            await check_miniapp_journey(telegram,owner,tester,base,cert,client,pending_jobs)
             assert (await client.post(base+'/api/v1/session',data='x'*13000,headers={'Content-Type':'application/json'})).status==413
             crash=await client.get(base+'/api/v1/_op01-error');crash_body=await crash.text()
             assert crash.status==500 and 'Traceback' not in crash_body and 'fixture-exception-marker' not in crash_body
