@@ -78,6 +78,10 @@ async def test_https_proxy_security_and_shared_postgres(tmp_path, caplog):
         await admin.execute('CREATE SCHEMA '+schema)
         pool=await asyncpg.create_pool(dsn,min_size=1,max_size=4,server_settings={'search_path':schema})
         await migrate(pool)
+        migration = await pool.fetchval("SELECT sha256 FROM schema_migrations WHERE version='044_miniapp_music_session.sql'")
+        assert migration and await pool.fetchval("SELECT to_regclass('miniapp_music_sessions') IS NOT NULL")
+        await migrate(pool)
+        assert await pool.fetchval("SELECT sha256 FROM schema_migrations WHERE version='044_miniapp_music_session.sql'") == migration
         cfg=Config(token=FIXTURE_TOKEN,mode='clodex',access_mode='private',admin_ids=(100,),pilot_user_ids=(101,),
                    clodex_music_owner=100, clodex_music_live=True, admin_password='fixture-password',
                    payments_enabled=False,generation_enabled=True,economy_verified=True,clodex_key='fixture-only',

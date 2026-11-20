@@ -19,7 +19,7 @@ class LibraryItem:
     @classmethod
     def from_history(cls, row: Any):
         return cls(id=str(row['id']), kind=row['kind'], model=row['model_id'],
-                   status=row['status'], available=bool(row['file_available']),
+                   status=row['status'], available=result_url(row) is not None,
                    created_at=row['created_at'],
                    price=str(row['price']) if row['price'] is not None else None,
                    result_url=result_url(row))

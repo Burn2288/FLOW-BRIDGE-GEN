@@ -1,0 +1,23 @@
+name: FT031 TG01 TG03 integration
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Navigation, migration, wallet and media regression
+        run: >-
+          docker compose -p ft031-${{ github.run_id }} -f compose.test.yaml run --build --rm tests
+          sh -ec 'sh scripts/check-pg16-tools.sh && python -m pytest -q -ra -p no:cacheprovider
+          tests/test_ft031_tg01_integration.py tests/test_navigation.py tests/test_admin_access.py
+          tests/test_broadcasts.py tests/test_topups.py
+          tests/test_wallet_profile.py tests/test_telegram_consent.py tests/test_ft023_combined.py
+          tests/test_ft028_payment_image.py tests/test_ft030_library_integrity.py'
+      - name: Remove disposable services
+        if: always()
+        run: docker compose -p ft031-${{ github.run_id }} -f compose.test.yaml down --remove-orphans
