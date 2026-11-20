@@ -1,0 +1,402 @@
+{
+  "schema_version": "au01-candidate-v1",
+  "contract_status": "DESIGN_DRAFT",
+  "snapshot_main_sha": "144bfe02fa8e63bc2209f2a5aa104ad1c5f5547c",
+  "snapshot_utc": "2026-11-17",
+  "scope": "Six specified Burn2288 technical/evidence packages; not a complete historical inventory.",
+  "evidence_catalog": [
+    {
+      "id": "E-1",
+      "task_id": "IN-19-PREFLIGHT-BATCH-01",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": null,
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+      "audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/6",
+      "audit_sha": "2072b03bd31894a304d4ad39235ec0fd1d504281",
+      "report_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/blob/2072b03bd31894a304d4ad39235ec0fd1d504281/independent-audits/burn2288/IN-19-PREFLIGHT-BATCH-01/REPORT.md",
+      "verdict_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/6#issuecomment-6951045809",
+      "verification": "GITHUB_API_VERIFIED_AT_SNAPSHOT",
+      "report_git_blob_sha": "083096cb335f7f301813eb1f879c7696887024ce",
+      "revision": 1
+    },
+    {
+      "id": "E-2",
+      "task_id": "IN-19-EVIDENCE-CLOSURE-BATCH-01",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": null,
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+      "audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/7",
+      "audit_sha": "89bce1e8f5140076e0c3b3fef7fc7a48e2beeb74",
+      "report_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/blob/89bce1e8f5140076e0c3b3fef7fc7a48e2beeb74/independent-audits/burn2288/IN-19-EVIDENCE-CLOSURE-BATCH-01/REPORT.md",
+      "verdict_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/7#issuecomment-6951436720",
+      "verification": "GITHUB_API_VERIFIED_AT_SNAPSHOT",
+      "report_git_blob_sha": "d23cba2ba254afcd0da2a9ec42c26b7bded3a2bc",
+      "revision": 1
+    },
+    {
+      "id": "E-3",
+      "task_id": "IN-19-POSTGRESQL-REGRESSION-01",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": "541b9f73fdcf9a5cc6bb836f43148a4e59c9dab8",
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/23",
+      "audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/8",
+      "audit_sha": "1c73ef05111451660227ae3e4cc8e00f3304f960",
+      "report_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/blob/1c73ef05111451660227ae3e4cc8e00f3304f960/independent-audits/burn2288/IN-19-POSTGRESQL-REGRESSION-01/REPORT.md",
+      "verdict_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/8#issuecomment-6952025493",
+      "verification": "GITHUB_API_VERIFIED_AT_SNAPSHOT",
+      "report_git_blob_sha": "a4bfa9a6280d011e87647408f11a0f2af6824695",
+      "revision": 1
+    },
+    {
+      "id": "E-4",
+      "task_id": "IN-19-SEC-PILOT-S2-BATCH-01",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": "90f7eccfd3d5ff293d606499d6bd96e425839b8a",
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/24",
+      "audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/9",
+      "audit_sha": "2062c2c55014770b27e96fed731ba7e6d5f08b79",
+      "report_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/blob/2062c2c55014770b27e96fed731ba7e6d5f08b79/independent-audits/burn2288/IN-19-SEC-PILOT-S2-BATCH-01/REPORT.md",
+      "verdict_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/9#issuecomment-6952722353",
+      "verification": "GITHUB_API_VERIFIED_AT_SNAPSHOT",
+      "report_git_blob_sha": "80b1d5ecb0ae0d829013e4b895f14d8fd8096d61",
+      "revision": 1
+    },
+    {
+      "id": "E-5",
+      "task_id": "ML-01-IMAGE-RECOVERY-BATCH-01",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": "9bd04dce0b4f16afca76f496a13e604a3e04d31e",
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/25",
+      "audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/10",
+      "audit_sha": "8e50234d9f9f1fced3a2ccd6a0cfd98a90a117bf",
+      "report_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/blob/8e50234d9f9f1fced3a2ccd6a0cfd98a90a117bf/independent-audits/burn2288/ML-01-IMAGE-RECOVERY-BATCH-01/REPORT.md",
+      "verdict_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/10#issuecomment-6953903755",
+      "verification": "GITHUB_API_VERIFIED_AT_SNAPSHOT",
+      "report_git_blob_sha": "2e63a87384548f13c70c6ba1298e2a97ab7a39f2",
+      "revision": 1
+    },
+    {
+      "id": "E-6",
+      "task_id": "TQ-01-CI-REGRESSION-BATCH-01",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": "3d8f70863f308d6e17aae55b79c92cd911e6881a",
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26",
+      "audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/11",
+      "audit_sha": "b8758fd78d9c34b101c6597fe8cc099fca7c56fd",
+      "report_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/blob/b8758fd78d9c34b101c6597fe8cc099fca7c56fd/independent-audits/burn2288/TQ-01-CI-REGRESSION-BATCH-01/REPORT.md",
+      "verdict_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/11#issuecomment-6954480564",
+      "verification": "GITHUB_API_VERIFIED_AT_SNAPSHOT",
+      "report_git_blob_sha": "78aa6756ca0c69a7d7333b176ae51e23798d4a45",
+      "revision": 1
+    }
+  ],
+  "entries": [
+    {
+      "task_id": "IN-19-PREFLIGHT-BATCH-01",
+      "revision": 1,
+      "developer": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": null,
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+      "private_audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/6",
+      "evidence_id": "E-1",
+      "ci": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469582",
+          "tested_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+          "status": "SUCCESS",
+          "checkout_sha": "56f96b310a01b4d96026247b34caea2a6b842fc7",
+          "tree_relation": "SYNTHETIC_EQUAL_TREE",
+          "tree_proof_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/d691d54e0266c3d519d66575555fa45895ef40ac...56f96b310a01b4d96026247b34caea2a6b842fc7"
+        }
+      ],
+      "independent_verdict": "EVIDENCE_PASS / TECHNICAL_PREFLIGHT_PARTIAL / IN-19_NOT_ACCEPTED",
+      "evidence_status": "PARTIAL",
+      "shared_files": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/telegram.py"
+      ],
+      "review_ids": [
+        "R-PROVIDERS",
+        "R-INTEGRATION"
+      ],
+      "dependencies": [
+        "IN-01",
+        "IN-18",
+        "IN-19"
+      ],
+      "blockers": [
+        "IN-18_PENDING",
+        "PEER_REVIEW_DEFERRED",
+        "OWNER_AUTHORIZED_INTEGRATION_PENDING"
+      ],
+      "peer_review": "PEER_REVIEW_DEFERRED",
+      "integration_status": "NOT_INTEGRATED",
+      "acceptance_status": "NOT_ACCEPTED",
+      "candidate_dependencies": []
+    },
+    {
+      "task_id": "IN-19-EVIDENCE-CLOSURE-BATCH-01",
+      "revision": 1,
+      "developer": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": null,
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+      "private_audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/7",
+      "evidence_id": "E-2",
+      "ci": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/43759469582",
+          "tested_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+          "status": "SUCCESS",
+          "checkout_sha": "56f96b310a01b4d96026247b34caea2a6b842fc7",
+          "tree_relation": "SYNTHETIC_EQUAL_TREE",
+          "tree_proof_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/d691d54e0266c3d519d66575555fa45895ef40ac...56f96b310a01b4d96026247b34caea2a6b842fc7"
+        }
+      ],
+      "independent_verdict": "EVIDENCE_ACCEPTED / IN-19_PARTIAL / NO_MERGE_AUTHORIZATION",
+      "evidence_status": "PARTIAL",
+      "shared_files": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/telegram.py",
+        "miniapp/backend/web.py"
+      ],
+      "review_ids": [
+        "R-HTTP",
+        "R-MIGRATIONS",
+        "R-SECURITY",
+        "R-INTEGRATION"
+      ],
+      "dependencies": [
+        "IN-01",
+        "IN-18",
+        "IN-19"
+      ],
+      "blockers": [
+        "IN-18_PENDING",
+        "PEER_REVIEW_DEFERRED",
+        "OWNER_AUTHORIZED_INTEGRATION_PENDING"
+      ],
+      "peer_review": "PEER_REVIEW_DEFERRED",
+      "integration_status": "NOT_INTEGRATED",
+      "acceptance_status": "NOT_ACCEPTED",
+      "candidate_dependencies": []
+    },
+    {
+      "task_id": "IN-19-POSTGRESQL-REGRESSION-01",
+      "revision": 1,
+      "developer": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": "541b9f73fdcf9a5cc6bb836f43148a4e59c9dab8",
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/23",
+      "private_audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/8",
+      "evidence_id": "E-3",
+      "ci": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44110005421",
+          "tested_sha": "541b9f73fdcf9a5cc6bb836f43148a4e59c9dab8",
+          "status": "SUCCESS",
+          "checkout_sha": "541b9f73fdcf9a5cc6bb836f43148a4e59c9dab8",
+          "tree_relation": "EXACT_HEAD"
+        }
+      ],
+      "independent_verdict": "TEST_FIXTURE_AUDIT_PASS / SEEDED_013_018_CLOSED_FOR_SYNTHETIC_SCOPE / IN-19_PARTIAL",
+      "evidence_status": "TEST_EVIDENCE_PASS",
+      "shared_files": [
+        "verification/in19/test_seeded_upgrade.py",
+        "migrations/001_initial.sql",
+        "migrations/039_inbox_unprocessed.sql"
+      ],
+      "review_ids": [
+        "R-WALLET",
+        "R-MIGRATIONS",
+        "R-PROVIDERS",
+        "R-INTEGRATION"
+      ],
+      "dependencies": [
+        "IN-18",
+        "IN-19"
+      ],
+      "blockers": [
+        "IN-18_PENDING",
+        "PEER_REVIEW_DEFERRED",
+        "OWNER_AUTHORIZED_INTEGRATION_PENDING"
+      ],
+      "peer_review": "PEER_REVIEW_DEFERRED",
+      "integration_status": "NOT_INTEGRATED",
+      "acceptance_status": "NOT_ACCEPTED",
+      "candidate_dependencies": []
+    },
+    {
+      "task_id": "IN-19-SEC-PILOT-S2-BATCH-01",
+      "revision": 1,
+      "developer": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": "90f7eccfd3d5ff293d606499d6bd96e425839b8a",
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/24",
+      "private_audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/9",
+      "evidence_id": "E-4",
+      "ci": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44114583536",
+          "tested_sha": "90f7eccfd3d5ff293d606499d6bd96e425839b8a",
+          "status": "SUCCESS",
+          "checkout_sha": "90f7eccfd3d5ff293d606499d6bd96e425839b8a",
+          "tree_relation": "EXACT_HEAD"
+        }
+      ],
+      "independent_verdict": "TEST_EVIDENCE_PASS / INTEGRATION_BLOCKED_FOR_PEER_REVIEW",
+      "evidence_status": "TEST_EVIDENCE_PASS",
+      "shared_files": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/core.py",
+        "src/elevenbot/config.py",
+        "miniapp/backend/web.py",
+        "compose.test.yaml"
+      ],
+      "review_ids": [
+        "R-TELEGRAM",
+        "R-HTTP",
+        "R-WALLET",
+        "R-SECURITY",
+        "R-INTEGRATION"
+      ],
+      "dependencies": [
+        "IN-18",
+        "IN-19"
+      ],
+      "blockers": [
+        "IN-18_PENDING",
+        "PEER_REVIEW_DEFERRED",
+        "OWNER_AUTHORIZED_INTEGRATION_PENDING"
+      ],
+      "peer_review": "PEER_REVIEW_DEFERRED",
+      "integration_status": "NOT_INTEGRATED",
+      "acceptance_status": "NOT_ACCEPTED",
+      "candidate_dependencies": []
+    },
+    {
+      "task_id": "ML-01-IMAGE-RECOVERY-BATCH-01",
+      "revision": 1,
+      "developer": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": "9bd04dce0b4f16afca76f496a13e604a3e04d31e",
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/25",
+      "private_audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/10",
+      "evidence_id": "E-5",
+      "ci": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44123277439",
+          "tested_sha": "9bd04dce0b4f16afca76f496a13e604a3e04d31e",
+          "status": "SUCCESS",
+          "checkout_sha": "9bd04dce0b4f16afca76f496a13e604a3e04d31e",
+          "tree_relation": "EXACT_HEAD"
+        }
+      ],
+      "independent_verdict": "TEST_EVIDENCE_PASS / DELIVERY_SAFETY_CANDIDATE_ACCEPTED_FOR_TESTED_SCOPE / ML-01_FULL_ACCEPTANCE_DEFERRED",
+      "evidence_status": "TEST_EVIDENCE_PASS",
+      "shared_files": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/anymodel_image_jobs.py",
+        "src/elevenbot/image_delivery.py"
+      ],
+      "review_ids": [
+        "R-TELEGRAM",
+        "R-WALLET",
+        "R-PROVIDERS",
+        "R-INTEGRATION"
+      ],
+      "dependencies": [
+        "IN-18",
+        "IN-19",
+        "ML-01"
+      ],
+      "blockers": [
+        "IN-18_PENDING",
+        "PEER_REVIEW_DEFERRED",
+        "OWNER_AUTHORIZED_INTEGRATION_PENDING"
+      ],
+      "peer_review": "PEER_REVIEW_DEFERRED",
+      "integration_status": "NOT_INTEGRATED",
+      "acceptance_status": "NOT_ACCEPTED",
+      "candidate_dependencies": []
+    },
+    {
+      "task_id": "TQ-01-CI-REGRESSION-BATCH-01",
+      "revision": 1,
+      "developer": "Burn2288",
+      "source_sha": "d691d54e0266c3d519d66575555fa45895ef40ac",
+      "candidate_sha": "3d8f70863f308d6e17aae55b79c92cd911e6881a",
+      "public_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26",
+      "private_audit_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/pull/11",
+      "evidence_id": "E-6",
+      "ci": [
+        {
+          "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44126862014",
+          "tested_sha": "3d8f70863f308d6e17aae55b79c92cd911e6881a",
+          "status": "SUCCESS",
+          "checkout_sha": "3d8f70863f308d6e17aae55b79c92cd911e6881a",
+          "tree_relation": "EXACT_HEAD"
+        }
+      ],
+      "independent_verdict": "COMPOSITE_TEST_EVIDENCE_PASS / TQ-01_ISOLATED_PREPARATION_ACCEPTED / INTEGRATION_AND_PEER_DEFERRED / IN-01_IN-19_PARTIAL",
+      "evidence_status": "TEST_EVIDENCE_PASS",
+      "shared_files": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/core.py",
+        "miniapp/backend/web.py",
+        "src/elevenbot/anymodel_image_jobs.py",
+        "verification/in19/test_seeded_upgrade.py"
+      ],
+      "review_ids": [
+        "R-TELEGRAM",
+        "R-HTTP",
+        "R-WALLET",
+        "R-MIGRATIONS",
+        "R-PROVIDERS",
+        "R-SECURITY",
+        "R-INTEGRATION"
+      ],
+      "dependencies": [
+        "IN-18",
+        "IN-19",
+        "PR-23",
+        "PR-24",
+        "PR-25"
+      ],
+      "blockers": [
+        "IN-18_PENDING",
+        "PEER_REVIEW_DEFERRED",
+        "OWNER_AUTHORIZED_INTEGRATION_PENDING"
+      ],
+      "peer_review": "PEER_REVIEW_DEFERRED",
+      "integration_status": "NOT_INTEGRATED",
+      "acceptance_status": "NOT_ACCEPTED",
+      "candidate_dependencies": [
+        "IN-19-POSTGRESQL-REGRESSION-01",
+        "IN-19-SEC-PILOT-S2-BATCH-01",
+        "ML-01-IMAGE-RECOVERY-BATCH-01"
+      ]
+    }
+  ],
+  "related_prs": [
+    {
+      "task": "IN-01-PLANNING",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/20",
+      "head": "3815642b5abcf25b6c2206f72c29fd3b8928bdb0",
+      "status": "OPEN_NOT_INTEGRATED"
+    },
+    {
+      "task": "IN-01-FINAL-VERIFICATION",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/21",
+      "head": "535a99876070a2db9d6099f5fe2cd0c9f9caaccc",
+      "status": "OPEN_PARTIAL"
+    },
+    {
+      "task": "IN-18-BATCH-01",
+      "url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/22",
+      "head": "f4bb350bd6a82b7f43c2aa8769ed14b5025d5e46",
+      "status": "OPEN_NOT_INTEGRATED"
+    }
+  ]
+}

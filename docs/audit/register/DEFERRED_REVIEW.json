@@ -1,0 +1,221 @@
+{
+  "contract_status": "DESIGN_DRAFT",
+  "items": [
+    {
+      "id": "R-TELEGRAM",
+      "area": "Telegram",
+      "files": [
+        "src/elevenbot/telegram.py",
+        "src/elevenbot/anymodel_image_jobs.py"
+      ],
+      "public_prs": [
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/24",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/25",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26"
+      ],
+      "requirement": "Проверить границы writer, маршруты сообщений/callback и доставку после отказа.",
+      "risk": "Пересечение доступа и доставки может менять поведение чужого маршрута.",
+      "fix_owner": "Burn2288 предлагает исправление; writer общего файла согласовать с vankhu21.",
+      "evidence_ids": [
+        "E-4",
+        "E-5",
+        "E-6"
+      ],
+      "source_tasks": [
+        "IN-19-SEC-PILOT-S2-BATCH-01",
+        "ML-01-IMAGE-RECOVERY-BATCH-01",
+        "TQ-01-CI-REGRESSION-BATCH-01"
+      ],
+      "missing_checks": "Совместное ревью маршрутов и проверка на интеграционном SHA.",
+      "status": "PEER_REVIEW_DEFERRED"
+    },
+    {
+      "id": "R-HTTP",
+      "area": "HTTP/Mini App",
+      "files": [
+        "miniapp/backend/web.py",
+        "src/elevenbot/core.py"
+      ],
+      "public_prs": [
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/24",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26"
+      ],
+      "requirement": "Проверить подписи, сессии, допуск на каждом запросе и ownership.",
+      "risk": "Старая конфигурация или обход входа может сохранить доступ.",
+      "fix_owner": "Burn2288; границы HTTP и reviewer согласовать.",
+      "evidence_ids": [
+        "E-2",
+        "E-4",
+        "E-6"
+      ],
+      "source_tasks": [
+        "IN-19-EVIDENCE-CLOSURE-BATCH-01",
+        "IN-19-SEC-PILOT-S2-BATCH-01",
+        "TQ-01-CI-REGRESSION-BATCH-01"
+      ],
+      "missing_checks": "Проверить отзыв на всех процессах и прямые запросы на целевом SHA.",
+      "status": "PEER_REVIEW_DEFERRED"
+    },
+    {
+      "id": "R-WALLET",
+      "area": "Wallet/Ledger",
+      "files": [
+        "src/elevenbot/core.py",
+        "src/elevenbot/task_wallet.py",
+        "src/elevenbot/topups.py"
+      ],
+      "public_prs": [
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/23",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/24",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/25",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26"
+      ],
+      "requirement": "Проверить неизменность ledger, reserve/capture/release и поздние события оплаты.",
+      "risk": "Повторное списание, потеря события либо некорректная сверка.",
+      "fix_owner": "vankhu21 ведёт финансовый контракт; writer конкретного исправления согласовать.",
+      "evidence_ids": [
+        "E-3",
+        "E-4",
+        "E-5",
+        "E-6"
+      ],
+      "source_tasks": [
+        "IN-19-POSTGRESQL-REGRESSION-01",
+        "IN-19-SEC-PILOT-S2-BATCH-01",
+        "ML-01-IMAGE-RECOVERY-BATCH-01",
+        "TQ-01-CI-REGRESSION-BATCH-01"
+      ],
+      "missing_checks": "Согласовать обработку подтверждённых событий при отзыве и смене режима; проверить на интеграционном SHA.",
+      "status": "PEER_REVIEW_DEFERRED"
+    },
+    {
+      "id": "R-MIGRATIONS",
+      "area": "Migrations",
+      "files": [
+        "migrations/001_initial.sql",
+        "migrations/039_inbox_unprocessed.sql",
+        "verification/in19/test_seeded_upgrade.py"
+      ],
+      "public_prs": [
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/23",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26"
+      ],
+      "requirement": "Проверить порядок 001–039, checksum и восстановление с данными.",
+      "risk": "Синтетический fixture не охватывает все исторические базы.",
+      "fix_owner": "Burn2288 координирует номера; writer конкретной миграции — назначенный автор.",
+      "evidence_ids": [
+        "E-2",
+        "E-3",
+        "E-6"
+      ],
+      "source_tasks": [
+        "IN-19-EVIDENCE-CLOSURE-BATCH-01",
+        "IN-19-POSTGRESQL-REGRESSION-01",
+        "TQ-01-CI-REGRESSION-BATCH-01"
+      ],
+      "missing_checks": "Проверить поддерживаемые исторические состояния и восстановление на фактическом интеграционном SHA.",
+      "status": "PEER_REVIEW_DEFERRED"
+    },
+    {
+      "id": "R-PROVIDERS",
+      "area": "Provider/Jobs",
+      "files": [
+        "src/elevenbot/anymodel_image_jobs.py",
+        "src/elevenbot/image_delivery.py",
+        "src/elevenbot/worker.py"
+      ],
+      "public_prs": [
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/23",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/25",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26"
+      ],
+      "requirement": "Проверить сохранение результатов, один POST, предел повторов и notify_attempts=3.",
+      "risk": "Неизвестная доставка может совпасть с третьим отказом либо подавить уведомление после сбоя.",
+      "fix_owner": "Burn2288 для кандидата; границы worker/Telegram согласовать.",
+      "evidence_ids": [
+        "E-1",
+        "E-3",
+        "E-5",
+        "E-6"
+      ],
+      "source_tasks": [
+        "IN-19-PREFLIGHT-BATCH-01",
+        "IN-19-POSTGRESQL-REGRESSION-01",
+        "ML-01-IMAGE-RECOVERY-BATCH-01",
+        "TQ-01-CI-REGRESSION-BATCH-01"
+      ],
+      "missing_checks": "Проверить конкурирующие claims, lease, неопределённые ошибки и точки аварийного завершения.",
+      "status": "PEER_REVIEW_DEFERRED"
+    },
+    {
+      "id": "R-SECURITY",
+      "area": "Security",
+      "files": [
+        "src/elevenbot/admission.py",
+        "src/elevenbot/config.py",
+        "src/elevenbot/telegram.py",
+        "miniapp/backend/web.py"
+      ],
+      "public_prs": [
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/24",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26"
+      ],
+      "requirement": "Проверить отдельный tester allowlist, admin/RBAC и отзыв доступа.",
+      "risk": "Уже запущенный процесс использует устаревшую конфигурацию; завершение jobs после отзыва не определено.",
+      "fix_owner": "Burn2288 для access/RBAC; совместные границы согласовать.",
+      "evidence_ids": [
+        "E-2",
+        "E-4",
+        "E-6"
+      ],
+      "source_tasks": [
+        "IN-19-EVIDENCE-CLOSURE-BATCH-01",
+        "IN-19-SEC-PILOT-S2-BATCH-01",
+        "TQ-01-CI-REGRESSION-BATCH-01"
+      ],
+      "missing_checks": "Проверить координированную перезагрузку, in-flight jobs и границы аутентифицированных событий.",
+      "status": "PEER_REVIEW_DEFERRED"
+    },
+    {
+      "id": "R-INTEGRATION",
+      "area": "Интеграция и приёмка",
+      "files": [
+        "docs/audit/register/REGISTER.json",
+        "src/elevenbot/telegram.py"
+      ],
+      "public_prs": [
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/17",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/23",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/24",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/25",
+        "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/26"
+      ],
+      "requirement": "Сверить точные SHA, порядок PR и независимые gates до принятия.",
+      "risk": "Тестовый композит не объединяет историю PR #9–#17 и не равен принятой main.",
+      "fix_owner": "Burn2288 координирует; исправления — назначенный writer, второй reviewer.",
+      "evidence_ids": [
+        "E-1",
+        "E-2",
+        "E-3",
+        "E-4",
+        "E-5",
+        "E-6"
+      ],
+      "source_tasks": [
+        "IN-19-PREFLIGHT-BATCH-01",
+        "IN-19-EVIDENCE-CLOSURE-BATCH-01",
+        "IN-19-POSTGRESQL-REGRESSION-01",
+        "IN-19-SEC-PILOT-S2-BATCH-01",
+        "ML-01-IMAGE-RECOVERY-BATCH-01",
+        "TQ-01-CI-REGRESSION-BATCH-01"
+      ],
+      "missing_checks": "Дождаться IN-18, интеграционных решений владельца, полного peer review и CI фактического дерева.",
+      "status": "PEER_REVIEW_DEFERRED"
+    }
+  ]
+}
