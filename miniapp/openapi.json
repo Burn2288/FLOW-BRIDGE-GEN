@@ -168,6 +168,48 @@
         }
       }
     },
+    "/api/v1/referral": {
+      "get": {
+        "summary": "Собственный код приглашения и признак привязки",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Собственные сведения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{16}$"
+                    },
+                    "has_referrer": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "has_referrer"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет сессии"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        }
+      }
+    },
     "/api/v1/session": {
       "post": {
         "summary": "Получить сессию по подписанному Telegram initData",

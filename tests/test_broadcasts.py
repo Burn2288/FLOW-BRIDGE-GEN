@@ -13,6 +13,7 @@ from aiogram.types import MessageEntity, PhotoSize
 from elevenbot.aggregate import make_snapshot
 from elevenbot.anymodel import model_store
 from elevenbot.broadcasts import CAPTION_MEDIA, MEDIA, VISUAL_MEDIA, Broadcasts, BroadcastWorker, report_text, send_post
+from elevenbot.core import Rejected
 from elevenbot.discovery import SnapshotStore
 from elevenbot.pricing import NoProviderPrice, Pricing, Request
 from elevenbot.telegram import MENU, TelegramApp, buttons
@@ -144,6 +145,29 @@ async def exercise_broadcast_ui(pool, cfg, admin_chat=100):
     assert bot.answers[-1][1]['text'] == 'Админ-доступ закрыт.'
     print('BROADCAST_UI user_hidden=true admin_position=true back=true logout_denied=true '
           'photo_caption_entities=true one_delivery=true navigation_preserved=true')
+
+
+async def test_draft_attachment_after_logout_is_not_saved(env):
+    pool, cfg, svc, owner = env
+    cfg = replace(cfg, access_mode='private', admin_ids=(100,), admin_password='fixture-password')
+    bot = BroadcastTransport(pool)
+    app = TelegramApp(pool, cfg, bot)
+    await app.handle(event(601, '/admin'))
+    await app.handle(event(602, cfg.admin_password))
+    draft = await app.broadcasts.queue.draft(100)
+    await app.broadcasts.request_post(owner, 100, draft)
+    await app.handle(event(603, '/admin_logout'))
+    before = await pool.fetchrow('SELECT * FROM telegram_broadcasts WHERE id=$1', draft['id'])
+    deliveries = await pool.fetch('SELECT * FROM telegram_broadcast_deliveries')
+    update = event(604)
+    photo = PhotoSize(file_id='fixture-photo', file_unique_id='fixture', width=64, height=64)
+    message = update.message.model_copy(update={'text': None, 'caption': 'fixture', 'photo': [photo]})
+    await app.handle(update.model_copy(update={'message': message}))
+    with pytest.raises(Rejected, match='Войдите через /admin'):
+        await app.broadcasts.post(owner, 100, f"{draft['id']}:{draft['revision']}", message)
+    assert await pool.fetchrow('SELECT * FROM telegram_broadcasts WHERE id=$1', draft['id']) == before
+    assert await pool.fetch('SELECT * FROM telegram_broadcast_deliveries') == deliveries
+    assert not bot.posts
 
 
 async def test_broadcast_bulk_snapshot_restart_and_stop(env):

@@ -136,6 +136,10 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         row = await service.wallet(user)
         return web.json_response({key: str(row[key]) for key in ('available', 'reserved')})
 
+    async def referral(request):
+        user = await account(request)
+        return web.json_response(await service.referral_info(user))
+
     async def music_access(user):
         if not cfg.clodex_music_owner:
             return False
@@ -296,6 +300,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_get('/api/v1/wallet', wallet)
     from .stars import add_stars_routes
     add_stars_routes(app, service, account, cfg, view.bot)
+    app.router.add_get('/api/v1/referral', referral)
     app.router.add_get('/api/v1/settings', settings)
     app.router.add_put('/api/v1/settings', settings)
     app.router.add_get('/api/v1/works', history)

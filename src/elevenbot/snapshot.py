@@ -25,6 +25,10 @@ def verify(directory):
     manifest=json.loads((root/'manifest.json').read_text(encoding='utf-8'))
     if manifest.get('schema')!=1 or not isinstance(manifest.get('files'),dict):raise ValueError('Invalid backup manifest')
     if 'database.dump' not in manifest['files']:raise ValueError('Backup dump missing')
+    catalogue=manifest.get('catalogue')
+    if catalogue is not None:
+        if not isinstance(catalogue,dict) or type(catalogue.get('present')) is not bool:raise ValueError('Invalid catalogue manifest')
+        if catalogue['present']!=('catalogue/models.json' in manifest['files']):raise ValueError('Catalogue manifest mismatch')
     for name,sha in manifest['files'].items():
         path=root/name
         if Path(name).is_absolute() or '..' in Path(name).parts or path.is_symlink() or not path.resolve().is_relative_to(root) or not path.is_file() or digest(path)!=sha:raise ValueError('Backup integrity failure')
@@ -61,20 +65,32 @@ async def backup(config,output):
             if p.suffix!='.mp3':continue
             dest=target/p.name;shutil.copyfile(p,dest);os.chmod(dest,0o600)
             with dest.open('rb') as f:os.fsync(f.fileno())
+    catalogue_present=False
+    if values.get('CATALOGUE_PATH'):
+        catalogue=Path(values['CATALOGUE_PATH'])
+        if not catalogue.is_absolute():catalogue=Path(config).resolve().parent/catalogue
+        if catalogue.resolve()==Path(config).resolve() or catalogue.name.endswith('.env') or catalogue.name=='.env':raise ValueError('Runtime configuration cannot be a catalogue')
+        if catalogue.is_symlink():raise ValueError('Catalogue symlink forbidden')
+        if catalogue.exists():
+            if not catalogue.is_file():raise ValueError('Invalid catalogue file')
+            folder=root/'catalogue';folder.mkdir(mode=0o700)
+            dest=folder/'models.json';shutil.copyfile(catalogue,dest);os.chmod(dest,0o600)
+            with dest.open('rb') as f:os.fsync(f.fileno())
+            catalogue_present=True
     files={str(p.relative_to(root)):digest(p) for p in root.rglob('*') if p.is_file()}
     fd=os.open(root/'manifest.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
     with os.fdopen(fd,'w',encoding='utf-8') as f:
-        json.dump({'schema':1,'files':files,'scope':'private database and audio; runtime configuration not included'},f,indent=2)
+        json.dump({'schema':1,'files':files,'catalogue':{'present':catalogue_present},'scope':'private database, audio and optional catalogue; runtime configuration not included'},f,indent=2)
         f.flush();os.fsync(f.fileno())
     verify(root)
     if os.name!='nt':
         fd=os.open(root,os.O_RDONLY)
         try:os.fsync(fd)
         finally:os.close(fd)
-    return {'status':'BACKUP_CREATED','file_count':len(files),'requires_quiesced_services':True}
+    return {'status':'BACKUP_CREATED','file_count':len(files),'catalogue_present':catalogue_present,'requires_quiesced_services':True}
 
-async def restore_drill(directory,migration_config,password,admin_user="postgres"):
-    root=Path(directory).resolve();verify(root)
+async def restore_drill(directory,migration_config,password,admin_user="postgres",*,validator=None):
+    root=Path(directory).resolve();manifest=verify(root)
     values=parse_env_file(migration_config);owner=urlsplit(values['DATABASE_URL']);owner_name=unquote(owner.username or '');identifier(owner_name)
     name='darkflow_restore_'+uuid.uuid4().hex;identifier(name)
     admin_dsn=connection_url(owner.hostname,owner.port or 5432,admin_user,password,'postgres')
@@ -103,8 +119,9 @@ async def restore_drill(directory,migration_config,password,admin_user="postgres
             if await Service(pool,Config()).reconcile():raise RuntimeError('Restored financial mismatch')
             rows=await pool.fetch('SELECT storage_key,sha256 FROM files WHERE deleted_at IS NULL AND expires_at>now()')
             verify_database_audio(rows,root/'audio')
+            if validator is not None:await validator(pool,root)
         finally:await pool.close()
-        return {'status':'RESTORE_DRILL_PASS','live_database_changed':False,'restored_copy_halted':True,'audio_hashes_verified':True,'scratch_database_removed':True}
+        return {'status':'RESTORE_DRILL_PASS','live_database_changed':False,'restored_copy_halted':True,'audio_hashes_verified':True,'catalogue_hash_verified':manifest.get('catalogue',{}).get('present',False),'scratch_database_removed':True}
     finally:
         try:
             if created:await admin.execute(f'DROP DATABASE {identifier(name)} WITH (FORCE)')

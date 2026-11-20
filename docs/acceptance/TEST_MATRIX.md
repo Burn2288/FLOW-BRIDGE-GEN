@@ -1,5 +1,17 @@
 # Матрица приёмки
 
+## Функционально-тестовый кандидат
+
+Текущий режим и границы — [FUNCTIONAL_TEST](../planning/COMPLETION_LEVELS.md). В непринятом [PR #75 на `856a6b4407dc91e0f25e016d5f18d12aa2dcd0d4`](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/75) имеются срезы общего backend, HTTP image и Telegram music. Существование реализации не означает принятия всей задачи или live-проверки.
+
+| Доказательство | Точный проверенный SHA и область |
+| --- | --- |
+| [FT-025: 15 mock/PostgreSQL тестов](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44530375934), [S2: 595 тестов](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44530376040) | `856a6b4407dc91e0f25e016d5f18d12aa2dcd0d4`; mock CLODEX/Fal, история, изоляция и S2. |
+| [FT-024: 14 тестов backup/restore](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44524865054), [S2: 594 теста](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44524864501) | `4edef7a3533b81e8404324fa57e5ff38bd091083`; изолированные данные, одна картинка и один MP3. |
+| [FT-023: 85 совместных тестов](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44516245892), [S2: 593 теста](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44516245668) | `294f1ede1252f04162b079460f3914a7d5640753`; версия модели, тариф и HTTP image на PostgreSQL. |
+
+Эти результаты не являются повторным запуском на другом SHA. Ручные Telegram/WebView, внешние live API и реальные платежи отложены. Глобальный аудит и merge — отдельная приёмка; подробные пакеты учитываются в приватном реестре. Требования коммерческого пилота ниже сохранены как более высокий уровень.
+
 | Набор | Минимальные проверки | Начальный статус |
 | --- | --- | --- |
 | Документация | Относительные ссылки и обязательные документы, одинаковые команды локально и в Actions. | По результату CI на SHA PR. |

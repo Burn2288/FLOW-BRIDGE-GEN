@@ -84,7 +84,8 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await page.goto(keyboard_url if external == 100 else inline_url)
                 session = await login.value
                 assert session.status == 200
-                session_token = (await session.json())['token']
+                original_token = (await session.json())['token']
+                session_token = original_token
                 if external == 101:
                     tester_headers = {'Authorization': 'Bearer ' + session_token}
                     await expect(page.get_by_role('status').first).to_have_text(
@@ -120,12 +121,20 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     video_job = await check_veo_video(page, telegram, owner, pending_jobs)
                     speech_job = await check_speech(page, telegram, owner, pending_jobs)
                     music_job = await check_music(page, telegram, owner, client, base, session_token)
+                    # A different signed Telegram launch must obtain its own session.
+                    launch_data = signed(cfg.token, external, query_id='ma01-other-launch')
+                    async with page.expect_response(lambda response: response.url == base + '/api/v1/session') as login:
+                        await page.reload()
+                    replacement = await login.value
+                    assert replacement.status == 200
+                    assert (await replacement.json())['token'] != original_token
                 else:
                     await expect(page.get_by_role('button', name='Выбрать Veo', include_hidden=True)).to_have_count(0)
                     denied = await client.post(base + '/api/v1/quotes', headers=tester_headers,
                                                json={'model': 'clodex-video/veo-3.1', 'prompt': 'fixture'})
                     assert denied.status == 403
                     assert (await client.get(base + '/api/v1/works/video/' + video_job, headers=tester_headers)).status == 404
+                    assert (await client.get(base + '/api/v1/jobs/' + video_job, headers=tester_headers)).status == 404
                     assert (await client.get(base + '/api/v1/works/audio/' + speech_job, headers=tester_headers)).status == 404
                     assert (await client.get(base + '/api/v1/works/music/' + music_job, headers=tester_headers)).status == 404
                     await check_job_card(page, telegram.pool, tester)
@@ -206,6 +215,24 @@ async def check_job_card(page, pool, tester):
     ledger = await pool.fetch('SELECT kind, dr FROM ledger WHERE user_id=$1 AND task_quote_id=$2::uuid ORDER BY kind',
                               tester, job)
     assert [tuple(row) for row in ledger] == [('task_release', -10), ('task_reserve', 10)]
+
+    # An unknown provider outcome must remain visible without offering cancellation.
+    await page.get_by_role('button', name='Каталог').click()
+    await page.get_by_label('Описание изображения').fill('Неопределённый результат')
+    await page.get_by_role('button', name='Рассчитать стоимость').click()
+    await page.get_by_role('button', name='Подтвердить за 10 токенов').click()
+    await expect(page.locator('.image-form [role=status]')).to_have_text('Задание принято.')
+    uncertain = str(await pool.fetchval("""SELECT quote_id FROM http_image_commands
+        WHERE user_id=$1 AND quote_id<>$2::uuid""", tester, job))
+    await pool.execute("UPDATE task_dispatch SET state='uncertain' WHERE quote_id=$1::uuid", uncertain)
+    await page.get_by_role('button', name='Мои работы').click()
+    await page.get_by_role('button', name='Открыть задание ' + uncertain, exact=True).click()
+    await expect(page.locator('#job-status')).to_have_text('Результат пока неизвестен')
+    await expect(cancel).to_have_count(0)
+    await page.reload()
+    await expect(page.locator('#job-status')).to_have_text('Результат пока неизвестен')
+    await expect(cancel).to_have_count(0)
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_release'", uncertain) == 0
 
 
 async def compare_model_cards(page, telegram, owner, tester):
@@ -304,10 +331,13 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     confirm = card.get_by_role('button', name='Подтвердить за 450 токенов')
     await expect(confirm).to_be_visible()
     assert calls == [('POST', '/v1/videos/estimate')]
-    await confirm.click()
+    assert not await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id WHERE q.user_id=$1 AND q.operation='video'", owner)
+    await confirm.dblclick()
     await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
     job = await page.locator('#job-id').inner_text()
     assert len(pending_jobs) == 1
+    assert await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch WHERE quote_id=$1::uuid", job) == 1
+    assert await telegram.pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_reserve'", job) == 1
     await pending_jobs.pop()()
     await page.get_by_role('button', name='Обновить статус').click()
     await expect(page.locator('#job-status')).to_have_text('Передано исполнителю')
@@ -331,6 +361,11 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     assert chat == 100 and upload.data == mp4
     assert calls.count(('POST', '/v1/videos')) == 1
     assert calls.count(('GET', '/v1/videos/veo-fixture/content')) == 1
+    # The bot's maintenance loop settles terminal work independently of polling.
+    from elevenbot.task_wallet import settle_task_tokens
+    await settle_task_tokens(telegram.pool)
+    await settle_task_tokens(telegram.pool)
+    assert await telegram.pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_capture'", job) == 1
     return job
 
 
@@ -364,9 +399,11 @@ async def check_speech(page, telegram, owner, pending_jobs):
     await card.get_by_role('button', name='Рассчитать стоимость').click()
     confirm = card.get_by_role('button', name='Подтвердить за 80 токенов')
     await expect(confirm).to_be_visible()
-    await confirm.click()
+    assert not await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch d JOIN task_price_quotes q ON q.id=d.quote_id WHERE q.user_id=$1 AND q.operation='audio.speech'", owner)
+    await confirm.dblclick()
     await expect(page.locator('#job-status')).to_have_text('Ожидает запуска')
     job = await page.locator('#job-id').inner_text()
+    assert await telegram.pool.fetchval("SELECT count(*) FROM task_dispatch WHERE quote_id=$1::uuid", job) == 1
     posts = []
     def provider(request):
         assert request.method == 'POST' and request.url.path == '/v1/audio/speech'
@@ -439,7 +476,8 @@ async def check_music(page, view, owner, client, base, token):
         await page.get_by_role('button', name='Каталог').click()
         await page.reload()
         card = page.locator('#models > li').filter(has_text='Leonardo Music')
-        await expect(card).to_contain_text('Лицензия не указана')
+        for limit in ('Одна попытка', 'Один MP3', 'До 5000 символов', 'Хранение 7 дней', 'Лицензия не указана'):
+            await expect(card).to_contain_text(limit)
         await card.get_by_role('button', name='Выбрать Leonardo Music').click()
         await card.get_by_label('Описание трека').fill(prompt)
         async with page.expect_response(lambda r: r.url.endswith('/api/v1/quotes')) as quoted:
@@ -477,6 +515,42 @@ async def check_music(page, view, owner, client, base, token):
             assert args[0] == 100 and args[1].data == mp3
         assert await counts() == (1, 1) and len(creates) == 1
         assert tuple(await bot.music.balance(owner)) == (0, 0)
+        assert not await view.pool.fetchval('SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid', job)
+
+        # Expire both the process-local session and its server-side proof without logout.
+        before_job = await view.pool.fetchrow('SELECT * FROM clodex_music_jobs WHERE id=$1::uuid', job)
+        before_ledger = await view.pool.fetch('SELECT * FROM clodex_music_ledger ORDER BY user_id,kind,provider')
+        before_wallet = await view.pool.fetch('SELECT * FROM ledger ORDER BY id')
+        before_quotes = await view.pool.fetch('SELECT * FROM task_price_quotes ORDER BY id')
+        assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 200
+        visible = await (await client.get(base + '/api/v1/works', headers=headers)).json()
+        assert any(item['id'] == job for item in visible['works'])
+        await view.pool.execute("UPDATE miniapp_music_sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE chat_id=100")
+        from elevenbot import admin_access
+        bot.admin_access.sessions[100] = (admin_access.monotonic() - 1, bot.admin_access.sessions[100][1])
+        assert not await view.music.miniapp_access(view.pool, 100)
+        assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
+        assert (await client.post(base + '/api/v1/quotes', headers=headers,
+                                  json={'model': MODEL, 'prompt': prompt})).status == 403
+        catalogue_response = await client.get(base + '/api/v1/catalogue', headers=headers)
+        history_response = await client.get(base + '/api/v1/works', headers=headers)
+        assert catalogue_response.status == history_response.status == 200
+        catalogue, history = await catalogue_response.json(), await history_response.json()
+        assert not any(item['id'] == MODEL for item in catalogue['models'])
+        assert not any(item['id'] == job for item in history['works'])
+        assert await view.pool.fetchrow('SELECT * FROM clodex_music_jobs WHERE id=$1::uuid', job) == before_job
+        assert await view.pool.fetch('SELECT * FROM clodex_music_ledger ORDER BY user_id,kind,provider') == before_ledger
+        assert await view.pool.fetch('SELECT * FROM ledger ORDER BY id') == before_wallet
+        assert await view.pool.fetch('SELECT * FROM task_price_quotes ORDER BY id') == before_quotes
+        assert len(creates) == 1
+        await bot.handle(event(4307, '/admin'))
+        await bot.handle(event(4308, bot.cfg.admin_password))
+        restored = await client.get(base + '/api/v1/works/music/' + job, headers=headers)
+        assert restored.status == 200 and await restored.read() == mp3
+        assert await view.music.miniapp_access(view.pool, 100)
+        visible_again = await (await client.get(base + '/api/v1/works', headers=headers)).json()
+        assert any(item['id'] == job for item in visible_again['works'])
         await bot.handle(event(4309, '/admin_logout'))
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
         return job
+
