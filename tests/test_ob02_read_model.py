@@ -69,21 +69,16 @@ async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(
         INSERT INTO quotes(id,user_id,mode,text_content,voice,speed,price,cost_bound,tariff,created_at)
         VALUES($1,$2,'demo','private legacy prompt','legacy-fixture-model',1,10,10,'fixture',$3)
         """,legacy_quote,owner,legacy_at)
-    await pool.execute("""
-        INSERT INTO jobs(id,user_id,quote_id,mode,price,cost_bound,budget_day,status,model_id,created_at)
-        VALUES($1,$2,$3,'demo',10,10,$4,'queued','legacy-fixture-model',$5)
-        """,legacy_job,owner,legacy_quote,budget_day,legacy_at)
-    await pool.execute("""
-        INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr,job_id,created_at)
-        VALUES(gen_random_uuid(),$1,'demo',$2,'reserve',-10,10,$3,$4)
-        """,owner,f'ob02:legacy-reserve:{legacy_job}',legacy_job,legacy_at)
-    await pool.execute("""
-        INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr,job_id,created_at)
-        VALUES(gen_random_uuid(),$1,'demo',$2,'capture',0,-10,$3,$4)
-        """,owner,f'ob02:legacy-capture:{legacy_job}',legacy_job,legacy_at)
-    await pool.execute("""
-        UPDATE jobs SET status='succeeded',settlement='capture',completed_at=$2 WHERE id=$1
-        """,legacy_job,legacy_at)
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute("""
+            INSERT INTO jobs(id,user_id,quote_id,mode,price,cost_bound,budget_day,status,model_id,created_at)
+            VALUES($1,$2,$3,'demo',10,10,$4,'queued','legacy-fixture-model',$5)
+            """,legacy_job,owner,legacy_quote,budget_day,legacy_at)
+        await service.movement(conn,owner,'demo',f'ob02:legacy-reserve:{legacy_job}','reserve',-10,10,legacy_job)
+        await service.movement(conn,owner,'demo',f'ob02:legacy-capture:{legacy_job}','capture',0,-10,legacy_job)
+        await conn.execute("""
+            UPDATE jobs SET status='succeeded',settlement='capture',completed_at=$2 WHERE id=$1
+            """,legacy_job,legacy_at)
     q_success=await _quote(pool,owner,'clodex','video-a','video.generate',start,estimate=False)
     q_failed=await _quote(pool,second,'clodex','video-b','video.generate',start+timedelta(hours=25))
     q_uncertain=await _quote(pool,owner,'anymodel','image-a','images.generate',start+timedelta(hours=1))
@@ -208,4 +203,3 @@ async def test_window_validation_fails_before_database_access(start,end,timezone
             raise AssertionError('invalid windows must be rejected before DB access')
     with pytest.raises(ValueError):
         await read_operations_report(NoDatabase(),start,end,timezone_name=timezone_name,limit=limit)
-
