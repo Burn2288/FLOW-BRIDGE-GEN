@@ -67,6 +67,7 @@
     <h2 id="table-title">Task counts by day and status</h2>
     <label>Report section <select id="section" disabled aria-label="Report section"></select></label>
   </section>
+  <p id="partial-note" class="notice" hidden></p>
   <div class="table-wrap"><div id="empty" class="empty">Load a report JSON file to explore its aggregate tables.</div><table id="table" hidden><thead></thead><tbody></tbody></table></div>
 
   <p class="notice" style="margin-top:20px">This viewer displays only the supplied aggregate report. It does not authenticate operators or provide an administrative API. Review the report contents before sharing the file.</p>
@@ -129,8 +130,16 @@
     const empty = document.querySelector('#empty');
     const head = table.querySelector('thead');
     const body = table.querySelector('tbody');
+    const note = document.querySelector('#partial-note');
     text('table-title', sections[key] || 'Report section');
     head.replaceChildren(); body.replaceChildren();
+    if (section.truncated) {
+      note.hidden = false;
+      note.textContent = `Group limit reached: showing ${rows.length} of ${section.group_count} groups. The displayed per-group aggregates are complete, but totals across omitted groups are partial.`;
+    } else {
+      note.hidden = true;
+      note.textContent = '';
+    }
     if (!rows.length) {
       table.hidden = true; empty.hidden = false;
       empty.textContent = 'No rows in this section for the selected report window.';
@@ -164,13 +173,18 @@
       const option = document.createElement('option'); option.value = key; option.textContent = label; sectionSelect.append(option);
     }
     sectionSelect.disabled = sectionSelect.options.length === 0;
-    const tasks = data.tasks_by_period_and_status.groups || [];
-    const cases = data.reconciliation_queue?.groups || [];
+    const taskSection = data.tasks_by_period_and_status;
+    const taskRows = taskSection.groups || [];
+    const quotedTaskRows = taskRows.filter(row => row.source === 'quoted_task');
+    const caseSection = data.reconciliation_queue || {};
+    const cases = caseSection.groups || [];
     const costs = data.provider_cost_coverage || {};
     let truncated = 0;
     for (const key of Object.keys(sections)) if (data[key]?.truncated) truncated += Math.max(0, (data[key].group_count || 0) - (data[key].groups?.length || 0));
-    text('task-total', String(sum(tasks, 'task_count')));
-    text('case-total', String(sum(cases, 'case_count')));
+    const quotedTasks = sum(quotedTaskRows, 'task_count');
+    const unresolvedCases = sum(cases, 'case_count');
+    text('task-total', taskSection.truncated ? `≥ ${quotedTasks}` : String(quotedTasks));
+    text('case-total', caseSection.truncated ? `≥ ${unresolvedCases}` : String(unresolvedCases));
     text('unknown-total', String(costs.without_operator_cost ?? 'Unknown'));
     text('truncated-total', String(truncated));
     const from = data.window.start || 'Unknown';
@@ -182,7 +196,7 @@
   sectionSelect.addEventListener('change', renderSection);
   document.querySelector('#sample').addEventListener('click', () => {
     render(syntheticSample);
-    text('status', 'Loaded clearly labeled synthetic sample data.');
+    text('status', 'SYNTHETIC SAMPLE · values are illustrative, not provider or production records.');
   });
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files && fileInput.files[0];
