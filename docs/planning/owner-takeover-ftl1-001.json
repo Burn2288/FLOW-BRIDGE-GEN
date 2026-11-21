@@ -1,0 +1,811 @@
+{
+  "schema_version": 1,
+  "candidate_id": "BURN2288-OWNER-TAKEOVER-FTL1-001",
+  "status": "CANDIDATE_FOR_REVIEW",
+  "decision_date": "2026-11-21",
+  "observed_main_sha": "a889d8306c743c0046b710b950608052eabfdc78",
+  "historical_register_blob": "be3b9e7228dd6193f842eb177b0d4b61d8c1c87b",
+  "current_executor": "Burn2288",
+  "execution_responsibility": "ALL_81_TASKS",
+  "historical_task_owners": "UNCHANGED",
+  "unavailable_developer": "vankhu21",
+  "independent_auditor": "CHATGPT",
+  "owner_merge_authority": "REQUIRED",
+  "proposed_audit_process": "One independent auditor reviews exact package SHA and CI; critical finance/security changes receive additional specialist tests. Owner approval required before changing the existing process; meanwhile all current reviewer, branch protection and mandatory CI gates stay active.",
+  "tasks": [
+    {
+      "task_id": "IN-01",
+      "historical_owner": "Burn2288",
+      "list_position": 1,
+      "current_executor": "Burn2288",
+      "dependencies": []
+    },
+    {
+      "task_id": "IN-02",
+      "historical_owner": "Burn2288",
+      "list_position": 2,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-01"
+      ]
+    },
+    {
+      "task_id": "IN-08",
+      "historical_owner": "vankhu21",
+      "list_position": 1,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-02"
+      ]
+    },
+    {
+      "task_id": "IN-09",
+      "historical_owner": "vankhu21",
+      "list_position": 2,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-08"
+      ]
+    },
+    {
+      "task_id": "IN-10",
+      "historical_owner": "vankhu21",
+      "list_position": 3,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-09"
+      ]
+    },
+    {
+      "task_id": "IN-11",
+      "historical_owner": "vankhu21",
+      "list_position": 4,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-10"
+      ]
+    },
+    {
+      "task_id": "IN-12",
+      "historical_owner": "vankhu21",
+      "list_position": 5,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-11"
+      ]
+    },
+    {
+      "task_id": "IN-13",
+      "historical_owner": "vankhu21",
+      "list_position": 6,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-12"
+      ]
+    },
+    {
+      "task_id": "IN-14",
+      "historical_owner": "vankhu21",
+      "list_position": 7,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-13"
+      ]
+    },
+    {
+      "task_id": "IN-15",
+      "historical_owner": "vankhu21",
+      "list_position": 8,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-14"
+      ]
+    },
+    {
+      "task_id": "IN-16",
+      "historical_owner": "vankhu21",
+      "list_position": 9,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-15"
+      ]
+    },
+    {
+      "task_id": "IN-17",
+      "historical_owner": "vankhu21",
+      "list_position": 10,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-16"
+      ]
+    },
+    {
+      "task_id": "IN-18",
+      "historical_owner": "Burn2288",
+      "list_position": 3,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-02"
+      ]
+    },
+    {
+      "task_id": "IN-19",
+      "historical_owner": "Burn2288",
+      "list_position": 4,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-17",
+        "IN-18"
+      ]
+    },
+    {
+      "task_id": "AR-01",
+      "historical_owner": "Burn2288",
+      "list_position": 5,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-03"
+      ]
+    },
+    {
+      "task_id": "AR-02",
+      "historical_owner": "Burn2288",
+      "list_position": 6,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AR-01"
+      ]
+    },
+    {
+      "task_id": "TG-01",
+      "historical_owner": "vankhu21",
+      "list_position": 11,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "task_id": "TG-02",
+      "historical_owner": "vankhu21",
+      "list_position": 12,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "SL-01",
+        "TG-01"
+      ]
+    },
+    {
+      "task_id": "TG-03",
+      "historical_owner": "vankhu21",
+      "list_position": 13,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "PY-01",
+        "TG-01"
+      ]
+    },
+    {
+      "task_id": "MA-01",
+      "historical_owner": "vankhu21",
+      "list_position": 14,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19",
+        "OP-01"
+      ]
+    },
+    {
+      "task_id": "MA-02",
+      "historical_owner": "vankhu21",
+      "list_position": 15,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AP-02",
+        "MA-01"
+      ]
+    },
+    {
+      "task_id": "MA-03",
+      "historical_owner": "vankhu21",
+      "list_position": 16,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "MA-02",
+        "AP-03",
+        "JO-02"
+      ]
+    },
+    {
+      "task_id": "MA-04",
+      "historical_owner": "vankhu21",
+      "list_position": 17,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "MA-03",
+        "VI-02",
+        "VO-02",
+        "MU-02",
+        "ML-03",
+        "RF-03",
+        "SL-03",
+        "PY-03"
+      ]
+    },
+    {
+      "task_id": "AD-01",
+      "historical_owner": "Burn2288",
+      "list_position": 7,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AP-01",
+        "TA-01"
+      ]
+    },
+    {
+      "task_id": "AD-02",
+      "historical_owner": "Burn2288",
+      "list_position": 8,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AD-01",
+        "MC-01"
+      ]
+    },
+    {
+      "task_id": "AD-03",
+      "historical_owner": "vankhu21",
+      "list_position": 18,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AD-02",
+        "OB-02"
+      ]
+    },
+    {
+      "task_id": "TA-01",
+      "historical_owner": "vankhu21",
+      "list_position": 19,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-01"
+      ]
+    },
+    {
+      "task_id": "TA-02",
+      "historical_owner": "vankhu21",
+      "list_position": 20,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AD-02",
+        "TA-01"
+      ]
+    },
+    {
+      "task_id": "PR-01",
+      "historical_owner": "Burn2288",
+      "list_position": 9,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AR-01"
+      ]
+    },
+    {
+      "task_id": "PR-02",
+      "historical_owner": "Burn2288",
+      "list_position": 10,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "PR-01"
+      ]
+    },
+    {
+      "task_id": "PR-03",
+      "historical_owner": "Burn2288",
+      "list_position": 11,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "PR-02",
+        "IM-02"
+      ]
+    },
+    {
+      "task_id": "MC-01",
+      "historical_owner": "Burn2288",
+      "list_position": 12,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "PR-01"
+      ]
+    },
+    {
+      "task_id": "MC-02",
+      "historical_owner": "vankhu21",
+      "list_position": 21,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "MC-01",
+        "MA-01"
+      ]
+    },
+    {
+      "task_id": "PC-01",
+      "historical_owner": "vankhu21",
+      "list_position": 22,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "task_id": "PC-02",
+      "historical_owner": "vankhu21",
+      "list_position": 23,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "PC-01",
+        "AD-02"
+      ]
+    },
+    {
+      "task_id": "JO-01",
+      "historical_owner": "Burn2288",
+      "list_position": 13,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IM-02"
+      ]
+    },
+    {
+      "task_id": "JO-02",
+      "historical_owner": "Burn2288",
+      "list_position": 14,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-01"
+      ]
+    },
+    {
+      "task_id": "JO-03",
+      "historical_owner": "Burn2288",
+      "list_position": 15,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-02"
+      ]
+    },
+    {
+      "task_id": "IM-01",
+      "historical_owner": "vankhu21",
+      "list_position": 24,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19",
+        "PC-01"
+      ]
+    },
+    {
+      "task_id": "IM-02",
+      "historical_owner": "vankhu21",
+      "list_position": 25,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IM-01",
+        "ML-01"
+      ]
+    },
+    {
+      "task_id": "VI-01",
+      "historical_owner": "vankhu21",
+      "list_position": 26,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ]
+    },
+    {
+      "task_id": "VI-02",
+      "historical_owner": "vankhu21",
+      "list_position": 27,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "VI-01",
+        "AP-03",
+        "MC-02"
+      ]
+    },
+    {
+      "task_id": "VO-01",
+      "historical_owner": "Burn2288",
+      "list_position": 16,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ]
+    },
+    {
+      "task_id": "VO-02",
+      "historical_owner": "vankhu21",
+      "list_position": 28,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "VO-01",
+        "AP-03",
+        "MC-02"
+      ]
+    },
+    {
+      "task_id": "MU-01",
+      "historical_owner": "Burn2288",
+      "list_position": 17,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-03",
+        "PR-01"
+      ]
+    },
+    {
+      "task_id": "MU-02",
+      "historical_owner": "vankhu21",
+      "list_position": 29,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "MU-01",
+        "AP-03",
+        "MC-02"
+      ]
+    },
+    {
+      "task_id": "ML-01",
+      "historical_owner": "Burn2288",
+      "list_position": 18,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "task_id": "ML-02",
+      "historical_owner": "Burn2288",
+      "list_position": 19,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-03",
+        "ML-01"
+      ]
+    },
+    {
+      "task_id": "ML-03",
+      "historical_owner": "vankhu21",
+      "list_position": 30,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "ML-02",
+        "MA-01"
+      ]
+    },
+    {
+      "task_id": "WL-01",
+      "historical_owner": "vankhu21",
+      "list_position": 31,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-03",
+        "PC-01"
+      ]
+    },
+    {
+      "task_id": "WL-02",
+      "historical_owner": "Burn2288",
+      "list_position": 20,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "WL-01",
+        "PY-02"
+      ]
+    },
+    {
+      "task_id": "PY-01",
+      "historical_owner": "vankhu21",
+      "list_position": 32,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19",
+        "PC-01"
+      ]
+    },
+    {
+      "task_id": "PY-02",
+      "historical_owner": "vankhu21",
+      "list_position": 33,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "task_id": "PY-03",
+      "historical_owner": "vankhu21",
+      "list_position": 34,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AP-01",
+        "PY-01",
+        "MA-01"
+      ]
+    },
+    {
+      "task_id": "RF-01",
+      "historical_owner": "Burn2288",
+      "list_position": 21,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AR-01",
+        "SL-01"
+      ]
+    },
+    {
+      "task_id": "RF-02",
+      "historical_owner": "Burn2288",
+      "list_position": 22,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "RF-01",
+        "WL-01"
+      ]
+    },
+    {
+      "task_id": "RF-03",
+      "historical_owner": "vankhu21",
+      "list_position": 35,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "RF-02",
+        "AP-01"
+      ]
+    },
+    {
+      "task_id": "SL-01",
+      "historical_owner": "Burn2288",
+      "list_position": 23,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AR-01"
+      ]
+    },
+    {
+      "task_id": "SL-02",
+      "historical_owner": "Burn2288",
+      "list_position": 24,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AD-01"
+      ]
+    },
+    {
+      "task_id": "SL-03",
+      "historical_owner": "vankhu21",
+      "list_position": 36,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "SL-01",
+        "SL-02",
+        "MA-01"
+      ]
+    },
+    {
+      "task_id": "SE-01",
+      "historical_owner": "Burn2288",
+      "list_position": 25,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AR-01",
+        "AD-01"
+      ]
+    },
+    {
+      "task_id": "SE-02",
+      "historical_owner": "Burn2288",
+      "list_position": 26,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "SE-01",
+        "ML-02"
+      ]
+    },
+    {
+      "task_id": "SE-03",
+      "historical_owner": "vankhu21",
+      "list_position": 37,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "SE-02",
+        "AD-03",
+        "MA-03"
+      ]
+    },
+    {
+      "task_id": "TQ-01",
+      "historical_owner": "Burn2288",
+      "list_position": 27,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "task_id": "TQ-02",
+      "historical_owner": "vankhu21",
+      "list_position": 38,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "MA-04",
+        "TA-02",
+        "WL-02",
+        "SE-03"
+      ]
+    },
+    {
+      "task_id": "OP-01",
+      "historical_owner": "Burn2288",
+      "list_position": 28,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-19"
+      ]
+    },
+    {
+      "task_id": "OP-02",
+      "historical_owner": "Burn2288",
+      "list_position": 29,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "ML-02",
+        "WL-01"
+      ]
+    },
+    {
+      "task_id": "OP-03",
+      "historical_owner": "Burn2288",
+      "list_position": 30,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "OP-02",
+        "JO-02",
+        "SE-02"
+      ]
+    },
+    {
+      "task_id": "OB-01",
+      "historical_owner": "Burn2288",
+      "list_position": 31,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "JO-03"
+      ]
+    },
+    {
+      "task_id": "OB-02",
+      "historical_owner": "Burn2288",
+      "list_position": 32,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "OB-01",
+        "AD-01"
+      ]
+    },
+    {
+      "task_id": "OB-03",
+      "historical_owner": "vankhu21",
+      "list_position": 39,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "OB-02",
+        "AD-03"
+      ]
+    },
+    {
+      "task_id": "DC-01",
+      "historical_owner": "Burn2288",
+      "list_position": 33,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-18"
+      ]
+    },
+    {
+      "task_id": "DC-02",
+      "historical_owner": "Burn2288",
+      "list_position": 34,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "OP-03",
+        "TQ-02"
+      ]
+    },
+    {
+      "task_id": "RL-01",
+      "historical_owner": "Burn2288",
+      "list_position": 35,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "PR-03",
+        "WL-02",
+        "PY-03",
+        "SE-03"
+      ]
+    },
+    {
+      "task_id": "RL-02",
+      "historical_owner": "vankhu21",
+      "list_position": 40,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "RL-01",
+        "TQ-02",
+        "OP-03",
+        "OB-03"
+      ]
+    },
+    {
+      "task_id": "RL-03",
+      "historical_owner": "Burn2288",
+      "list_position": 36,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "RL-02",
+        "DC-02"
+      ]
+    },
+    {
+      "task_id": "AP-01",
+      "historical_owner": "Burn2288",
+      "list_position": 37,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AR-01"
+      ]
+    },
+    {
+      "task_id": "AP-02",
+      "historical_owner": "Burn2288",
+      "list_position": 38,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AP-01",
+        "AR-02",
+        "PC-01"
+      ]
+    },
+    {
+      "task_id": "AP-03",
+      "historical_owner": "Burn2288",
+      "list_position": 39,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AP-02",
+        "JO-02"
+      ]
+    },
+    {
+      "task_id": "AU-01",
+      "historical_owner": "Burn2288",
+      "list_position": 40,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "IN-18"
+      ]
+    },
+    {
+      "task_id": "AU-02",
+      "historical_owner": "vankhu21",
+      "list_position": 41,
+      "current_executor": "Burn2288",
+      "dependencies": [
+        "AU-01"
+      ]
+    }
+  ]
+}
