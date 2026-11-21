@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Operations report · local demo</title>
+  <style>
+    :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #17221e; background: #f3f6f4; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 56px; }
+    .top { display: flex; justify-content: space-between; gap: 20px; align-items: start; flex-wrap: wrap; }
+    h1 { margin: 0 0 8px; font-size: clamp(1.65rem, 3vw, 2.25rem); letter-spacing: -.04em; }
+    p { line-height: 1.55; }
+    .muted { color: #61716b; }
+    .badge { border-radius: 99px; padding: 7px 11px; background: #e0f2e8; color: #17633f; font-size: .78rem; font-weight: 750; letter-spacing: .04em; }
+    .panel, .card { border: 1px solid #dce5df; border-radius: 16px; background: white; box-shadow: 0 4px 16px #1628200a; }
+    .panel { padding: 18px; margin: 22px 0; }
+    .upload { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    input, select, button { font: inherit; }
+    input[type=file] { max-width: 100%; }
+    .range { margin: 12px 0 0; font-size: .9rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .card { padding: 16px; min-height: 100px; }
+    .card .label { color: #61716b; font-size: .82rem; }
+    .card strong { display: block; margin-top: 10px; font-size: 1.55rem; letter-spacing: -.03em; }
+    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 28px 0 12px; }
+    h2 { font-size: 1.1rem; margin: 0; }
+    select { padding: 9px 12px; border: 1px solid #cbd8d0; border-radius: 10px; background: #fff; }
+    .table-wrap { overflow-x: auto; border: 1px solid #dce5df; border-radius: 14px; background: white; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { text-align: left; padding: 11px 13px; border-bottom: 1px solid #edf1ee; white-space: nowrap; }
+    th { color: #61716b; background: #f8faf9; font-size: .78rem; font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
+    .empty { padding: 28px; text-align: center; color: #61716b; }
+    .notice { padding: 13px 15px; border-left: 3px solid #d99a36; background: #fff8eb; border-radius: 8px; color: #67480e; font-size: .88rem; }
+    footer { margin-top: 24px; font-size: .82rem; color: #61716b; }
+    @media (max-width: 600px) { main { padding: 22px 14px 40px; } .panel { padding: 14px; } th, td { padding: 10px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <h1>Operations report</h1>
+      <p class="muted">A local viewer for the aggregate-only OB-02 read model.</p>
+    </div>
+    <span class="badge">LOCAL FILE · NO NETWORK</span>
+  </header>
+
+  <section class="panel" aria-labelledby="load-title">
+    <h2 id="load-title">Load a report</h2>
+    <p class="muted">Generate JSON with <code>operations-report</code>, then choose that file here. The report stays in this browser tab and is not uploaded.</p>
+    <div class="upload"><input id="file" type="file" accept="application/json,.json" aria-label="Choose operations report JSON"><button id="sample" type="button">Load synthetic sample</button><span id="status" role="status" class="muted">No report loaded.</span></div>
+    <p id="window" class="range muted"></p>
+  </section>
+
+  <section class="cards" aria-label="Report summary">
+    <article class="card"><span class="label">Accepted quoted tasks</span><strong id="task-total">—</strong></article>
+    <article class="card"><span class="label">Unresolved cases</span><strong id="case-total">—</strong></article>
+    <article class="card"><span class="label">Tasks without known cost</span><strong id="unknown-total">—</strong></article>
+    <article class="card"><span class="label">Groups omitted by limits</span><strong id="truncated-total">—</strong></article>
+  </section>
+
+  <section class="section-head">
+    <h2 id="table-title">Task counts by day and status</h2>
+    <label>Report section <select id="section" disabled aria-label="Report section"></select></label>
+  </section>
+  <p id="partial-note" class="notice" hidden></p>
+  <div class="table-wrap"><div id="empty" class="empty">Load a report JSON file to explore its aggregate tables.</div><table id="table" hidden><thead></thead><tbody></tbody></table></div>
+
+  <p class="notice" style="margin-top:20px">This viewer displays only the supplied aggregate report. It does not authenticate operators or provide an administrative API. Review the report contents before sharing the file.</p>
+  <footer>FUNCTIONAL_TEST candidate · locally supplied aggregate data · no production or live provider connection.</footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const sections = {
+    tasks_by_period_and_status: 'Task counts by day and status',
+    tasks_by_provider_and_model: 'Tasks by provider and model',
+    provider_job_statuses: 'Provider job statuses',
+    wallet_movements: 'Wallet ledger movements',
+    payments: 'Payment orders by currency',
+    reconciliation_queue: 'Unresolved cases',
+    provider_cost_evidence: 'Recorded provider cost evidence',
+    provider_quote_costs: 'Quoted cost estimates',
+    provider_receipts: 'Provider financial receipts',
+    video_quote_estimates: 'Video cost records'
+  };
+  const syntheticSample = {
+    window: { start: '2026-11-01T00:00:00+00:00', end_exclusive: '2026-11-08T00:00:00+00:00', timezone: 'Europe/Kyiv' },
+    tasks_by_period_and_status: { group_count: 2, truncated: false, groups: [
+      { local_day: '2026-11-02', source: 'quoted_task', status: 'completed', task_count: 3 },
+      { local_day: '2026-11-03', source: 'quoted_task', status: 'uncertain', task_count: 1 }
+    ] },
+    tasks_by_provider_and_model: { group_count: 2, truncated: false, groups: [
+      { source: 'quoted_task', provider: 'example-provider', model_id: 'image-demo', task_count: 3 },
+      { source: 'quoted_task', provider: 'unknown', model_id: 'unknown', task_count: 1 }
+    ] },
+    provider_job_statuses: { group_count: 1, truncated: false, groups: [{ kind: 'image', provider: 'example-provider', model_id: 'image-demo', status: 'succeeded', task_count: 3 }] },
+    wallet_movements: { group_count: 2, truncated: false, groups: [
+      { local_day: '2026-11-02', mode: 'live', kind: 'task_reserve', unit: 'internal_wallet_unit', operation_count: 4, available_delta: '-40', reserved_delta: '40' },
+      { local_day: '2026-11-02', mode: 'live', kind: 'task_capture', unit: 'internal_wallet_unit', operation_count: 3, available_delta: '0', reserved_delta: '-30' }
+    ] },
+    payments: { group_count: 1, truncated: false, groups: [{ local_day: '2026-11-01', provider: 'telegram_stars', currency: 'XTR', status: 'paid', payment_count: 1, order_amount: '100' }] },
+    reconciliation_queue: { group_count: 1, truncated: false, groups: [{ source: 'task_dispatch', status: 'uncertain', provider: 'example-provider', operation: 'images.generate', case_count: 1 }] },
+    provider_cost_evidence: { group_count: 2, truncated: false, groups: [
+      { provider: 'example-provider', unit: 'USD', evidence: 'operator_reconciled', known_count: 2, unknown_count: 1, confirmed_unbilled_count: 0, amount: '0.42' },
+      { provider: 'unknown', unit: null, evidence: 'operator_reconciled', known_count: 0, unknown_count: 1, confirmed_unbilled_count: 0, amount: null }
+    ] },
+    provider_quote_costs: { group_count: 1, truncated: false, groups: [{ provider: 'example-provider', unit: 'USD', evidence: 'quote_cost', non_estimated_quote_count: 0, estimated_quote_count: 3, quoted_amount: '0.50' }] },
+    provider_receipts: { group_count: 1, truncated: false, groups: [{ provider: 'example-provider', outcome: 'charged', unit: 'USD', receipt_count: 2, provider_reported_amount: '0.42' }] },
+    video_quote_estimates: { group_count: 0, truncated: false, groups: [] },
+    provider_cost_coverage: { without_operator_cost: 2, without_cost_or_bill_evidence: 1, accepted_task_count: 4 }
+  };
+  const fileInput = document.querySelector('#file');
+  const sectionSelect = document.querySelector('#section');
+  let report = null;
+  const text = (id, value) => { document.getElementById(id).textContent = value; };
+  const safeValue = value => value === null || value === undefined ? 'Unknown' : String(value);
+  const sum = (rows, key) => rows.reduce((total, row) => total + (Number(row[key]) || 0), 0);
+
+  function renderSection() {
+    if (!report) return;
+    const key = sectionSelect.value;
+    const section = report[key] || {};
+    const rows = Array.isArray(section.groups) ? section.groups : [];
+    const table = document.querySelector('#table');
+    const empty = document.querySelector('#empty');
+    const head = table.querySelector('thead');
+    const body = table.querySelector('tbody');
+    const note = document.querySelector('#partial-note');
+    text('table-title', sections[key] || 'Report section');
+    head.replaceChildren(); body.replaceChildren();
+    if (section.truncated) {
+      note.hidden = false;
+      note.textContent = `Group limit reached: showing ${rows.length} of ${section.group_count} groups. The displayed per-group aggregates are complete, but totals across omitted groups are partial.`;
+    } else {
+      note.hidden = true;
+      note.textContent = '';
+    }
+    if (!rows.length) {
+      table.hidden = true; empty.hidden = false;
+      empty.textContent = 'No rows in this section for the selected report window.';
+      return;
+    }
+    empty.hidden = true; table.hidden = false;
+    const columns = Object.keys(rows[0]).filter(column => column !== 'total_groups');
+    const headerRow = document.createElement('tr');
+    for (const column of columns) {
+      const cell = document.createElement('th'); cell.scope = 'col';
+      cell.textContent = column.replaceAll('_', ' '); headerRow.append(cell);
+    }
+    head.append(headerRow);
+    for (const row of rows) {
+      const tr = document.createElement('tr');
+      for (const column of columns) {
+        const cell = document.createElement('td'); cell.textContent = safeValue(row[column]); tr.append(cell);
+      }
+      body.append(tr);
+    }
+  }
+
+  function render(data) {
+    if (!data || typeof data !== 'object' || !data.window || !data.tasks_by_period_and_status || !data.provider_cost_coverage) {
+      throw new Error('This file is not an OB-02 operations report.');
+    }
+    report = data;
+    sectionSelect.replaceChildren();
+    for (const [key, label] of Object.entries(sections)) {
+      if (!data[key] || !Array.isArray(data[key].groups)) continue;
+      const option = document.createElement('option'); option.value = key; option.textContent = label; sectionSelect.append(option);
+    }
+    sectionSelect.disabled = sectionSelect.options.length === 0;
+    const taskSection = data.tasks_by_period_and_status;
+    const taskRows = taskSection.groups || [];
+    const quotedTaskRows = taskRows.filter(row => row.source === 'quoted_task');
+    const caseSection = data.reconciliation_queue || {};
+    const cases = caseSection.groups || [];
+    const costs = data.provider_cost_coverage || {};
+    let truncated = 0;
+    for (const key of Object.keys(sections)) if (data[key]?.truncated) truncated += Math.max(0, (data[key].group_count || 0) - (data[key].groups?.length || 0));
+    const quotedTasks = sum(quotedTaskRows, 'task_count');
+    const unresolvedCases = sum(cases, 'case_count');
+    text('task-total', taskSection.truncated ? `≥ ${quotedTasks}` : String(quotedTasks));
+    text('case-total', caseSection.truncated ? `≥ ${unresolvedCases}` : String(unresolvedCases));
+    text('unknown-total', String(costs.without_operator_cost ?? 'Unknown'));
+    text('truncated-total', String(truncated));
+    const from = data.window.start || 'Unknown';
+    const to = data.window.end_exclusive || 'Unknown';
+    text('window', `Window: ${from} → ${to} · grouping timezone: ${data.window.timezone || 'Unknown'}`);
+    renderSection();
+  }
+
+  sectionSelect.addEventListener('change', renderSection);
+  document.querySelector('#sample').addEventListener('click', () => {
+    render(syntheticSample);
+    text('status', 'SYNTHETIC SAMPLE · values are illustrative, not provider or production records.');
+  });
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { text('status', 'File exceeds the 2 MB demo limit.'); fileInput.value = ''; return; }
+    try {
+      const data = JSON.parse(await file.text());
+      render(data);
+      text('status', `Loaded ${file.name} (${Math.round(file.size / 1024)} KB).`);
+    } catch (error) {
+      report = null;
+      text('status', error instanceof SyntaxError ? 'Invalid JSON file.' : (error.message || 'Could not read report.'));
+      document.querySelector('#table').hidden = true;
+      document.querySelector('#empty').hidden = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
