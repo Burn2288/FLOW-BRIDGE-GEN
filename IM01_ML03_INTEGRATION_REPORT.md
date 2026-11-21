@@ -28,6 +28,14 @@ Production financial adapter для AnyModel/Clodex не зарегистрир�
 
 Ручное изучение доказательства больше не скрывает неурегулированный случай: manual-review оставляет его required в рабочей очереди. Явно доказанное отсутствие provider refund закрывается отдельной operator action no-refund как resolved_no_refund без проводки. Поздний доверенный full refund после review или такого закрытия выполняет обычную идемпотентную компенсацию, переводит случай в resolved и сохраняет первоначальный immutable audit.
 
+## FT-039-FIX-03: terminal reconciliation и CI
+
+FIX-03 проверяет наличие одного корректного task_reserve и ровно одного согласованного task_capture/task_release перед resolved_no_refund. При незавершённом резерве case остаётся required. Поиск immutable receipts выполняется до закрытия: подтверждённый partial refund оставляет case в очереди, а full refund проходит через reconcile_generation, включая позднюю идемпотентную компенсацию и сохранение операторского audit.
+
+Снимок FIX-02: HEAD 513e013f126ba85c65fdc567779d80c13971dfa7, tree 7d187eba9e9379983a17575b6a49993dfd455dcf; [PostgreSQL IM01/ML03](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44829070680), [OP01 Chromium](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44829070733).
+
+FIX-03 implementation HEAD 09cc0d14aff991a4237afb4460da474b9fcea1ec, tree 8576b9741ea9c3aa0a4074fd368bfb2bffbfd832. [Профильный PostgreSQL — 70 passed](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44886076961), [OP01 Chromium](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44886076946), [TQ01 composite regression](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44886077182). Итоговый документальный commit и обязательные CI на нём будут записаны в PR #104 после завершения workflow.
+
 ## Финальная проверка
 
 Проверенный SHA: `61a968cbf9cbee230874aa13ce638b053346e636`; tree: `8bc421cc67336f55186720c972c59025cb25aa21`.
