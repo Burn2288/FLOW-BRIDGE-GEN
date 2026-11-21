@@ -1,6 +1,6 @@
 # Уровни завершения и единая интеграционная приёмка
 
-Статус: кандидат регламента по решению владельца от 18.11.2026. До принятия этого документа в main обязательные настройки GitHub и существующие ограничения веток остаются действующими. `ACTIVE_COMPLETION_LEVEL = FUNCTIONAL_TEST`.
+Статус: кандидат регламента по решению владельца от 18.11.2026, подтверждённому 21.11.2026. До принятия документа в main обязательные настройки GitHub и действующие ограничения веток сохраняются. `ACTIVE_COMPLETION_LEVEL = FUNCTIONAL_TEST`.
 
 | Уровень | Необходимый результат | Формулировка после приёмки |
 | --- | --- | --- |
@@ -20,7 +20,7 @@
 
 [Машинный реестр](completion-level-register.json) — кандидат с 81 исторической задачей и сохранёнными зависимостями; пустые поля означают отсутствие проверенного значения, а не отсутствие реализации. Позиции основаны на порядке исторических списков, не на автоматически установленном приоритете. [Burn2288](../workplans/burn2288.md) и [vankhu21](../workplans/vankhu21.md). Ветка planning/team-workplans-v1 на `ce97300166b7b14166a9563d6d92897bb7156001`; личные планы dev проанализированы отдельно и содержат более ранние срезы и историю без соответствующей нумерации. Нужна предметная сверка с принятой main и фактическими PR перед назначением.
 
-Заголовок: `[LIST_ID #LIST_POSITION | TASK_ID] — TITLE — LEVEL 1`. Для нескольких задач — `BATCH: <идентификатор>` и список заголовков. Ответ по каждой задаче содержит BATCH_ID, LIST_ID, LIST_POSITION, TASK_ID, TASK_TITLE, TARGET_LEVEL, IMPLEMENTATION_STATUS, BRANCH, COMMIT_SHA, PR_URL, TEST_RESULT, DEMO_RESULT, KNOWN_LIMITATIONS, GLOBAL_AUDIT_STATUS, NEXT_ACTION. Неизвестные поля обозначать NOT_AVAILABLE, не придумывать номера.
+Заголовок: `[LIST_ID #LIST_POSITION | MASTER #GLOBAL_LIST_POSITION | TASK_ID] — TASK_TITLE — LEVEL 1`. Для нескольких задач — `BATCH_ID` и полный список таких заголовков. В отчёте раздельно указывать `IMPLEMENTATION_STATUS` (текущая работа, кандидат, ожидание общей приёмки, блокировка или отложенная работа) и `COMPLETED_LEVEL` (только после глобальной приёмки и merge; до этого `null`). Включать BATCH_ID, LIST_ID, LIST_POSITION, GLOBAL_LIST_POSITION, TASK_ID, TASK_TITLE, TARGET_LEVEL, BRANCH, HEAD_SHA, TREE_SHA, PR_URL, TEST_RESULT, DEMO_RESULT, KNOWN_LIMITATIONS, DEFERRED_TO_STANDARD, DEFERRED_TO_HIGH_PRODUCTION, GLOBAL_AUDIT_STATUS, NEXT_ACTION. Неизвестные значения обозначать NOT_AVAILABLE, не придумывать номера.
 
 ## Примеры будущих пакетов, не назначения
 
