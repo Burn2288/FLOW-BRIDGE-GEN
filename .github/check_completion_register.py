@@ -50,7 +50,6 @@ def validate(old, register):
         if task['implementation_status'] == 'AWAITING_GLOBAL_ACCEPTANCE':
             assert evidence, 'candidate awaiting acceptance requires physical evidence'
             assert task['global_audit_status'] == 'PENDING_GLOBAL_AUDIT'
-        assert task['global_audit_status'] == 'NOT_ASSESSED'
         if evidence:
             assert task['implementation_status'] in ('CANDIDATE_PREPARED','AWAITING_GLOBAL_ACCEPTANCE')
             assert task['pr_ref'] == evidence[-1]['pr_url']
