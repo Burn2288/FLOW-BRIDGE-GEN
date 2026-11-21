@@ -50,6 +50,10 @@ class CompletionRegisterTest(unittest.TestCase):
         self.task['implementation_status'] = 'DONE'
         self.reject()
 
+    def test_current_integration_can_advance_past_historical_evidence(self):
+        self.data['observed_refs']['integration_sha'] = 'a889d8306c743c0046b710b950608052eabfdc78'
+        self.assertGreater(checker.validate(self.old, self.data), 0)
+
     def test_synthetic_tree_requires_proof(self):
         self.task['evidence'][0]['tree_relation'] = 'SYNTHETIC_EQUAL_TREE'
         self.task['evidence'][0]['tree_proof_url'] = None
