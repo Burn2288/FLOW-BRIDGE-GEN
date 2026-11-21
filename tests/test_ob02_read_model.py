@@ -43,13 +43,29 @@ async def _dispatch(pool, user, quote_id, state, at, *, reserve=False, settlemen
 
 async def _receipt(pool, quote_id, provider, outcome, operation_id, amount, at, *,
                   provider_job_id=None, refunded_operation_id=None):
-    await pool.execute("""
-        INSERT INTO task_financial_receipts
-            (provider,operation_id,provider_job_id,quote_id,outcome,amount,unit,
-             recorded_at,refunded_operation_id)
-        VALUES($1,$2,$3,$4,$5,$6,'USD',$7,$8)
-        """,provider,operation_id,provider_job_id or f'job-{operation_id}',quote_id,
-        outcome,amount,at,refunded_operation_id)
+    provider_job_id = provider_job_id or f'job-{operation_id}'
+    has_refund_link = await pool.fetchval("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema=current_schema()
+              AND table_name='task_financial_receipts'
+              AND column_name='refunded_operation_id'
+        )
+        """)
+    if has_refund_link:
+        await pool.execute("""
+            INSERT INTO task_financial_receipts
+                (provider,operation_id,provider_job_id,quote_id,outcome,amount,unit,
+                 recorded_at,refunded_operation_id)
+            VALUES($1,$2,$3,$4,$5,$6,'USD',$7,$8)
+            """,provider,operation_id,provider_job_id,quote_id,outcome,amount,at,
+            refunded_operation_id)
+    else:
+        await pool.execute("""
+            INSERT INTO task_financial_receipts
+                (provider,operation_id,provider_job_id,quote_id,outcome,amount,unit,recorded_at)
+            VALUES($1,$2,$3,$4,$5,$6,'USD',$7)
+            """,provider,operation_id,provider_job_id,quote_id,outcome,amount,at)
 
 
 async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(env,confirmed_credit):
