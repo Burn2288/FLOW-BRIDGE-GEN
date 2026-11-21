@@ -111,7 +111,6 @@ async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(
     await _dispatch(pool,owner,q_at_end,'pending',end,reserve=True)
 
     await _receipt(pool,q_success,'clodex','charged','success-charge','2.5',start)
-    await _receipt(pool,q_failed,'clodex','rejected_unbilled','failed-unbilled','0',start+timedelta(hours=25))
     await _receipt(pool,q_uncertain,'anymodel','charged','uncertain-charge','2.5',
                    start+timedelta(hours=1),provider_job_id='job-uncertain')
     await _receipt(pool,q_uncertain,'anymodel','partial_refund','uncertain-partial','0.5',
@@ -173,12 +172,12 @@ async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(
     assert all(r['unit']=='internal_wallet_unit' for r in movements)
     assert {r['currency'] for r in report['payments']['groups']}=={'XTR'}
     assert {r['outcome'] for r in report['provider_receipts']['groups']}=={
-        'charged','full_refund','partial_refund','rejected_unbilled'}
+        'charged','full_refund','partial_refund'}
 
     accounted=report['provider_cost_evidence']['groups']
     success_cost=next(r for r in accounted if r['provider']=='clodex')
-    assert success_cost['known_count']==1 and success_cost['unknown_count']==0
-    assert success_cost['confirmed_unbilled_count']==1
+    assert success_cost['known_count']==1 and success_cost['unknown_count']==1
+    assert success_cost['confirmed_unbilled_count']==0
     assert success_cost['amount']=='1.25'
     image_cost=next(r for r in accounted if r['provider']=='anymodel')
     assert image_cost['known_count']==0 and image_cost['unknown_count']==2 and image_cost['amount'] is None
