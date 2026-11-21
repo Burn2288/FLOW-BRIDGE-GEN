@@ -11,7 +11,7 @@ PAGE = ROOT / 'docs' / 'demos' / 'ob02-read-model.html'
 
 
 @pytest.mark.asyncio
-async def test_synthetic_sample_and_section_switch():
+async def test_synthetic_sample_and_section_switch(tmp_path):
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
         page = await browser.new_page(viewport={"width": 1280, "height": 900}, device_scale_factor=1)
