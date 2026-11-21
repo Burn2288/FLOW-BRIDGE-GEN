@@ -23,6 +23,10 @@ def validate(old, register):
         assert [t['list_position'] for t in rows] == list(range(1, count + 1))
     assert [t['global_list_position'] for t in new] == list(range(1, 82))
     assert all(t['target_level'] == 'FUNCTIONAL_TEST' and t['completed_level'] is None for t in new)
+    assert set(register['completion_levels']) == {'FUNCTIONAL_TEST', 'STANDARD', 'HIGH_PRODUCTION'}
+    status_values = set(register['implementation_status_values'])
+    assert {'NOT_ASSESSED','IN_PROGRESS','CANDIDATE_PREPARED','AWAITING_GLOBAL_ACCEPTANCE','BLOCKED','DEFERRED'} <= status_values
+    assert all(t['implementation_status'] in status_values for t in new)
     graph = {t['task_id']: t['dependencies'] for t in new}
     def visit(node, active, done):
         assert node not in active, 'dependency cycle'
@@ -39,12 +43,16 @@ def validate(old, register):
     for task in new:
         evidence = task.get('evidence', [])
         assert isinstance(evidence, list)
-        assert task['current_stage'] in ('EVIDENCE_RECONCILIATION_REQUIRED', 'FUNCTIONAL_CANDIDATE_PARTIAL')
+        assert task['implementation_status'] in status_values
+        assert task['global_audit_status'] in ('NOT_ASSESSED','PENDING_GLOBAL_AUDIT')
+        if task['implementation_status'] == 'CANDIDATE_PREPARED':
+            assert evidence, 'prepared candidate requires physical evidence'
+        if task['implementation_status'] == 'AWAITING_GLOBAL_ACCEPTANCE':
+            assert evidence, 'candidate awaiting acceptance requires physical evidence'
+            assert task['global_audit_status'] == 'PENDING_GLOBAL_AUDIT'
         assert task['global_audit_status'] == 'NOT_ASSESSED'
-        if task['current_stage'] == 'FUNCTIONAL_CANDIDATE_PARTIAL':
-            assert evidence, 'candidate requires evidence'
         if evidence:
-            assert task['current_stage'] == 'FUNCTIONAL_CANDIDATE_PARTIAL'
+            assert task['implementation_status'] in ('CANDIDATE_PREPARED','AWAITING_GLOBAL_ACCEPTANCE')
             assert task['pr_ref'] == evidence[-1]['pr_url']
             assert task['tested_sha'] == evidence[-1]['tested_sha']
             assert task['integrated_sha'] == evidence[-1]['integrated_sha']
