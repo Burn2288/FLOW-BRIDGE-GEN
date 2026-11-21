@@ -97,6 +97,13 @@ async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(
     await _receipt(pool,q_refunded,'anymodel','charged','refund-charge','3.0',end-timedelta(microseconds=1))
     await _receipt(pool,q_refunded,'anymodel','full_refund','refund-full','3.0',end-timedelta(microseconds=1))
     await pool.execute("""
+        INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr,task_quote_id)
+        SELECT gen_random_uuid(),user_id,'live','ob02:task-refund:'||task_quote_id,
+               'task_refund',-dr,0,task_quote_id
+        FROM ledger WHERE task_quote_id=$1 AND kind='task_capture'
+        ON CONFLICT(event_key) DO NOTHING
+        """,q_refunded)
+    await pool.execute("""
         INSERT INTO task_price_accounting(quote_id,user_debit,user_refund,provider_cost,reference)
         VALUES($1,10,0,1.25,'fixture-private-accounting-reference')
         """,q_success)
