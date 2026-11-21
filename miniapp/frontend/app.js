@@ -7,6 +7,7 @@ let wantedTheme;
 const works = document.querySelector('#works');
 let token;
 let page = 0;
+let referralLoaded = false;
 
 async function request(path, options = {}) {
   let response;
@@ -364,6 +365,26 @@ function selectPanel(panel) {
   }
 }
 
+async function showReferral() {
+  const response = await request('/api/v1/referral');
+  const referral = await response.json();
+  document.querySelector('#referral-code').textContent = referral.code;
+  document.querySelector('#referrer-status').textContent = referral.has_referrer
+    ? 'Вы зарегистрировались по приглашению.' : 'Вы зарегистрировались без приглашения.';
+  document.querySelector('#copy-referral').disabled = false;
+  referralLoaded = true;
+}
+
+document.querySelector('#copy-referral').onclick = async () => {
+  const result = document.querySelector('#referral-status');
+  try {
+    await navigator.clipboard.writeText(document.querySelector('#referral-code').textContent);
+    result.textContent = 'Код скопирован.';
+  } catch {
+    result.textContent = 'Не удалось скопировать. Выделите код вручную.';
+  }
+};
+
 async function showJobs() {
   const { jobs } = await (await request('/api/v1/jobs')).json();
   document.querySelector('#jobs-title').hidden = jobs.length === 0;
@@ -406,6 +427,7 @@ function navigate(panel) {
   overview.hidden = false;
   card.hidden = true;
   selectPanel(panel);
+  if (panel === 'referral' && token && !referralLoaded) showReferral().catch(showError);
   if (panel === 'balance' && token) showBalance().catch(showError);
   if (panel === 'library' && token) Promise.all([showJobs(), showWorks(0)]).catch(showError);
 }
