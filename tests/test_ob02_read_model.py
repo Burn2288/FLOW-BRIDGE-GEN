@@ -145,7 +145,7 @@ async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(
     kinds={r['kind'] for r in movements}
     assert {'task_reserve','task_capture','task_release','task_refund','payment','refund_hold','refund'} <= kinds
     assert all(r['unit']=='internal_wallet_unit' for r in movements)
-    assert {r['unit'] for r in report['payments']['groups']}=={'XTR'}
+    assert {r['currency'] for r in report['payments']['groups']}=={'XTR'}
     assert {r['outcome'] for r in report['provider_receipts']['groups']}=={
         'charged','full_refund','partial_refund','rejected_unbilled'}
 
