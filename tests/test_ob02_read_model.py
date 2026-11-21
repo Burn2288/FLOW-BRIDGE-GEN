@@ -162,7 +162,8 @@ async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(
     assert quoted['non_estimated_quote_count']==1 and quoted['estimated_quote_count']==1
     assert Decimal(quoted['quoted_amount'])==Decimal('5.0')
     video=report['video_quote_estimates']['groups']
-    assert next(r for r in video if r['provider']=='clodex')['unknown_count']==1
+    video_unknown=next(r for r in video if r['model_id']=='video-b')
+    assert video_unknown['provider']=='clodex' and video_unknown['unknown_count']==1
     image_unknown=next(r for r in video if r['model_id']=='image-b')
     assert image_unknown['unknown_count']==1 and image_unknown['quoted_amount'] is None
     queue=report['reconciliation_queue']['groups']
