@@ -1,5 +1,6 @@
 from base64 import b64encode
 from dataclasses import replace
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 import asyncio
@@ -16,6 +17,7 @@ from elevenbot.anymodel_pricing import AnyModelPricing
 from elevenbot.anymodel import AnyModelProvider, FIBO_MODEL, model_store
 from elevenbot.anymodel_image_jobs import AnyModelImageJobs
 from elevenbot.progress import TaskProgress
+from elevenbot.task_receipts import FinancialOperation, reconcile_generation
 from test_anymodel import routes
 from test_image_validation import encoded_image
 from test_ui import Bot, event
@@ -24,13 +26,17 @@ FIBO_TARIFF={'id':FIBO_MODEL,'endpoint':'/v1/images/generations',
              'billing':{'unit':'image','base_tokens':100000,'coefficient':{'output':0.95}}}
 
 
-@pytest.mark.parametrize('variant',['base64','url','broken','timeout','connect','unsafe'])
+@pytest.mark.parametrize('variant',['base64','corrupt','url','broken','timeout','connect','unsafe',
+                                   'refund_before_capture','refund_after_capture','unconfirmed','no_job_id','charged_image'])
 async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,variant):
     pool,cfg,_,user=funded_env
     cfg=replace(cfg,access_mode='private',admin_ids=(100,),anymodel_test_enabled=True,anymodel_image_live=True,
                 anymodel_key='fixture-any',clodex_key='fixture-clodex',catalogue_path=str(tmp_path/'models.json'),
                 interaction_limit=3)
     png=encoded_image('PNG')
+    damaged=bytearray(png)
+    damaged[damaged.index(b'IDAT')+4]^=1
+    damaged=bytes(damaged)
     calls=[]
 
     async def dns(*args,**kwargs):
@@ -48,10 +54,14 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
             return httpx.Response(200,json={'data':[
                 {'id':FIBO_MODEL,'kind':'image'},{'id':'anymedia/fibo-lite','kind':'image'},
             ]})
-        if req.url.path=='/v1/images/generations':
+        if req.url.path=='/v1/images/generations' and req.method=='POST':
             assert req.url.host=='anymodel.org'
             assert req.headers['Authorization']=='Bearer fixture-any'
             assert json.loads(req.content)=={'model':FIBO_MODEL,'prompt':'Draw a blue square','background':True}
+            if variant in ('refund_before_capture','refund_after_capture','unconfirmed','charged_image'):
+                return httpx.Response(202,json={'id':'image-job-1'},headers={'Retry-After':'0'})
+            if variant=='no_job_id':
+                return httpx.Response(200,json={'data':[{'b64_json':b64encode(damaged).decode()}]})
             if variant=='timeout':
                 raise httpx.ReadTimeout('fixture')
             if variant=='connect':
@@ -59,8 +69,11 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
             if variant in ('url','unsafe'):
                 url=('https' if variant=='url' else 'http')+'://images.example/fixture.png'
                 return httpx.Response(200,json={'data':[{'url':url}]})
-            image=png if variant=='base64' else png[:8]
+            image=png if variant=='base64' else damaged if variant=='corrupt' else b'{"error":"bad"}'
             return httpx.Response(200,json={'data':[{'b64_json':b64encode(image).decode()}]})
+        if req.url.path=='/v1/images/generations/image-job-1' and req.method=='GET':
+            assert req.headers['Authorization']=='Bearer fixture-any'
+            return httpx.Response(200,json={'data':[{'b64_json':b64encode(damaged).decode()}]})
         assert req.headers['Host']=='images.example'
         assert 'Authorization' not in req.headers
         return httpx.Response(200,content=png)
@@ -71,6 +84,7 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
         bot=Bot()
         bot.send_photo=AsyncMock(return_value=SimpleNamespace(message_id=15))
         app=telegram.TelegramApp(pool,cfg,bot)
+        wallet_initial=tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))
         app.anymodel_images.adapter=AnyModelProvider(cfg.anymodel_key,client=http)
         app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=app.anymodel_images.adapter)
         await app.callback(user,100,'am')
@@ -101,16 +115,74 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
         await app.handle(event(callback=action).model_copy(update={'update_id':2}))
         with pytest.raises(telegram.Rejected):
             await app.callback(user,100,action,request_id=3)
-        if variant in ('base64','url'):
+        expected_image=damaged if variant=='corrupt' else png
+        if variant in ('base64','corrupt','url','refund_before_capture','refund_after_capture','no_job_id','unconfirmed','charged_image'):
             jobs=AnyModelImageJobs(pool,cfg,adapter=AnyModelProvider(cfg.anymodel_key,client=http))
+            if variant in ('refund_before_capture','refund_after_capture'):
+                await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
             assert await jobs.poll_one(bot)
+            if variant in ('refund_before_capture','refund_after_capture','unconfirmed','charged_image'):
+                assert await jobs.poll_one(bot)
             bot.send_photo.assert_awaited_once()
-            assert bot.send_photo.await_args.args[1].data==png
+            assert bot.send_photo.await_args.args[1].data==(damaged if variant.startswith('refund_') or variant in ('no_job_id','unconfirmed','charged_image') else expected_image)
             await app.callback(user,100,'history:0')
             await app.callback(user,100,routes(bot)['Открыть работу №1'])
             assert bot.send_photo.await_count==2
-            assert bot.send_photo.await_args.args[1].data==png
-            assert await pool.fetchval('SELECT image FROM image_works')==png
+            assert bot.send_photo.await_args.args[1].data==(damaged if variant.startswith('refund_') or variant in ('no_job_id','unconfirmed','charged_image') else expected_image)
+            assert await pool.fetchval('SELECT image FROM image_works')==(damaged if variant.startswith('refund_') or variant in ('no_job_id','unconfirmed','charged_image') else expected_image)
+            if variant.startswith('refund_'):
+                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
+                assert (await reconcile_generation(pool,quote_id,{})).startswith('RECONCILIATION_REQUIRED:')
+                if variant=='refund_after_capture':
+                    async def lookup(remote):
+                        assert remote=='image-job-1'
+                        return FinancialOperation('anymodel',remote,'image-charge','charged',Decimal('2'),'USD')
+                    assert await reconcile_generation(pool,quote_id,{'anymodel':lookup})=='charged'
+                async def refund(remote):
+                    assert remote=='image-job-1'
+                    return FinancialOperation('anymodel',remote,'image-refund','full_refund',Decimal('2'),'USD',
+                                              'image-charge',Decimal('2'),'USD')
+                results=await asyncio.gather(reconcile_generation(pool,quote_id,{'anymodel':refund}),
+                                             reconcile_generation(pool,quote_id,{'anymodel':refund}))
+                assert results==['full_refund','full_refund']
+                assert await reconcile_generation(pool,quote_id,{'anymodel':refund})=='full_refund'
+                after=tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))
+                assert after==(wallet_initial[0],0)
+                kinds=[r['kind'] for r in await pool.fetch('SELECT kind FROM ledger WHERE task_quote_id=$1 ORDER BY kind',quote_id)]
+                assert kinds==(['task_release','task_reserve'] if variant=='refund_before_capture'
+                               else ['task_capture','task_refund','task_reserve'])
+                assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote_id)==(0 if variant=='refund_before_capture' else 1)
+                assert await pool.fetchval("SELECT count(*) FROM anymodel_image_jobs WHERE provider_id='image-job-1'")==1
+                assert sum(1 for method,path in calls if method=='POST' and path=='/v1/images/generations')==1
+            elif variant=='no_job_id':
+                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
+                price=int(await pool.fetchval("SELECT price->>'total' FROM task_price_quotes WHERE id=$1",quote_id))
+                assert (await reconcile_generation(pool,quote_id,{})).startswith('RECONCILIATION_REQUIRED:')
+                case=await pool.fetchrow('SELECT provider_job_id,status,finding FROM task_financial_reconciliation_cases WHERE quote_id=$1',quote_id)
+                assert tuple(case)==(None,'required','provider_operation_id_unavailable_or_ambiguous')
+                assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote_id)==0
+                assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))==(wallet_initial[0]-price,wallet_initial[1])
+            elif variant=='unconfirmed':
+                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
+                price=int(await pool.fetchval("SELECT price->>'total' FROM task_price_quotes WHERE id=$1",quote_id))
+                async def lookup(remote):
+                    assert remote=='image-job-1'
+                    return None
+                assert (await reconcile_generation(pool,quote_id,{'anymodel':lookup})).startswith('RECONCILIATION_REQUIRED:')
+                assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))==(wallet_initial[0]-price,wallet_initial[1]+price)
+                assert await pool.fetchval("SELECT count(*) FROM image_works WHERE user_id=$1",user)==1
+                assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote_id)==0
+            elif variant=='charged_image':
+                quote_id=await pool.fetchval('SELECT id FROM task_price_quotes WHERE user_id=$1 ORDER BY accepted_at DESC LIMIT 1',user)
+                async def lookup(remote):
+                    assert remote=='image-job-1'
+                    return FinancialOperation('anymodel',remote,'image-charge','charged',Decimal('2'),'USD')
+                assert await reconcile_generation(pool,quote_id,{'anymodel':lookup})=='charged'
+                available=tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",user))
+                price=int(await pool.fetchval("SELECT price->>'total' FROM task_price_quotes WHERE id=$1",quote_id))
+                assert available==(wallet_initial[0]-price,0)
+                assert await pool.fetchval("SELECT count(*) FROM image_works WHERE user_id=$1",user)==1
+                assert await pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_refund'",quote_id)==0
         else:
             assert 'Автоповтора нет' in bot.sent[-1][0]
             expected='unknown' if variant in ('timeout','connect') else 'failed'
@@ -122,9 +194,12 @@ async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,
             assert await pool.fetchval('SELECT count(*) FROM image_works')==0
             bot.send_photo.assert_not_awaited()
 
-    assert calls==[('GET','/v1/models'),('GET','/v1/models/video'),('GET','/v1/models/tts'),('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations')]+(
-        [('GET','/fixture.png')] if variant=='url' else []
-    )
+    expected_calls=[('GET','/v1/models'),('GET','/v1/models/video'),('GET','/v1/models/tts'),
+                    ('GET','/v1/models/info'),('GET','/v1/models/info'),('POST','/v1/images/generations')]
+    if variant=='url': expected_calls.append(('GET','/fixture.png'))
+    if variant.startswith('refund_') or variant in ('unconfirmed','charged_image'):
+        expected_calls.append(('GET','/v1/images/generations/image-job-1'))
+    assert calls==expected_calls
 
 POLL_AFTER_RESTART = r"""
 import asyncio
