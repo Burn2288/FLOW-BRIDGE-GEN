@@ -41,12 +41,15 @@ async def _dispatch(pool, user, quote_id, state, at, *, reserve=False, settlemen
             """,user,f'ob02:release:{quote_id}',quote_id,at)
 
 
-async def _receipt(pool, quote_id, provider, outcome, operation_id, amount, at):
+async def _receipt(pool, quote_id, provider, outcome, operation_id, amount, at, *,
+                  provider_job_id=None, refunded_operation_id=None):
     await pool.execute("""
         INSERT INTO task_financial_receipts
-            (provider,operation_id,provider_job_id,quote_id,outcome,amount,unit,recorded_at)
-        VALUES($1,$2,$3,$4,$5,$6,'USD',$7)
-        """,provider,operation_id,f'job-{operation_id}',quote_id,outcome,amount,at)
+            (provider,operation_id,provider_job_id,quote_id,outcome,amount,unit,
+             recorded_at,refunded_operation_id)
+        VALUES($1,$2,$3,$4,$5,$6,'USD',$7,$8)
+        """,provider,operation_id,provider_job_id or f'job-{operation_id}',quote_id,
+        outcome,amount,at,refunded_operation_id)
 
 
 async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(env,confirmed_credit):
@@ -93,9 +96,16 @@ async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(
 
     await _receipt(pool,q_success,'clodex','charged','success-charge','2.5',start)
     await _receipt(pool,q_failed,'clodex','rejected_unbilled','failed-unbilled','0',start+timedelta(hours=25))
-    await _receipt(pool,q_uncertain,'anymodel','partial_refund','uncertain-partial','0.5',start+timedelta(hours=1))
-    await _receipt(pool,q_refunded,'anymodel','charged','refund-charge','3.0',end-timedelta(microseconds=1))
-    await _receipt(pool,q_refunded,'anymodel','full_refund','refund-full','3.0',end-timedelta(microseconds=1))
+    await _receipt(pool,q_uncertain,'anymodel','charged','uncertain-charge','2.5',
+                   start+timedelta(hours=1),provider_job_id='job-uncertain')
+    await _receipt(pool,q_uncertain,'anymodel','partial_refund','uncertain-partial','0.5',
+                   start+timedelta(hours=1),provider_job_id='job-uncertain',
+                   refunded_operation_id='uncertain-charge')
+    await _receipt(pool,q_refunded,'anymodel','charged','refund-charge','3.0',
+                   end-timedelta(microseconds=1),provider_job_id='job-refunded')
+    await _receipt(pool,q_refunded,'anymodel','full_refund','refund-full','3.0',
+                   end-timedelta(microseconds=1),provider_job_id='job-refunded',
+                   refunded_operation_id='refund-charge')
     await pool.execute("""
         INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr,task_quote_id)
         SELECT gen_random_uuid(),user_id,'live','ob02:task-refund:'||task_quote_id,
