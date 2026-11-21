@@ -232,28 +232,72 @@ async def manually_review_case(pool, quote_id, *, reviewer_external_id, operatio
 async def manually_resolve_no_refund_case(pool, quote_id, *, reviewer_external_id, operation_id, amount, unit, evidence_ref):
     """Close a case only when operator evidence explicitly proves no provider refund."""
     amount = _manual_evidence_values(reviewer_external_id, operation_id, amount, unit, evidence_ref)
+    late_refund = None
     async with pool.acquire() as conn, conn.transaction():
         case=await conn.fetchrow("""SELECT provider,status,final_evidence_ref,final_reviewer_external_id
             FROM task_financial_reconciliation_cases WHERE quote_id=$1 FOR UPDATE""",quote_id)
         if not case:
             raise Rejected('Кейс ручной сверки не найден.')
-        values=(case['provider'],operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id,'no_refund_resolution')
-        await conn.execute("""INSERT INTO task_financial_reconciliation_manual_audit
-            (provider,operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id,action)
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(provider,operation_id) DO NOTHING""",*values)
-        stored=await conn.fetchrow("""SELECT provider,operation_id,quote_id,amount,unit,evidence_ref,
-            reviewer_external_id,action FROM task_financial_reconciliation_manual_audit
-            WHERE provider=$1 AND operation_id=$2""",case['provider'],operation_id)
-        if tuple(stored)!=values:
-            raise Rejected('Идентификатор ручной операции уже использован для другого доказательства или quote.')
-        if case['status']=='resolved':
-            raise Rejected('Кейс уже закрыт доверенным финансовым событием.')
-        if case['status']=='resolved_no_refund':
-            if (case['final_evidence_ref'],case['final_reviewer_external_id']) != (evidence_ref,reviewer_external_id):
-                raise Rejected('Случай уже закрыт другим доказательством отсутствия возврата.')
-            return 'no_refund_resolved_no_credit'
-        await conn.execute("""UPDATE task_financial_reconciliation_cases SET status='resolved_no_refund',
-            resolved_at=now(),resolution_operation_id=NULL,final_evidence_ref=$2,
-            final_reviewer_external_id=$3,finding='provider_refund_proven_absent_no_wallet_movement',last_seen_at=now()
-            WHERE quote_id=$1""",quote_id,evidence_ref,reviewer_external_id)
+        receipts=await conn.fetch("""SELECT operation_id,outcome,provider_job_id,amount,unit,refunded_operation_id
+            FROM task_financial_receipts WHERE provider=$1 AND quote_id=$2
+              AND outcome IN ('partial_refund','full_refund')
+            ORDER BY recorded_at,operation_id FOR SHARE""",case['provider'],quote_id)
+        partial=next((row for row in receipts if row['outcome']=='partial_refund'),None)
+        full=next((row for row in receipts if row['outcome']=='full_refund'),None)
+        if partial:
+            raise Rejected('Подтверждён частичный возврат; кейс остаётся в очереди отдельного решения.')
+        if full:
+            charge=await conn.fetchrow("""SELECT amount,unit FROM task_financial_receipts
+                WHERE provider=$1 AND operation_id=$2 AND quote_id=$3 AND outcome='charged' FOR SHARE""",
+                case['provider'],full['refunded_operation_id'],quote_id)
+            if not charge or not full['provider_job_id']:
+                raise Rejected('Для полного возврата не найдена связанная доверенная charge receipt.')
+            late_refund=FinancialOperation(
+                case['provider'],full['provider_job_id'],full['operation_id'],'full_refund',
+                full['amount'],full['unit'],full['refunded_operation_id'],charge['amount'],charge['unit'])
+        else:
+            if case['status']=='resolved':
+                raise Rejected('Кейс уже закрыт доверенным финансовым событием.')
+            if case['status']=='resolved_no_refund':
+                previous=await conn.fetchrow("""SELECT operation_id,amount,unit,evidence_ref,reviewer_external_id
+                    FROM task_financial_reconciliation_manual_audit
+                    WHERE provider=$1 AND quote_id=$2 AND action='no_refund_resolution'""",
+                    case['provider'],quote_id)
+                if (not previous or tuple(previous)!=(operation_id,amount,unit,evidence_ref,reviewer_external_id)
+                        or (case['final_evidence_ref'],case['final_reviewer_external_id'])
+                           !=(evidence_ref,reviewer_external_id)):
+                    raise Rejected('Случай уже закрыт другим доказательством отсутствия возврата.')
+                return 'no_refund_resolved_no_credit'
+
+            reserve=await conn.fetchrow("""SELECT da,dr FROM ledger
+                WHERE task_quote_id=$1 AND kind='task_reserve' FOR SHARE""",quote_id)
+            settlements=await conn.fetch("""SELECT kind,da,dr FROM ledger
+                WHERE task_quote_id=$1 AND kind IN ('task_capture','task_release') FOR SHARE""",quote_id)
+            valid_reserve=(reserve is not None and reserve['dr']>0 and reserve['da']==-reserve['dr'])
+            valid_settlement=(valid_reserve and len(settlements)==1 and (
+                (settlements[0]['kind']=='task_capture' and settlements[0]['da']==0
+                 and settlements[0]['dr']==-reserve['dr'])
+                or (settlements[0]['kind']=='task_release' and settlements[0]['da']==reserve['dr']
+                    and settlements[0]['dr']==-reserve['dr'])
+            ))
+            if not valid_settlement:
+                raise Rejected('Нельзя закрыть отсутствие возврата до допустимого settlement резерва.')
+
+            values=(case['provider'],operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id,'no_refund_resolution')
+            await conn.execute("""INSERT INTO task_financial_reconciliation_manual_audit
+                (provider,operation_id,quote_id,amount,unit,evidence_ref,reviewer_external_id,action)
+                VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(provider,operation_id) DO NOTHING""",*values)
+            stored=await conn.fetchrow("""SELECT provider,operation_id,quote_id,amount,unit,evidence_ref,
+                reviewer_external_id,action FROM task_financial_reconciliation_manual_audit
+                WHERE provider=$1 AND operation_id=$2""",case['provider'],operation_id)
+            if tuple(stored)!=values:
+                raise Rejected('Идентификатор ручной операции уже использован для другого доказательства или quote.')
+            await conn.execute("""UPDATE task_financial_reconciliation_cases SET status='resolved_no_refund',
+                resolved_at=now(),resolution_operation_id=NULL,final_evidence_ref=$2,
+                final_reviewer_external_id=$3,finding='provider_refund_proven_absent_no_wallet_movement',last_seen_at=now()
+                WHERE quote_id=$1""",quote_id,evidence_ref,reviewer_external_id)
+    if late_refund is not None:
+        async def trusted_stored_refund(remote):
+            return late_refund if remote==late_refund.job_id else None
+        return await reconcile_generation(pool,quote_id,{late_refund.provider:trusted_stored_refund})
     return 'no_refund_resolved_no_credit'

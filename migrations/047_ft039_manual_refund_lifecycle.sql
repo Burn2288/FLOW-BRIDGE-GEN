@@ -2,16 +2,19 @@
 ALTER TABLE task_financial_reconciliation_cases
     DROP CONSTRAINT task_financial_reconciliation_cases_status_check,
     DROP CONSTRAINT task_financial_reconciliation_cases_resolved_at_check,
-    DROP CONSTRAINT task_financial_reconciliation_manual_review;
+    DROP CONSTRAINT task_financial_reconciliation_manual_review,
+    ADD COLUMN manual_reviewed_at timestamptz,
+    ADD COLUMN final_evidence_ref text,
+    ADD COLUMN final_reviewer_external_id bigint;
 
 UPDATE task_financial_reconciliation_cases
-SET status='required', resolved_at=NULL
+SET manual_reviewed_at=resolved_at,
+    status='required',
+    resolved_at=NULL,
+    finding='manual_evidence_recorded_pending_resolution'
 WHERE status='manual_reviewed';
 
 ALTER TABLE task_financial_reconciliation_cases
-    ADD COLUMN manual_reviewed_at timestamptz,
-    ADD COLUMN final_evidence_ref text,
-    ADD COLUMN final_reviewer_external_id bigint,
     ADD CONSTRAINT task_financial_reconciliation_cases_status_check
         CHECK (status IN ('required','resolved','resolved_no_refund')),
     ADD CONSTRAINT task_financial_reconciliation_cases_resolved_at_check
@@ -24,7 +27,9 @@ ALTER TABLE task_financial_reconciliation_cases
          AND manual_evidence_ref IS NOT NULL AND manual_reviewer_external_id IS NOT NULL AND manual_reviewed_at IS NOT NULL)
     ),
     ADD CONSTRAINT task_financial_reconciliation_no_refund_resolution CHECK (
-        (status='resolved_no_refund') = (final_evidence_ref IS NOT NULL AND final_reviewer_external_id IS NOT NULL)
+        (status='resolved_no_refund' AND final_evidence_ref IS NOT NULL AND final_reviewer_external_id IS NOT NULL)
+        OR
+        (status<>'resolved_no_refund' AND final_evidence_ref IS NULL AND final_reviewer_external_id IS NULL)
     ),
     ADD CONSTRAINT task_financial_reconciliation_final_actor CHECK
         (final_reviewer_external_id IS NULL OR final_reviewer_external_id > 0);
