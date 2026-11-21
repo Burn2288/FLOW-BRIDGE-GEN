@@ -331,6 +331,13 @@ class TelegramApp:
                 caption+='\nПромпт: '+prompt[:450]+('…' if len(prompt)>450 else '')
                 if len(prompt)>450:
                     markup=buttons([[('Полный промпт',f'prompt:{kind}:{job}')]])
+            if kind=='image' and work.get('request') and not show_prompt:
+                caption += '\nПромпт: '+prompt[:450]+('…' if len(prompt)>450 else '')
+                caption += '\nЦена: '+(str(work['price'])+' кредитов' if work['price'] is not None else 'недоступна')
+                rows = [[('Создать похожее',f'similar:{job}')]]
+                if len(prompt)>450:
+                    rows.append([('Полный промпт',f'prompt:image:{job}')])
+                markup=buttons(rows)
             if kind=='image':
                 from .image_delivery import send_saved_image
                 await send_saved_image(self.bot,ext,work[kind],work['filename'],caption=caption,reply_markup=markup)
@@ -805,21 +812,26 @@ class TelegramApp:
         if music_providers:
             if self.music_access(ext):
                 music_providers.append('clodex')
-            jobs=await self.svc.history(u,page*10,model_id,music_providers=music_providers)
+            jobs=await self.svc.history(u,page*5,model_id,music_providers=music_providers)
         elif self.music_access(ext):
-            jobs=await self.svc.history(u,page*10,model_id,include_music=True)
+            jobs=await self.svc.history(u,page*5,model_id,include_music=True)
         else:
-            jobs=await (self.svc.history(u,page*10,model_id) if model else self.svc.history(u,page*10))
+            jobs=await (self.svc.history(u,page*5,model_id) if model else self.svc.history(u,page*5))
+        has_more = len(jobs) > 5
+        jobs = jobs[:5]
         lines=[f'Работы модели {model_id}:' if model else 'Ваши работы:'] if jobs else ['Работ пока нет.']
         rows=[]
-        for index,r in enumerate(jobs,start=page*10+1):
+        for index,r in enumerate(jobs,start=page*5+1):
             kind,_,music_provider=r.get('kind','audio').partition(':')
             name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата','music':'Музыка'}[kind]
-            price=f" · {r['price']} кредитов" if r['price'] is not None else ''
+            price=f" · {r['price']} кредитов" if r['price'] is not None else ' · Цена недоступна'
             music_status={'queued':'В очереди','dispatching':'Выполняется','failed':'Не удалось выполнить',
                           'uncertain':'Результат требует проверки','succeeded':'Результат сохранён'}
             status=music_status[r['status']] if kind=='music' else STATUS[r['status']]
             lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {status}{price}")
+            if r.get('prompt'):
+                prompt = r['prompt'].replace('\n', ' ')
+                lines.append('Запрос: ' + prompt[:160] + ('…' if len(prompt) > 160 else ''))
             if r['status']=='succeeded' and r.get('file_available',True):
                 route={'image':'image','audio':'get','video':'video','chat':'chatwork','music':'musicwork'}[kind]
                 if music_provider:route=f'pilotwork:{music_provider}'
@@ -829,7 +841,7 @@ class TelegramApp:
                 rows.append([(f'Отменить №{index}',f"cancel:{r['id']}")])
         nav=[]
         if page:nav.append(('Назад',f'{origin}:{page-1}'))
-        if len(jobs)==10:nav.append(('Далее',f'{origin}:{page+1}'))
+        if has_more:nav.append(('Далее',f'{origin}:{page+1}'))
         if nav:rows.append(nav)
         if model:
             _,version,section,index=origin.split(':')
@@ -1024,6 +1036,22 @@ class TelegramApp:
             return
         if kind=='chatwork':
             await self.send_chat_answer(ext,await self.svc.chat_work(u,arg));return
+        if kind=='similar':
+            work=await self.svc.image_work(u,arg)
+            if not work['request']:
+                raise Rejected('Параметры этой работы недоступны.')
+            req=Request(**json.loads(work['request']))
+            from dataclasses import replace
+            req=replace(req,model_version=None)
+            from .model_policy import admitted
+            async with self.pool.acquire() as conn:
+                await self.launch.authorize_request(conn,u,ext,req)
+                if not await admitted(conn,req.provider,req.model,req.operation):
+                    raise Rejected('Модель больше недоступна.')
+            if req.provider=='clodex' and not self.clodex_launch_model(ext,req):
+                raise Rejected('Модель больше недоступна.')
+            await self.show_price(ext,await self.pricing.quote(u,req))
+            return
         if kind=='video':
             await self.open_work(u,ext,'video',arg);return
         if kind in ('get','image','mget','mimage'):
@@ -1627,11 +1655,30 @@ class TelegramApp:
             result=await reconcile_generation(self.pool,uid(args[0]),self.providers.financial_sources)
             await self.say(ext,result)
             return
+        elif command=='/price_account' and len(args)==6 and args[1]=='manual-review':
+            from .task_receipts import manually_review_case
+            result=await manually_review_case(
+                self.pool,uid(args[0]),reviewer_external_id=ext,operation_id=args[2],
+                amount=args[3],unit=args[4],evidence_ref=args[5],
+            )
+            await self.say(ext,'Доказательство ручной проверки сохранено; случай остаётся в очереди до финансового решения.'
+                            if result=='manual_review_recorded_no_credit' else result)
+            return
+        elif command=='/price_account' and len(args)==6 and args[1]=='no-refund':
+            from .task_receipts import manually_resolve_no_refund_case
+            result=await manually_resolve_no_refund_case(
+                self.pool,uid(args[0]),reviewer_external_id=ext,operation_id=args[2],
+                amount=args[3],unit=args[4],evidence_ref=args[5],
+            )
+            await self.say(ext,'Подтверждено отсутствие возврата провайдера; случай закрыт без проводки кошелька.'
+                            if result=='no_refund_resolved_no_credit' else result)
+            return
         elif command=='/price_account' and len(args)==5:
             await self.pricing.reconcile(u,ext,uid(args[0]),*args[1:])
         else:
             raise Rejected('Формат: /markup агрегатор|* модель|* percent|fixed сумма или remove; '
                            '/price_rate единица курс; /price_account оценка списано возвращено расход|- ссылка; '
+                           '/price_account <quote> manual-review|no-refund <operation_id> <amount> <unit> <evidence_ref>; '
                            '/price_report; /tariff агрегатор модель операция JSON [test] основание единица ставка [срок] источник или disable. Основания: request, utf16, image, second, started_minute, token (вход:выход)')
         await self.say(ext,'Настройки учёта обновлены.')
 

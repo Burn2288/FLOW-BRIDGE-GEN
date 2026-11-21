@@ -248,8 +248,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                                   'video': (service.video_work, 'mp4')}[kind]
                 row = await method(user, work_id)
                 data = row[kind]
-                if kind == 'image' and data.startswith(b'\xff\xd8'):
-                    suffix = 'jpg'
+                if kind == 'image':
+                    suffix = {'result.jpg': 'jpg', 'result.bin': 'bin'}.get(row['filename'], 'png')
         except (KeyError, ValueError, Rejected):
             raise web.HTTPNotFound() from None
         return web.Response(body=data, content_type='application/octet-stream',

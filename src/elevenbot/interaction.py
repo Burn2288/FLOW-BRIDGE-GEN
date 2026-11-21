@@ -73,8 +73,10 @@ def decode_result(operation, payload):
             if isinstance(text, str) and 0 < len(text.strip()) and len(text) <= 16000:
                 return Result(text=text)
         else:
+            if not isinstance(payload, dict) or 'error' in payload:
+                raise ValueError('Provider returned an error payload')
             image = base64.b64decode(payload['data'][0]['b64_json'], validate=True)
-            return image_result(image)
+            return provider_image_result(image)
     except (KeyError, IndexError, TypeError, ValueError, binascii.Error):
         pass
     raise Rejected('CLODEX вернул неподдерживаемый результат.')
@@ -182,6 +184,42 @@ def image_result(image):
     raise Rejected('CLODEX вернул неподдерживаемое изображение.')
 
 
+def provider_image_result(image):
+    """Preserve bounded media bytes; recognized image headers still obey dimension limits."""
+    if not isinstance(image, bytes) or not 0 < len(image) <= IMAGE_LIMIT:
+        raise Rejected('Провайдер вернул пустой или слишком большой файл изображения.')
+    probe = image[:512].lstrip(b'\xef\xbb\xbf\x00 \t\r\n').lower()
+    if probe.startswith((b'<!doctype html', b'<html', b'<?xml', b'<error')):
+        raise Rejected('Провайдер вернул ошибку вместо файла изображения.')
+    if probe[:1] in (b'{', b'[', b'"', b't', b'f', b'n') or probe[:1].isdigit() or probe[:1] == b'-':
+        try:
+            json.loads(image.decode('utf-8-sig'))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            pass
+        else:
+            raise Rejected('Провайдер вернул JSON вместо файла изображения.')
+    if image.startswith(PNG_SIGNATURE) and len(image) >= 24 and image[8:16] == b'\x00\x00\x00\x0dIHDR':
+        width, height = struct.unpack_from('>II', image, 16)
+        if width == 0 or height == 0:
+            return Result(image=image, filename='result.bin')
+        try:
+            _check_image_size(width, height)
+        except ValueError:
+            raise Rejected('Размер изображения превышает допустимый лимит.') from None
+        return Result(image=image, filename='result.png')
+    if image.startswith(b'\xff\xd8\xff'):
+        try:
+            height, width, _, _ = decode_jpeg_header(image, strict=True)
+        except (OSError, ValueError, SyntaxError, EOFError, struct.error, Image.DecompressionBombError):
+            return Result(image=image, filename='result.bin')
+        try:
+            _check_image_size(width, height)
+        except ValueError:
+            raise Rejected('Размер изображения превышает допустимый лимит.') from None
+        return Result(image=image, filename='result.jpg')
+    return Result(image=image, filename='result.bin')
+
+
 def image_url(payload):
     if not isinstance(payload, dict):
         return None
@@ -243,6 +281,12 @@ async def download_image(http, url, request_id):
                         continue
                     phase = 'http_status'
                     response.raise_for_status()
+                    media_type = response.headers.get('content-type', '').partition(';')[0].strip().lower()
+                    if (media_type.startswith('text/') or media_type in
+                            ('application/json', 'application/problem+json', 'application/xml', 'text/xml')):
+                        raise _ImageDownloadError('non_media_content_type')
+                    if media_type and not (media_type.startswith('image/') or media_type == 'application/octet-stream'):
+                        raise _ImageDownloadError('unsupported_content_type')
                     image = bytearray()
                     phase = 'body_read'
                     async for part in response.aiter_bytes(65536):
@@ -250,7 +294,7 @@ async def download_image(http, url, request_id):
                             raise _ImageDownloadError('image_too_large')
                         image.extend(part)
                     phase = 'image_invalid'
-                    result = await asyncio.to_thread(image_result, bytes(image))
+                    result = await asyncio.to_thread(provider_image_result, bytes(image))
                     trace_interaction(request_id, 'image_download_ok', image_bytes=len(image))
                     return result
                 finally:
