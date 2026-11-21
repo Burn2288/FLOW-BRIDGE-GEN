@@ -107,7 +107,7 @@ async def test_aggregate_report_separates_operations_cost_evidence_and_timezone(
               ($7,$2,'image-a','private prompt',1.25,'anymodel','failed',$8),
               ($9,$5,'image-b','private prompt',NULL,'anymodel','failed',$10)
         """,q_success,owner,start,q_failed,second,start+timedelta(hours=25),
-        q_uncertain,start+timedelta(hours=1),q_refunded,second,end-timedelta(microseconds=1))
+        q_uncertain,start+timedelta(hours=1),q_refunded,end-timedelta(microseconds=1))
 
     # Synthetic payment receipt and its refund lifecycle; this does not call a payment provider.
     payment_service,payment_id=await confirmed_credit(pool,cfg,second,50,'ob02-fixture-charge')
