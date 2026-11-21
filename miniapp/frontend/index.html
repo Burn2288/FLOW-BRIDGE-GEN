@@ -66,12 +66,26 @@
       <button id="retry-theme" hidden>Повторить сохранение</button>
     </fieldset>
   </section>
+  <section id="referral" aria-labelledby="referral-title" hidden>
+    <h1 id="referral-title">Приглашения</h1>
+    <article class="card">
+      <p>Ваш код приглашения</p>
+      <p id="referral-code" aria-live="polite">Загрузка…</p>
+      <button id="copy-referral" disabled>Скопировать код</button>
+      <p id="referral-copy-status" role="status"></p>
+      <p id="referral-status" role="status"></p>
+      <button id="retry-referral" hidden>Повторить загрузку</button>
+      <p id="referrer-status"></p>
+      <small>Код фиксирует приглашение при первой регистрации. Денежные или бонусные начисления этой функцией не предусмотрены.</small>
+    </article>
+  </section>
 </main>
 <nav aria-label="Разделы приложения">
   <button data-panel="catalogue" aria-current="page">Каталог</button>
   <button data-panel="library">Мои работы</button>
   <button data-panel="balance">Баланс</button>
   <button data-panel="settings">Настройки</button>
+  <button data-panel="referral">Приглашения</button>
 </nav>
 </body>
 </html>

@@ -7,6 +7,9 @@ let wantedTheme;
 const works = document.querySelector('#works');
 let token;
 let page = 0;
+let referralLoaded = false;
+let referralRequest;
+let activePanel = 'catalogue';
 
 async function request(path, options = {}) {
   let response;
@@ -263,6 +266,8 @@ async function start() {
     token = (await session.json()).token;
     sessionStorage.setItem('miniapp.session', JSON.stringify({ launch, token }));
   }
+  // The user may select a panel while authentication is still pending.
+  if (activePanel === 'referral') void showReferral();
   const [wallet, catalogue, settings] = await Promise.all([
     request('/api/v1/wallet').then(response => response.json()),
     request('/api/v1/catalogue').then(response => response.json()),
@@ -373,6 +378,7 @@ const states = {
 let cardRevision = 0;
 
 function selectPanel(panel) {
+  activePanel = panel;
   for (const button of tabs) {
     const selected = button.dataset.panel === panel;
     document.getElementById(button.dataset.panel).hidden = !selected;
@@ -380,6 +386,49 @@ function selectPanel(panel) {
     else button.removeAttribute('aria-current');
   }
 }
+
+async function showReferral() {
+  if (referralLoaded) return;
+  if (referralRequest) return referralRequest;
+  const status = document.querySelector('#referral-status');
+  const retry = document.querySelector('#retry-referral');
+  const copy = document.querySelector('#copy-referral');
+  status.textContent = 'Загружаем код приглашения…';
+  retry.hidden = true;
+  retry.disabled = true;
+  copy.disabled = true;
+  const pending = (async () => {
+    try {
+      const response = await request('/api/v1/referral');
+      const referral = await response.json();
+      document.querySelector('#referral-code').textContent = referral.code;
+      document.querySelector('#referrer-status').textContent = referral.has_referrer
+        ? 'Вы зарегистрировались по приглашению.' : 'Вы зарегистрировались без приглашения.';
+      copy.disabled = false;
+      status.textContent = '';
+      referralLoaded = true;
+    } catch (error) {
+      status.textContent = `Не удалось загрузить приглашения. ${error.message}`;
+      retry.hidden = false;
+    } finally {
+      retry.disabled = false;
+      if (referralRequest === pending) referralRequest = null;
+    }
+  })();
+  referralRequest = pending;
+  return pending;
+}
+
+document.querySelector('#copy-referral').onclick = async () => {
+  const result = document.querySelector('#referral-copy-status');
+  try {
+    await navigator.clipboard.writeText(document.querySelector('#referral-code').textContent);
+    result.textContent = 'Код скопирован.';
+  } catch {
+    result.textContent = 'Не удалось скопировать. Выделите код вручную.';
+  }
+};
+document.querySelector('#retry-referral').onclick = () => { void showReferral(); };
 
 async function showJobs() {
   const { jobs } = await (await request('/api/v1/jobs')).json();
@@ -423,6 +472,7 @@ function navigate(panel) {
   overview.hidden = false;
   card.hidden = true;
   selectPanel(panel);
+  if (panel === 'referral' && token) void showReferral();
   if (panel === 'balance' && token) showBalance().catch(showError);
   if (panel === 'library' && token) Promise.all([showJobs(), showWorks(0)]).catch(showError);
 }
