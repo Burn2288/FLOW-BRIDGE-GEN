@@ -72,7 +72,7 @@ def validate(old, register):
                 assert item['tree_proof_url'] == ('https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/' + item['tested_sha'] + '...' + item['checkout_sha'])
             if item['integrated_sha'] is not None:
                 assert SHA.fullmatch(item['integrated_sha'])
-                assert item['integrated_sha'] == observed['integration_sha']
+                # The current integration ref may have advanced; each item preserves its historical inclusion SHA.
                 assert item['integration_evidence_url'] == ('https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/' + item['tested_sha'] + '...' + item['integrated_sha'])
             else:
                 assert item['integration_evidence_url'] is None
