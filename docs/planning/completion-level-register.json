@@ -2369,8 +2369,8 @@
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
       "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/108",
-      "tested_sha": "3647dba55a59bf4634112f0173103b243cd18b40",
-      "integrated_sha": "d1ca79afbdee75bc0c568e8bafa91dc79fce8fb1",
+      "tested_sha": "cc4cc2ee2192d4c64481a6ebb895432a7664b6db",
+      "integrated_sha": "92ddb54a8905823c7b9361a338314df8c7e60983",
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
@@ -2386,16 +2386,16 @@
           "list_position": 32,
           "task_id": "OB-02",
           "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/108",
-          "tested_sha": "3647dba55a59bf4634112f0173103b243cd18b40",
-          "checkout_sha": "3647dba55a59bf4634112f0173103b243cd18b40",
+          "tested_sha": "cc4cc2ee2192d4c64481a6ebb895432a7664b6db",
+          "checkout_sha": "cc4cc2ee2192d4c64481a6ebb895432a7664b6db",
           "tree_relation": "EXACT_HEAD",
           "tree_proof_url": null,
-          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44913469956",
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44916410891",
           "ci_conclusion": "SUCCESS",
-          "coverage": "PostgreSQL 16.15 synthetic aggregate regression: 59 passed; headless Chromium report demo: 1 passed, including SYNTHETIC SAMPLE, quoted task counts, section switching and truncated lower-bound totals. Screenshot artifact: ob02-report-demo-44913469956.",
-          "limitations": "Internal service/CLI only; no protected administrative HTTP API because AD-01 contract remains blocked. OB-02 is a functional slice and not full acceptance. Broader required GitHub Actions and global integration regression are pending.",
-          "integrated_sha": "d1ca79afbdee75bc0c568e8bafa91dc79fce8fb1",
-          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/3647dba55a59bf4634112f0173103b243cd18b40...d1ca79afbdee75bc0c568e8bafa91dc79fce8fb1"
+          "coverage": "PostgreSQL 16.15 aggregate/read-model synthetic regression: 59 passed. Headless Chromium demo: 1 passed, including synthetic sample, task table, wallet section switching and truncated lower-bound totals. Screenshot artifact: ob02-report-demo-44916410891.",
+          "limitations": "All 40 GitHub Actions for this source HEAD and full integration regression are pending. Internal service/CLI only; no protected administrative HTTP API because AD-01 remains blocked. This does not prove full OB-02 acceptance.",
+          "integrated_sha": "92ddb54a8905823c7b9361a338314df8c7e60983",
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/cc4cc2ee2192d4c64481a6ebb895432a7664b6db...92ddb54a8905823c7b9361a338314df8c7e60983"
         }
       ]
     },
@@ -2750,7 +2750,7 @@
     "main_ref": "main",
     "main_sha": "a889d8306c743c0046b710b950608052eabfdc78",
     "integration_ref": "integration/functional-test-v1",
-    "integration_sha": "d1ca79afbdee75bc0c568e8bafa91dc79fce8fb1",
+    "integration_sha": "92ddb54a8905823c7b9361a338314df8c7e60983",
     "candidate_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/76",
     "candidate_sha": "4c2df69503b7eb0ae249f5816e0868799961eb75",
     "ft028_fix_01": {
