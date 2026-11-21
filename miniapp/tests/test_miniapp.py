@@ -84,6 +84,9 @@ async def test_miniapp_shared_wallet_library_and_session(account_db):
             if status == 200:
                 return {'Authorization': 'Bearer ' + (await response.json())['token']}
 
+        page = await client.get('/')
+        page_html = await page.text()
+        assert page.status == 200 and 'id="referral"' in page_html and 'data-panel="referral"' in page_html
         for path, marker in (
             ('/', 'data-panel="catalogue"'), ('/assets/app.js', 'showReferral'),
             ('/assets/style.css', 'data-theme="light"')
