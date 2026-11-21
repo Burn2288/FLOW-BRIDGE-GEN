@@ -35,7 +35,10 @@ def _validate_window(start, end, timezone_name, limit):
 
 
 async def _groups(conn, sql, start, end, timezone_name, limit):
-    rows = await conn.fetch(sql, start, end, timezone_name, limit)
+    # Some grouped queries do not need the timezone, but share the same bound
+    # parameter shape. Keep PostgreSQL's parameter typing explicit in all cases.
+    bound_sql = f"SELECT * FROM ({sql}) AS report WHERE $3::text IS NOT NULL"
+    rows = await conn.fetch(bound_sql, start, end, timezone_name, limit)
     total = int(rows[0]['total_groups']) if rows else 0
     groups = []
     for row in rows:
@@ -245,4 +248,3 @@ async def read_operations_report(pool, start, end, *, timezone_name='UTC', limit
         unknown = await conn.fetchrow(UNKNOWN_COST,start,end)
         result['provider_cost_coverage'] = {key: int(value) for key,value in unknown.items()}
     return result
-
