@@ -2897,8 +2897,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/111",
-      "tested_sha": "c3a3e5c9402437a61ae4468054e53e6d49340b48",
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/112",
+      "tested_sha": "178b929861a72011bd46f47e975659f83cb85dcb",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2922,6 +2922,22 @@
           "ci_conclusion": "SUCCESS",
           "coverage": "Offline synthetic r1 rejection retained in r2; two report SHA-256 checks and 9 focused tests passed.",
           "limitations": "Synthetic fixture only. Remote archive and independent verdict remain unproven; AU-01 is a candidate dependency.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 41,
+          "task_id": "AU-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/112",
+          "tested_sha": "178b929861a72011bd46f47e975659f83cb85dcb",
+          "checkout_sha": "178b929861a72011bd46f47e975659f83cb85dcb",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45448090174",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "14 focused tests passed on exact HEAD: complete archive inventory, revision-specific paths, physical file duplication and symlink rejection.",
+          "limitations": "Synthetic handoff only. Independent immutability, trusted verdict and actual transfer are NOT_PROVEN. AU-01 remains a draft dependency.",
           "integrated_sha": null,
           "integration_evidence_url": null
         }
