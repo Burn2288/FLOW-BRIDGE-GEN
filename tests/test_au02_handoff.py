@@ -3,6 +3,7 @@
 import copy
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -69,6 +70,41 @@ class HandoffTests(unittest.TestCase):
 
     def test_application_code_cannot_be_archived(self):
         self.run_rejecting(lambda data, _root: data["revisions"][1]["files"][0].__setitem__("path", "r2/source.py"))
+
+    def test_unlisted_source_in_nested_directory(self):
+        def mutate(_data, root):
+            (root / "r2/nested").mkdir()
+            (root / "r2/nested/source.py").write_text("pass", encoding="utf-8")
+
+        self.run_rejecting(mutate)
+
+    def test_unlisted_markdown(self):
+        self.run_rejecting(lambda _data, root: (root / "r1/extra.md").touch())
+
+    def test_same_report_used_for_both_revisions(self):
+        self.run_rejecting(
+            lambda data, _root: data["revisions"][1]["files"].__setitem__(
+                0, copy.deepcopy(data["revisions"][0]["files"][0])
+            )
+        )
+
+    def test_hard_link_cannot_supply_two_physical_reports(self):
+        def mutate(data, root):
+            other = root / "r2/report.md"
+            other.unlink()
+            os.link(root / "r1/report.md", other)
+            data["revisions"][1]["files"][0]["sha256"] = data["revisions"][0]["files"][0]["sha256"]
+
+        self.run_rejecting(mutate)
+
+    def test_directory_symlink_rejected(self):
+        def mutate(_data, root):
+            try:
+                (root / "alias").symlink_to(root / "r1", target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"symlink creation unavailable: {exc}")
+
+        self.run_rejecting(mutate)
 
 
 if __name__ == "__main__":
