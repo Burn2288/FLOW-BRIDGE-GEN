@@ -1,0 +1,44 @@
+{
+  "schema_version": "au02-handoff-v1",
+  "task_id": "AU-02",
+  "fixture_mode": "SYNTHETIC_ONLY",
+  "note": "Offline functional fixture. PR/CI URL syntax and checksums are validated; remote evidence availability and reviewer identity are not.",
+  "revisions": [
+    {
+      "revision": "r1",
+      "files": [
+        {
+          "path": "r1/report.md",
+          "sha256": "da3142662aac6879bfd5d70c6ff6ee4993696d014ebf244235350dd2d50367a0"
+        }
+      ],
+      "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/1",
+      "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/1",
+      "verdict": {
+        "result": "REJECTED",
+        "source": "SYNTHETIC_FIXTURE",
+        "reason": "Fixture deliberately starts with incomplete evidence inventory."
+      }
+    },
+    {
+      "revision": "r2",
+      "files": [
+        {
+          "path": "r2/report.md",
+          "sha256": "eb53089dbebf2e5ea71447ca9ea7be9d237e424dcd1e3e041feaa32608bdd439"
+        }
+      ],
+      "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/1",
+      "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/1",
+      "verdict": {
+        "result": "PENDING_INDEPENDENT_REVIEW",
+        "preserved_prior_verdict": {
+          "result": "REJECTED",
+          "source": "SYNTHETIC_FIXTURE",
+          "reason": "Fixture deliberately starts with incomplete evidence inventory."
+        }
+      }
+    }
+  ]
+}
+
