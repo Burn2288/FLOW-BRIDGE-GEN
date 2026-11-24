@@ -169,34 +169,62 @@ async def test_saved_image_reopens_after_send_photo_failure_and_restart(env, tmp
                 assert process.returncode is None, "Gateway stopped before processing the update"
                 await asyncio.sleep(0.05)
 
+    async def generate(process, prompt, *, return_to_menu=False):
+        if return_to_menu:
+            await send_update(process, text="/menu")
+        await send_update(process, button="Агрегатор 1")
+        await send_update(process, button="🎆 Генерировать изображение")
+        await send_update(process, button="Image fixture")
+        await send_update(process, button=STORE_SECTIONS["image"][0])
+        await send_update(process, text=prompt)
+        return await pool.fetchrow(
+            "SELECT id, image FROM image_works WHERE update_id=$1 AND user_id=$2",
+            update_id, user_id,
+        )
+
     try:
+        ledger_before = [tuple(row) for row in await pool.fetch(
+            "SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id", user_id,
+        )]
         async with gateway("before-restart") as first:
             await send_update(first, text="/start")
             await send_update(first, text="/menu")
-            await send_update(first, button="Агрегатор 1")
-            await send_update(first, button="🎆 Генерировать изображение")
-            await send_update(first, button="Image fixture")
-            await send_update(first, button=STORE_SECTIONS["image"][0])
-            await send_update(first, text="Draw a fixture")
-            before = await pool.fetchrow("SELECT id, image FROM image_works WHERE user_id=$1", user_id)
-            assert before and before["image"] == MOCK_IMAGE
-            assert uploads == [(100, before["image"])]
+            generated = []
+            for index in range(3):
+                image = await generate(first, f"Draw fixture {index + 1}", return_to_menu=index > 0)
+                assert image and image["image"] == MOCK_IMAGE
+                generated.append(image)
+                assert await pool.fetchval(
+                    "SELECT count(*) FROM image_works WHERE user_id=$1", user_id,
+                ) == index + 1
+            assert uploads == [(100, image["image"]) for image in generated]
+            calls = provider_calls.read_text(encoding="utf-8").splitlines()
+            assert calls == ["generate"] * 3
+            assert [tuple(row) for row in await pool.fetch(
+                "SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id", user_id,
+            )] == ledger_before
             assert "result_display_failed" in (tmp_path / "before-restart.log").read_text(encoding="utf-8")
-            digest_before = hashlib.sha256(before["image"]).hexdigest()
+            digest_before = hashlib.sha256(generated[-1]["image"]).hexdigest()
 
         async with gateway("after-restart") as second:
             assert second.pid != first.pid
             await send_update(second, text="/menu")
             await send_update(second, button="📁 Мои работы")
-            await send_update(second, button="Открыть работу №")
-            assert len(uploads) == 2
-            recipient, recovered = uploads[1]
+            await send_update(second, button="Открыть работу №1")
+            assert len(uploads) == 4
+            recipient, recovered = uploads[-1]
             assert recipient == external_user["id"]
             digest_after = hashlib.sha256(recovered).hexdigest()
             assert digest_after == digest_before
-            assert await pool.fetchrow("SELECT id, image FROM image_works WHERE user_id=$1", user_id) == before
+            assert await pool.fetchval(
+                "SELECT count(*) FROM image_works WHERE user_id=$1", user_id,
+            ) == 3
+            assert [tuple(row) for row in await pool.fetch(
+                "SELECT id,event_key,kind,da,dr FROM ledger WHERE user_id=$1 ORDER BY id", user_id,
+            )] == ledger_before
             calls = provider_calls.read_text(encoding="utf-8").splitlines()
-            assert calls == ["generate"]
-            print(f"before_sha256={digest_before} after_sha256={digest_after} provider_calls={len(calls)}")
+            assert calls == ["generate"] * 3
+            print(f"images_saved=3 latest_sha256={digest_after} provider_calls={len(calls)} telegram_send_failure_recovered=1")
     finally:
         await runner.cleanup()
+

@@ -1311,8 +1311,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/110",
+      "tested_sha": "a4eeb1a564923e23bd5b9059bbc0059a759ff68b",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -1322,7 +1322,25 @@
         "IM-01",
         "ML-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 25,
+          "task_id": "IM-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/110",
+          "tested_sha": "a4eeb1a564923e23bd5b9059bbc0059a759ff68b",
+          "checkout_sha": "a4eeb1a564923e23bd5b9059bbc0059a759ff68b",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45432744343",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Exact HEAD a4eeb1a...; disposable PostgreSQL focused image-recovery regression: 12 passed. Three sequential synthetic image works saved, one injected Telegram send failure, gateway restart and manual reopen. Three mock provider executions; ledger unchanged; retrieval did not regenerate.",
+          "limitations": "Partial mock proof only. Live provider generation, provider receipt/cost, real Telegram delivery, repeated charged-path wallet behavior, and live temporary provider failure are NOT_PROVEN. Dependencies IM-01 and ML-01 are candidate-only. completed_level remains null; no independent audit.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -2834,7 +2852,7 @@
     "main_ref": "main",
     "main_sha": "a889d8306c743c0046b710b950608052eabfdc78",
     "integration_ref": "integration/functional-test-v1",
-    "integration_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+    "integration_sha": "f60a75202552288c6d3d078a9e32fd49e9cd9ce7",
     "candidate_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/76",
     "candidate_sha": "4c2df69503b7eb0ae249f5816e0868799961eb75",
     "ft028_fix_01": {
