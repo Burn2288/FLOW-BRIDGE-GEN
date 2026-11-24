@@ -1290,14 +1290,14 @@
           "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/102",
           "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
           "checkout_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
-          "tree_relation": "EXACT_INTEGRATION_HEAD",
+          "tree_relation": "EXACT_HEAD",
           "tree_proof_url": null,
           "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45424990910",
           "ci_conclusion": "SUCCESS",
           "coverage": "Exact integration HEAD 873b015...: focused PostgreSQL regression 70 passed. Covers ordinary-user quoted image dispatch, one provider POST/capture, byte preservation/retrieval, ownership isolation and no second charge.",
           "limitations": "Mock provider only. Dependencies IN-19 and PC-01 remain unaccepted; no completed_level.",
           "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
-          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/159c970dfa206b430d47fccb9f63c1568ba928ea...873b01534c6f676b87d5a653d51958e564cc352c"
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/873b01534c6f676b87d5a653d51958e564cc352c...873b01534c6f676b87d5a653d51958e564cc352c"
         }
       ]
     },
@@ -1779,14 +1779,14 @@
           "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/102",
           "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
           "checkout_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
-          "tree_relation": "EXACT_INTEGRATION_HEAD",
+          "tree_relation": "EXACT_HEAD",
           "tree_proof_url": null,
           "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45424990910",
           "ci_conclusion": "SUCCESS",
           "coverage": "Exact integration HEAD 873b015...: focused PostgreSQL regression 70 passed, including Telegram five-row image history, saved image prompt/price projection and Mini App image history/repeat estimate.",
           "limitations": "Limited to stored image work and Mini App image repeat path. Dependencies ML-02 and MA-01 remain unaccepted; no completed_level.",
           "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
-          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/159c970dfa206b430d47fccb9f63c1568ba928ea...873b01534c6f676b87d5a653d51958e564cc352c"
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/873b01534c6f676b87d5a653d51958e564cc352c...873b01534c6f676b87d5a653d51958e564cc352c"
         }
       ]
     },
@@ -2437,7 +2437,7 @@
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
       "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/108",
-      "tested_sha": "cc4cc2ee2192d4c64481a6ebb895432a7664b6db",
+      "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
       "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2470,15 +2470,15 @@
           "list_position": 32,
           "task_id": "OB-02",
           "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/108",
-          "tested_sha": "cc4cc2ee2192d4c64481a6ebb895432a7664b6db",
+          "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
           "checkout_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
-          "tree_relation": "INTEGRATION_HEAD",
-          "tree_proof_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/cc4cc2ee2192d4c64481a6ebb895432a7664b6db...873b01534c6f676b87d5a653d51958e564cc352c",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
           "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45424990982",
           "ci_conclusion": "SUCCESS",
           "coverage": "Exact integration HEAD 873b015...: PostgreSQL 16 aggregate/read-model regression 60 passed; headless Chromium demo 1 passed for synthetic sample, section switching, tables, and truncation display. Screenshot artifact ID 14936178659.",
           "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
-          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/cc4cc2ee2192d4c64481a6ebb895432a7664b6db...873b01534c6f676b87d5a653d51958e564cc352c",
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/873b01534c6f676b87d5a653d51958e564cc352c...873b01534c6f676b87d5a653d51958e564cc352c",
           "limitations": "Admin HTTP read API remains blocked on AD-01 owner contract. No live provider, payment, production, or independent final acceptance."
         }
       ]
