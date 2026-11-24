@@ -1254,9 +1254,9 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
-      "integrated_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/102",
+      "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+      "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
@@ -1265,7 +1265,41 @@
         "IN-19",
         "PC-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 24,
+          "task_id": "IM-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/102",
+          "tested_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
+          "checkout_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44916811153",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "On integration HEAD 159c970..., PostgreSQL 16.15 focused suite: 70 passed. It covered ordinary-user accepted image quote/dispatch, one provider POST, one capture, saved-image bytes and repeat retrieval, owner isolation, and no second charge; see tests/test_ft020_http_image.py and tests/test_public_image_topup.py within the focused workflow.",
+          "limitations": "Mock provider only; does not establish live provider behavior or manually accepted user journey. Dependencies IN-19 and PC-01 remain candidate/unaccepted; no completed_level.",
+          "integrated_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/159c970dfa206b430d47fccb9f63c1568ba928ea...159c970dfa206b430d47fccb9f63c1568ba928ea"
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 24,
+          "task_id": "IM-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/102",
+          "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "checkout_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45424990910",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Exact integration HEAD 873b015...: focused PostgreSQL regression 70 passed. Covers ordinary-user quoted image dispatch, one provider POST/capture, byte preservation/retrieval, ownership isolation and no second charge.",
+          "limitations": "Mock provider only. Dependencies IN-19 and PC-01 remain unaccepted; no completed_level.",
+          "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/873b01534c6f676b87d5a653d51958e564cc352c...873b01534c6f676b87d5a653d51958e564cc352c"
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -1709,9 +1743,9 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
-      "integrated_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/102",
+      "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+      "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
@@ -1720,7 +1754,41 @@
         "ML-02",
         "MA-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 30,
+          "task_id": "ML-03",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/102",
+          "tested_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
+          "checkout_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/44916811153",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "On integration HEAD 159c970..., PostgreSQL 16.15 focused suite: 70 passed, including tests/test_ml03_pages.py (five Telegram history rows per page), saved image prompt/price card projection, Mini App history card and image repeat-estimate path; integration also passed full TQ01 649 + 18 tests.",
+          "limitations": "Coverage is limited to stored image work and Mini App FLUX repeat path. Other media-type prompts/prices and live clients remain unproven. Dependencies ML-02 and MA-01 remain candidate/unaccepted; no completed_level.",
+          "integrated_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/159c970dfa206b430d47fccb9f63c1568ba928ea...159c970dfa206b430d47fccb9f63c1568ba928ea"
+        },
+        {
+          "list_id": "vankhu21",
+          "list_position": 30,
+          "task_id": "ML-03",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/102",
+          "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "checkout_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45424990910",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Exact integration HEAD 873b015...: focused PostgreSQL regression 70 passed, including Telegram five-row image history, saved image prompt/price projection and Mini App image history/repeat estimate.",
+          "limitations": "Limited to stored image work and Mini App image repeat path. Dependencies ML-02 and MA-01 remain unaccepted; no completed_level.",
+          "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/873b01534c6f676b87d5a653d51958e564cc352c...873b01534c6f676b87d5a653d51958e564cc352c"
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -2369,8 +2437,8 @@
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
       "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/108",
-      "tested_sha": "cc4cc2ee2192d4c64481a6ebb895432a7664b6db",
-      "integrated_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
+      "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+      "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
@@ -2396,6 +2464,22 @@
           "limitations": "PostgreSQL 16.15 and Chromium proof is exact to tested_sha. All 40 GitHub Actions on that source SHA and all 41 GitHub Actions on integrated HEAD 159c970dfa206b430d47fccb9f63c1568ba928ea passed, including integration OB-02, OP01, TQ01 and documentation. Internal service/CLI only; protected admin HTTP API still awaits AD-01 owner contract. Independent global audit and authorized merge remain pending.",
           "integrated_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
           "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/cc4cc2ee2192d4c64481a6ebb895432a7664b6db...159c970dfa206b430d47fccb9f63c1568ba928ea"
+        },
+        {
+          "list_id": "Burn2288",
+          "list_position": 32,
+          "task_id": "OB-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/108",
+          "tested_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "checkout_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45424990982",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Exact integration HEAD 873b015...: PostgreSQL 16 aggregate/read-model regression 60 passed; headless Chromium demo 1 passed for synthetic sample, section switching, tables, and truncation display. Screenshot artifact ID 14936178659.",
+          "integrated_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
+          "integration_evidence_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/873b01534c6f676b87d5a653d51958e564cc352c...873b01534c6f676b87d5a653d51958e564cc352c",
+          "limitations": "Admin HTTP read API remains blocked on AD-01 owner contract. No live provider, payment, production, or independent final acceptance."
         }
       ]
     },
@@ -2750,7 +2834,7 @@
     "main_ref": "main",
     "main_sha": "a889d8306c743c0046b710b950608052eabfdc78",
     "integration_ref": "integration/functional-test-v1",
-    "integration_sha": "159c970dfa206b430d47fccb9f63c1568ba928ea",
+    "integration_sha": "873b01534c6f676b87d5a653d51958e564cc352c",
     "candidate_pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/76",
     "candidate_sha": "4c2df69503b7eb0ae249f5816e0868799961eb75",
     "ft028_fix_01": {
