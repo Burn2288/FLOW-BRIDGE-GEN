@@ -81,7 +81,7 @@ async def test_funding_upgrade_from_047_preserves_wallets(tmp_path, monkeypatch)
             with monkeypatch.context() as patch:
                 patch.setattr(db, '__file__', str(tmp_path / 'src/elevenbot/db.py'))
                 await db.migrate(pool)
-            cfg = Config(storage=tmp_path/'media')
+            cfg = Config(generation_enabled=True, storage=tmp_path/'media')
             svc = Service(pool, cfg)
             for external in (100, 101):
                 user = await svc.identity(external)
