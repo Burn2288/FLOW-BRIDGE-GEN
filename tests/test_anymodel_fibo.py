@@ -36,7 +36,7 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
     await confirmed_credit(pool,cfg,user,1000)
     monkeypatch.setenv('RF02_FUNCTIONAL_TEST','YES')
     cfg=replace(cfg,access_mode='private',admin_ids=(101,),anymodel_test_enabled=True,
-                anymodel_image_live=True,anymodel_key='fixture-any',
+                anymodel_image_live=True,anymodel_key='fixture-any',interaction_limit=3,
                 catalogue_path=str(tmp_path/'models.json'))
     image=encoded_image('PNG')
     tariff={**FIBO_TARIFF,'billing':{'unit':'image','base_tokens':1000,'coefficient':{'output':1}}}
@@ -74,7 +74,7 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
         JOIN wallet_funding_lots f ON f.credit_ledger_id=l.id WHERE r.referrer_id=$1""",inviter)
     assert reward is not None and tuple(reward)==(1000,50,50,'REFERRAL')
     assert await pool.fetchval('SELECT count(*) FROM referral_rewards')==1
-    assert (await svc.wallet(inviter))['available']==50
+    assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==50
 
 
 @pytest.mark.parametrize('variant',['base64','corrupt','url','broken','timeout','connect','unsafe',
