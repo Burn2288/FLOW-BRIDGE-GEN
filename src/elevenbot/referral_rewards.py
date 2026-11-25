@@ -18,7 +18,7 @@ def functional_test_enabled():
 
 
 async def lock_referral_settlement(conn):
-    await conn.execute('SELECT pg_advisory_xact_lock(921182)')
+    await conn.execute('SELECT pg_advisory_xact_lock(921181, 52)')
 
 
 async def _lock_wallet(conn, user):

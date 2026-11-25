@@ -26,7 +26,8 @@ FIBO_TARIFF={'id':FIBO_MODEL,'endpoint':'/v1/images/generations',
              'billing':{'unit':'image','base_tokens':100000,'coefficient':{'output':0.95}}}
 
 
-async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,monkeypatch):
+@pytest.mark.parametrize('reserved_bonus',[0,30])
+async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,monkeypatch,reserved_bonus):
     from elevenbot.task_wallet import settle_task_tokens
 
     pool,cfg,svc,inviter=env
@@ -80,6 +81,14 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
     assert reward is not None and tuple(reward)==(1000,50,50,'REFERRAL')
     assert await pool.fetchval('SELECT count(*) FROM referral_rewards')==1
     assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==50
+    if reserved_bonus:
+        from elevenbot import providers
+        from elevenbot.core import Service
+        monkeypatch.setattr(providers,'catalog',lambda _:[{'id':'fixture-voice'}])
+        speech=Service(pool,replace(cfg,mode='clodex',access_mode='public',retail_per_char=1))
+        speech_quote,price=await speech.quote(inviter,'x'*reserved_bonus,'fixture-voice')
+        assert price==reserved_bonus
+        await speech.confirm(inviter,speech_quote)
     quote_id=await pool.fetchval("SELECT task_quote_id FROM ledger WHERE user_id=$1 AND kind='task_capture'",user)
     async def refund(remote):
         assert remote=='reward-image'
@@ -88,9 +97,9 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
     monkeypatch.delenv('RF02_FUNCTIONAL_TEST')
     assert await asyncio.gather(*(reconcile_generation(pool,quote_id,{'anymodel':refund}) for _ in range(2))) == ['full_refund','full_refund']
     reversal=await pool.fetchrow('SELECT amount,debited,debt_added FROM referral_reversals')
-    assert tuple(reversal)==(50,50,0)
+    assert tuple(reversal)==(50,50-reserved_bonus,reserved_bonus)
     assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='referral_reversal'")==1
-    assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==0
+    assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",inviter))==(0,reserved_bonus)
     assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",user)==1000
     assert await pool.fetchval('SELECT amount FROM referral_rewards')==50
     assert await svc.reconcile()==0
