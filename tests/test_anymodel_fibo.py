@@ -26,6 +26,57 @@ FIBO_TARIFF={'id':FIBO_MODEL,'endpoint':'/v1/images/generations',
              'billing':{'unit':'image','base_tokens':100000,'coefficient':{'output':0.95}}}
 
 
+async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,monkeypatch):
+    from elevenbot.task_wallet import settle_task_tokens
+
+    pool,cfg,svc,inviter=env
+    code=(await svc.referral_info(inviter))['code']
+    user=await svc.identity(101,referral_code=code)
+    await svc.accept(user)
+    await confirmed_credit(pool,cfg,user,1000)
+    monkeypatch.setenv('RF02_FUNCTIONAL_TEST','YES')
+    cfg=replace(cfg,access_mode='private',admin_ids=(101,),anymodel_test_enabled=True,
+                anymodel_image_live=True,anymodel_key='fixture-any',
+                catalogue_path=str(tmp_path/'models.json'))
+    image=encoded_image('PNG')
+    tariff={**FIBO_TARIFF,'billing':{'unit':'image','base_tokens':1000,'coefficient':{'output':1}}}
+
+    def respond(req):
+        if req.url.path=='/v1/models/info':
+            return httpx.Response(200,json=tariff)
+        if req.url.path=='/v1/models':
+            return httpx.Response(200,json={'data':[{'id':FIBO_MODEL,'kind':'image'}]})
+        if req.url.path in ('/v1/models/video','/v1/models/tts'):
+            return httpx.Response(200,json={'data':[]})
+        assert req.url.path=='/v1/images/generations'
+        return httpx.Response(200,json={'data':[{'b64_json':b64encode(image).decode()}]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+        adapter=AnyModelProvider(cfg.anymodel_key,client=http)
+        await adapter.refresh(model_store(cfg))
+        monkeypatch.setattr(telegram,'AnyModelProvider',lambda _:adapter)
+        bot=Bot()
+        bot.send_photo=AsyncMock(return_value=SimpleNamespace(message_id=15))
+        app=telegram.TelegramApp(pool,cfg,bot)
+        app.anymodel_images.adapter=adapter
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=adapter)
+        await app.callback(user,101,'amimage:detail')
+        await app.callback(user,101,routes(bot)['🖼 Генерировать изображение'])
+        payload=event('Draw a blue square').model_dump(by_alias=True,exclude_none=True)
+        payload['message']['chat']['id']=101
+        payload['message']['from']['id']=101
+        await app.handle(type(event()).model_validate(payload))
+        await app.callback(user,101,routes(bot)['Генерировать'],request_id=2)
+        await AnyModelImageJobs(pool,cfg,adapter=adapter).poll_one(bot)
+        await asyncio.gather(settle_task_tokens(pool),settle_task_tokens(pool))
+    reward=await pool.fetchrow("""SELECT r.eligible_paid,r.amount,l.da,f.origin
+        FROM referral_rewards r JOIN ledger l ON l.id=r.reward_ledger_id
+        JOIN wallet_funding_lots f ON f.credit_ledger_id=l.id WHERE r.referrer_id=$1""",inviter)
+    assert reward is not None and tuple(reward)==(1000,50,50,'REFERRAL')
+    assert await pool.fetchval('SELECT count(*) FROM referral_rewards')==1
+    assert (await svc.wallet(inviter))['available']==50
+
+
 @pytest.mark.parametrize('variant',['base64','corrupt','url','broken','timeout','connect','unsafe',
                                    'refund_before_capture','refund_after_capture','unconfirmed','no_job_id','charged_image'])
 async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,variant):

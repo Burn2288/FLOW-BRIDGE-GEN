@@ -58,7 +58,7 @@ async def test_existing_topup_survives_042(tmp_path, monkeypatch):
             assert [r['da'] for r in before[0] if r['kind']=='topup'] == [1000]
             for _ in range(2):
                 await db.migrate(pool)
-                assert await kinds() == prior | {'task_refund'}
+                assert await kinds() == prior | {'task_refund', 'referral_reward'}
                 assert await snapshot() == before
     finally:
         await admin.execute(f'DROP SCHEMA IF EXISTS {schema} CASCADE')
