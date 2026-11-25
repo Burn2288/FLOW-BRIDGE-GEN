@@ -31,4 +31,4 @@ jobs:
           python -m pytest -q -p no:cacheprovider
           tests/test_ft022_referrals.py tests/test_telegram_consent.py tests/test_private_pilot.py
           tests/test_topups.py tests/test_ft011_smoke.py miniapp/tests/test_miniapp.py
-          tests/test_task_wallet.py tests/test_ft029_reconciliation.py
+          tests/test_task_wallet.py tests/test_ft029_reconciliation.py tests/test_upgrade_042.py
