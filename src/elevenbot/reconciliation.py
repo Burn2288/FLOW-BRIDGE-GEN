@@ -39,4 +39,12 @@ async def read_report(conn, limit):
             item.update(reserved={'actual': int(row['reserved']), 'expected': jobs+refunds+tasks},
                         components={'unsettled_jobs': jobs, 'refunding_payments': refunds, 'task_ledger': tasks})
         details.append(item)
-    return {'wallet_mismatches': total, 'limit': limit, 'truncated': total > len(details), 'details': details}
+    funding_mismatches = await conn.fetchval("""
+        SELECT count(*) FROM wallets w LEFT JOIN (
+            SELECT user_id,mode,sum(available) AS available
+            FROM wallet_funding_lots GROUP BY user_id,mode
+        ) f USING(user_id,mode)
+        WHERE w.available<>coalesce(f.available,0)
+    """)
+    return {'wallet_mismatches': total, 'limit': limit, 'truncated': total > len(details),
+            'details': details, 'funding_mismatches': funding_mismatches}

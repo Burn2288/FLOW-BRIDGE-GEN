@@ -89,3 +89,12 @@ async def test_confirmation_uses_live_wallet_and_server_quote(env,confirmed_cred
             SELECT kind,da,dr FROM ledger WHERE task_quote_id IS NOT NULL ORDER BY kind
             """)]==[('task_capture',0,-60),('task_reserve',-60,60)]
         assert await app.svc.reconcile()==0
+        funding = await pool.fetch("""SELECT f.origin,f.available,a.amount
+            FROM wallet_funding_allocations a
+            JOIN wallet_funding_lots f ON f.id=a.lot_id
+            JOIN ledger debit ON debit.id=a.debit_ledger_id
+            JOIN ledger credit ON credit.id=f.credit_ledger_id
+            WHERE debit.kind='task_reserve' AND credit.kind='payment'
+              AND f.payment_id=credit.payment_id AND f.user_id=$1""",owner)
+        assert [tuple(row) for row in funding] == [('PAID',40,60)]
+        assert (await app.svc.reconciliation_report())['funding_mismatches'] == 0

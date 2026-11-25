@@ -29,6 +29,7 @@ async def test_report_has_both_checks_and_does_not_mutate(env, monkeypatch, caps
                 await pool.fetch('SELECT * FROM settings ORDER BY id'))
     before = await snapshot()
     report = await svc.reconciliation_report()
+    assert report['funding_mismatches'] == 1
     assert report['wallet_mismatches'] == 2 and not report['truncated']
     assert {r['check'] for r in report['details']} == {'wallet_vs_ledger','reserved_vs_obligations'}
     assert all(r['user_id']==str(user) and r['mode']=='demo' for r in report['details'])
