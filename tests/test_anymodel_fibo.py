@@ -48,7 +48,9 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
             return httpx.Response(200,json={'data':[{'id':FIBO_MODEL,'kind':'image'}]})
         if req.url.path in ('/v1/models/video','/v1/models/tts'):
             return httpx.Response(200,json={'data':[]})
-        assert req.url.path=='/v1/images/generations'
+        if req.url.path=='/v1/images/generations':
+            return httpx.Response(202,json={'id':'reward-image'},headers={'Retry-After':'0'})
+        assert req.url.path=='/v1/images/generations/reward-image'
         return httpx.Response(200,json={'data':[{'b64_json':b64encode(image).decode()}]})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
@@ -67,7 +69,10 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
         payload['message']['from']['id']=101
         await app.handle(type(event()).model_validate(payload))
         await app.callback(user,101,routes(bot)['Генерировать'],request_id=2)
-        await AnyModelImageJobs(pool,cfg,adapter=adapter).poll_one(bot)
+        jobs=AnyModelImageJobs(pool,cfg,adapter=adapter)
+        await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
+        assert await jobs.poll_one(bot)
+        assert await jobs.poll_one(bot)
         await asyncio.gather(settle_task_tokens(pool),settle_task_tokens(pool))
     reward=await pool.fetchrow("""SELECT r.eligible_paid,r.amount,l.da,f.origin
         FROM referral_rewards r JOIN ledger l ON l.id=r.reward_ledger_id
@@ -75,6 +80,20 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
     assert reward is not None and tuple(reward)==(1000,50,50,'REFERRAL')
     assert await pool.fetchval('SELECT count(*) FROM referral_rewards')==1
     assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==50
+    quote_id=await pool.fetchval("SELECT task_quote_id FROM ledger WHERE user_id=$1 AND kind='task_capture'",user)
+    async def refund(remote):
+        assert remote=='reward-image'
+        return FinancialOperation('anymodel',remote,'reward-refund','full_refund',Decimal('2'),'USD',
+                                  'reward-charge',Decimal('2'),'USD')
+    monkeypatch.delenv('RF02_FUNCTIONAL_TEST')
+    assert await asyncio.gather(*(reconcile_generation(pool,quote_id,{'anymodel':refund}) for _ in range(2))) == ['full_refund','full_refund']
+    reversal=await pool.fetchrow('SELECT amount,debited,debt_added FROM referral_reversals')
+    assert tuple(reversal)==(50,50,0)
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='referral_reversal'")==1
+    assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==0
+    assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",user)==1000
+    assert await pool.fetchval('SELECT amount FROM referral_rewards')==50
+    assert await svc.reconcile()==0
 
 
 @pytest.mark.parametrize('variant',['base64','corrupt','url','broken','timeout','connect','unsafe',

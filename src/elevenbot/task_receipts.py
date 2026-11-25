@@ -114,6 +114,9 @@ async def reconcile_generation(pool, quote_id, sources):
         await _record_review(pool,quote_id,remote,'provider_financial_record_invalid')
         raise Rejected('Финансовая запись агрегатора некорректна или относится к другому заданию.')
     async with pool.acquire() as conn, conn.transaction():
+        from .referral_rewards import lock_referral_settlement, reverse_confirmed_refund
+        if operation.outcome == 'full_refund':
+            await lock_referral_settlement(conn)
         hold = await conn.fetchrow("""SELECT user_id,dr FROM ledger
             WHERE task_quote_id=$1 AND kind='task_reserve' FOR UPDATE""",quote_id)
         if not hold:
@@ -168,6 +171,7 @@ async def reconcile_generation(pool, quote_id, sources):
                 SELECT gen_random_uuid(),user_id,'live','task-refund:'||task_quote_id,'task_refund',-dr,0,task_quote_id
                 FROM ledger WHERE task_quote_id=$1 AND kind='task_capture'
                 ON CONFLICT(event_key) DO NOTHING""",quote_id)
+            await reverse_confirmed_refund(conn, quote_id)
         await conn.execute("""
             UPDATE task_financial_reconciliation_cases SET status='resolved',resolved_at=now(),
                 resolution_operation_id=$2,finding=$3,last_seen_at=now(),

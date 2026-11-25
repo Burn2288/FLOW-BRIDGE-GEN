@@ -1,7 +1,7 @@
 """Reserve the live wallet before dispatch and settle from durable outcomes."""
 
 from .core import Rejected
-from .referral_rewards import functional_test_enabled, post_image_rewards
+from .referral_rewards import functional_test_enabled, lock_referral_settlement, post_image_rewards
 
 
 async def check_task_balance(conn, user, amount):
@@ -30,6 +30,8 @@ async def settle_task_tokens(conn, quote_id=None):
     if functional_test_enabled() and not conn.is_in_transaction():
         async with conn.transaction():
             return await settle_task_tokens(conn, quote_id)
+    if functional_test_enabled():
+        await lock_referral_settlement(conn)
     # Completed work is charged even when Telegram delivery has to be retried.
     # Ambiguous provider outcomes retain their hold for reconciliation.
     await conn.execute("""

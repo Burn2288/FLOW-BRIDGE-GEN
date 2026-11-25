@@ -7,10 +7,79 @@ from .referral_reward_policy import CaptureFunding, reward_tokens
 
 
 def functional_test_enabled():
-    return (
-        os.environ.get('RF02_FUNCTIONAL_TEST') == 'YES'
-        and os.environ.get('DISPOSABLE_POSTGRES_CONFIRM') == 'YES'
-    )
+    if os.environ.get('RF02_FUNCTIONAL_TEST') != 'YES':
+        return False
+    from scripts.disposable_test_db import require_disposable_dsn
+    try:
+        require_disposable_dsn(os.environ)
+    except ValueError:
+        return False
+    return True
+
+
+async def lock_referral_settlement(conn):
+    await conn.execute('SELECT pg_advisory_xact_lock(921182)')
+
+
+async def _lock_wallet(conn, user):
+    await conn.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live' FOR UPDATE", user)
+
+
+async def _debit(conn, ledger_id, user, kind, key, amount):
+    await conn.execute("""
+        INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr)
+        VALUES($1,$2,'live',$3,$4,-$5::bigint,0)
+    """, ledger_id, user, key, kind, amount)
+
+
+async def reverse_confirmed_refund(conn, quote_id):
+    """Compensate only an existing guarded task_refund, even after deactivation."""
+    if not conn.is_in_transaction():
+        raise RuntimeError('referral reversal requires a transaction')
+    await lock_referral_settlement(conn)
+    row = await conn.fetchrow("""
+        SELECT r.capture_id,r.referrer_id,r.amount,f.id AS refund_id
+        FROM referral_rewards r JOIN ledger c ON c.id=r.capture_id
+        JOIN ledger f ON f.task_quote_id=c.task_quote_id AND f.kind='task_refund'
+        WHERE c.task_quote_id=$1 AND c.kind='task_capture'
+          AND f.user_id=c.user_id AND f.da=-c.dr
+          AND NOT EXISTS (SELECT 1 FROM referral_reversals v WHERE v.capture_id=r.capture_id)
+    """, quote_id)
+    if not row:
+        return
+    await _lock_wallet(conn, row['referrer_id'])
+    available = await conn.fetchval("""
+        SELECT coalesce(sum(available),0)::bigint FROM wallet_funding_lots
+        WHERE user_id=$1 AND mode='live' AND origin='REFERRAL'
+    """, row['referrer_id'])
+    debited = min(available, row['amount'])
+    ledger_id = uuid.uuid4() if debited else None
+    await conn.execute("""
+        INSERT INTO referral_reversals(capture_id,refund_id,amount,debited,debt_added,ledger_id)
+        VALUES($1,$2,$3,$4,$5,$6)
+    """, row['capture_id'], row['refund_id'], row['amount'], debited, row['amount']-debited, ledger_id)
+    if debited:
+        await _debit(conn, ledger_id, row['referrer_id'], 'referral_reversal',
+                     f"referral-reversal:{row['capture_id']}", debited)
+
+
+async def _repay_debt(conn, user, capture_id, reward):
+    debt = await conn.fetchval("""
+        SELECT (
+            coalesce((SELECT sum(v.debt_added) FROM referral_reversals v
+                      JOIN referral_rewards r USING(capture_id) WHERE r.referrer_id=$1),0)
+          - coalesce((SELECT sum(p.amount) FROM referral_debt_repayments p
+                     JOIN referral_rewards r USING(capture_id) WHERE r.referrer_id=$1),0)
+        )::bigint
+    """, user)
+    amount = min(debt, reward)
+    if amount<=0:
+        return
+    ledger_id = uuid.uuid4()
+    await conn.execute("""
+        INSERT INTO referral_debt_repayments(capture_id,amount,ledger_id) VALUES($1,$2,$3)
+    """, capture_id, amount, ledger_id)
+    await _debit(conn, ledger_id, user, 'referral_debt_repay', f'referral-debt-repay:{capture_id}', amount)
 
 
 async def post_image_rewards(conn, quote_id=None):
@@ -19,6 +88,13 @@ async def post_image_rewards(conn, quote_id=None):
     Call inside a transaction. Serialize posts on the immutable capture row
     and the referrer's wallet; the unique reward identity also protects replay.
     """
+    if not functional_test_enabled():
+        return
+    if not conn.is_in_transaction():
+        raise RuntimeError('referral reward requires a transaction')
+    if await conn.fetchval('SELECT current_database()') != 'elevenbot_test':
+        return
+    await lock_referral_settlement(conn)
     rows = await conn.fetch("""
         SELECT c.id,c.user_id,c.task_quote_id,c.dr,p.reserve_ledger_id,p.rate_bps,a.referrer_id
         FROM ledger c JOIN task_price_quotes q ON q.id=c.task_quote_id
@@ -58,6 +134,7 @@ async def post_image_rewards(conn, quote_id=None):
         amount = reward_tokens(CaptureFunding(0, 0, paid, 0), 0, row['rate_bps'])
         if not amount:
             continue
+        await _lock_wallet(conn, row['referrer_id'])
         reward_id = uuid.uuid4()
         inserted = await conn.fetchval("""
             INSERT INTO referral_rewards(capture_id,reserve_id,referrer_id,eligible_paid,amount,reward_ledger_id)
@@ -69,3 +146,4 @@ async def post_image_rewards(conn, quote_id=None):
             INSERT INTO ledger(id,user_id,mode,event_key,kind,da,dr)
             VALUES($1,$2,'live',$3,'referral_reward',$4,0)
         """, reward_id, row['referrer_id'], f"referral-reward:{row['id']}", amount)
+        await _repay_debt(conn, row['referrer_id'], row['id'], amount)
