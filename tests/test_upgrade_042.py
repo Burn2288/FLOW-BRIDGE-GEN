@@ -88,6 +88,7 @@ async def test_funding_upgrade_from_047_preserves_wallets(tmp_path, monkeypatch)
                 await svc.accept(user)
                 order, _ = await svc.quote(user, 'hello', 'demo')
                 await svc.confirm(user, order)
+            user = await svc.identity(100)
             _, _, _, payments, _ = await fixture((pool, cfg, svc, user))
             try:
                 order = await quote(payments, user)
