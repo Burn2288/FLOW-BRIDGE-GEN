@@ -1,10 +1,22 @@
 from itertools import product
 import unittest
 
-from elevenbot.referral_reward_policy import CaptureFunding, cumulative_refund, reward_tokens
+from elevenbot.referral_reward_policy import CaptureFunding, allocate_reserve, cumulative_refund, reward_tokens
 
 
 class ReferralRewardPolicyTests(unittest.TestCase):
+    def test_reserve_spend_order(self):
+        available = CaptureFunding(5, 7, 11, 13)
+        self.assertEqual(allocate_reserve(available, 8).amounts, (5, 3, 0, 0))
+        self.assertEqual(allocate_reserve(available, 17).amounts, (5, 7, 5, 0))
+        self.assertEqual(allocate_reserve(available, 29).amounts, (5, 7, 11, 6))
+
+    def test_reserve_cannot_overdraw(self):
+        available = CaptureFunding(1, 2, 3, 4)
+        for amount in (-1, 11):
+            with self.assertRaises(ValueError):
+                allocate_reserve(available, amount)
+
     def test_monotone_exact_and_bounded_for_all_small_captures(self):
         for amounts in product(range(5), repeat=4):
             capture = CaptureFunding(*amounts)

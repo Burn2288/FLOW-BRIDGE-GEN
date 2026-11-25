@@ -2079,13 +2079,14 @@
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "D-07 approved by Burn2288 in OWNER DECISION — D-07 / C-011 v1. See PR #113 for the earlier blocked decision and PR #114 for the implementation in progress. Transactional evidence is pending."
       ],
       "dependencies": [
         "RF-01",
         "WL-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "IN_PROGRESS"
     },
     {
       "list_id": "vankhu21",

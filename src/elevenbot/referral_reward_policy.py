@@ -52,3 +52,15 @@ def reward_tokens(capture: CaptureFunding, returned: int, rate_bps: int) -> int:
         raise ValueError("invalid basis point rate")
     refunded = cumulative_refund(capture, returned)
     return (capture.paid - refunded.paid) * rate_bps // 10_000
+
+
+def allocate_reserve(available: CaptureFunding, amount: int) -> CaptureFunding:
+    """Select sources in approved spend order from a locked balance snapshot."""
+    if type(amount) is not int or not 0 <= amount <= sum(available.amounts):
+        raise ValueError("reserve exceeds available funds or is invalid")
+    allocations = []
+    for balance in available.amounts:
+        used = min(balance, amount)
+        allocations.append(used)
+        amount -= used
+    return CaptureFunding(*allocations)
