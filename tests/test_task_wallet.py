@@ -97,4 +97,11 @@ async def test_confirmation_uses_live_wallet_and_server_quote(env,confirmed_cred
             WHERE debit.kind='task_reserve' AND credit.kind='payment'
               AND f.payment_id=credit.payment_id AND f.user_id=$1""",owner)
         assert [tuple(row) for row in funding] == [('PAID',40,60)]
+        policy = await pool.fetchrow("""SELECT p.policy_version,p.rate_bps,p.owner_decision,
+                   p.reserve_ledger_id=l.id,p.effective_at=l.created_at
+            FROM referral_policy_snapshots p JOIN ledger l ON l.id=p.reserve_ledger_id
+            WHERE p.quote_id=$1 AND l.kind='task_reserve'""",accepted.id)
+        assert tuple(policy) == ('C-011-v1-functional-test',500,'D-07',True,True)
+        with pytest.raises(Exception, match='immutable ledger'):
+            await pool.execute('UPDATE referral_policy_snapshots SET effective_at=now() WHERE quote_id=$1',accepted.id)
         assert (await app.svc.reconciliation_report())['funding_mismatches'] == 0
