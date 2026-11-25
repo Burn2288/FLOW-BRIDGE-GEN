@@ -85,7 +85,7 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
         from elevenbot import providers
         from elevenbot.core import Service
         monkeypatch.setattr(providers,'catalog',lambda _:[{'id':'fixture-voice'}])
-        speech=Service(pool,replace(cfg,mode='clodex',access_mode='public',retail_per_char=1))
+        speech=Service(pool,replace(cfg,mode='clodex',access_mode='public',retail_per_char=1,budget=10_000))
         speech_quote,price=await speech.quote(inviter,'x'*reserved_bonus,'fixture-voice')
         assert price==reserved_bonus
         await speech.confirm(inviter,speech_quote)
