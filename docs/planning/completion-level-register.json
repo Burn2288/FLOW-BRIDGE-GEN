@@ -932,8 +932,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -949,7 +949,25 @@
         "SL-03",
         "PY-03"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 17,
+          "task_id": "MA-04",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "checkout_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45896992373",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Chromium confirms the mobile profile, studio filters, private preview and job navigation; shared Compose separately exercised all eight client routes.",
+          "limitations": "Telegram uses the local transport and signed fixture launch.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -1279,8 +1297,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -1290,7 +1308,25 @@
         "PR-02",
         "IM-02"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 11,
+          "task_id": "PR-03",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "checkout_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45896992152",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "PostgreSQL fixtures verify registered supported adapter paths. The provider capability table maps those checks and the four shared DEV mock routes.",
+          "limitations": "Paid/live adapter behavior remains subject to owner permission.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -2252,8 +2288,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2264,7 +2300,25 @@
         "WL-01",
         "PY-02"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 20,
+          "task_id": "WL-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "checkout_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45896992395",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Wallet/ledger reconciliation diagnostics pass; shared DEV proof checks paid capture, normalized refund, reversal, debt and repayment.",
+          "limitations": "Additional correction mutations depend on D-02/D-03; no direct balance edits.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -2842,8 +2896,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2855,7 +2909,25 @@
         "WL-02",
         "SE-03"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 38,
+          "task_id": "TQ-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "checkout_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45896992373",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Chromium confirms catalogue, jobs and result controls; the separate shared-Compose studio matrix holds eight accepted cases, artifact digests and exact settlement.",
+          "limitations": "Shared runtime has current product placement: task launches originate in gateway/backend, video/music poll in gateway, worker serves legacy speech and maintenance.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -2964,8 +3036,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2976,7 +3048,25 @@
         "JO-02",
         "SE-02"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 30,
+          "task_id": "OP-03",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600152",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Native backup/restore and Ubuntu release-profile checks passed; Sprint 03 added a separate clean Ubuntu Actions Compose smoke job and local restart preservation proof.",
+          "limitations": "Dedicated Ubuntu release-host remains outside this proof.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -3102,8 +3192,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -3113,7 +3203,25 @@
         "OB-02",
         "AD-03"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 39,
+          "task_id": "OB-03",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "checkout_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45896992373",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Chromium verifies object lists/details, queues and current role revocation; incident list bounds and payment cases are covered by PostgreSQL tests.",
+          "limitations": "External delivery of incident notifications requires owner permission.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -3206,8 +3314,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -3219,7 +3327,25 @@
         "PY-03",
         "SE-03"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 35,
+          "task_id": "RL-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600025",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Synthetic price, capture and referral lifecycle validation supports the test-only pilot. Shared DEV rehearsal uses the existing 5% paid-only policy.",
+          "limitations": "Owner approval of commercial prices, conditions and live spend remains open.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -3231,8 +3357,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -3244,7 +3370,25 @@
         "OP-03",
         "OB-03"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 40,
+          "task_id": "RL-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "checkout_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45896992373",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Chromium covers user consent/profile, retained result and operator support; independent shared DEV rehearsal verifies synthetic funding and referral lifetime.",
+          "limitations": "No real spending; payment and provider approval, genuine Telegram WebView and commercial pilot remain open.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -3256,8 +3400,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -3267,7 +3411,25 @@
         "RL-02",
         "DC-02"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 36,
+          "task_id": "RL-03",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "checkout_sha": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45896992373",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Browser preflight passes for the integrated candidate. Draft delivery includes repeatable Compose launch, matrix, commercial demonstration and restart instructions.",
+          "limitations": "Two independent audits and owner release decision remain required.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -3525,7 +3687,13 @@
       "base_head": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "base_tree": "3db9730990e329652c8443248bbb035aeeb552a5",
       "base_synthetic_merge": "e251dafba9cd369d34dbaab74e3f942aeb642169",
-      "note": "Historical behavior revalidated against the approved baseline. Additional Sprint 03 checks are listed in the build report and Draft."
+      "note": "Historical behavior revalidated against the approved baseline. Additional Sprint 03 checks are listed in the build report and Draft.",
+      "application_checkpoint": "94e79e09a77d0cf1340ab04720c5340358aef0f6",
+      "application_checkpoint_tree": "092bb50060fdbdd203fcdc5f8360a490c8ace13f",
+      "application_checkpoint_synthetic_merge": "61195e25ff9dbb999ccf86ecafa0adb7f761ba54",
+      "shared_dev_source": "0f29ef260e3180a9b06da76a86ed797cf623f7a0",
+      "shared_dev_tree": "79e80d674ed4f5ce30de7dcabc8261a727da4b6a",
+      "shared_dev_studio_routes_passed": 8
     }
   },
   "completion_levels": {

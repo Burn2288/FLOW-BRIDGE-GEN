@@ -53,7 +53,7 @@
 | 14 | 20 | MA-01 | Принять существующую Mini App в Telegram по HTTPS | IN-19, OP-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 15 | 21 | MA-02 | Форма image quote и явное подтверждение | AP-02, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 16 | 22 | MA-03 | Карточка job и безопасная отмена | MA-02, AP-03, JO-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
-| 17 | 23 | MA-04 | Довести пользовательский parity и доступность | MA-03, VI-02, VO-02, MU-02, ML-03, RF-03, SL-03, PY-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
+| 17 | 23 | MA-04 | Довести пользовательский parity и доступность | MA-03, VI-02, VO-02, MU-02, ML-03, RF-03, SL-03, PY-03 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 18 | 26 | AD-03 | Графические admin экраны по общему API | AD-02, OB-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 19 | 27 | TA-01 | Зафиксировать compatibility inventory Admin Edition | IN-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 20 | 28 | TA-02 | Сохранить Telegram admin при общих admin services | AD-02, TA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
@@ -74,9 +74,9 @@
 | 35 | 57 | RF-03 | Реферальные экраны и API обоих клиентов | RF-02, AP-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 36 | 60 | SL-03 | Support/legal/profile в двух клиентах | SL-01, SL-02, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 37 | 63 | SE-03 | Независимая regression security двух клиентов | SE-02, AD-03, MA-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
-| 38 | 65 | TQ-02 | Сквозная parity/regression matrix четырёх студий | MA-04, TA-02, WL-02, SE-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
-| 39 | 71 | OB-03 | Dashboard отчётов и управляемые incident alerts | OB-02, AD-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
-| 40 | 75 | RL-02 | Провести ограниченный коммерческий user journey | RL-01, TQ-02, OP-03, OB-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
+| 38 | 65 | TQ-02 | Сквозная parity/regression matrix четырёх студий | MA-04, TA-02, WL-02, SE-03 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 39 | 71 | OB-03 | Dashboard отчётов и управляемые incident alerts | OB-02, AD-03 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 40 | 75 | RL-02 | Провести ограниченный коммерческий user journey | RL-01, TQ-02, OP-03, OB-03 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 41 | 81 | AU-02 | Доказать передачу и повторный аудит без потери истории | AU-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 
 ## PY-02 · №33 · ограниченная сверка — 19.11.2026

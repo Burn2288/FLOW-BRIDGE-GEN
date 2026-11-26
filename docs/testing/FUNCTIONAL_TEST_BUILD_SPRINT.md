@@ -150,3 +150,65 @@ PostgreSQL, bot с локальной Telegram-заглушкой, worker и Min
 | [Burn2288 #39 · MASTER #79 · AP-03] Owned job status, list и cancel API | `CANDIDATE_PREPARED` → `CANDIDATE_PREPARED` | Owned list, status и cancel покрыты HTTP тестами | miniapp/tests/test_miniapp.py, tests/test_job_timeline.py | Полная матрица кросс-клиентных статусов |
 | [Burn2288 #40 · MASTER #80 · AU-01] Согласовать audit-artifacts lifecycle и schema gate | `CANDIDATE_PREPARED` → `CANDIDATE_PREPARED` | Сохранены прежние доказательства и gate реестра | .github/check_completion_register.py, AGENTS.md | Два независимых заключения на итоговом SHA |
 | [vankhu21 #41 · MASTER #81 · AU-02] Доказать передачу и повторный аудит без потери истории | `CANDIDATE_PREPARED` → `CANDIDATE_PREPARED` | Пакет сохраняет происхождение задач, точный SHA и общий Draft | Реестр, этот отчёт и PR #115 | Независимый повторный аудит до merge |
+## CLOUD-FINALIZATION-MEGA-03
+
+Изолированный Compose `sprint03-product` использовал PostgreSQL, Telegram gateway, worker и Mini App. На одном PostgreSQL подтверждены 8/8 маршрутов image, video, speech и music. Каждая работа открылась из обоих клиентов с одинаковыми байтами. Шесть заданий оставили по одному Wallet/Ledger capture. Две музыкальные работы использовали отдельные пилотные grants. У Telegram music возник явный отказ по лимиту частоты, после окончания окна то же ожидающее подтверждение завершилось одним grant settlement.
+
+Проверенный runtime-прогон матрицы использовал исходники `0f29ef260e3180a9b06da76a86ed797cf623f7a0`, дерево `79e80d674ed4f5ce30de7dcabc8261a727da4b6a`. Последующие исправления восстанавливают совместимость исторического upgrade-фикстура и запуск gateway из read-only checkout. Проверки итогового SHA и связь с синтетическим merge приведены в [Draft #115](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115).
+
+Штатное размещение исполнения сохранено. Image и priced speech стартуют в gateway или backend, video/music используют существующие poller-циклы gateway. Worker выполняет legacy speech, settlement и обслуживание очереди. Отдельный process E2E доказал получение сохранённой legacy-озвучки после остановки gateway, одно списание, скачивание владельцем в Mini App и отказ чужому аккаунту. Миграция 063 включает автодоставку для новых подтверждений Telegram. Исторические строки, для которых отправка не была отмечена, при обновлении повторно не доставляются.
+
+Сквозной DEV finance использовал настоящие обработчики с синтетическим Stars-платежом. Повтор сохранил одно зачисление. Списание 100 PAID начислило 5 токенов, подтверждённый refund привёл к долгу 5, следующее начисление погасило его до нуля. Результат виден в обоих клиентах, сверка кошельков вернула 0 расхождений. Отдельный Chromium-прогон прошёл историю оплаты, сохранённый результат, рефералов и обращение с ответом оператора.
+
+На хосте Docker тестовый transport и Mini App публикуются на loopback. Fixture transport доступен внутри сети проекта. Подписанный вход вне допущенного списка отклонён без создания identity. Производственный образ не содержит fixture-скриптов. Полная независимая проверка SE-03 остаётся на глобальной приёмке.
+
+Воспроизведение запуска, безопасного CA, восьми маршрутов и демонстрации приведено в [руководстве эксплуатации](../operations/DEPLOYMENT.md). Возможности провайдеров и ссылки на профильные проверки перечислены в [карте адаптеров](../../INTERACTION_PILOT_RU.md). Отдельный [Ubuntu 24.04 workflow job](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45896992473/job/140173224769) проверил чистый запуск, миграции и повторный запуск на Actions runner. Отдельный release-host ожидает проверки.
+
+### Пакеты и задачи Sprint 03
+
+| Пакет | Продуктовый результат | Задачи в существующем реестре |
+| --- | --- | --- |
+| P01 | Четыре студии и управляющий ввод в локальный Telegram transport | JO-03, IM-01, VI-01, VI-02, MU-01, MU-02 |
+| P02 | Durable legacy-озвучка после перезапуска и сохранность библиотек | JO-03, VO-02, ML-02 |
+| P03 | Mobile preview, фильтр студий, статус музыки и ссылки на результаты | MA-04, VO-02, RF-03 |
+| P04 | 8/8 маршрутов с media и settlement в одной базе | TQ-02, MA-04, ML-02 |
+| P05 | Карточки объектов, очередь поддержки и инциденты в двух клиентах | AD-03, OB-03, AD-02 |
+| P06 | Read-only сверка, Stars replay, PAID reward, refund, debt, repayment | WL-02, PC-02, RF-02, RF-03 |
+| P07 | Адаптеры offline и доказательства сохранения исторических реализаций | PR-03, IN-08, IN-09, IN-10, IN-11, IN-12, IN-13 |
+| P08 | Сохранены исторические маршруты и проверена их применимость | IN-14, IN-15, IN-16, IN-17 |
+| P09 | Утверждённый порядок, ancestry и действующий интеграционный фундамент | IN-01, IN-02, IN-18, IN-19 |
+| P10 | Defensive проверки роли, ownership, журналирования и fixture guard | SE-01, SE-02, SE-03 |
+| P11 | Документированный старт, безопасный CA, Ubuntu Actions и повторный запуск | OP-03, IN-19, RL-03 |
+| P12 | Синтетический коммерческий сценарий и браузерная демонстрация | RL-01, RL-02, RL-03 |
+
+| Историческая задача | Пакет | Статус до → после | Выполненный объём | Доказательство | Остаток и решение |
+| --- | --- | --- | --- | --- | --- |
+| [Burn2288 #1 · MASTER #1 · IN-01] Утвердить порядок интеграции и freeze SHA | P09 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Проверены утверждённый порядок интеграции и исходные remote refs. | Documentation и сверка исторических PR | Уникальная дельта и ретаргет исходного #18 |
+| [Burn2288 #2 · MASTER #2 · IN-02] Принять документационную базу PR #1 | P09 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Подтверждено включение документационного фундамента PR #1 в принятую main. | Documentation и ancestry #1 | Глобальная приёмка последующих изменений |
+| [vankhu21 #1 · MASTER #3 · IN-08] Интегрировать PR #8 и доказать supersession ранних пилотов | P07 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Сохранены image-пилоты и миграции 001–012, повторены 55 image-проверок. | ML01, FT020 и сверка ancestry #8 | Платные live-возможности по разрешению владельца |
+| [vankhu21 #2 · MASTER #4 · IN-09] Провести отдельную приёмку и интеграцию PR #9: Veo video | P07 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Сохранён Veo create/poll. Заглушка выдаёт сохранённый MP4 из общего профиля. | TQ01 и матрица студий | Live Veo вне выполненного прогона |
+| [vankhu21 #3 · MASTER #5 · IN-10] Провести отдельную приёмку и интеграцию PR #10: AnyModel registry | P07 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Реестр AnyModel, discovery и манифесты сохранены в принятой ancestry. | FT016 и FT017 | Коммерчески разрешённый набор live-моделей |
+| [vankhu21 #4 · MASTER #6 · IN-11] Провести отдельную приёмку и интеграцию PR #11: FIBO async image | P07 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Async FIBO удерживает результаты и путь recovery/refund. | FT017 и FT022 | Live FIBO |
+| [vankhu21 #5 · MASTER #7 · IN-12] Провести отдельную приёмку и интеграцию PR #12: Grok video | P07 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Grok video и его process restart проверены на fixtures. | TQ01 и FT017 | Live Grok |
+| [vankhu21 #6 · MASTER #8 · IN-13] Провести отдельную приёмку и интеграцию PR #13: AnyModel speech | P07 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | AnyModel speech, UTF-16 и выдача аудио подтверждены. | FT021 | Live AnyModel speech |
+| [vankhu21 #7 · MASTER #9 · IN-14] Провести отдельную приёмку и интеграцию PR #14: Welcome/navigation | P08 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Сохранены Welcome, обязательное согласие, навигация и Back. | FT031 | Настоящий Telegram-клиент и глобальная приёмка |
+| [vankhu21 #8 · MASTER #10 · IN-15] Провести отдельную приёмку и интеграцию PR #15: Task progress | P08 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Сохранены проекция статусов и timeline. Закрыта потеря legacy-доставки речи. | JO03, process E2E | Долгосрочная обработка неоднозначных внешних ответов |
+| [vankhu21 #9 · MASTER #11 · IN-16] Принять PR #16: финансы, каталог и Telegram Admin | P08 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Проверены тарифы, синтетические платежи, каталог и Telegram Admin. | FT028 и TQ01 | D-02/D-03 для новых мутаций |
+| [vankhu21 #10 · MASTER #12 · IN-17] Принять PR #17: Mini App и новый inbox | P08 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | Mini App, inbox и idempotent повторы сохранены. | TQ01 и OP01 | Live Telegram WebView |
+| [Burn2288 #3 · MASTER #13 · IN-18] Согласовать фундамент и план как отдельные docs PR | P09 | `NOT_ASSESSED` → `CANDIDATE_PREPARED` | План, канонический реестр и карта контрактов покрывают текущий процесс. | Documentation и сверка исторических PR | Полное замещение исходного #18 ещё не установлено |
+| [Burn2288 #4 · MASTER #14 · IN-19] Синхронизировать и запустить целую принятую сборку | P09/P11 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Общий DEV запустился. Seeded upgrade проверил identity, ledger и media. | TQ01, FT024, Compose | Машины обоих разработчиков и отдельный release-host |
+| [vankhu21 #17 · MASTER #23 · MA-04] Довести пользовательский parity и доступность | P03/P04 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Добавлены фильтр студий, мобильный preview, скачивание и статус музыки. | OP01 и матрица студий | Настоящий WebView и отдельное тестирование accessibility для STANDARD |
+| [Burn2288 #11 · MASTER #31 · PR-03] Сверить live capability каждого включаемого адаптера | P07 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Составлена таблица четырёх DEV-маршрутов, AnyModel и Fal. | INTERACTION_PILOT_RU.md, FT016, FT017 и FT021 | Живые вызовы требуют отдельного разрешения |
+| [vankhu21 #23 · MASTER #35 · PC-02] Preview и publish versioned тарифов | P06 | `BLOCKED` → `BLOCKED` | Legacy preview сохраняет тарифы, оценки, баланс и ledger. Общая публикация заблокирована. | Профильный PostgreSQL и тест операторских объектов | D-02: цены, единицы, приоритеты, audit и rollback |
+| [Burn2288 #20 · MASTER #51 · WL-02] Сверка ledger и контролируемые корректировки | P06 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Добавлены детализация расхождений и чтение payment/referral cases. Пройден разрешённый учёт возврата. | FT029, операторские объекты и DEV finance journey | D-02/D-03 для расширенных корректирующих проводок |
+| [Burn2288 #25 · MASTER #61 · SE-01] Threat model и security boundary suite | P10 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Проверены deny, актуальные PostgreSQL-роли, изоляция и отсутствие реальных вызовов в DEV. | OP01, тесты ACL, анализ рабочего профиля | Независимая проверка в глобальном аудите |
+| [Burn2288 #26 · MASTER #62 · SE-02] Безопасные экспорт, логи и retention | P10 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Проверены безопасные экспорты, журналы и сохранность данных. Fixture отсутствует в производственном образе. | AU02 и проверка Compose | Долгосрочное хранение и legal hold для STANDARD |
+| [vankhu21 #37 · MASTER #63 · SE-03] Независимая regression security двух клиентов | P10 | `IN_PROGRESS` → `IN_PROGRESS` | Выполнена внутренняя регрессия изоляции и отказов. | OP01, PostgreSQL и контроль DEV | Два независимых аудитора; внутренняя проверка не заменяет приёмку |
+| [vankhu21 #38 · MASTER #65 · TQ-02] Сквозная parity/regression matrix четырёх студий | P04 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Единый сценарий связывает восемь входов, один PostgreSQL, результат и списание либо grant. | verification/studio_matrix.py и matrix.json | Настоящий Telegram WebView и дополнительное покрытие неоднозначной внешней доставки для STANDARD |
+| [Burn2288 #30 · MASTER #68 · OP-03] Принять Ubuntu release candidate и shutdown | P11 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Проверены чистый запуск и сохранность после restart. CA передаётся через BuildKit secret. | FT024 и Compose | Отдельный Ubuntu release-host |
+| [vankhu21 #39 · MASTER #71 · OB-03] Dashboard отчётов и управляемые incident alerts | P05 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Добавлены инциденты, очереди и карточки объектов в Telegram и Mini App. | Операторские проверки и Chromium OP01 | Внешний канал требует отдельного разрешения |
+| [Burn2288 #35 · MASTER #74 · RL-01] Согласовать scope, цены и критерии пилота | P12 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Тестовый коммерческий сценарий использует действующие synthetic Stars и пилотные цены. | DEV finance journey | Коммерческие цены и условия утверждает владелец |
+| [vankhu21 #40 · MASTER #75 · RL-02] Провести ограниченный коммерческий user journey | P12 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Проверен путь от синтетического пополнения до результата, библиотеки, награды и поддержки. | P06/P12 Chromium и synthetic Stars | Реальный коммерческий пилот требует разрешения |
+| [Burn2288 #36 · MASTER #76 · RL-03] Release decision и синхронизация двух полных сборок | P11/P12 | `IN_PROGRESS` → `CANDIDATE_PREPARED` | Собран единый Draft и повторяемые демонстрационные сценарии. | Compose, FT024, PR #115 | Независимые аудиты и решение владельца о выпуске |
+
+Итог — 79/81 `CANDIDATE_PREPARED`, 1 `IN_PROGRESS` (SE-03), 1 `BLOCKED` (PC-02), 0 `NOT_ASSESSED`, 0 завершённых. Техническая интеграция исторической когорты 23/37. Для 14 оставшихся PR подтверждения полного supersession пока нет.
