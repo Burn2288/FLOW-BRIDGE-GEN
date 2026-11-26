@@ -98,6 +98,8 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
             if bonus_state=='spent':
                 from elevenbot.providers import MockProvider
                 from elevenbot.worker import Worker
+                monkeypatch.setattr('elevenbot.storage.subprocess.run',
+                                    lambda *a, **kw: SimpleNamespace(stdout=b'{"format":{"duration":"1"}}'))
                 assert await Worker(pool,speech.cfg,MockProvider()).run_one()
                 assert await pool.fetchval("SELECT status FROM jobs WHERE id=$1",speech_job)=='succeeded'
                 assert await pool.fetchval("SELECT count(*) FROM ledger WHERE job_id=$1 AND kind='capture'",speech_job)==1
