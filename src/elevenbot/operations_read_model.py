@@ -1,8 +1,8 @@
-"""Bounded, aggregate-only internal operational and financial read models.
+"""Bounded, aggregate-only operational and financial read models.
 
-This module is intentionally not mounted as an HTTP endpoint. It exposes no
-account identifiers, prompts, provider operation identifiers, secrets, or
-free-text reconciliation evidence.
+The Mini App serves this report through its operations.read capability.
+The report omits account identifiers, prompts, provider operation identifiers,
+secrets and free-text reconciliation evidence.
 """
 
 from datetime import date, datetime, timedelta, timezone
@@ -242,7 +242,7 @@ async def read_operations_report(pool, start, end, *, timezone_name='UTC', limit
     """Return bounded aggregate facts without writing or identifying users.
 
     Time windows are half-open in absolute time; only grouping uses the selected
-    IANA timezone. This API is internal and deliberately has no HTTP route.
+    IANA timezone. Callers enforce the applicable access policy.
     """
     start, end = _validate_window(start, end, timezone_name, limit)
     async with pool.acquire() as conn, conn.transaction(isolation='repeatable_read', readonly=True):

@@ -18,7 +18,7 @@
 | C-008 | Wallet | [task_wallet.py](../../src/elevenbot/task_wallet.py), [core.py](../../src/elevenbot/core.py); общий финансовый контракт требует приёмки. |
 | C-009 | Payment Intent | [topups.py](../../src/elevenbot/topups.py), [platega.py](../../src/elevenbot/platega.py); реальные платежи и каналы не проверены этим срезом. |
 | C-010 | Referral Attribution | [referrals.py](../../src/elevenbot/referrals.py), [миграция 044](../../migrations/044_referral_attribution.sql); реализованная привязка не означает начисление наград. |
-| C-011 | Referral Rewards | [referrals.py](../../src/elevenbot/referrals.py); бонусы, возвраты и долг остаются целевым контрактом. |
+| C-011 | Referral Rewards | [referrals.py](../../src/elevenbot/referrals.py); версионированная тестовая политика и операции начисления, reversal и погашения долга описаны в [C-011 v1](C-011-V1-FUNCTIONAL-TEST.md). Доступность начислений зависит от профиля, маршрута генерации и подтверждённого PAID funding. |
 | C-012 | Generation Job | [task_launch.py](../../src/elevenbot/task_launch.py), [worker.py](../../src/elevenbot/worker.py); единый lifecycle всех типов не принят. |
 | C-013 | Provider Adapter | [provider_execution.py](../../src/elevenbot/provider_execution.py), [fal.py](../../src/elevenbot/fal.py); live API и универсальность не доказаны. |
 | C-014 | Provider Registry | [aggregate.py](../../src/elevenbot/aggregate.py), [provider_lifecycle.py](../../src/elevenbot/provider_lifecycle.py); lifecycle — метаданные, не универсальный runtime rollback. |
@@ -27,9 +27,9 @@
 | C-017 | Library | [library.py](../../src/elevenbot/library.py), [core.py](../../src/elevenbot/core.py); все типы и parity клиентов не приняты. |
 | C-018 | Delivery Outbox | [worker.py](../../src/elevenbot/worker.py), [clodex_music.py](../../src/elevenbot/clodex_music.py); общего exactly-once контракта нет. |
 | C-019 | Telegram Admin | [admin_access.py](../../src/elevenbot/admin_access.py), [telegram.py](../../src/elevenbot/telegram.py); целевая RBAC-модель не утверждена. |
-| C-020 | Mini App Admin | [web.py](../../miniapp/backend/web.py); обычная HTTP session не наследует Telegram Admin Edition, целевая admin-панель не доказана. |
+| C-020 | Mini App Admin | [web.py](../../miniapp/backend/web.py); для обзора операций и очереди поддержки сервер проверяет текущие независимые PostgreSQL capabilities. |
 | C-021 | Settings | [runtime_config.py](../../src/elevenbot/runtime_config.py), [config.py](../../src/elevenbot/config.py); универсальная версия и rollback настроек не доказаны. |
-| C-022 | Support | [telegram.py](../../src/elevenbot/telegram.py); сквозной контракт поддержки двух клиентов остаётся целевым. |
+| C-022 | Support | [support_tickets.py](../../src/elevenbot/support_tickets.py), [web.py](../../miniapp/backend/web.py); текстовые обращения, история владельца и ответы оператора хранятся в PostgreSQL. |
 | C-023 | Reports | [task_receipts.py](../../src/elevenbot/task_receipts.py), [topups.py](../../src/elevenbot/topups.py); полный набор отчётов и сверка не приняты. |
 | C-024 | API v1 | [openapi.json](../../miniapp/openapi.json), [web.py](../../miniapp/backend/web.py); универсальный API и все коды ошибок требуют развития. |
 | C-025 | Events/Outbox | [worker.py](../../src/elevenbot/worker.py), [task_launch.py](../../src/elevenbot/task_launch.py); общий event outbox не установлен. |
