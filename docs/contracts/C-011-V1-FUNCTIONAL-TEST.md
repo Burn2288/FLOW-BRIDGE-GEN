@@ -48,3 +48,7 @@ reconciliation. The allocation helper does not authorize payments or
 convert such a receipt into a wallet credit. Persistent funding
 provenance, reward and reversal transactions, debt and the authorized
 read service require separate implementation proof.
+
+## ADDENDUM-01 · Restored referral funds
+
+Burn2288 approved REPAY_REFERRAL_DEBT_FIRST in the owner decision for CONTINUATION-06, solely for FUNCTIONAL_TEST. A release or authorized refund restores its original funding categories. In the same transaction, a distinct ledger debit uses the lesser of the restored REFERRAL amount and outstanding referral debt. The immutable repayment is keyed to the restoring ledger event. Other funding categories are ineligible. This does not authorize partial provider receipts or production activation.

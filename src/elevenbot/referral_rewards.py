@@ -64,14 +64,7 @@ async def reverse_confirmed_refund(conn, quote_id):
 
 
 async def _repay_debt(conn, user, capture_id, reward):
-    debt = await conn.fetchval("""
-        SELECT (
-            coalesce((SELECT sum(v.debt_added) FROM referral_reversals v
-                      JOIN referral_rewards r USING(capture_id) WHERE r.referrer_id=$1),0)
-          - coalesce((SELECT sum(p.amount) FROM referral_debt_repayments p
-                     JOIN referral_rewards r USING(capture_id) WHERE r.referrer_id=$1),0)
-        )::bigint
-    """, user)
+    debt = await conn.fetchval('SELECT coalesce((SELECT outstanding FROM referral_debt_balances WHERE user_id=$1),0)', user)
     amount = min(debt, reward)
     if amount<=0:
         return

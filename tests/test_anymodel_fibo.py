@@ -123,6 +123,15 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
         assert await pool.fetchval('SELECT amount FROM referral_rewards')==50
         assert await svc.reconcile()==0
 
+        if bonus_state=='reserved':
+            assert await asyncio.gather(speech.cancel(inviter,speech_job), speech.cancel(inviter,speech_job)) == [True,True]
+            restored=await pool.fetchrow("""SELECT p.amount,d.da,r.kind
+                FROM referral_restoration_repayments p JOIN ledger d ON d.id=p.ledger_id
+                JOIN ledger r ON r.id=p.restoration_id WHERE p.user_id=$1""",inviter)
+            assert tuple(restored)==(30,-30,'release')
+            assert await pool.fetchval('SELECT outstanding FROM referral_debt_balances WHERE user_id=$1',inviter)==0
+            assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",inviter))==(0,0)
+            assert await svc.reconcile()==0
         if bonus_state=='spent':
             monkeypatch.setenv('RF02_FUNCTIONAL_TEST','YES')
             await generate(10)

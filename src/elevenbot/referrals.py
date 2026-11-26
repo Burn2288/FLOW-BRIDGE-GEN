@@ -60,17 +60,22 @@ async def own_finances(service, user, page):
                 (SELECT coalesce(sum(available),0) FROM wallet_funding_lots
                  WHERE user_id=$1 AND mode='live' AND origin='REFERRAL') AS available,
                 (SELECT coalesce(sum(amount),0) FROM own) AS earned,
-                (SELECT coalesce(sum(v.debt_added),0) FROM referral_reversals v JOIN own USING(capture_id))
-                - (SELECT coalesce(sum(p.amount),0) FROM referral_debt_repayments p JOIN own USING(capture_id)) AS debt
+                coalesce((SELECT outstanding FROM referral_debt_balances WHERE user_id=$1),0) AS debt
         """, user)
         rows = await conn.fetch("""
-            SELECT l.created_at,l.kind,l.da,p.policy_version
-            FROM ledger l JOIN referral_rewards r ON r.referrer_id=$1
-            JOIN referral_policy_snapshots p ON p.reserve_ledger_id=r.reserve_id
-            LEFT JOIN referral_reversals v ON v.capture_id=r.capture_id
-            LEFT JOIN referral_debt_repayments d ON d.capture_id=r.capture_id
-            WHERE l.user_id=$1 AND l.id IN (r.reward_ledger_id,v.ledger_id,d.ledger_id)
-            ORDER BY l.created_at DESC,l.id DESC LIMIT 11 OFFSET $2
+            WITH own_events AS (
+                SELECT l.id,l.created_at,l.kind,l.da,p.policy_version
+                FROM ledger l JOIN referral_rewards r ON r.referrer_id=$1
+                JOIN referral_policy_snapshots p ON p.reserve_ledger_id=r.reserve_id
+                LEFT JOIN referral_reversals v ON v.capture_id=r.capture_id
+                LEFT JOIN referral_debt_repayments d ON d.capture_id=r.capture_id
+                WHERE l.user_id=$1 AND l.id IN (r.reward_ledger_id,v.ledger_id,d.ledger_id)
+                UNION ALL
+                SELECT l.id,l.created_at,l.kind,l.da,'C-011-v1-functional-test'
+                FROM referral_restoration_repayments r JOIN ledger l ON l.id=r.ledger_id
+                WHERE r.user_id=$1 AND l.user_id=$1
+            )
+            SELECT * FROM own_events ORDER BY created_at DESC,id DESC LIMIT 11 OFFSET $2
         """, user, page * 10)
     return {**info, 'invitee_count': summary['invitee_count'],
             'available': str(summary['available']), 'total_rewards': str(summary['earned']),
