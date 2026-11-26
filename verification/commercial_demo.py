@@ -6,6 +6,7 @@ import hashlib
 import json
 import shutil
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 from uuid import UUID
 
 from playwright.async_api import async_playwright, expect
@@ -43,13 +44,23 @@ async def support(owner, operator, base, artifacts):
     reply = 'Демонстрационная работа доступна в библиотеке.'
     await owner.get_by_role('button', name='Поддержка', exact=True).click()
     await owner.get_by_label('Текст обращения').fill(text)
-    async with owner.expect_response(
-        lambda response: response.url == base + '/api/v1/support' and response.request.method == 'POST'
-    ) as created:
+    inbox = base + '/api/v1/support'
+    async with (
+        owner.expect_response(lambda response: response.url == inbox and response.request.method == 'POST') as created,
+        owner.expect_response(lambda response: response.url == inbox and response.request.method == 'GET') as listed,
+    ):
         await owner.locator('#owner-support-create').click()
     response = await created.value
     assert response.ok, f'Fixture support creation failed with HTTP {response.status}'
-    ticket = str(UUID((await response.json())['id']))
+    assert (await listed.value).ok
+    await expect(owner.locator('#support-status')).to_have_text('')
+    newest = owner.locator('#owner-support-list button').first
+    async with owner.expect_response(lambda response: response.url.startswith(inbox + '?ticket_id=')) as opened:
+        await newest.click()
+    ticket_response = await opened.value
+    assert ticket_response.ok
+    ticket = str(UUID(parse_qs(urlsplit(ticket_response.url).query)['ticket_id'][0]))
+    await expect(owner.locator('#owner-support-history')).to_contain_text(text)
 
     await operator.get_by_role('button', name='Администрирование', exact=True).click()
     await operator.get_by_label('Обращение', exact=True).select_option(ticket)
