@@ -1437,6 +1437,113 @@
           }
         }
       }
+    },
+    "/api/v1/admin/model-visibility": {
+      "get": {
+        "summary": "Список настроек видимости моделей",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ModelVisibility"
+                      }
+                    }
+                  },
+                  "required": [
+                    "models"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Недействительная сессия"
+          },
+          "403": {
+            "description": "Требуется settings.visibility"
+          },
+          "503": {
+            "description": "Хранилище полномочий временно недоступно"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/model-visibility/{action}": {
+      "post": {
+        "summary": "Предпросмотр или подтверждение изменения видимости и отката",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Для confirm обязательны expected_version из предпросмотра и новый request_id. Для отката передайте rollback_of и предыдущее значение видимости.",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "preview",
+                "confirm"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelVisibilityChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelVisibility"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Недействительная сессия"
+          },
+          "403": {
+            "description": "Требуется settings.visibility"
+          },
+          "503": {
+            "description": "Хранилище полномочий временно недоступно"
+          },
+          "400": {
+            "description": "Некорректные параметры"
+          },
+          "404": {
+            "description": "Модель недоступна"
+          },
+          "409": {
+            "description": "Версия устарела или операция несовместима с текущим состоянием"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1444,6 +1551,116 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "ModelVisibility": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "model_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "operation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "title": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "VISIBLE",
+              "HIDDEN"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "previous_visibility": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "VISIBLE",
+                  "HIDDEN"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "model_id",
+          "operation",
+          "title",
+          "visibility",
+          "version",
+          "previous_visibility"
+        ]
+      },
+      "ModelVisibilityChange": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "model_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "operation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "VISIBLE",
+              "HIDDEN"
+            ]
+          },
+          "rollback_of": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1
+          },
+          "expected_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "provider",
+          "model_id",
+          "operation",
+          "visibility"
+        ]
       }
     }
   }
