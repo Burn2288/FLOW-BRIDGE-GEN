@@ -47,6 +47,8 @@ async def test_model_visibility_preview_confirm_rollback_shared_by_both_catalogu
         assert await telegram.store_models(snapshot, 'image', None) == [0]
         assert await miniapp_visible()
         assert (await client.get(ADMIN_PATH, headers=headers)).status == 403
+        assert (await client.post(ADMIN_PATH+'/preview', data='invalid')).status == 401
+        assert (await client.post(ADMIN_PATH+'/confirm', data='invalid', headers=headers)).status == 403
         await pool.execute("""
             INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
             VALUES($1,$1,'SETTINGS_OPERATOR','synthetic visibility grant')

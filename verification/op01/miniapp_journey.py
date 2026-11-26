@@ -129,6 +129,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     replacement = await login.value
                     assert replacement.status == 200
                     assert (await replacement.json())['token'] != original_token
+                    await check_model_visibility(page, telegram, owner)
                 else:
                     await expect(page.get_by_role('button', name='Выбрать Veo', include_hidden=True)).to_have_count(0)
                     denied = await client.post(base + '/api/v1/quotes', headers=tester_headers,
@@ -628,3 +629,45 @@ async def check_music(page, view, owner, client, base, token):
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
         return job
 
+
+
+async def check_model_visibility(page, telegram, owner):
+    from playwright.async_api import expect
+
+    await telegram.pool.execute('''
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,'SETTINGS_OPERATOR','OP-01 visibility grant')
+    ''', owner)
+    await page.get_by_role('button', name='Администрирование').click()
+    models = page.get_by_label('Модель', exact=True)
+    await expect(models.locator('option').filter(has_text='Image · clodex')).to_contain_text('Видима')
+    await models.select_option(label='Image · clodex · images.generate · Видима')
+    await page.get_by_role('button', name='Предпросмотр скрытия').click()
+    await expect(page.get_by_text('Image · Видима → Скрыта')).to_be_visible()
+    await page.get_by_role('button', name='Подтвердить видимость').click()
+    await expect(models.locator('option').filter(has_text='Image · clodex')).to_contain_text('Скрыта')
+    # The same PostgreSQL value drives both catalogues, including a live refresh
+    # of the Mini App list after confirmation.
+    snapshot = telegram.catalogue_snapshot()
+    indices = await telegram.store_models(snapshot, 'image', None)
+    assert 'fixture/image' not in {snapshot['models'][i]['id'] for i in indices}
+    await page.get_by_role('button', name='Каталог', exact=True).click()
+    await expect(page.locator('#models')).not_to_contain_text('MA-01 Image')
+    await page.get_by_role('button', name='Администрирование').click()
+    await expect(models.locator('option').filter(has_text='Image · clodex')).to_contain_text('Скрыта')
+    await models.select_option(label='Image · clodex · images.generate · Скрыта')
+    await page.get_by_role('button', name='Предпросмотр отката').click()
+    await expect(page.get_by_text('Image · Скрыта → Видима')).to_be_visible()
+    await page.get_by_role('button', name='Подтвердить видимость').click()
+    await expect(models.locator('option').filter(has_text='Image · clodex')).to_contain_text('Видима')
+    await page.get_by_role('button', name='Каталог', exact=True).click()
+    await expect(page.locator('#models')).to_contain_text('MA-01 Image')
+
+    await telegram.pool.execute('''
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,NULL,'OP-01 visibility revoke')
+    ''', owner)
+    await page.get_by_role('button', name='Администрирование').click()
+    await expect(models).to_have_count(0)
+    await page.get_by_role('button', name='Каталог', exact=True).click()
+    await expect(page.locator('#models')).to_contain_text('MA-01 Image')

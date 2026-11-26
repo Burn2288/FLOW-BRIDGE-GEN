@@ -175,7 +175,10 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         from elevenbot import model_visibility as visibility
 
         try:
-            body = await request.json() if request.method == 'POST' else None
+            if request.method == 'POST':
+                async with pool.acquire() as conn:
+                    await visibility.authorize(conn, await account(request, conn))
+                body = await request.json()
             async with pool.acquire() as conn, conn.transaction():
                 actor = await account(request, conn)
                 if request.method == 'GET':

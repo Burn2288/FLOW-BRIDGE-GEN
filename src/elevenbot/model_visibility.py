@@ -29,13 +29,13 @@ MODELS = """
 """
 
 
-async def _authorize(conn, actor):
+async def authorize(conn, actor):
     if not has_capability(await current_capabilities(conn, actor), CAPABILITY):
         raise VisibilityDenied()
 
 
 async def list_models(conn, actor):
-    await _authorize(conn, actor)
+    await authorize(conn, actor)
     rows = await conn.fetch(f'SELECT {FIELDS} {MODELS} ORDER BY m.provider, m.title, m.model_id, m.operation')
     return [dict(row) for row in rows]
 
@@ -74,7 +74,7 @@ def _typed(visibility, rollback_of):
 
 
 async def preview(conn, actor, provider, model, operation, visibility, rollback_of=None):
-    await _authorize(conn, actor)
+    await authorize(conn, actor)
     _typed(visibility, rollback_of)
     row = await _model(conn, provider, model, operation)
     _validate_change(row, visibility, rollback_of)
@@ -89,7 +89,7 @@ async def confirm(conn, actor, provider, model, operation, visibility, expected_
     # Role writers use a conflicting table lock. Also serialize with user blocking.
     await conn.execute('LOCK TABLE http_admin_role_events IN SHARE MODE')
     await conn.fetchval('SELECT 1 FROM users WHERE id=$1 FOR SHARE', actor)
-    await _authorize(conn, actor)
+    await authorize(conn, actor)
     _typed(visibility, rollback_of)
     if type(expected_version) is not int or not 0 <= expected_version < 2**63 or not isinstance(request_id, UUID):
         raise ValueError('Invalid visibility confirmation')
