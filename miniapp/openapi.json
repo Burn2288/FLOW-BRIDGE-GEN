@@ -1237,6 +1237,67 @@
           }
         }
       }
+    },
+    "/api/v1/admin/operations": {
+      "get": {
+        "summary": "Read bounded operations aggregates",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregate operations report"
+          },
+          "400": {
+            "description": "Invalid time range or limit"
+          },
+          "401": {
+            "description": "Missing session"
+          },
+          "403": {
+            "description": "Missing operations.read"
+          },
+          "503": {
+            "description": "Authority unavailable"
+          }
+        }
+      }
     }
   },
   "components": {

@@ -16,3 +16,7 @@ async def current_capabilities(conn, user):
     if role not in CAPABILITIES:
         return None
     return {'role': role, 'capabilities': list(CAPABILITIES[role])}
+
+
+def has_capability(authority, capability):
+    return authority is not None and capability in authority['capabilities']

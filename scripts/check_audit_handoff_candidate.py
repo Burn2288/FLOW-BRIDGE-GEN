@@ -38,12 +38,12 @@ def validate_candidate(manifest, payload, *, expected_source, previous_hashes=No
             raise ValueError("symbolic links are forbidden in the artifact payload")
         if path.is_dir():
             continue
-        if not path.is_file():
-            raise ValueError("artifact is not a regular file")
+        if not path.is_file() or path.stat().st_nlink != 1:
+            raise ValueError("artifact is not a regular unshared file")
         actual[path.relative_to(payload).as_posix()] = path
     for name in artifacts:
         relative = PurePosixPath(name)
-        if relative.as_posix() != name or any(part in (".", "..") for part in relative.parts):
+        if relative.is_absolute() or "\\\\" in name or relative.as_posix() != name or any(part in (".", "..") for part in relative.parts):
             raise ValueError("invalid artifact path")
     if set(actual) != set(artifacts):
         raise ValueError("artifact inventory mismatch")

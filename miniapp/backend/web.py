@@ -144,6 +144,29 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             raise web.HTTPForbidden()
         return web.json_response(capability)
 
+    async def operations_report(request):
+        import asyncpg
+        from datetime import datetime
+        from elevenbot.admin_authority import current_capabilities, has_capability
+        from elevenbot.operations_read_model import read_operations_report
+        try:
+            user = await account(request)
+            async with pool.acquire() as conn:
+                authority = await current_capabilities(conn, user)
+            if not has_capability(authority, 'operations.read'):
+                raise web.HTTPForbidden()
+            try:
+                start = datetime.fromisoformat(request.query['start'])
+                end = datetime.fromisoformat(request.query['end'])
+                limit = int(request.query.get('limit', '100'))
+                report = await read_operations_report(pool, start, end,
+                    timezone_name=request.query.get('timezone', 'UTC'), limit=limit)
+            except (KeyError, ValueError, OverflowError):
+                raise web.HTTPBadRequest() from None
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return web.json_response(report)
+
     async def wallet(request):
         user = await account(request)
         row = await service.wallet(user)
@@ -321,6 +344,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_get('/api/v1/catalogue', catalogue)
     app.router.add_get('/api/v1/wallet', wallet)
     app.router.add_get('/api/v1/admin/capabilities', admin_capabilities)
+    app.router.add_get('/api/v1/admin/operations', operations_report)
     from .stars import add_stars_routes
     add_stars_routes(app, service, account, cfg, view.bot)
     app.router.add_get('/api/v1/referral', referral)
