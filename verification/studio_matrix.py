@@ -140,8 +140,21 @@ class Telegram:
                 await self.tap(chat, after, r'^voice:')
         after = await self.update(chat, text=prompt)
         message_id, callback = await self.button(chat, after, r'^(amconfirm|musicconfirm):')
-        await self.update(chat, callback=callback, message_id=message_id)
+        await self.confirm(chat, message_id, callback)
         return UUID(callback.rsplit(':', 1)[-1])
+
+    async def confirm(self, chat, message_id, callback):
+        after = await self.update(chat, callback=callback, message_id=message_id)
+        for _ in range(10):
+            replies = await self.replies(after)
+            if any(event['chat'] == chat and 'Слишком много действий' in (event.get('text') or '')
+                   for event in replies):
+                # The gateway explicitly declined the action. Retry the same quote
+                # when the normal minute window renews.
+                await asyncio.sleep(61 - time.time() % 60)
+                await self.update(chat, callback=callback, message_id=message_id)
+                return
+            await asyncio.sleep(.2)
 
     async def check_result(self, studio, chat, work_id, digest):
         after = await self.update(chat, text='📁 Мои работы')
