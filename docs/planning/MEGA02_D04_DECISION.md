@@ -14,7 +14,7 @@ Source: [AD-01 preflight #107](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/
 
 Historical recommendation adopted by the owner: B for the isolated LEVEL 1 prototype. Reuse verified identity and persistent sessions, default deny, check capability on each protected request. Limit the first candidate to a read-only capability and a chooser. Treat environment allowlists as existing pilot admission, not as HTTP roles. Preserve Telegram Admin Edition independently.
 
-D-04 v1 establishes role names, scope, revocation and outage semantics. A deployment-specific bootstrap identity and isolated principal configuration are still required. Option A additionally needs an enforceable all-instance fencing design. The Draft now includes the capability-protected aggregate endpoint. Deliberate role delegation uses a trusted database operation. The owner selected model visibility as the one AD-02 setting for FUNCTIONAL_TEST. SL-02 provides a capability-protected operator inbox and reply.
+D-04 v1 establishes role names, scope, revocation and outage semantics. A deployment-specific bootstrap identity and isolated principal configuration are still required. Option A additionally needs an enforceable all-instance fencing design. The Draft now includes the capability-protected aggregate endpoint. Deliberate role delegation uses a trusted database operation. The owner selected model visibility for AD-02. The later [D-02 decision](../contracts/README.md#решение-d-02-для-functional_test) authorizes a separate owner-only tariff operation on one disposable test model. SL-02 provides a capability-protected operator inbox and reply.
 
 ## Approved scope and implementation progress
 

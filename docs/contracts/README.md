@@ -22,7 +22,7 @@
 | C-012 | Generation Job | [task_launch.py](../../src/elevenbot/task_launch.py), [worker.py](../../src/elevenbot/worker.py); единый lifecycle всех типов не принят. |
 | C-013 | Provider Adapter | [provider_execution.py](../../src/elevenbot/provider_execution.py), [fal.py](../../src/elevenbot/fal.py); live API и универсальность не доказаны. |
 | C-014 | Provider Registry | [aggregate.py](../../src/elevenbot/aggregate.py), [provider_lifecycle.py](../../src/elevenbot/provider_lifecycle.py); lifecycle — метаданные, не универсальный runtime rollback. |
-| C-015 | Model Pricing | [pricing.py](../../src/elevenbot/pricing.py), [tariff_admin.py](../../src/elevenbot/tariff_admin.py); D-02 и полная модель цен открыты. |
+| C-015 | Model Pricing | [pricing.py](../../src/elevenbot/pricing.py), [tariff_admin.py](../../src/elevenbot/tariff_admin.py); Утверждён узкий [тестовый срез D-02](#решение-d-02-для-functional_test). Полная модель цен открыта. |
 | C-016 | Media Storage | [storage.py](../../src/elevenbot/storage.py), [core.py](../../src/elevenbot/core.py); полная матрица медиа не доказана. |
 | C-017 | Library | [library.py](../../src/elevenbot/library.py), [core.py](../../src/elevenbot/core.py); все типы и parity клиентов не приняты. |
 | C-018 | Delivery Outbox | [worker.py](../../src/elevenbot/worker.py), [clodex_music.py](../../src/elevenbot/clodex_music.py); общего exactly-once контракта нет. |
@@ -40,7 +40,7 @@
 | C-030 | User Data Retention | [core.py](../../src/elevenbot/core.py), [storage.py](../../src/elevenbot/storage.py); полный deletion/legal hold контракт не доказан. |
 | C-031 | Telegram Stars / payment channel | [telegram.py](../../src/elevenbot/telegram.py), [topups.py](../../src/elevenbot/topups.py); live-приёмка платёжного канала остаётся открытой. |
 
-Внутренние токены, внешние RUB и XTR, а также единицы провайдеров учитываются раздельно. D-02 остаётся открытым. Владелец согласовал [PostgreSQL authority D-04](../planning/MEGA02_D04_DECISION.md) и ограничил изменение настроек видимостью модели для FUNCTIONAL_TEST.
+Внутренние токены, внешние RUB и XTR, а также единицы провайдеров учитываются раздельно. Владелец согласовал [PostgreSQL authority D-04](../planning/MEGA02_D04_DECISION.md) и изменение видимости модели для FUNCTIONAL_TEST.
 
 | Артефакт | Что фиксировать |
 | --- | --- |
@@ -52,6 +52,25 @@
 | `events.md`, `error-codes.md` | Схемы событий, correlation ID, устойчивые коды ошибок и правила повторов. |
 
 Публичные изменения сопровождаются оценкой совместимости и автоматическими контрактными проверками. Несовместимые изменения требуют плана перехода и отдельной версии контракта. Финансовые проверки должны исключить повторное зачисление, списание и возмещение, потерю записи и отрицательный баланс без разрешённого овердрафта. Неизвестный исход платной операции требует сверки.
+
+## Решение D-02 для FUNCTIONAL_TEST
+
+26 ноября 2026 года владелец утвердил один тарифный сценарий в одноразовом DEV PostgreSQL. [vankhu21 #23 · MASTER #35 · PC-02] публикация версионированного тарифа опирается на [vankhu21 #22 · MASTER #34 · PC-01] и действующий механизм pricing.
+
+| Параметр | Утверждённое значение |
+| --- | --- |
+| Провайдер и модель | CLODEX FLUX Schnell (`flux-schnell`) |
+| Операция и параметры | `images.generate`, `{"n":1}` |
+| Основа расчёта | `request` |
+| Единица цены | Целочисленные внутренние токены |
+| Эффективная цена | 2 → 3 токена. Откат восстанавливает 2 токена новой ревизией |
+| Полномочия | Действующая серверная роль `OWNER_ADMIN` в обоих клиентах |
+
+Preview показывает модель, ревизию, прежнюю и предлагаемую базовую и итоговую суммы с учётом действующей наценки. Он оставляет тариф, оценки, кошелёк и проводки без изменений. Подтверждение под действующей блокировкой политики проверяет текущую роль, версию и точный payload. Целевой итог должен составить 3 токена.
+
+Публикация фиксирует новую версию и append-only запись с актором, моделью, значениями до и после и ревизией в одной транзакции. Повтор безопасен. Откат фиксирует следующую версию и сохраняет историю. Telegram и Mini App получают новую цену для последующих оценок. Действующие оценки и принятые задания сохраняют исходную цену, а операции с тарифом не списывают средства.
+
+D-03 остаётся открытым. Реальные цены, курсы, платные внешние операции, тарифы других моделей и корректирующие проводки требуют отдельных решений. Допуск в Telegram сам по себе не выдаёт серверную роль. D-02 разрешает реализацию в указанных границах. Результат реализации, глобальная приёмка и слияние фиксируются отдельно.
 
 ## Границы FUNCTIONAL_TEST для SE-01–SE-03
 
