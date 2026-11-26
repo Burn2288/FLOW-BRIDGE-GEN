@@ -170,6 +170,54 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             raise web.HTTPServiceUnavailable() from None
         return web.json_response(report)
 
+    def support_json(value):
+        # Support DTOs contain only database timestamps, UUIDs and bounded text.
+        return web.json_response(value, dumps=lambda item: json.dumps(item, default=str))
+
+    async def owner_support(request):
+        from elevenbot.support_tickets import SupportTickets
+        user = await account(request)
+        subject = await pool.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1",user)
+        support = SupportTickets(pool,cfg)
+        try:
+            if request.method=='POST':
+                body=await request.json()
+                if not isinstance(body,dict):
+                    raise ValueError()
+                result=await support.create(subject,UUID(body['request_id']),body['text'],
+                                            attachment=body.get('attachment'))
+            elif 'ticket_id' in request.query:
+                result=await support.read(subject,UUID(request.query['ticket_id']))
+            else:
+                result=await support.list(subject)
+        except Rejected as error:
+            if request.method=='GET':
+                raise web.HTTPNotFound() from None
+            raise web.HTTPBadRequest(text=str(error)) from None
+        except (KeyError, TypeError, ValueError):
+            raise web.HTTPBadRequest() from None
+        return support_json(result)
+
+    async def support_inbox(request):
+        import asyncpg
+        from elevenbot.support_tickets import operator_inbox
+        from elevenbot.admin_authority import current_capabilities, has_capability
+        try:
+            async with pool.acquire() as conn, conn.transaction(isolation='repeatable_read'):
+                actor=await account(request,conn)
+                if not has_capability(await current_capabilities(conn,actor),'support.operate'):
+                    raise web.HTTPForbidden()
+                try:
+                    ticket=UUID(request.query['ticket_id']) if 'ticket_id' in request.query else None
+                except ValueError:
+                    raise web.HTTPBadRequest() from None
+                result=await operator_inbox(conn,ticket)
+                if result is None:
+                    raise web.HTTPNotFound()
+        except (asyncpg.PostgresError,OSError,TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return support_json(result)
+
     async def support_reply(request):
         import asyncpg
         from elevenbot.support_tickets import operator_reply
@@ -374,6 +422,9 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_get('/api/v1/admin/capabilities', admin_capabilities)
     app.router.add_get('/api/v1/admin/operations', operations_report)
     app.router.add_post('/api/v1/admin/support/reply', support_reply)
+    app.router.add_get('/api/v1/admin/support', support_inbox)
+    app.router.add_get('/api/v1/support', owner_support)
+    app.router.add_post('/api/v1/support', owner_support)
     from .stars import add_stars_routes
     add_stars_routes(app, service, account, cfg, view.bot)
     app.router.add_get('/api/v1/referral', referral)

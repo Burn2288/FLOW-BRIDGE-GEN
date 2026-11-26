@@ -511,12 +511,13 @@ async function openJob(id, cancel = false) {
 
 function appendOperatorReply(container, current) {
   const form = document.createElement('form');
-  const ticket = document.createElement('input');
+  const ticket = document.createElement('select');
+  const ticketHistory = document.createElement('ul');
   const body = document.createElement('textarea');
   const send = document.createElement('button');
   const notice = document.createElement('p');
   ticket.setAttribute('aria-label', 'Идентификатор обращения');
-  ticket.placeholder = 'Идентификатор обращения';
+  ticket.setAttribute('aria-label', 'Обращение');
   ticket.required = true;
   body.setAttribute('aria-label', 'Ответ оператора');
   body.placeholder = 'Ответ оператора';
@@ -525,6 +526,38 @@ function appendOperatorReply(container, current) {
   send.type = 'submit';
   send.textContent = 'Сохранить ответ';
   notice.setAttribute('role', 'status');
+  async function loadTicket() {
+    if (!ticket.value) return;
+    const selection = ticket.value;
+    const response = await request('/api/v1/admin/support?ticket_id=' + encodeURIComponent(selection));
+    const data = await response.json();
+    if (!current() || ticket.value !== selection) return;
+    ticketHistory.replaceChildren();
+    for (const item of data.messages) {
+      const row = document.createElement('li');
+      row.textContent = (item.author === 'operator' ? 'Оператор: ' : 'Пользователь: ') + item.body;
+      ticketHistory.append(row);
+    }
+  }
+  const refreshHistory = () => { void loadTicket().catch(error => {
+    if (current()) notice.textContent = 'Не удалось открыть обращение. ' + error.message;
+  }); };
+  ticket.onchange = refreshHistory;
+  void (async () => {
+    const response = await request('/api/v1/admin/support');
+    const inbox = await response.json();
+    if (!current()) return;
+    for (const item of inbox.tickets) {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = (item.status === 'answered' ? 'Есть ответ' : 'Открыто') + ' · ' + item.id;
+      ticket.append(option);
+    }
+    if (!inbox.tickets.length) notice.textContent = 'Обращений пока нет.';
+    else refreshHistory();
+  })().catch(error => {
+    if (current()) notice.textContent = 'Не удалось загрузить обращения. ' + error.message;
+  });
   let pending;
   form.onsubmit = async event => {
     event.preventDefault();
@@ -545,13 +578,14 @@ function appendOperatorReply(container, current) {
       body.value = '';
       pending = null;
       notice.textContent = 'Ответ сохранён. Владелец увидит его в истории обращения.';
+      refreshHistory();
     } catch (error) {
       if (current()) notice.textContent = 'Ответ не подтверждён. ' + error.message;
     } finally {
       send.disabled = false;
     }
   };
-  form.append(ticket, body, send, notice);
+  form.append(ticket, ticketHistory, body, send, notice);
   container.append(form);
 }
 

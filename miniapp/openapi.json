@@ -1358,6 +1358,85 @@
           }
         }
       }
+    },
+    "/api/v1/admin/support": {
+      "get": {
+        "summary": "Read a bounded ticket list or one ticket by selector",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ticket data"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Invalid session"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Ticket unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/support": {
+      "get": {
+        "summary": "Read a bounded ticket list or one ticket by selector",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ticket data"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Invalid session"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Ticket unavailable"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create an owned text ticket",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ticket data"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Invalid session"
+          },
+          "403": {
+            "description": "Access denied"
+          },
+          "404": {
+            "description": "Ticket unavailable"
+          }
+        }
+      }
     }
   },
   "components": {

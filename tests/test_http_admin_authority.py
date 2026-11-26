@@ -80,8 +80,13 @@ async def test_support_reply_is_owned_and_revocable(env):
         path='/api/v1/admin/support/reply'
         body={'ticket_id':str(ticket['id']),'request_id':str(uuid4()),'text':'Synthetic reply'}
         assert (await app.post(path,json=body,headers=headers)).status==403
+        assert (await app.get('/api/v1/admin/support',headers=headers)).status==403
         await pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
             VALUES($1,$1,'SUPPORT_OPERATOR','synthetic grant')""",operator)
+        inbox=await app.get('/api/v1/admin/support',headers=headers)
+        assert inbox.status==200 and (await inbox.json())['tickets'][0]['id']==str(ticket['id'])
+        detail=await app.get('/api/v1/admin/support?ticket_id='+str(ticket['id']),headers=headers)
+        assert detail.status==200 and (await detail.json())['messages'][0]['body']=='Synthetic request'
         saved=await app.post(path,json=body,headers=headers)
         replay=await app.post(path,json=body,headers=headers)
         assert saved.status==replay.status==200 and await saved.json()==await replay.json()
@@ -89,5 +94,6 @@ async def test_support_reply_is_owned_and_revocable(env):
             VALUES($1,$1,NULL,'synthetic revoke')""",operator)
         assert (await app.post(path,json=body,headers=headers)).status==403
     history=await support.read(101,ticket['id'])
+    assert history['status']=='answered'
     assert {item['body'] for item in history['messages']}=={'Synthetic request','Synthetic reply'}
     assert await pool.fetchval('SELECT count(*) FROM support_operator_replies')==1

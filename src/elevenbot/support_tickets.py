@@ -61,8 +61,9 @@ class SupportTickets:
 
     @staticmethod
     async def _ticket(conn, owner, ticket_id):
-        ticket = await conn.fetchrow("""SELECT id,status,created_at FROM support_tickets
-            WHERE owner_id=$1 AND id=$2""", owner, ticket_id)
+        ticket = await conn.fetchrow("""SELECT t.id, CASE WHEN EXISTS(SELECT 1 FROM support_operator_replies r WHERE r.ticket_id=t.id)
+                THEN 'answered' ELSE t.status END AS status,t.created_at
+            FROM support_tickets t WHERE t.owner_id=$1 AND t.id=$2""", owner, ticket_id)
         if ticket is None:
             raise Rejected('Обращение не найдено.')
         return dict(ticket)
@@ -90,8 +91,9 @@ class SupportTickets:
         count, offset = self._page(limit, offset)
         async with self.pool.acquire() as conn, conn.transaction(isolation='repeatable_read', readonly=True):
             owner = await self._owner(conn, subject, platform)
-            rows = await conn.fetch("""SELECT id,status,created_at FROM support_tickets
-                WHERE owner_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3""",
+            rows = await conn.fetch("""SELECT t.id, CASE WHEN EXISTS(SELECT 1 FROM support_operator_replies r WHERE r.ticket_id=t.id)
+                THEN 'answered' ELSE t.status END AS status,t.created_at
+                FROM support_tickets t WHERE t.owner_id=$1 ORDER BY t.created_at DESC,t.id DESC LIMIT $2 OFFSET $3""",
                 owner, count, offset)
         return {'tickets': [dict(row) for row in rows[:limit]], 'has_more': len(rows) > limit}
 
@@ -131,3 +133,27 @@ async def operator_reply(conn, actor, ticket, request_id, text):
     if (old['actor_id'],old['body']) != (actor,body):
         raise Rejected('Конфликт повторного ответа.')
     return old['id']
+
+async def operator_inbox(conn, ticket=None):
+    """Bounded operator read; caller supplies an authenticated capability."""
+    rows = await conn.fetch("""
+        SELECT t.id,t.created_at,
+            CASE WHEN EXISTS (SELECT 1 FROM support_operator_replies r WHERE r.ticket_id=t.id)
+                 THEN 'answered' ELSE t.status END AS status
+        FROM support_tickets t
+        WHERE ($1::uuid IS NULL OR t.id=$1)
+        ORDER BY t.created_at DESC,t.id DESC LIMIT 51
+    """,ticket)
+    if ticket is None:
+        return {'tickets':[dict(row) for row in rows[:50]], 'has_more':len(rows)>50}
+    if not rows:
+        return None
+    history = await conn.fetch("""
+        SELECT * FROM (
+            SELECT id,body,created_at,'owner' AS author FROM support_messages WHERE ticket_id=$1
+            UNION ALL
+            SELECT id,body,created_at,'operator' FROM support_operator_replies WHERE ticket_id=$1
+        ) timeline ORDER BY created_at DESC,id DESC LIMIT 51
+    """,ticket)
+    return {**dict(rows[0]),'messages':[dict(row) for row in reversed(history[:50])],
+            'has_more':len(history)>50}
