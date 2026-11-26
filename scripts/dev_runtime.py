@@ -105,14 +105,29 @@ async def seed(pool, cfg):
             user = await app.svc.identity(external)
             async with pool.acquire() as conn, conn.transaction():
                 await app.svc.movement(conn, user, 'live', f'dev-studio-{external}', 'pilot_grant', 3000, 0)
+                if external == 100:
+                    await conn.execute('LOCK TABLE http_admin_role_events IN SHARE ROW EXCLUSIVE MODE')
+                    await conn.execute("""
+                        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+                        SELECT $1,$1,'OWNER_ADMIN','synthetic DEV operator'
+                        WHERE NOT EXISTS(SELECT 1 FROM http_admin_role_events)
+                    """, user)
         for model, operation, params, basis in (
             ('flux-schnell', 'images.generate', {'n': 1}, 'request'),
             (SPEECH_MODEL, 'audio.speech', {'voice': VOICE}, 'utf16'),
         ):
+            if await pool.fetchval("""
+                SELECT EXISTS(SELECT 1 FROM task_manual_tariffs WHERE provider='clodex'
+                    AND model_id=$1 AND operation=$2 AND params=$3::jsonb)
+            """, model, operation, json.dumps(params)):
+                continue
             await app.pricing.set_tariff(
                 admin, SEED_ADMIN, 'clodex', model, operation, params, basis=basis,
                 unit='darkflow_token', amount='2', expires=None, evidence='offline-dev-fixture',
             )
-        await app.pricing.set_rate(admin, SEED_ADMIN, 'USD', '1000')
+        async with pool.acquire() as conn:
+            has_rate = await app.pricing.rate(conn, 'clodex', 'USD')
+        if not has_rate:
+            await app.pricing.set_rate(admin, SEED_ADMIN, 'USD', '1000')
     finally:
         await app.topups.client.close()
