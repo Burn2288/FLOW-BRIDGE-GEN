@@ -610,7 +610,7 @@ class TelegramApp:
                 return
             await self.svc.rate(u,navigation=navigation)
             if command=='/referral':
-                from .referrals import own_finances
+                from .referrals import own_finances, referral_link
                 parts=text.split()
                 try:
                     page=int(parts[1])-1 if len(parts)>1 else 0
@@ -628,6 +628,9 @@ class TelegramApp:
                        f"Приглашено: {info['invitee_count']}",
                        f"Доступно: {info['available']} · Начислено всего: {info['total_rewards']} · Долг: {info['debt']}",
                        f"Условия: {info['policy_version']}",info['terms']]
+                link=referral_link(self.cfg.bot_username,info['code'])
+                if link:
+                    lines.insert(1,f'Ссылка для приглашения: {link}')
                 lines.extend(f"{labels[item['kind']]}: {item['amount']} · Долг +{item['debt_added']}"
                              for item in info['history'])
                 if not info['history']:

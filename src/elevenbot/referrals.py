@@ -5,6 +5,17 @@ import secrets
 from .core import Rejected
 
 CODE = re.compile(r'^[A-Za-z0-9_-]{16}$', re.ASCII)
+BOT_USERNAME = re.compile(r'^[A-Za-z0-9_]{2,29}bot$', re.ASCII | re.IGNORECASE)
+
+
+def valid_bot_username(username):
+    return isinstance(username, str) and bool(BOT_USERNAME.fullmatch(username))
+
+
+def referral_link(username, code):
+    if valid_bot_username(username) and isinstance(code, str) and CODE.fullmatch(code):
+        return f'https://t.me/{username}?start=ref_{code}'
+    return None
 
 
 def start_code(text):

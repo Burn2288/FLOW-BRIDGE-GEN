@@ -53,7 +53,7 @@ test('referral tab selected during delayed login loads once, reports failure, re
     if (url === '/api/v1/referral') {
       referralCalls++;
       return referralCalls === 1 ? firstReferral.promise
-        : response({code: 'AAAAAAAAAAAAAAAA', has_referrer: true});
+        : response({code: 'AAAAAAAAAAAAAAAA', has_referrer: true, link: 'https://t.me/Fixture_bot?start=ref_AAAAAAAAAAAAAAAA'});
     }
     if (url.startsWith('/api/v1/referral/finances?page=')) {
       const page = Number(url.split('=').at(-1));
@@ -68,7 +68,9 @@ test('referral tab selected during delayed login loads once, reports failure, re
     assert.fail(`unexpected request ${url}`);
   }
   const telegram = {initData: 'signed-fixture', ready() {}};
+  let clipboard;
   const context = {
+    navigator: {clipboard: {writeText: async value => { clipboard = value; }}},
     window: {Telegram: {WebApp: telegram}}, document, fetch,
     crypto: webcrypto, TextEncoder, Promise, setImmediate,
     history: {state: {}, replaceState(state) { this.state = state; }},
@@ -98,6 +100,10 @@ test('referral tab selected during delayed login loads once, reports failure, re
   assert.equal(referralCalls, 2);
   assert.equal(element('#referrer-status').textContent, 'Вы зарегистрировались по приглашению.');
   assert.equal(element('#copy-referral').disabled, false);
+  assert.equal(element('#referral-link').hidden, false);
+  assert.equal(element('#copy-referral').textContent, 'Скопировать ссылку');
+  await element('#copy-referral').onclick();
+  assert.equal(clipboard, 'https://t.me/Fixture_bot?start=ref_AAAAAAAAAAAAAAAA');
   assert.equal(element('#retry-referral').hidden, true);
   element('#load-referral-finances').onclick();
   await until(() => element('#referral-finances-next').hidden === false);

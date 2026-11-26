@@ -165,3 +165,32 @@ async def test_concurrent_code_issuance_and_database_immutability(env):
     with pytest.raises(asyncpg.PostgresError):
         await pool.execute('DELETE FROM referral_codes WHERE user_id=$1', user)
     assert await pool.fetchval('SELECT referrer_id FROM referral_attributions WHERE user_id=$1', invited) == user
+
+
+async def test_configured_invitation_link_in_both_clients(env, monkeypatch):
+    from elevenbot.config import Config
+    from elevenbot.referrals import referral_link
+
+    pool, cfg, svc, user = env
+    await svc.accept(user)
+    cfg = replace(cfg, token='fixture', bot_username='Fixture_bot')
+    code = (await svc.referral_info(user))['code']
+    link = f'https://t.me/Fixture_bot?start=ref_{code}'
+    assert referral_link(cfg.bot_username, code) == link
+    assert start_code('/start ' + link.split('start=')[1]) == code
+    assert referral_link('bad.example/redirect', code) is None
+    assert referral_link('Fixture_bot', '../invalid') is None
+    monkeypatch.setenv('TELEGRAM_BOT_USERNAME', 'bad.example')
+    with pytest.raises(ValueError, match='TELEGRAM_BOT_USERNAME'):
+        Config.env()
+
+    bot = DocumentTransport()
+    app = TelegramApp(pool, cfg, bot)
+    await app.handle(event(601, '/referral', chat=100))
+    assert link in bot.sent[-1][0]
+    async with TestClient(TestServer(create_app(pool, cfg))) as client:
+        login = await client.post('/api/v1/session', json={'initData': signed_start(cfg.token, 100, 'ref_' + code)})
+        assert login.status == 200
+        headers = {'Authorization': 'Bearer ' + (await login.json())['token']}
+        response = await client.get('/api/v1/referral', headers=headers)
+        assert (await response.json())['link'] == link

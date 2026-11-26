@@ -407,6 +407,10 @@ async function showReferral() {
       const response = await request('/api/v1/referral');
       const referral = await response.json();
       document.querySelector('#referral-code').textContent = referral.code;
+      const link = document.querySelector('#referral-link');
+      link.textContent = referral.link ?? '';
+      link.hidden = !referral.link;
+      copy.textContent = referral.link ? 'Скопировать ссылку' : 'Скопировать код';
       document.querySelector('#referrer-status').textContent = referral.has_referrer
         ? 'Вы зарегистрировались по приглашению.' : 'Вы зарегистрировались без приглашения.';
       copy.disabled = false;
@@ -469,10 +473,11 @@ document.querySelector('#referral-finances-next').onclick = () => { void loadRef
 document.querySelector('#copy-referral').onclick = async () => {
   const result = document.querySelector('#referral-copy-status');
   try {
-    await navigator.clipboard.writeText(document.querySelector('#referral-code').textContent);
-    result.textContent = 'Код скопирован.';
+    const link = document.querySelector('#referral-link').textContent;
+    await navigator.clipboard.writeText(link || document.querySelector('#referral-code').textContent);
+    result.textContent = link ? 'Ссылка скопирована.' : 'Код скопирован.';
   } catch {
-    result.textContent = 'Не удалось скопировать. Выделите код вручную.';
+    result.textContent = 'Не удалось скопировать. Выделите ссылку или код вручную.';
   }
 };
 document.querySelector('#retry-referral').onclick = () => { void showReferral(); };

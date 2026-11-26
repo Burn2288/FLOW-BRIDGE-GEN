@@ -250,7 +250,12 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
 
     async def referral(request):
         user = await account(request)
-        return web.json_response(await service.referral_info(user))
+        from elevenbot.referrals import referral_link
+        info = await service.referral_info(user)
+        link = referral_link(cfg.bot_username, info['code'])
+        if link:
+            info['link'] = link
+        return web.json_response(info)
 
     async def referral_finances(request):
         from elevenbot.referrals import own_finances
