@@ -520,12 +520,12 @@ async function openJob(id, cancel = false) {
 
 function appendOperatorReply(container, current) {
   const form = document.createElement('form');
+  form.className = 'operator-support card';
   const ticket = document.createElement('select');
   const ticketHistory = document.createElement('ul');
   const body = document.createElement('textarea');
   const send = document.createElement('button');
   const notice = document.createElement('p');
-  ticket.setAttribute('aria-label', 'Идентификатор обращения');
   ticket.setAttribute('aria-label', 'Обращение');
   ticket.required = true;
   body.setAttribute('aria-label', 'Ответ оператора');
@@ -533,24 +533,43 @@ function appendOperatorReply(container, current) {
   body.maxLength = 2000;
   body.required = true;
   send.type = 'submit';
+  send.disabled = true;
   send.textContent = 'Сохранить ответ';
   notice.setAttribute('role', 'status');
+  let historyRevision = 0;
   async function loadTicket() {
+    const revision = ++historyRevision;
+    send.disabled = true;
+    ticketHistory.replaceChildren();
     if (!ticket.value) return;
     const selection = ticket.value;
     const response = await request('/api/v1/admin/support?ticket_id=' + encodeURIComponent(selection));
     const data = await response.json();
-    if (!current() || ticket.value !== selection) return;
-    ticketHistory.replaceChildren();
+    if (!current() || revision !== historyRevision) return;
+    const selected = ticket.selectedOptions[0];
+    selected.textContent = ticketLabel(data);
     for (const item of data.messages) {
       const row = document.createElement('li');
       row.textContent = (item.author === 'operator' ? 'Оператор: ' : 'Пользователь: ') + item.body;
       ticketHistory.append(row);
     }
+    send.disabled = false;
   }
-  const refreshHistory = () => { void loadTicket().catch(error => {
-    if (current()) notice.textContent = 'Не удалось открыть обращение. ' + error.message;
-  }); };
+  function ticketLabel(item) {
+    return (item.status === 'answered' ? 'Есть ответ' : 'Открыто') + ' · ' +
+      new Date(item.created_at).toLocaleString('ru-RU') + ' · ' + item.id;
+  }
+  const refreshHistory = async () => {
+    const loading = loadTicket();
+    const revision = historyRevision;
+    try {
+      await loading;
+    } catch (error) {
+      if (!current() || revision !== historyRevision) return;
+      if (error.status === 401 || error.status === 403) void showAdministration();
+      else notice.textContent = 'Не удалось открыть обращение. ' + error.message;
+    }
+  };
   ticket.onchange = refreshHistory;
   void (async () => {
     const response = await request('/api/v1/admin/support');
@@ -559,7 +578,7 @@ function appendOperatorReply(container, current) {
     for (const item of inbox.tickets) {
       const option = document.createElement('option');
       option.value = item.id;
-      option.textContent = (item.status === 'answered' ? 'Есть ответ' : 'Открыто') + ' · ' + item.id;
+      option.textContent = ticketLabel(item);
       ticket.append(option);
     }
     if (!inbox.tickets.length) notice.textContent = 'Обращений пока нет.';
@@ -578,6 +597,8 @@ function appendOperatorReply(container, current) {
       pending = {ticket_id: ticketId, text, request_id: crypto.randomUUID()};
     }
     send.disabled = true;
+    ticket.disabled = true;
+    body.disabled = true;
     notice.textContent = 'Сохраняем ответ…';
     try {
       await request('/api/v1/admin/support/reply', {
@@ -587,11 +608,22 @@ function appendOperatorReply(container, current) {
       body.value = '';
       pending = null;
       notice.textContent = 'Ответ сохранён. Владелец увидит его в истории обращения.';
-      refreshHistory();
+      await loadTicket();
     } catch (error) {
-      if (current()) notice.textContent = 'Ответ не подтверждён. ' + error.message;
+      if (!current()) return;
+      if (error.status === 401 || error.status === 403) {
+        void showAdministration();
+        return;
+      }
+      if (pending) {
+        notice.textContent = 'Ответ не подтверждён. ' + error.message;
+        send.disabled = false;
+      } else {
+        notice.textContent = 'Ответ сохранён. Не удалось обновить историю. ' + error.message;
+      }
     } finally {
-      send.disabled = false;
+      ticket.disabled = false;
+      body.disabled = false;
     }
   };
   form.append(ticket, ticketHistory, body, send, notice);
@@ -599,6 +631,67 @@ function appendOperatorReply(container, current) {
 }
 
 let adminRequest = 0;
+const operationsFields = {
+  registered_users: 'Пользователи',
+  legacy_queued_jobs: 'Задания в старой очереди',
+  quoted_pending_tasks: 'Задания с расчётом, ожидающие запуска',
+  legacy_running_or_uncertain: 'Запущенные или неопределённые задания в старой очереди',
+  quoted_running_or_uncertain: 'Запущенные или неопределённые задания с расчётом',
+  live_reserved_tokens: 'Токены в резерве',
+  live_payment_debt_tokens: 'Платёжный долг, токены',
+  referral_debt_tokens: 'Реферальный долг, токены',
+  referral_payment_review_cases: 'Реферальные платежи на сверке',
+};
+const operationsSections = [
+  ['tasks_by_period_and_status', 'Задания по дням', {local_day: 'Дата', source: 'Очередь', status: 'Статус', task_count: 'Заданий'}],
+  ['tasks_by_provider_and_model', 'Провайдеры и модели', {provider: 'Провайдер', model_id: 'Модель', source: 'Очередь', task_count: 'Заданий'}],
+  ['provider_job_statuses', 'Статусы заданий у провайдеров', {provider: 'Провайдер', model_id: 'Модель', kind: 'Тип', status: 'Статус', task_count: 'Заданий'}],
+  ['wallet_movements', 'Движения кошелька', {local_day: 'Дата', mode: 'Режим', kind: 'Тип', operation_count: 'Операций',
+    available_delta: 'Изменение баланса, токены', reserved_delta: 'Изменение резерва, токены'}],
+  ['payments', 'Платежи', {local_day: 'Дата', provider: 'Провайдер', currency: 'Валюта', status: 'Статус',
+    payment_count: 'Платежей', order_amount: 'Сумма'}],
+  ['reconciliation_queue', 'Очередь сверки', {source: 'Источник', provider: 'Провайдер', operation: 'Операция', status: 'Статус', case_count: 'Случаев'}],
+  ['provider_cost_evidence', 'Подтверждённая себестоимость', {provider: 'Провайдер', unit: 'Единица', known_count: 'Подтверждено',
+    unknown_count: 'Неизвестно', confirmed_unbilled_count: 'Без списания', amount: 'Сумма'}],
+];
+
+function appendOperationsReport(report, data) {
+  const snapshot = document.createElement('ul');
+  for (const [key, label] of Object.entries(operationsFields)) {
+    snapshot.append(listItem(label + ': ' + data.current_state[key]));
+  }
+  const health = document.createElement('p');
+  health.textContent = 'Текущая доступность провайдеров: ' +
+    (data.current_state.provider_health === 'NOT_PROVEN' ? 'не проверена' : data.current_state.provider_health);
+  const cost = document.createElement('p');
+  const coverage = data.provider_cost_coverage;
+  cost.textContent = 'Без подтверждения стоимости или списания: ' +
+    coverage.without_cost_or_bill_evidence + ' из ' + coverage.accepted_task_count + ' принятых заданий.';
+  const alerts = document.createElement('p');
+  const queue = data.reconciliation_queue;
+  const cases = queue.groups.reduce((sum, item) => sum + item.case_count, 0);
+  alerts.textContent = 'Случаев на сверке за период: ' + (queue.truncated ? 'не менее ' : '') + cases + '.';
+  report.append(snapshot, health, cost, alerts);
+
+  for (const [key, label, columns] of operationsSections) {
+    const section = data[key];
+    const details = document.createElement('details');
+    const title = document.createElement('summary');
+    title.textContent = label;
+    details.append(title);
+    const rows = document.createElement('ul');
+    rows.className = 'cards';
+    for (const row of section.groups) {
+      rows.append(listItem(Object.entries(columns).map(([field, caption]) =>
+        caption + ': ' + (row[field] ?? '—')).join(' · ')));
+    }
+    if (!section.groups.length) rows.append(listItem('Нет данных за период.'));
+    if (section.truncated) rows.append(listItem('Показано групп: ' + section.groups.length + ' из ' + section.group_count + '.'));
+    details.append(rows);
+    report.append(details);
+  }
+}
+
 async function showAdministration() {
   if (!token) return;
   const id = ++adminRequest;
@@ -626,33 +719,7 @@ async function showAdministration() {
     const response = await request('/api/v1/admin/operations?' + query);
     const data = await response.json();
     if (!current()) return;
-    const fields = {
-      registered_users: 'Пользователи', legacy_queued_jobs: 'Задания в очереди',
-      quoted_pending_tasks: 'Ожидают запуска', live_reserved_tokens: 'Токены в резерве',
-      live_payment_debt_tokens: 'Платёжный долг', referral_debt_tokens: 'Реферальный долг',
-      referral_payment_review_cases: 'Платежи на сверке',
-    };
-    const summary = document.createElement('ul');
-    for (const [key, label] of Object.entries(fields)) {
-      const row = document.createElement('li');
-      row.textContent = label + ': ' + data.current_state[key];
-      summary.append(row);
-    }
-    report.append(summary);
-    const sections = {
-      tasks_by_period_and_status: 'Задания', tasks_by_provider_and_model: 'Провайдеры и модели',
-      wallet_movements: 'Движения кошелька', payments: 'Платежи',
-      reconciliation_queue: 'На сверке', provider_cost_coverage: 'Покрытие себестоимости',
-    };
-    for (const [key, label] of Object.entries(sections)) {
-      const details = document.createElement('details');
-      const title = document.createElement('summary');
-      title.textContent = label;
-      const body = document.createElement('pre');
-      body.textContent = JSON.stringify(data[key], null, 2);
-      details.append(title, body);
-      report.append(details);
-    }
+    appendOperationsReport(report, data);
     notice.textContent = 'Обзор за 7 дней · ' + authority.role;
   } catch (error) {
     if (!current()) return;

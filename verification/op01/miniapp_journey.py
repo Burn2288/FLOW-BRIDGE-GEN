@@ -55,6 +55,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(executable_path=chrome, args=['--ignore-certificate-errors-spki-list=' + pin])
         try:
+            await check_support_journey(browser, telegram, owner, base)
             for external, _, credits, model, content in profiles:
                 context = await browser.new_context(
                     viewport={'width': 320 if external == 101 else 1280, 'height': 800},
@@ -146,6 +147,79 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
     foreign = await client.get(f'{base}/api/v1/works/image/{work_ids[0]}', headers=tester_headers)
     assert foreign.status == 404 and 'Content-Disposition' not in foreign.headers
     assert await foreign.text() == '404: Not Found'
+
+
+async def check_support_journey(browser, telegram, operator, base):
+    from playwright.async_api import expect
+
+    async def launch(context, subject):
+        launch_data = signed(telegram.cfg.token, subject, query_id='sl02-browser')
+
+        async def sdk(route):
+            await route.fulfill(content_type='application/javascript', body=
+                'window.Telegram={WebApp:{ready(){},initData:' + json.dumps(launch_data) + '}};')
+
+        await context.route('https://telegram.org/js/telegram-web-app.js', sdk)
+        page = await context.new_page()
+        await page.goto(base)
+        await expect(page.locator('#catalogue')).to_be_visible()
+        return page
+
+    owner_context = await browser.new_context(viewport={'width': 320, 'height': 800})
+    operator_context = await browser.new_context()
+    owner_page = await launch(owner_context, 101)
+    operator_page = await launch(operator_context, 100)
+    try:
+        await owner_page.get_by_role('button', name='Поддержка', exact=True).click()
+        for body in ('Не получается скачать работу', 'Вопрос о настройках'):
+            await owner_page.get_by_label('Текст обращения').fill(body)
+            await owner_page.get_by_role('button', name='Отправить', exact=True).click()
+            await expect(owner_page.get_by_label('Текст обращения')).to_have_value('')
+        await expect(owner_page.locator('#owner-support-list button')).to_have_count(2)
+        assert await owner_page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+
+        await operator_page.get_by_role('button', name='Поддержка', exact=True).click()
+        await expect(operator_page.locator('#support-status')).to_have_text('Обращений пока нет.')
+        await telegram.pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,'OWNER_ADMIN','synthetic browser grant')""", operator)
+        await operator_page.get_by_role('button', name='Администрирование', exact=True).click()
+        await expect(operator_page.locator('#admin-status')).to_have_text('Обзор за 7 дней · OWNER_ADMIN')
+        await expect(operator_page.get_by_text('Пользователи: 2', exact=True)).to_be_visible()
+        await expect(operator_page.get_by_text('Текущая доступность провайдеров: не проверена')).to_be_visible()
+        await expect(operator_page.get_by_text('Случаев на сверке за период: 0.')).to_be_visible()
+        await operator_page.get_by_text('Платежи', exact=True).click()
+        await expect(operator_page.locator('details[open]')).to_contain_text('Нет данных за период.')
+
+        select = operator_page.get_by_label('Обращение', exact=True)
+        await expect(select.locator('option')).to_have_count(2)
+        await expect(operator_page.get_by_text('Пользователь: Вопрос о настройках', exact=True)).to_be_visible()
+        await select.select_option(index=1)
+        await expect(operator_page.get_by_text('Пользователь: Не получается скачать работу', exact=True)).to_be_visible()
+        await operator_page.get_by_label('Ответ оператора').fill('Уточните название работы.')
+        await operator_page.get_by_role('button', name='Сохранить ответ').click()
+        await expect(operator_page.get_by_text('Оператор: Уточните название работы.', exact=True)).to_be_visible()
+        await expect(select.locator('option:checked')).to_contain_text('Есть ответ')
+
+        await owner_page.get_by_role('button', name='Обновить обращения').click()
+        await owner_page.get_by_role('button', name='Есть ответ').click()
+        history = owner_page.get_by_role('list', name='Переписка')
+        await expect(history).to_contain_text('Вы: Не получается скачать работу')
+        await expect(history).to_contain_text('Поддержка: Уточните название работы.')
+
+        await telegram.pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,NULL,'synthetic browser revocation')""", operator)
+        await operator_page.get_by_label('Ответ оператора').fill('Этот ответ должен быть отклонён.')
+        async with operator_page.expect_response(lambda r: r.url.endswith('/api/v1/admin/support/reply')) as denied:
+            await operator_page.get_by_role('button', name='Сохранить ответ').click()
+        assert (await denied.value).status == 403
+        await expect(operator_page.get_by_role('button', name='Сохранить ответ')).to_have_count(0)
+        assert await telegram.pool.fetchval('SELECT count(*) FROM support_operator_replies') == 1
+        await operator_page.get_by_role('button', name='Баланс', exact=True).click()
+        await expect(operator_page.locator('#available')).to_have_text('1200')
+        print('MINIAPP_SL02=pass; POSTGRES_RBAC=pass; OWNER_ISOLATION=pass; ADMIN_OPERATIONS=pass')
+    finally:
+        await operator_context.close()
+        await owner_context.close()
 
 
 async def check_flux_confirmation(page, pool, owner, pending_jobs):

@@ -7,9 +7,10 @@ const {webcrypto} = require('node:crypto');
 
 const response = (data, status = 200) => ({ok: status >= 200 && status < 300, status, json: async () => data});
 async function until(predicate) {
-  for (let i = 0; i < 100; i++) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
     if (predicate()) return;
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setTimeout(resolve, 10));
   }
   assert.fail('condition was not reached');
 }
