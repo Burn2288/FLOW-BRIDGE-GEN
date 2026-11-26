@@ -666,6 +666,7 @@ async function openJob(id, cancel = false) {
     if (job.result_url) {
       jobResult.hidden = false;
       jobResult.onclick = async () => {
+        works.replaceChildren();
         await navigate('library');
         const work = document.getElementById('work-' + job.result_url.split('/').at(-1));
         if (work) {
