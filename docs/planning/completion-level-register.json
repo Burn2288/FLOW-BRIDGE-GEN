@@ -1475,19 +1475,38 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bec24907ada05a8a9ad303c1985ab1ef99bd94bd",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
-        "Расширение общего редактирования цен требует решения по D-02/D-03. Legacy Telegram тарифный путь сохранён."
+        "Расширение общего редактирования цен требует решения по D-02/D-03. Legacy Telegram тарифный путь сохранён.",
+        "D-02 approved 26 November 2026 only for isolated FLUX fixture publication 2→3 with audit and rollback. Broader commercial pricing and D-03 remain separate."
       ],
       "dependencies": [
         "PC-01",
         "AD-02"
       ],
-      "implementation_status": "BLOCKED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 23,
+          "task_id": "PC-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bec24907ada05a8a9ad303c1985ab1ef99bd94bd",
+          "checkout_sha": "bec24907ada05a8a9ad303c1985ab1ef99bd94bd",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45902436349",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "FT020 passes server quote/HTTP contracts. Separate local PostgreSQL tariff roundtrip on this code verifies OWNER_ADMIN preview/CAS/replay/audit/rollback and old quotes at 2/new quotes at 3 in Telegram and Mini App. Shared Compose browser proof recorded in build report.",
+          "limitations": "D-02 disposable FLUX n=1 only. General tariff publication and D-03 corrections remain outside approval. Final SHA workflow evidence recorded in Draft and private package.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",

@@ -59,7 +59,7 @@
 | 20 | 28 | TA-02 | Сохранить Telegram admin при общих admin services | AD-02, TA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 21 | 33 | MC-02 | Общие карточки и schema-driven параметры каталога | MC-01, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 22 | 34 | PC-01 | Уточнить токены, XTR, RUB и immutable quote | IN-19 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
-| 23 | 35 | PC-02 | Preview и publish versioned тарифов | PC-01, AD-02 | BLOCKED | FUNCTIONAL_TEST | — |
+| 23 | 35 | PC-02 | Preview и publish versioned тарифов | PC-01, AD-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 24 | 39 | IM-01 | Повторить штатный image путь с ordinary user | IN-19, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 25 | 40 | IM-02 | Три live изображения и временный отказ | IM-01, ML-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 26 | 41 | VI-01 | Согласовать video create/poll и финальный расчёт | JO-03, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
