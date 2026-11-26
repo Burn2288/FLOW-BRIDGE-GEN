@@ -10,6 +10,8 @@
 
 Каждое задание и каждый отчёт содержат TASK_ID, порядковый номер в историческом списке и номер MASTER. Пример: `[vankhu21 #35 | MASTER #57 | RF-03] — Реферальные экраны — FUNCTIONAL_TEST`. Для пакета перечисляются все задачи в этом формате. Требования последующих уровней фиксируются в существующем `deferred_work`.
 
+[Draft #115](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115) содержит общий кандидат CLOUD-PRODUCT-COMPLETION-MEGA-02. Сценарии и остатки по позициям приведены в [матрице спринта](../testing/FUNCTIONAL_TEST_BUILD_SPRINT.md).
+
 ## IMPLEMENTATION_STATUS и COMPLETED_LEVEL
 
 `IMPLEMENTATION_STATUS` описывает ход работы и готовность кандидата. `COMPLETED_LEVEL` остаётся `null` до двух независимых глобальных аудитов одного итогового SHA/TREE, прохождения обязательных проверок и разрешённого владельцем единого merge в `main`. После этого для подтверждённых задач указывается `FUNCTIONAL_TEST` и формулировка «Завершено как [Функционально-тестовый уровень]».
@@ -45,19 +47,19 @@
 | 8 | 10 | IN-15 | Провести отдельную приёмку и интеграцию PR #15: Task progress | IN-14 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
 | 9 | 11 | IN-16 | Принять PR #16: финансы, каталог и Telegram Admin | IN-15 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
 | 10 | 12 | IN-17 | Принять PR #17: Mini App и новый inbox | IN-16 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 11 | 17 | TG-01 | Перевести главное меню и Back без потери старых маршрутов | IN-19 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 11 | 17 | TG-01 | Перевести главное меню и Back без потери старых маршрутов | IN-19 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 12 | 18 | TG-02 | Подключить документы и текущий consent к Telegram UX | SL-01, TG-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 13 | 19 | TG-03 | Личный кабинет и история общего кошелька | PY-01, TG-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 14 | 20 | MA-01 | Принять существующую Mini App в Telegram по HTTPS | IN-19, OP-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 15 | 21 | MA-02 | Форма image quote и явное подтверждение | AP-02, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 16 | 22 | MA-03 | Карточка job и безопасная отмена | MA-02, AP-03, JO-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
-| 17 | 23 | MA-04 | Довести пользовательский parity и доступность | MA-03, VI-02, VO-02, MU-02, ML-03, RF-03, SL-03, PY-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 18 | 26 | AD-03 | Графические admin экраны по общему API | AD-02, OB-02 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 17 | 23 | MA-04 | Довести пользовательский parity и доступность | MA-03, VI-02, VO-02, MU-02, ML-03, RF-03, SL-03, PY-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
+| 18 | 26 | AD-03 | Графические admin экраны по общему API | AD-02, OB-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 19 | 27 | TA-01 | Зафиксировать compatibility inventory Admin Edition | IN-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
-| 20 | 28 | TA-02 | Сохранить Telegram admin при общих admin services | AD-02, TA-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 20 | 28 | TA-02 | Сохранить Telegram admin при общих admin services | AD-02, TA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 21 | 33 | MC-02 | Общие карточки и schema-driven параметры каталога | MC-01, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 22 | 34 | PC-01 | Уточнить токены, XTR, RUB и immutable quote | IN-19 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
-| 23 | 35 | PC-02 | Preview и publish versioned тарифов | PC-01, AD-02 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 23 | 35 | PC-02 | Preview и publish versioned тарифов | PC-01, AD-02 | BLOCKED | FUNCTIONAL_TEST | — |
 | 24 | 39 | IM-01 | Повторить штатный image путь с ordinary user | IN-19, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 25 | 40 | IM-02 | Три live изображения и временный отказ | IM-01, ML-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 26 | 41 | VI-01 | Согласовать video create/poll и финальный расчёт | JO-03, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
@@ -66,15 +68,15 @@
 | 29 | 46 | MU-02 | Music UI, library и разрешённый live proof | MU-01, AP-03, MC-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 30 | 49 | ML-03 | Пять строк Telegram и карточки Mini App | ML-02, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 31 | 50 | WL-01 | Проверить атомарный reserve/capture/release/refund | JO-03, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
-| 32 | 52 | PY-01 | Проверить existing Stars checkout на одном конфиге | IN-19, PC-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 32 | 52 | PY-01 | Проверить existing Stars checkout на одном конфиге | IN-19, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 33 | 53 | PY-02 | Проверить Platega callback/reconcile без Telegram checkout | IN-19 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
-| 34 | 54 | PY-03 | Mini App Stars и payment history | AP-01, PY-01, MA-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 35 | 57 | RF-03 | Реферальные экраны и API обоих клиентов | RF-02, AP-01 | IN_PROGRESS | FUNCTIONAL_TEST | — |
-| 36 | 60 | SL-03 | Support/legal/profile в двух клиентах | SL-01, SL-02, MA-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 37 | 63 | SE-03 | Независимая regression security двух клиентов | SE-02, AD-03, MA-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 38 | 65 | TQ-02 | Сквозная parity/regression matrix четырёх студий | MA-04, TA-02, WL-02, SE-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 39 | 71 | OB-03 | Dashboard отчётов и управляемые incident alerts | OB-02, AD-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 40 | 75 | RL-02 | Провести ограниченный коммерческий user journey | RL-01, TQ-02, OP-03, OB-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 34 | 54 | PY-03 | Mini App Stars и payment history | AP-01, PY-01, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 35 | 57 | RF-03 | Реферальные экраны и API обоих клиентов | RF-02, AP-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 36 | 60 | SL-03 | Support/legal/profile в двух клиентах | SL-01, SL-02, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 37 | 63 | SE-03 | Независимая regression security двух клиентов | SE-02, AD-03, MA-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
+| 38 | 65 | TQ-02 | Сквозная parity/regression matrix четырёх студий | MA-04, TA-02, WL-02, SE-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
+| 39 | 71 | OB-03 | Dashboard отчётов и управляемые incident alerts | OB-02, AD-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
+| 40 | 75 | RL-02 | Провести ограниченный коммерческий user journey | RL-01, TQ-02, OP-03, OB-03 | IN_PROGRESS | FUNCTIONAL_TEST | — |
 | 41 | 81 | AU-02 | Доказать передачу и повторный аудит без потери истории | AU-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 
 ## PY-02 · №33 · ограниченная сверка — 19.11.2026
