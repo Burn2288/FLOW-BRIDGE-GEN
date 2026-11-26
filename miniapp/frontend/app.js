@@ -437,7 +437,7 @@ function renderCatalogue(catalogue) {
     const item = listItem(model.aggregator + ' · ' + model.title);
     if (model.music_card) {
       const limits = document.createElement('small');
-      limits.textContent = 'Одна попытка · Один MP3 · До 5000 символов · Хранение 7 дней · Отдельный тестовый баланс. Лицензия не указана.';
+      limits.textContent = 'Тестовый пилот без оплаты · Одна попытка · Один MP3 · До 5000 символов · Хранение 7 дней · Отдельный тестовый баланс. Лицензия не указана.';
       item.append(limits);
       if (model.music_card.used) item.append(document.createTextNode('Попытка использована.'));
       else {
