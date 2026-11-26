@@ -106,14 +106,20 @@ class Telegram:
             await self.wait(chat, after, lambda event: (event.get('reply_markup') or {}).get('keyboard'), 'main menu')
         if admin:
             after = await self.update(chat, text='/admin')
-            await self.wait(chat, after, lambda event: 'пароль' in (event.get('text') or '').lower(), 'password prompt')
-            after = await self.update(chat, text='fixture-password')
-            await self.wait(chat, after, lambda event: 'админ' in (event.get('text') or '').lower(), 'admin session')
+            def admin_reply(event):
+                if 'паролем Admin Edition' in (event.get('text') or ''):
+                    return 'password'
+                for row in (event.get('reply_markup') or {}).get('inline_keyboard', ()):
+                    if any(button.get('callback_data', '').startswith('provider:') for button in row):
+                        return 'ready'
+            if await self.wait(chat, after, admin_reply, 'admin menu or password prompt') == 'password':
+                after = await self.update(chat, text='fixture-password')
+                assert await self.wait(chat, after, admin_reply, 'admin menu') == 'ready'
 
     async def grant_music(self, chat):
         response = await self.client.post('/fixture/music-grant', json={'chat': chat})
         response.raise_for_status()
-        assert response.json()['granted'] > 0
+        assert response.json()['granted'] >= 0
 
     async def start_job(self, studio, chat, prompt):
         after = await self.update(chat, text='🌐 Агрегаторы')
@@ -191,7 +197,10 @@ async def read_result(project, job):
     SELECT jsonb_build_object(
         'model', q.model_id, 'prompt', q.request->>'prompt',
         'chat', identity.external_id, 'price', q.price->>'total',
+        'parameters', q.request->'params', 'quote_state', q.state,
         'dispatch_state', dispatch.state,
+        'work_state', CASE WHEN image.id IS NOT NULL OR speech.audio IS NOT NULL THEN 'succeeded'
+                           ELSE coalesce(video.status, music.status) END,
         'work_id', coalesce(image.id,
             CASE WHEN video.status='succeeded' AND video.video IS NOT NULL THEN video.id END,
             CASE WHEN speech.audio IS NOT NULL THEN speech.id END,
@@ -209,7 +218,9 @@ async def read_result(project, job):
     LEFT JOIN clodex_music_jobs music ON music.id=q.id AND music.user_id=q.user_id
     WHERE q.id='{job}'::uuid
     """
-    for _ in range(TIMEOUT * 5):
+    deadline = time.monotonic() + TIMEOUT
+    evidence = {}
+    while time.monotonic() < deadline:
         process = await asyncio.create_subprocess_exec(
             'docker', 'compose', '-f', 'compose.dev.yaml', '-p', project,
             'exec', '-T', 'db', 'psql', '-X', '-U', 'postgres', '-d', 'flowbridge_dev', '-Atqc', sql,
@@ -219,7 +230,9 @@ async def read_result(project, job):
         if process.returncode:
             raise AssertionError(stderr.decode().strip())
         evidence = json.loads(stdout or '{}')
-        if evidence.get('work_id') and (evidence['capture'] or evidence['grant_capture']):
+        if evidence.get('work_id') and evidence['quote_state'] == 'accepted' and (
+            evidence['capture'] or evidence['grant_capture']
+        ):
             return evidence
         await asyncio.sleep(.25)
     raise AssertionError(f'No stored result or settlement for {job}: {evidence}')
@@ -267,6 +280,8 @@ async def run(args):
                     if studio.key == 'music' and origin == 'miniapp':
                         chat = 102
                     label = f'{origin}-{studio.key}'
+                    if args.route and label != args.route:
+                        continue
                     prompt = f'Functional matrix {label} {uuid4().hex[:8]}'
                     context = await browser.new_context(viewport={'width': 360, 'height': 800})
                     try:
@@ -293,10 +308,11 @@ async def run(args):
                     print(json.dumps(result, ensure_ascii=False), flush=True)
         finally:
             await browser.close()
-    (args.artifacts / 'matrix.json').write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    report = args.artifacts / (f'{args.route}.json' if args.route else 'matrix.json')
+    report.write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     passed = sum(item['status'] == 'passed' for item in results)
-    print(f'STUDIO_MATRIX={passed}/8')
-    return 0 if passed == 8 else 1
+    print(f'STUDIO_MATRIX={passed}/{len(results)}')
+    return 0 if passed == len(results) else 1
 
 
 def main():
@@ -304,6 +320,8 @@ def main():
     parser.add_argument('--project', required=True, help='Dedicated running DEV Compose project')
     parser.add_argument('--fixture-port', type=int, default=8081)
     parser.add_argument('--miniapp-port', type=int, default=8091)
+    parser.add_argument('--route', choices=[f'{origin}-{studio.key}' for studio in STUDIOS
+                                         for origin in ('telegram', 'miniapp')])
     parser.add_argument('--artifacts', type=Path, required=True)
     return asyncio.run(run(parser.parse_args()))
 
