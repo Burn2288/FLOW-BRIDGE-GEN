@@ -66,7 +66,7 @@ class CandidateGateTests(unittest.TestCase):
 
     def test_hardlinked_artifact(self):
         import os
-        source = next(self.payload.rglob('*.md'))
+        source = self.file
         os.link(source, source.with_suffix('.link'))
         with self.assertRaisesRegex(ValueError, 'unshared'):
             self.validate()
