@@ -140,3 +140,25 @@ async def post_image_rewards(conn, quote_id=None):
             VALUES($1,$2,'live',$3,'referral_reward',$4,0)
         """, reward_id, row['referrer_id'], f"referral-reward:{row['id']}", amount)
         await _repay_debt(conn, row['referrer_id'], row['id'], amount)
+
+async def record_payment_reviews(conn):
+    """Bounded, replay-safe scan of persisted payment states; posts no movements."""
+    await conn.execute("""
+        INSERT INTO referral_payment_review_cases
+            (payment_id,capture_id,reward_ledger_id,affected_funding,payment_state,reason)
+        SELECT p.id,r.capture_id,r.reward_ledger_id,sum(a.amount),p.status,
+               CASE WHEN p.status='refunded' OR t.state='refunded' THEN 'payment_refunded'
+                    WHEN coalesce(t.returned_minor,0)>0 THEN 'partial_payment_return'
+                    ELSE 'payment_review' END
+        FROM referral_rewards r
+        JOIN wallet_funding_allocations a ON a.debit_ledger_id=r.reserve_id
+        JOIN wallet_funding_lots f ON f.id=a.lot_id AND f.origin='PAID'
+        JOIN payments p ON p.id=f.payment_id AND p.user_id=f.user_id
+        LEFT JOIN topup_orders t ON t.payment_id=p.id
+        WHERE (p.status IN ('review','refunded') OR t.state IN ('review','refunded') OR t.returned_minor>0)
+          AND NOT EXISTS (SELECT 1 FROM referral_payment_review_cases c
+                          WHERE c.payment_id=p.id AND c.capture_id=r.capture_id)
+        GROUP BY p.id,r.capture_id,r.reward_ledger_id,p.status,t.state,t.returned_minor
+        ORDER BY p.id,r.capture_id LIMIT 100
+        ON CONFLICT(payment_id,capture_id) DO NOTHING
+    """)

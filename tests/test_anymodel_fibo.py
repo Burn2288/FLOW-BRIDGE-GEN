@@ -35,7 +35,7 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
     code=(await svc.referral_info(inviter))['code']
     user=await svc.identity(101,referral_code=code)
     await svc.accept(user)
-    await confirmed_credit(pool,cfg,user,1000)
+    payment_service,payment_id=await confirmed_credit(pool,cfg,user,1000)
     monkeypatch.setenv('RF02_FUNCTIONAL_TEST','YES')
     cfg=replace(cfg,access_mode='private',admin_ids=(101,),anymodel_test_enabled=True,
                 anymodel_image_live=True,anymodel_key='fixture-any',interaction_limit=3,
@@ -155,6 +155,15 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
             assert (own['invitee_count'],own['available'],own['total_rewards'],own['debt'])==(1,'0','100','30')
             assert len(own['history'])==5 and not own['has_more']
             assert other['history']==[] and other['total_rewards']=='0'
+            await payment_service.prepare_refund(payment_id)
+            await payment_service.complete_refund(payment_id)
+            await asyncio.gather(settle_task_tokens(pool),settle_task_tokens(pool))
+            cases=await pool.fetch('SELECT payment_id,affected_funding,reason FROM referral_payment_review_cases')
+            assert [tuple(row) for row in cases]==[(payment_id,1000,'payment_refunded')]*2
+            report=await svc.reconciliation_report(1)
+            assert report['referral_payment_reviews']==2 and report['referral_payment_reviews_truncated']
+            assert report['referral_payment_review_details'][0]['status']=='RECONCILIATION_REQUIRED'
+            assert await pool.fetchval('SELECT count(*) FROM referral_reversals')==2
             assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==0
             assert await svc.reconcile()==0
 

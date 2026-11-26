@@ -77,7 +77,17 @@ async def read_report(conn, limit):
         if row['actual'] is not None:
             detail['available'] = {'actual': int(row['actual']), 'expected': int(row['expected'])}
         funding_details.append(detail)
-    return {'wallet_mismatches': total, 'limit': limit, 'truncated': total > len(details),
+    review_rows = await conn.fetch('''SELECT payment_id,capture_id,affected_funding,payment_state,reason,
+        count(*) OVER() AS total FROM referral_payment_review_cases WHERE state='required'
+        ORDER BY payment_id,capture_id LIMIT $1''', limit)
+    review_count = int(review_rows[0]['total']) if review_rows else 0
+    return {'referral_payment_reviews': review_count,
+            'referral_payment_reviews_truncated': review_count > len(review_rows),
+            'referral_payment_review_details': [dict(payment_id=str(row['payment_id']),
+                capture_id=str(row['capture_id']), affected_funding=int(row['affected_funding']),
+                payment_state=row['payment_state'], reason=row['reason'], status='RECONCILIATION_REQUIRED')
+                for row in review_rows],
+            'wallet_mismatches': total, 'limit': limit, 'truncated': total > len(details),
             'details': details, 'funding_mismatches': funding_mismatches,
             'funding_details': funding_details,
             'funding_truncated': funding_mismatches > len(funding_details)}
