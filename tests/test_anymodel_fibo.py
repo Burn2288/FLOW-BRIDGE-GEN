@@ -140,6 +140,12 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
             assert await pool.fetchval('SELECT count(*) FROM referral_reversals')==2
             assert await pool.fetchval('SELECT sum(debt_added) FROM referral_reversals')==60
             assert await pool.fetchval('SELECT sum(amount) FROM referral_debt_repayments')==30
+            from elevenbot.referrals import own_finances
+            own = await own_finances(svc, inviter, 0)
+            other = await own_finances(svc, user, 0)
+            assert (own['invitee_count'],own['available'],own['total_rewards'],own['debt'])==(1,'0','100','30')
+            assert len(own['history'])==5 and not own['has_more']
+            assert other['history']==[] and other['total_rewards']=='0'
             assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==0
             assert await svc.reconcile()==0
 

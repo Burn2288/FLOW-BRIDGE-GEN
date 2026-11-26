@@ -140,6 +140,15 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         user = await account(request)
         return web.json_response(await service.referral_info(user))
 
+    async def referral_finances(request):
+        from elevenbot.referrals import own_finances
+        user = await account(request)
+        try:
+            page = int(request.query.get('page', '0'))
+            return web.json_response(await own_finances(service, user, page))
+        except ValueError:
+            raise web.HTTPBadRequest() from None
+
     async def music_access(user):
         if not cfg.clodex_music_owner:
             return False
@@ -301,6 +310,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     from .stars import add_stars_routes
     add_stars_routes(app, service, account, cfg, view.bot)
     app.router.add_get('/api/v1/referral', referral)
+    app.router.add_get('/api/v1/referral/finances', referral_finances)
     app.router.add_get('/api/v1/settings', settings)
     app.router.add_put('/api/v1/settings', settings)
     app.router.add_get('/api/v1/works', history)
