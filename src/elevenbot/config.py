@@ -67,6 +67,12 @@ class Config:
     def allows_public_image(self, provider, model, operation):
         return (operation == 'images.generate' and f'{provider}:{model}' in self.public_image_models)
 
+    def mock_image_enabled(self, provider, model, operation):
+        return (self.mode == 'mock' and self.access_mode == 'private'
+                and self.interaction_mode == 'mock'
+                and self.generation_enabled and not self.payments_enabled
+                and self.allows_public_image(provider, model, operation))
+
     @property
     def wallet_mode(self): return 'demo' if self.mode == 'mock' else 'live'
 

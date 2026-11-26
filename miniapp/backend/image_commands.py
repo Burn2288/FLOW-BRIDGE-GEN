@@ -154,7 +154,8 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
         rows = await pool.fetch("""SELECT q.id,q.model_id,q.operation,h.cancelled_at,
                    CASE WHEN v.status='succeeded' THEN 'completed' WHEN v.status='failed' THEN 'failed'
                         WHEN v.status='uncertain' THEN 'uncertain' ELSE d.state END AS state,
-                   CASE WHEN q.operation='video' AND v.status='succeeded' AND v.expires_at>now() THEN v.id
+                   CASE WHEN q.operation='video' AND v.status='succeeded' AND v.video IS NOT NULL
+                             AND v.expires_at>now() THEN v.id
                         WHEN q.operation='audio.speech' THEN s.id ELSE w.id END AS work_id,
                    (h.quote_id IS NOT NULL OR q.update_id < 0) AS http_origin
             FROM task_price_quotes q JOIN task_dispatch d ON d.quote_id=q.id
@@ -162,7 +163,7 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
             LEFT JOIN video_jobs v ON v.id=q.id AND v.user_id=q.user_id
             LEFT JOIN task_speech_works s ON s.id=q.id AND s.user_id=q.user_id AND s.audio IS NOT NULL AND s.expires_at>now()
             LEFT JOIN image_works w ON q.operation='images.generate' AND w.update_id=q.update_id AND w.user_id=q.user_id AND w.expires_at>now()
-            WHERE q.user_id=$1 AND (q.operation='images.generate' OR (q.operation IN ('video','audio.speech') AND h.quote_id IS NOT NULL))
+            WHERE q.user_id=$1 AND q.operation IN ('images.generate','video','audio.speech')
                   AND ($2::uuid IS NULL OR q.id=$2)
             ORDER BY q.accepted_at DESC LIMIT 100""", user, job_id)
         kinds = {'video': 'video', 'audio.speech': 'audio', 'images.generate': 'image'}

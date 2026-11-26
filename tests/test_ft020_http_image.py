@@ -3,9 +3,11 @@ import asyncio
 import base64
 import json
 from dataclasses import replace
+from uuid import uuid4
 
 import httpx
 import pytest
+from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 from elevenbot.aggregate import make_snapshot
 from elevenbot.core import Rejected, Service
@@ -14,15 +16,22 @@ from elevenbot.interaction import MOCK_IMAGE
 from elevenbot.telegram import TelegramApp
 from miniapp.backend.web import create_app
 from miniapp.tests.test_miniapp import account_db, signed
+from test_admin_access import event
 from test_ui import Bot
 
 
+TEST_VIEW = web.AppKey('studio_test_view', TelegramApp)
+
+
 @pytest.fixture
-async def image_api(account_db, monkeypatch):
+async def image_api(account_db, monkeypatch, request):
     pool, original = account_db
     cfg = replace(original, mode='clodex', generation_enabled=True, economy_verified=True,
                   clodex_key='fixture-only', interaction_mode='off', interaction_limit=100,
                   public_image_models=('clodex:flux-schnell',), payments_enabled=False)
+    offline = getattr(request, 'param', None) == 'mock'
+    if offline:
+        cfg = replace(cfg, mode='mock', interaction_mode='mock', economy_verified=False, clodex_key='')
     service = Service(pool, cfg)
     users = []
     for ext in (100, 101):
@@ -54,7 +63,9 @@ async def image_api(account_db, monkeypatch):
     def fixture_client(*args, **kwargs):
         return original_client(*args, **(kwargs | {'transport':httpx.MockTransport(transport)}))
     monkeypatch.setattr(httpx, 'AsyncClient', fixture_client)
-    async with TestClient(TestServer(create_app(pool, cfg, view=view, job_scheduler=deferred.append))) as client:
+    app = create_app(pool, cfg, view=view, job_scheduler=None if offline else deferred.append)
+    app[TEST_VIEW] = view
+    async with TestClient(TestServer(app)) as client:
         headers = []
         for ext in (100,101):
             response = await client.post('/api/v1/session', json={'initData':signed(cfg.token, ext)})
@@ -110,6 +121,82 @@ async def test_http_image_end_to_end_idempotency_and_isolation(image_api):
     rows = await pool.fetch('SELECT kind FROM ledger WHERE task_quote_id=$1::uuid ORDER BY kind', job)
     assert [r['kind'] for r in rows] == ['task_capture','task_reserve']
     assert await pool.fetchval('SELECT correlation_id < 0 FROM http_image_commands WHERE quote_id=$1::uuid', job)
+
+
+@pytest.mark.parametrize('image_api', ['mock'], indirect=True)
+async def test_priced_mock_image_cross_client_delivery(image_api):
+    pool, users, client, headers, posts, _, _, _ = image_api
+    view = client.app[TEST_VIEW]
+    snapshot = view.catalogue_snapshot()
+
+    async def press(update_id, *, text=None, callback=None):
+        await view.handle(event(update_id, text, chat=101, callback=callback))
+
+    def button(prefix):
+        return next(item.callback_data for _, keyboard in reversed(view.bot.sent)
+                    if hasattr(keyboard, 'inline_keyboard')
+                    for row in keyboard.inline_keyboard for item in row
+                    if (item.callback_data or '').startswith(prefix))
+
+    catalogue = await client.get('/api/v1/catalogue', headers=headers[1])
+    assert any(model.get('image_card') for model in (await catalogue.json())['models'])
+    await press(1001, callback=f'smodel:{snapshot["version"]}:image:0:0')
+    await press(1002, callback=button('srun:'))
+    await press(1003, text='Маяк в тумане')
+    await press(1004, callback=button('amconfirm:'))
+    assert len(view.bot.photos) == 1
+    jobs = await (await client.get('/api/v1/jobs', headers=headers[1])).json()
+    telegram_job, = jobs['jobs']
+    assert telegram_job['origin'] == 'telegram'
+    assert telegram_job['state'] == 'completed'
+    work_url = telegram_job['result_url']
+    assert await (await client.get(work_url, headers=headers[1])).read() == MOCK_IMAGE
+    assert (await client.get(work_url, headers=headers[0])).status == 404
+
+    http_quote = await quote(client, headers[1], 'Маяк под снегом')
+    assert (await create(client, headers[1], http_quote)).status == 201
+    async with asyncio.timeout(5):
+        while True:
+            result = await (await client.get(f'/api/v1/jobs/{http_quote}', headers=headers[1])).json()
+            if result['state'] == 'completed':
+                break
+            assert result['state'] in ('pending', 'dispatching')
+            await asyncio.sleep(.05)
+    await press(1005, callback='history:0')
+    assert result['origin'] == 'http'
+    work_id = result['result_url'].rsplit('/', 1)[-1]
+    await press(1006, callback=f'image:{work_id}')
+    assert len(view.bot.photos) == 2
+    assert all(photo.data == MOCK_IMAGE for photo, _, _ in view.bot.photos)
+    assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",
+                                     users[1])) == (80, 0)
+    assert await pool.fetchval("SELECT count(*) FROM ledger WHERE user_id=$1 AND kind='task_capture'", users[1]) == 2
+    assert not posts
+
+
+@pytest.mark.parametrize(('operation', 'kind'), [('video', 'video'), ('audio.speech', 'audio')])
+async def test_miniapp_projects_owned_telegram_studio_jobs(image_api, operation, kind):
+    pool, users, client, headers, _, _, _, _ = image_api
+    job = uuid4()
+    await pool.execute("""INSERT INTO task_price_quotes(id,user_id,provider,model_id,operation,request,price,state,
+                                                       accepted_at,update_id)
+                       VALUES($1,$2,'clodex','fixture',$3,'{}','{}','accepted',now(),701)""",
+                       job, users[0], operation)
+    await pool.execute("INSERT INTO task_dispatch(quote_id,state) VALUES($1,'completed')", job)
+    if kind == 'video':
+        await pool.execute("""INSERT INTO video_jobs(id,user_id,model_id,prompt,status,video,expires_at)
+                           VALUES($1,$2,'fixture','fixture','succeeded',$3,now()+interval '1 day')""",
+                           job, users[0], b'stored video fixture')
+    else:
+        await pool.execute("""INSERT INTO task_speech_works(id,user_id,model_id,title,input,cost_tokens,claimed,audio)
+                           VALUES($1,$2,'fixture','fixture','fixture',0,true,$3)""",
+                           job, users[0], b'stored speech fixture')
+    response = await client.get(f'/api/v1/jobs/{job}', headers=headers[0])
+    assert response.status == 200
+    assert await response.json() == {'id': str(job), 'model': 'fixture', 'operation': operation,
+                                     'state': 'completed', 'origin': 'telegram',
+                                     'result_url': f'/api/v1/works/{kind}/{job}'}
+    assert (await client.get(f'/api/v1/jobs/{job}', headers=headers[1])).status == 404
 
 
 async def test_cancel_pending_is_idempotent_without_provider_post(image_api):

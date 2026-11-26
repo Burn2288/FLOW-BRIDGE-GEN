@@ -2251,6 +2251,8 @@ class TelegramApp:
         await self.catalogue_screen(ext,'Выберите модель для проверки формы. Совместимость с операцией ещё нужно подтвердить.',buttons(rows))
 
     def public_clodex_image(self, model, operation):
+        if self.cfg.mock_image_enabled('clodex', model, operation):
+            return True
         return (self.cfg.mode == 'clodex' and self.cfg.generation_enabled
                 and self.cfg.economy_verified and bool(self.cfg.clodex_key)
                 and self.cfg.allows_public_image('clodex', model, operation))
@@ -2268,7 +2270,7 @@ class TelegramApp:
             )
         from .interaction import supports
         if self.public_clodex_image(model['id'],operation):
-            return supports(model,operation,live=True)
+            return supports(model,operation,live=self.cfg.mode == 'clodex')
         mode=self.cfg.interaction_mode
         return mode in ('mock','live') and supports(model,operation,live=mode=='live')
 
@@ -2332,8 +2334,8 @@ class TelegramApp:
                 or not await self.models.allowed('clodex',model['id'],operation)):
             raise Rejected('Модель больше не доступна. Откройте каталог.')
         public = self.public_clodex_image(model['id'],operation)
-        mode='live' if public else self.cfg.interaction_mode
-        if mode=='live' and ((not public and self.cfg.access_mode!='private') or snapshot['fresh_until']<time.time()):
+        mode='live' if public and self.cfg.mode == 'clodex' else self.cfg.interaction_mode
+        if (mode=='live' or public) and ((not public and self.cfg.access_mode!='private') or snapshot['fresh_until']<time.time()):
             raise Rejected('Запуск недоступен. Проверьте доступ и обновите каталог.')
         message=update.message
         prompt=message.text
@@ -2354,7 +2356,7 @@ class TelegramApp:
             raise Rejected('Пришлите текст от 1 до 6000 символов или файл .txt.')
         request_id=update.update_id
         trace_interaction(request_id,'input_validated',model=model['id'],operation=operation,mode=mode)
-        if mode=='live':
+        if mode=='live' or public:
             params=default_params('clodex',operation)
             if context.get('quality'):
                 params['quality']=context['quality']
