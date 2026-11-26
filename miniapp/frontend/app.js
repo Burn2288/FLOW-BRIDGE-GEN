@@ -165,10 +165,10 @@ function appendPreview(item, work) {
 
 async function showWorks(target) {
   const revision = ++worksRevision;
-  const data = await (await request('/api/v1/works?page=' + target)).json();
-  if (revision !== worksRevision) return;
   closePreview();
   works.replaceChildren();
+  const data = await (await request('/api/v1/works?page=' + target)).json();
+  if (revision !== worksRevision) return;
   for (const work of data.works) {
     const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст', music: 'Музыка' };
     const states = { queued: 'В очереди', dispatching: 'Выполняется', succeeded: 'Готово',
@@ -666,7 +666,6 @@ async function openJob(id, cancel = false) {
     if (job.result_url) {
       jobResult.hidden = false;
       jobResult.onclick = async () => {
-        works.replaceChildren();
         await navigate('library');
         const work = document.getElementById('work-' + job.result_url.split('/').at(-1));
         if (work) {
