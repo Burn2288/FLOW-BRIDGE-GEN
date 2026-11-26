@@ -268,6 +268,7 @@ async function start() {
   }
   // The user may select a panel while authentication is still pending.
   if (activePanel === 'referral') void showReferral();
+  if (activePanel === 'administration') void showAdministration();
   const [wallet, catalogue, settings] = await Promise.all([
     request('/api/v1/wallet').then(response => response.json()),
     request('/api/v1/catalogue').then(response => response.json()),
@@ -508,6 +509,68 @@ async function openJob(id, cancel = false) {
   }
 }
 
+let adminRequest = 0;
+async function showAdministration() {
+  if (!token) return;
+  const id = ++adminRequest;
+  const session = token;
+  const current = () => id === adminRequest && token === session && activePanel === 'administration';
+  const notice = document.querySelector('#admin-status');
+  const report = document.querySelector('#admin-report');
+  report.replaceChildren();
+  notice.textContent = 'Проверяем полномочия…';
+  try {
+    const auth = await request('/api/v1/admin/capabilities');
+    const authority = await auth.json();
+    if (!current()) return;
+    if (!authority.capabilities.includes('operations.read')) {
+      notice.textContent = 'Нет доступа к административному обзору.';
+      return;
+    }
+    notice.textContent = 'Загружаем обзор за 7 дней…';
+    const end = new Date();
+    const start = new Date(end.getTime() - 7 * 86400000);
+    const query = new URLSearchParams({start: start.toISOString(), end: end.toISOString(), limit: '30'});
+    const response = await request('/api/v1/admin/operations?' + query);
+    const data = await response.json();
+    if (!current()) return;
+    const fields = {
+      registered_users: 'Пользователи', legacy_queued_jobs: 'Задания в очереди',
+      quoted_pending_tasks: 'Ожидают запуска', live_reserved_tokens: 'Токены в резерве',
+      live_payment_debt_tokens: 'Платёжный долг', referral_debt_tokens: 'Реферальный долг',
+      referral_payment_review_cases: 'Платежи на сверке',
+    };
+    const summary = document.createElement('ul');
+    for (const [key, label] of Object.entries(fields)) {
+      const row = document.createElement('li');
+      row.textContent = label + ': ' + data.current_state[key];
+      summary.append(row);
+    }
+    report.append(summary);
+    const sections = {
+      tasks_by_period_and_status: 'Задания', tasks_by_provider_and_model: 'Провайдеры и модели',
+      wallet_movements: 'Движения кошелька', payments: 'Платежи',
+      reconciliation_queue: 'На сверке', provider_cost_coverage: 'Покрытие себестоимости',
+    };
+    for (const [key, label] of Object.entries(sections)) {
+      const details = document.createElement('details');
+      const title = document.createElement('summary');
+      title.textContent = label;
+      const body = document.createElement('pre');
+      body.textContent = JSON.stringify(data[key], null, 2);
+      details.append(title, body);
+      report.append(details);
+    }
+    notice.textContent = 'Обзор за 7 дней · ' + authority.role;
+  } catch (error) {
+    if (!current()) return;
+    report.replaceChildren();
+    notice.textContent = 'Обзор недоступен. ' + error.message;
+  }
+}
+
+document.querySelector('#admin-reload').onclick = () => { void showAdministration(); };
+
 function navigate(panel) {
   cardRevision++;
   history.replaceState({ ...history.state, jobId: null }, '');
@@ -515,6 +578,7 @@ function navigate(panel) {
   card.hidden = true;
   selectPanel(panel);
   if (panel === 'referral' && token) void showReferral();
+  if (panel === 'administration' && token) void showAdministration();
   if (panel === 'balance' && token) showBalance().catch(showError);
   if (panel === 'library' && token) Promise.all([showJobs(), showWorks(0)]).catch(showError);
 }
