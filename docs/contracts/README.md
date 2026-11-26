@@ -26,8 +26,8 @@
 | C-016 | Media Storage | [storage.py](../../src/elevenbot/storage.py), [core.py](../../src/elevenbot/core.py); полная матрица медиа не доказана. |
 | C-017 | Library | [library.py](../../src/elevenbot/library.py), [core.py](../../src/elevenbot/core.py); все типы и parity клиентов не приняты. |
 | C-018 | Delivery Outbox | [worker.py](../../src/elevenbot/worker.py), [clodex_music.py](../../src/elevenbot/clodex_music.py); общего exactly-once контракта нет. |
-| C-019 | Telegram Admin | [admin_access.py](../../src/elevenbot/admin_access.py), [telegram.py](../../src/elevenbot/telegram.py); целевая RBAC-модель не утверждена. |
-| C-020 | Mini App Admin | [web.py](../../miniapp/backend/web.py); для обзора операций и очереди поддержки сервер проверяет текущие независимые PostgreSQL capabilities. |
+| C-019 | Telegram Admin | [admin_access.py](../../src/elevenbot/admin_access.py), [telegram.py](../../src/elevenbot/telegram.py); исторические команды используют парольную сессию, общий обзор и видимость модели используют текущие PostgreSQL capabilities. |
+| C-020 | Mini App Admin | [web.py](../../miniapp/backend/web.py); для обзора операций, очереди поддержки и видимости модели сервер проверяет текущие PostgreSQL capabilities. |
 | C-021 | Settings | [runtime_config.py](../../src/elevenbot/runtime_config.py), [config.py](../../src/elevenbot/config.py); универсальная версия и rollback настроек не доказаны. |
 | C-022 | Support | [support_tickets.py](../../src/elevenbot/support_tickets.py), [web.py](../../miniapp/backend/web.py); текстовые обращения, история владельца и ответы оператора хранятся в PostgreSQL. |
 | C-023 | Reports | [task_receipts.py](../../src/elevenbot/task_receipts.py), [topups.py](../../src/elevenbot/topups.py); полный набор отчётов и сверка не приняты. |
@@ -40,7 +40,7 @@
 | C-030 | User Data Retention | [core.py](../../src/elevenbot/core.py), [storage.py](../../src/elevenbot/storage.py); полный deletion/legal hold контракт не доказан. |
 | C-031 | Telegram Stars / payment channel | [telegram.py](../../src/elevenbot/telegram.py), [topups.py](../../src/elevenbot/topups.py); live-приёмка платёжного канала остаётся открытой. |
 
-Внутренние токены, внешние RUB и XTR, а также единицы провайдеров — разные единицы; карта не вводит курсы или формулы. D-02 и D-04 остаются открытыми.
+Внутренние токены, внешние RUB и XTR, а также единицы провайдеров учитываются раздельно. D-02 остаётся открытым. Владелец согласовал [PostgreSQL authority D-04](../planning/MEGA02_D04_DECISION.md) и ограничил изменение настроек видимостью модели для FUNCTIONAL_TEST.
 
 | Артефакт | Что фиксировать |
 | --- | --- |
@@ -52,3 +52,17 @@
 | `events.md`, `error-codes.md` | Схемы событий, correlation ID, устойчивые коды ошибок и правила повторов. |
 
 Публичные изменения сопровождаются оценкой совместимости и автоматическими контрактными проверками. Несовместимые изменения требуют плана перехода и отдельной версии контракта. Финансовые проверки должны исключить повторное зачисление, списание и возмещение, потерю записи и отрицательный баланс без разрешённого овердрафта. Неизвестный исход платной операции требует сверки.
+
+## Границы FUNCTIONAL_TEST для SE-01–SE-03
+
+Проверено на `bf1a83d8bb1266aad25b92d32bae0914d7ffec6e`. 22 проверки PostgreSQL покрыли авторизацию обоих интерфейсов, отзыв ролей, права приложения на историю ролей, изоляцию обращений и файлов, неизменяемость ledger, идемпотентность операций и восстановление приватной копии. Отдельные 49 тестов покрыли синтетический экспорт с исключением секретов, безопасное журналирование lifecycle провайдера и защиту конфигурации тестовых транспортов. Профиль FT020 на этом же SHA прошёл 19 проверок HTTP и связанных сервисов. [FT020](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600376/job/140161962507)
+
+| Граница | Контроль и проверка |
+| --- | --- |
+| Вход и пользовательские данные | Mini App проверяет подпись и свежесть данных входа, затем использует серверную сессию. Выдача работ и HTTP API заданий проверяют владельца, Telegram сверяет отправителя с личным чатом, поддержка проверяет владельца обращения. [Mini App](../../miniapp/tests/test_miniapp.py) · [Задания](../../tests/test_ft020_http_image.py) · [Telegram](../../tests/test_chat_isolation.py) · [Поддержка](../../tests/test_sl02_support_tickets.py) |
+| Действия администратора | Текущая роль выбирается из PostgreSQL при защищённом действии. Права приложения позволяют читать историю ролей и выполнять разрешённые операции. Делегирование использует отдельный доверенный principal. [Права PostgreSQL](../../tests/test_http_admin_runtime_acl.py) · [Отзыв роли](../../tests/test_http_admin_authority.py) |
+| Финансы | Ledger защищён от изменения исторических движений. Повтор подтверждения, отмены и выдачи результата сохраняет однократную финансовую операцию. [Runtime role](../../tests/test_runtime_role.py) · [Границы транзакций](../../tests/test_ft014_boundaries.py) |
+| Логи, экспорт и данные | Timeline и операционные отчёты используют ограниченные поля. Lifecycle отправляет в журнал идентификаторы событий без конфигурационных секретов. Экспорт доказательств ограничен перечисленными отчётами и проверяется на синтетический секрет. Приватный дамп предназначен для контролируемого резервного хранения. [Timeline](../../tests/test_job_timeline.py) · [Lifecycle](../../tests/test_provider_lifecycle.py) · [Экспорт доказательств](../../tests/test_au02_handoff.py) · [Восстановление](../../tests/test_ft024_backup_restore.py) |
+| Тестовый профиль | Локальный Telegram transport требует явного разрешения, loopback, режима mock и отключённой оплаты. Изолированный Compose профиль использует внутреннюю сеть и тестовые учётные данные. [Защита конфигурации](../../tests/test_platega_unit.py) · [Compose](../../compose.dev.yaml) |
+
+Для STANDARD/HIGH_PRODUCTION остаются формализованное хранение и legal hold D-08, сквозной аудит всех каналов журналирования и экспорта, проверка медиаполитик и бюджетов на production-конфигурации. SE-03 требует независимой проверки обоих клиентов на финальном SHA.
