@@ -20,7 +20,7 @@ jobs:
           tests/test_wallet_profile.py tests/test_telegram_consent.py tests/test_ft023_combined.py
           tests/test_ft028_payment_image.py tests/test_ft030_library_integrity.py'
       - name: Mini App DOM UI regression
-        run: node --test miniapp/tests/stars_ui.test.cjs miniapp/tests/referral_ui.test.cjs
+        run: node --test miniapp/tests/*.test.cjs
       - name: Remove disposable services
         if: always()
         run: docker compose -p ft031-${{ github.run_id }} -f compose.test.yaml down --remove-orphans
