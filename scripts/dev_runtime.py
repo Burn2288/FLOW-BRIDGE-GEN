@@ -104,7 +104,7 @@ async def seed(pool, cfg):
         for external in (100, 101, 102):
             user = await app.svc.identity(external)
             async with pool.acquire() as conn, conn.transaction():
-                await app.svc.movement(conn, user, 'live', f'dev-studio-{external}', 'pilot_grant', 10000, 0)
+                await app.svc.movement(conn, user, 'live', f'dev-studio-{external}', 'pilot_grant', 3000, 0)
         for model, operation, params, basis in (
             ('flux-schnell', 'images.generate', {'n': 1}, 'request'),
             (SPEECH_MODEL, 'audio.speech', {'voice': VOICE}, 'utf16'),

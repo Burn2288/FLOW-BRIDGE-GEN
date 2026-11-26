@@ -49,6 +49,8 @@ class TelegramFixture:
         self.replies = deque(maxlen=1000)
         self.sequence = 0
         self.next_message = int(time.time())
+        self.stars_events = {}
+        self.stars_lock = asyncio.Lock()
 
     @staticmethod
     def chat(external):
@@ -70,18 +72,49 @@ class TelegramFixture:
         message_id = value.get("message_id", self.next_message + 1)
         if type(message_id) is not int or not 0 < message_id <= 2**31 - 1:
             raise web.HTTPBadRequest()
+        payload = {"text": text} if callback is None else {}
+        number = self.enqueue(chat, payload, message_id, callback)
+        return web.json_response({"update_id": number}, status=201)
+
+    def enqueue(self, chat, payload, message_id, callback=None):
         self.next_message = max(message_id, self.next_message)
         number = self.next_update
         self.next_update += 1
         actor = {"id": chat, "is_bot": False, "first_name": "Fixture"}
         message = {"message_id": message_id, "date": int(time.time()), "chat": self.chat(chat), "from": actor}
         if callback is None:
-            update = {"message": message | {"text": text}}
+            update = {"message": message | payload}
         else:
             message["from"] = {"id": 123456, "is_bot": True, "first_name": "Fixture bot"}
             update = {"callback_query": {"id": str(number), "from": actor, "chat_instance": str(chat),
                                          "message": message, "data": callback}}
         self.updates.append(update | {"update_id": number})
+        return number
+
+    async def stars_payment(self, request):
+        from dev_finance import successful_payment
+        from elevenbot.core import Rejected
+
+        payload = await request.json()
+        if not isinstance(payload, dict) or set(payload) - {"chat", "replay"}:
+            raise web.HTTPBadRequest()
+        chat, replay = payload.get("chat"), payload.get("replay", False)
+        if type(chat) is not int or chat not in (103, 104) or type(replay) is not bool:
+            raise web.HTTPBadRequest()
+        async with self.stars_lock:
+            if len(self.updates) >= 256:
+                raise web.HTTPTooManyRequests()
+            if replay:
+                fields = self.stars_events.get(chat)
+                if fields is None:
+                    raise web.HTTPConflict(text="No fixture payment has been submitted for this actor.")
+            else:
+                try:
+                    fields = await successful_payment(self.pool, self.cfg, chat)
+                except Rejected:
+                    raise web.HTTPConflict(text="Fixture payment is unavailable for this actor.") from None
+                self.stars_events[chat] = fields
+            number = self.enqueue(chat, {"successful_payment": fields}, self.next_message + 1)
         return web.json_response({"update_id": number}, status=201)
 
     async def list_replies(self, request):
@@ -158,6 +191,7 @@ class TelegramFixture:
         app.router.add_post("/fixture/updates", self.submit)
         app.router.add_get("/fixture/replies", self.list_replies)
         app.router.add_post("/fixture/music-grant", self.music_grant)
+        app.router.add_post("/fixture/stars-payment", self.stars_payment)
         return app
 
 
