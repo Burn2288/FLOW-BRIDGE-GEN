@@ -121,10 +121,14 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                     raise web.HTTPForbidden() from None
         return web.json_response({'token': token, 'expires_in': SESSION_SECONDS})
 
-    async def account(request, connection=None):
+    def session_token(request):
         scheme, _, token = request.headers.get('Authorization', '').partition(' ')
         if scheme != 'Bearer' or len(token) != 43:
             raise web.HTTPUnauthorized()
+        return token
+
+    async def account(request, connection=None):
+        token = session_token(request)
         if connection is None:
             async with pool.acquire() as conn:
                 return await account(request, conn)
@@ -184,6 +188,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         import asyncpg
         from elevenbot import model_visibility as visibility
 
+        session_token(request)
         try:
             if request.method == 'POST':
                 async with pool.acquire() as conn:
@@ -191,7 +196,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                 body = await request.json()
             async with pool.acquire() as conn, conn.transaction():
                 actor = await account(request, conn)
-                if request.method == 'GET':
+                if request.method in ('GET', 'HEAD'):
                     result = {'models': await visibility.list_models(conn, actor)}
                 else:
                     keys = [body[key] for key in ('provider', 'model_id', 'operation', 'visibility')]
@@ -292,6 +297,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         return web.json_response({key: str(row[key]) for key in ('available', 'reserved')})
 
     async def profile(request):
+        session_token(request)
         async with pool.acquire() as conn, conn.transaction():
             user = await account(request, conn)
             subject = await conn.fetchval(

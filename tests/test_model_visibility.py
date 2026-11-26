@@ -47,6 +47,7 @@ async def test_model_visibility_preview_confirm_rollback_shared_by_both_catalogu
         assert await telegram.store_models(snapshot, 'image', None) == [0]
         assert await miniapp_visible()
         assert (await client.get(ADMIN_PATH, headers=headers)).status == 403
+        assert (await client.head(ADMIN_PATH, headers=headers)).status == 403
         assert (await client.post(ADMIN_PATH+'/preview', data='invalid')).status == 401
         assert (await client.post(ADMIN_PATH+'/confirm', data='invalid', headers=headers)).status == 403
         await pool.execute("""
@@ -54,6 +55,8 @@ async def test_model_visibility_preview_confirm_rollback_shared_by_both_catalogu
             VALUES($1,$1,'SETTINGS_OPERATOR','synthetic visibility grant')
         """, actor)
         assert (await client.get(ADMIN_PATH, headers=headers)).status == 200
+        head = await client.head(ADMIN_PATH, headers=headers)
+        assert head.status == 200 and await head.read() == b''
         assert (await client.get('/api/v1/admin/operations', headers=headers)).status == 403
         key = dict(zip(('provider', 'model_id', 'operation'), MODEL))
         hide = {**key, 'visibility': 'HIDDEN'}
@@ -134,3 +137,18 @@ async def test_model_visibility_waits_for_role_revocation(env):
         with pytest.raises(VisibilityDenied):
             await asyncio.wait_for(publish_task, timeout=3)
     assert not await pool.fetchval('SELECT count(*) FROM model_visibility_events')
+
+
+async def test_visibility_and_profile_without_session_do_not_acquire_database():
+    from elevenbot.config import Config
+
+    class UnavailablePool:
+        def acquire(self):
+            pytest.fail('these routes require a bearer token before connecting to the database')
+
+    async with TestClient(TestServer(create_app(UnavailablePool(), Config()))) as client:
+        assert (await client.get('/api/v1/profile')).status == 401
+        assert (await client.get(ADMIN_PATH)).status == 401
+        assert (await client.head(ADMIN_PATH)).status == 401
+        assert (await client.post(ADMIN_PATH+'/preview', data='invalid')).status == 401
+        assert (await client.post(ADMIN_PATH+'/confirm', data='invalid')).status == 401
