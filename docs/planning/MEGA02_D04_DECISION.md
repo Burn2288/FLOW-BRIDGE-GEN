@@ -12,9 +12,9 @@ Source: [AD-01 preflight #107](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/
 | Required infrastructure | Complete inventory of serving processes, control of direct ingress, restart fencing | Trusted bootstrap, role records, immutable revision audit, isolated writer |
 | LEVEL 1 proof | Tests must prove stale processes cannot continue serving | Two app instances, revoke and stale session tests, forged role and direct access denial |
 
-Proposal for owner decision: choose B for the isolated LEVEL 1 prototype. Reuse verified identity and persistent sessions, default deny, check capability on each protected request. Limit the first candidate to a read-only capability and a chooser. Treat environment allowlists as existing pilot admission, not as HTTP roles. Preserve Telegram Admin Edition independently.
+Historical recommendation adopted by the owner: B for the isolated LEVEL 1 prototype. Reuse verified identity and persistent sessions, default deny, check capability on each protected request. Limit the first candidate to a read-only capability and a chooser. Treat environment allowlists as existing pilot admission, not as HTTP roles. Preserve Telegram Admin Edition independently.
 
-Approval must specify bootstrap identity, role names and scope, revocation and outage semantics, env compatibility, audited policy writers and rollback. Option A additionally needs an enforceable all-instance fencing design. Until approved, expose operational aggregates only through the existing internal service and CLI. AD-02 live writes and SL-02 operator routes remain blocked.
+D-04 v1 establishes role names, scope, revocation and outage semantics. A deployment-specific bootstrap identity and isolated principal configuration are still required. Option A additionally needs an enforceable all-instance fencing design. The Draft now includes the capability-protected aggregate endpoint. Deliberate role delegation uses a trusted database operation. AD-02 requires selection of a concrete typed setting; SL-02 operator routes remain unimplemented.
 
 ## Approved scope and implementation progress
 

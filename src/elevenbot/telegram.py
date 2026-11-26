@@ -686,6 +686,27 @@ class TelegramApp:
                 return
             if command in ('/terms','/privacy'):
                 await self.consent_files(u,ext,(command[1:],));return
+            if command=='/support' and len(text.split(maxsplit=1))==2 and not data:
+                from uuid import UUID, uuid5
+                from .support_tickets import SupportTickets
+                body=text.split(maxsplit=1)[1].strip()
+                support=SupportTickets(self.pool,self.cfg)
+                if body=='list':
+                    result=await support.list(ext)
+                    rows=[str(ticket['id'])+' · '+ticket['status'] for ticket in result['tickets']]
+                    await self.say(ext,'Ваши обращения:\n'+('\n'.join(rows) or 'Обращений пока нет.'))
+                elif body.startswith('show '):
+                    try:
+                        ticket=UUID(body.split(maxsplit=1)[1])
+                    except ValueError:
+                        raise Rejected('Недопустимый идентификатор обращения.') from None
+                    result=await support.read(ext,ticket,limit=1)
+                    message=result['messages'][0]['body'] if result['messages'] else ''
+                    await self.say(ext,'Обращение '+str(ticket)+' · '+result['status']+'\n'+message)
+                else:
+                    result=await support.create(ext,uuid5(u,'telegram-support:'+str(update.update_id)),body)
+                    await self.say(ext,'Обращение принято: '+str(result['id']))
+                return
             if text in ('/support','/paysupport'):
                 await self.say(ext,self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
             if command in ('/admit','/revoke','/markup_value'):

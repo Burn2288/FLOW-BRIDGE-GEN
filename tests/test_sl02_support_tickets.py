@@ -74,3 +74,20 @@ async def test_support_rejects_attachments_unknown_blocked_and_revoked_subjects(
     with pytest.raises(Rejected, match='Поддержка недоступна'):
         await support.append(101, ticket['id'], uuid4(), 'Заблокирован')
     assert await pool.fetchval('SELECT count(*) FROM support_messages') == 1
+
+async def test_telegram_delivers_owner_support_without_purchase_consent(env):
+    from elevenbot.telegram import TelegramApp
+    from test_admin_access import event
+    from test_telegram_consent import DocumentTransport
+
+    pool, cfg, _, _ = env
+    cfg = replace(cfg, access_mode='private', admin_ids=(100,), pilot_user_ids=(101,102))
+    app = TelegramApp(pool,cfg,DocumentTransport())
+    await app.handle(event(501,'/support Синтетическое обращение',chat=101))
+    assert 'Обращение принято' in app.bot.sent[-1][0]
+    ticket = await pool.fetchval('SELECT id FROM support_tickets')
+    await app.handle(event(502,'/support show '+str(ticket),chat=102))
+    assert 'Синтетическое обращение' not in app.bot.sent[-1][0]
+    await app.handle(event(503,'/support show '+str(ticket),chat=101))
+    assert 'Синтетическое обращение' in app.bot.sent[-1][0]
+    assert await pool.fetchval('SELECT count(*) FROM support_messages')==1
