@@ -509,6 +509,52 @@ async function openJob(id, cancel = false) {
   }
 }
 
+function appendOperatorReply(container, current) {
+  const form = document.createElement('form');
+  const ticket = document.createElement('input');
+  const body = document.createElement('textarea');
+  const send = document.createElement('button');
+  const notice = document.createElement('p');
+  ticket.setAttribute('aria-label', 'Идентификатор обращения');
+  ticket.placeholder = 'Идентификатор обращения';
+  ticket.required = true;
+  body.setAttribute('aria-label', 'Ответ оператора');
+  body.placeholder = 'Ответ оператора';
+  body.maxLength = 2000;
+  body.required = true;
+  send.type = 'submit';
+  send.textContent = 'Сохранить ответ';
+  notice.setAttribute('role', 'status');
+  let pending;
+  form.onsubmit = async event => {
+    event.preventDefault();
+    if (!current() || send.disabled) return;
+    const ticketId = ticket.value.trim();
+    const text = body.value.trim();
+    if (!ticketId || !text) return;
+    if (!pending || pending.ticket_id !== ticketId || pending.text !== text) {
+      pending = {ticket_id: ticketId, text, request_id: crypto.randomUUID()};
+    }
+    send.disabled = true;
+    notice.textContent = 'Сохраняем ответ…';
+    try {
+      await request('/api/v1/admin/support/reply', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(pending),
+      });
+      if (!current()) return;
+      body.value = '';
+      pending = null;
+      notice.textContent = 'Ответ сохранён. Владелец увидит его в истории обращения.';
+    } catch (error) {
+      if (current()) notice.textContent = 'Ответ не подтверждён. ' + error.message;
+    } finally {
+      send.disabled = false;
+    }
+  };
+  form.append(ticket, body, send, notice);
+  container.append(form);
+}
+
 let adminRequest = 0;
 async function showAdministration() {
   if (!token) return;
@@ -523,8 +569,10 @@ async function showAdministration() {
     const auth = await request('/api/v1/admin/capabilities');
     const authority = await auth.json();
     if (!current()) return;
+    const canReply = authority.capabilities.includes('support.operate');
+    if (canReply) appendOperatorReply(report, current);
     if (!authority.capabilities.includes('operations.read')) {
-      notice.textContent = 'Нет доступа к административному обзору.';
+      notice.textContent = canReply ? 'Поддержка' : 'Нет доступа к административному обзору.';
       return;
     }
     notice.textContent = 'Загружаем обзор за 7 дней…';
