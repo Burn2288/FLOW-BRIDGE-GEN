@@ -22,8 +22,8 @@ async function request(path, options = {}) {
     if (!(error instanceof TypeError)) throw error;
     throw Object.assign(Error('Нет связи с сервером. Проверьте подключение.'), {networkError: true});
   }
-  if (response.status === 401) throw Error('Откройте приложение заново из Telegram.');
-  if (response.status === 403) throw Error('Откройте бот и проверьте доступ к аккаунту.');
+  if (response.status === 401) throw Object.assign(Error('Откройте приложение заново из Telegram.'), {status: 401});
+  if (response.status === 403) throw Object.assign(Error('Откройте бот и проверьте доступ к аккаунту.'), {status: 403});
   if (!response.ok) throw Object.assign(Error('Не удалось получить данные.'), { status: response.status });
   return response;
 }
@@ -600,11 +600,12 @@ async function showAdministration() {
   const report = document.querySelector('#admin-report');
   report.replaceChildren();
   notice.textContent = 'Проверяем полномочия…';
+  let canReply = false;
   try {
     const auth = await request('/api/v1/admin/capabilities');
     const authority = await auth.json();
     if (!current()) return;
-    const canReply = authority.capabilities.includes('support.operate');
+    canReply = authority.capabilities.includes('support.operate');
     if (canReply) appendOperatorReply(report, current);
     if (!authority.capabilities.includes('operations.read')) {
       notice.textContent = canReply ? 'Поддержка' : 'Нет доступа к административному обзору.';
@@ -647,7 +648,7 @@ async function showAdministration() {
     notice.textContent = 'Обзор за 7 дней · ' + authority.role;
   } catch (error) {
     if (!current()) return;
-    report.replaceChildren();
+    if (!canReply || error.status === 401 || error.status === 403) report.replaceChildren();
     notice.textContent = 'Обзор недоступен. ' + error.message;
   }
 }
