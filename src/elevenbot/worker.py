@@ -9,7 +9,8 @@ from .interaction import provider_request_id, trace_interaction
 class Worker:
     def __init__(self,pool,cfg,provider,sender=None):
         self.pool,self.cfg,self.provider,self.sender=pool,cfg,provider,sender
-        self.svc=Service(pool,cfg);self.storage=Storage(cfg.storage)
+        self.svc=Service(pool,cfg)
+        self.storage = Storage(cfg.storage) if provider is not None or sender is not None else None
         self.recovery_cursor = None
     async def claim(self):
         if not self.cfg.generation_enabled:return None
