@@ -81,6 +81,16 @@ async def test_real_start_first_attribution_restart_and_miniapp(env):
         response = await client.get('/api/v1/referral', headers=headers)
         assert response.status == 200 and await response.json() == {'code':own, 'has_referrer':True}
         assert (await client.get('/api/v1/referral')).status == 401
+        assert (await client.get('/api/v1/referral/finances')).status == 401
+        data = await client.get('/api/v1/referral/finances?user_id='+str(inviter), headers=headers)
+        assert data.status == 200
+        finance = await data.json()
+        assert finance['code'] == own and finance['invitee_count'] == 0 and finance['history'] == []
+        assert 'Приглашено: 0' in restarted.bot.sent[-1][0]
+        assert 'Долг: 0' in restarted.bot.sent[-1][0]
+        assert (await client.get('/api/v1/referral/finances?page=-1', headers=headers)).status == 400
+        data = await client.get('/api/v1/referral/finances?page=1000', headers=headers)
+        assert data.status == 200 and (await data.json())['history'] == []
     assert await pool.fetchval('SELECT referrer_id FROM referral_attributions WHERE user_id=$1',user) == inviter
 
 
