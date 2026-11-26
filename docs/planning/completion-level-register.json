@@ -2166,18 +2166,36 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "6781848a56adcfe8cfc89f6206c9b8f5a0eae1bb",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
-        "PR #115: owner-scoped text support fixture; operator authority, attachment retention and client workflow remain open."
+        "PR #115: owner and operator text ticket cycle; attachment storage and retention require a separate approved contract."
       ],
       "dependencies": [
         "AD-01"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 24,
+          "task_id": "SL-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "6781848a56adcfe8cfc89f6206c9b8f5a0eae1bb",
+          "checkout_sha": "6781848a56adcfe8cfc89f6206c9b8f5a0eae1bb",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45841379461",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "PostgreSQL: Mini App owner creates and replays a text ticket; a separate owner cannot read it; authorized operator lists, reads and replies; the owner sees the response; revoke denies a new operator reply.",
+          "limitations": "Synthetic sessions. Chromium proof is general OP01 coverage; support browser interaction and independent acceptance are pending. Attachments are rejected.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
