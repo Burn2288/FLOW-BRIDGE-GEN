@@ -1,4 +1,5 @@
 """MA-01 browser journey on the running OP-01 HTTPS fixture."""
+import asyncio
 import base64
 import hashlib
 import json
@@ -694,7 +695,18 @@ async def check_music(page, view, owner, client, base, token):
         assert await counts() == (1, 1)
         await page.get_by_role('button', name='Открыть задание ' + job, exact=True).click()
         await expect(page.locator('#job-status')).to_have_text('Завершено')
-        await page.get_by_role('button', name='Показать результат').click()
+        refreshed = asyncio.Event()
+
+        async def delay_library(route):
+            await refreshed.wait()
+            await route.continue_()
+
+        await page.route(lambda url: url == base + '/api/v1/works?page=0', delay_library, times=1)
+        try:
+            await page.get_by_role('button', name='Показать результат').click()
+            await expect(page.locator('#works > li')).to_have_count(0)
+        finally:
+            refreshed.set()
         await expect(work).to_be_visible()
         replay = await client.post(base + '/api/v1/jobs', json={'quote_id': job},
                                    headers={**headers, 'Idempotency-Key': job})
