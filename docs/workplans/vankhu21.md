@@ -4,17 +4,23 @@
 
 Позиции воспроизведены из исторического личного списка ce973001 и сохраняются. Текущая готовность и зависимости берутся из [канонического реестра](../planning/completion-level-register.json); нумерация не меняет приоритет задач. Исторические формулировки сохранены в [исходном реестре](../planning/historical-tasks-v1.json). Действует [регламент уровней](../planning/COMPLETION_LEVELS.md).
 
+## Действующий режим владельца — 26.11.2026
+
+Все задачи этого списка выполняются на уровне `FUNCTIONAL_TEST`. Общий облачный инспектор распределяет крупные пакеты между доступными агентами; во время реализации ожидание второго разработчика не требуется. Промежуточные PR и результаты сохраняются для единого финального перекрёстного аудита. Исторический владелец списка сохраняется независимо от фактического исполнителя.
+
+Каждое задание и каждый отчёт содержат TASK_ID, порядковый номер в историческом списке и номер MASTER. Пример: `[vankhu21 #35 | MASTER #57 | RF-03] — Реферальные экраны — FUNCTIONAL_TEST`. Для пакета перечисляются все задачи в этом формате. Требования последующих уровней фиксируются в существующем `deferred_work`.
+
 ## IMPLEMENTATION_STATUS и COMPLETED_LEVEL
 
-`IMPLEMENTATION_STATUS` описывает ход работы и текущую готовность кандидата; `COMPLETED_LEVEL` остаётся `null`, пока кандидат не прошёл общую приёмку, не получил отдельное разрешение владельца и не включён в `main`. Успешный CI, локальный demo и включение в интеграционную ветку сами по себе уровень не закрывают.
+`IMPLEMENTATION_STATUS` описывает ход работы и готовность кандидата. `COMPLETED_LEVEL` остаётся `null` до двух независимых глобальных аудитов одного итогового SHA/TREE, прохождения обязательных проверок и разрешённого владельцем единого merge в `main`. После этого для подтверждённых задач указывается `FUNCTIONAL_TEST` и формулировка «Завершено как [Функционально-тестовый уровень]».
 
 ## TARGET_LEVEL и критерии завершения
 
-| TARGET_LEVEL | Критерий |
-| --- | --- |
-| FUNCTIONAL_TEST | Основной сценарий работает, доступен простой демонстрационный интерфейс и минимальная функциональная проверка. |
-| STANDARD | FUNCTIONAL_TEST плюс типовые ошибки, базовая безопасность и ограниченная пользовательская приёмка. |
-| HIGH_PRODUCTION | STANDARD плюс глубокая безопасность, надёжность, производительность и эксплуатационная готовность. |
+| TARGET_LEVEL | Критерий | Формулировка после двух глобальных аудитов и merge в main |
+| --- | --- | --- |
+| FUNCTIONAL_TEST | Быстрый прототип: основной сценарий, простой демонстрационный интерфейс и минимальная проверка; сложные сценарии и дополнительное production-усиление отложены, критические гарантии сохранены. | Завершено как [Функционально-тестовый уровень] |
+| STANDARD | Базовая эксплуатация в небольшом масштабе, типичные ошибки и обычные поверхностные уязвимости; глубокая проработка относится к следующему уровню. | Завершено как [Уровень стандарт] |
+| HIGH_PRODUCTION | Максимально полная обоснованная проработка сложных сценариев, безопасности, надёжности, производительности и эксплуатации. | Завершено как [Уровень высокий продакшн] |
 
 Уровень в колонке `TARGET_LEVEL` — цель задачи, а не завершённость. `COMPLETED_LEVEL` заполняется только после глобальной приёмки и разрешённого merge.
 
@@ -52,24 +58,24 @@
 | 21 | 33 | MC-02 | Общие карточки и schema-driven параметры каталога | MC-01, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 22 | 34 | PC-01 | Уточнить токены, XTR, RUB и immutable quote | IN-19 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 23 | 35 | PC-02 | Preview и publish versioned тарифов | PC-01, AD-02 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 24 | 39 | IM-01 | Повторить штатный image путь с ordinary user | IN-19, PC-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 25 | 40 | IM-02 | Три live изображения и временный отказ | IM-01, ML-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 24 | 39 | IM-01 | Повторить штатный image путь с ordinary user | IN-19, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 25 | 40 | IM-02 | Три live изображения и временный отказ | IM-01, ML-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 26 | 41 | VI-01 | Согласовать video create/poll и финальный расчёт | JO-03, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 27 | 42 | VI-02 | Video формы двух клиентов и разрешённая приёмка | VI-01, AP-03, MC-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 28 | 44 | VO-02 | Voice UI и E2E двух клиентов | VO-01, AP-03, MC-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 29 | 46 | MU-02 | Music UI, library и разрешённый live proof | MU-01, AP-03, MC-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
-| 30 | 49 | ML-03 | Пять строк Telegram и карточки Mini App | ML-02, MA-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 30 | 49 | ML-03 | Пять строк Telegram и карточки Mini App | ML-02, MA-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 31 | 50 | WL-01 | Проверить атомарный reserve/capture/release/refund | JO-03, PC-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 32 | 52 | PY-01 | Проверить existing Stars checkout на одном конфиге | IN-19, PC-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
 | 33 | 53 | PY-02 | Проверить Platega callback/reconcile без Telegram checkout | IN-19 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 34 | 54 | PY-03 | Mini App Stars и payment history | AP-01, PY-01, MA-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 35 | 57 | RF-03 | Реферальные экраны и API обоих клиентов | RF-02, AP-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 35 | 57 | RF-03 | Реферальные экраны и API обоих клиентов | RF-02, AP-01 | IN_PROGRESS | FUNCTIONAL_TEST | — |
 | 36 | 60 | SL-03 | Support/legal/profile в двух клиентах | SL-01, SL-02, MA-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
 | 37 | 63 | SE-03 | Независимая regression security двух клиентов | SE-02, AD-03, MA-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
 | 38 | 65 | TQ-02 | Сквозная parity/regression matrix четырёх студий | MA-04, TA-02, WL-02, SE-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
 | 39 | 71 | OB-03 | Dashboard отчётов и управляемые incident alerts | OB-02, AD-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
 | 40 | 75 | RL-02 | Провести ограниченный коммерческий user journey | RL-01, TQ-02, OP-03, OB-03 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 41 | 81 | AU-02 | Доказать передачу и повторный аудит без потери истории | AU-01 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 41 | 81 | AU-02 | Доказать передачу и повторный аудит без потери истории | AU-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 
 ## PY-02 · №33 · ограниченная сверка — 19.11.2026
 
