@@ -370,7 +370,17 @@
             "description": "Сессия отсутствует, истекла или недействительна"
           },
           "403": {
-            "description": "Нет доступа или согласия"
+            "description": "Требуется допущенная активная учётная запись Telegram"
+          },
+          "428": {
+            "description": "Требуется согласие с действующей версией",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDocuments"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -385,6 +395,10 @@
                 "properties": {
                   "initData": {
                     "type": "string"
+                  },
+                  "terms_version": {
+                    "type": "string",
+                    "description": "Принятая версия условий, полученная в ответе 428."
                   }
                 }
               }
@@ -1544,6 +1558,51 @@
           }
         }
       }
+    },
+    "/api/v1/profile": {
+      "get": {
+        "summary": "Профиль и документы текущего пользователя",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "telegram_id": {
+                      "type": "string"
+                    },
+                    "terms_accepted": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "documents": {
+                      "$ref": "#/components/schemas/ConsentDocuments"
+                    }
+                  },
+                  "required": [
+                    "telegram_id",
+                    "terms_accepted",
+                    "documents"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Недействительная сессия"
+          },
+          "403": {
+            "description": "Нет доступа или согласия"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1660,6 +1719,29 @@
           "model_id",
           "operation",
           "visibility"
+        ]
+      },
+      "ConsentDocuments": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "terms": {
+            "type": "string"
+          },
+          "privacy": {
+            "type": "string"
+          },
+          "test_only": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "version",
+          "terms",
+          "privacy",
+          "test_only"
         ]
       }
     }
