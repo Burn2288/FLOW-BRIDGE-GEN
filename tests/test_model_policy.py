@@ -32,9 +32,11 @@ async def test_modes_and_legacy_migration(env):
         VALUES('anymodel','fish-farm/s2.1-pro-free','fixed',15),('clodex','','percent',5)
         """)
     async with pool.acquire() as c,c.transaction():
-        await c.execute('DROP TABLE task_markup_modes, approved_models')
-        migration=Path(__file__).resolve().parents[1]/'migrations'/'024_approved_models.sql'
-        await c.execute(migration.read_text(encoding='utf-8'))
+        await c.execute('DROP TABLE task_markup_modes, approved_models, model_visibility_events')
+        await c.execute('DROP FUNCTION restore_model_visibility_on_admission()')
+        migrations = Path(__file__).resolve().parents[1] / 'migrations'
+        for migration in ('024_approved_models.sql', '061_model_visibility.sql'):
+            await c.execute((migrations / migration).read_text(encoding='utf-8'))
     assert await pool.fetchval("SELECT mode FROM task_markup_modes WHERE model_id=$1",fish.model)=='manual'
     await app.callback(user,100,'ours:anymodel:0')
     assert 'Ручная наценка 15 токенов' in app.bot.sent[-1][0]

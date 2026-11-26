@@ -304,7 +304,7 @@ async function start(termsVersion) {
     try {
       const session = await request('/api/v1/session', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({initData: telegram.initData, terms_version: termsVersion}),
+        body: JSON.stringify({initData: telegram.initData, terms_version: termsVersion ?? null}),
       });
       token = (await session.json()).token;
     } catch (error) {

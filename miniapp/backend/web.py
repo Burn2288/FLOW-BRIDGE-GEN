@@ -104,6 +104,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             except Rejected:
                 raise web.HTTPForbidden(text='Сначала откройте бот через /start.') from None
             needs_consent = not await service.has_current_consent(conn, user)
+            if needs_consent and 'terms_version' not in body:
+                raise web.HTTPForbidden(text='Сначала откройте бот и примите условия.')
             if needs_consent and body.get('terms_version') != CURRENT_VERSION:
                 return web.json_response(service.get_consent_documents(), status=428)
             await conn.execute('DELETE FROM miniapp_sessions WHERE expires_at<=now()')
