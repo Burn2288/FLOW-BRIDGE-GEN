@@ -23,11 +23,12 @@ def fixture_environment():
     if (db.scheme != "postgresql" or db.netloc != "postgres:isolated-test-only@127.0.0.1:5432"
             or db.path != "/flowbridge_dev" or db.query or db.fragment):
         raise SystemExit("DEV requires its dedicated loopback flowbridge_dev database")
+    root = Path(__file__).resolve().parents[1]
     env = {key: os.environ[key] for key in ("PATH", "HOME", "LANG", "AUDIO_STORAGE_DIR")
            if key in os.environ}
     return env | {
         "DATABASE_URL": dsn,
-        "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+        "PYTHONPATH": os.pathsep.join((str(root / "src"), str(root))),
         "PYTHONUNBUFFERED": "1",
         "PROVIDER_MODE": "mock",
         "GENERATION_ENABLED": "true",

@@ -25,7 +25,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/flowbridge_dev
       AUDIO_STORAGE_DIR: /home/tester/data/audio
-      PYTHONPATH: /app/src
+      PYTHONPATH: /app/src:/app
     depends_on:
       db:
         condition: service_healthy
