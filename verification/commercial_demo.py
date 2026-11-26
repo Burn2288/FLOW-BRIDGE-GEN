@@ -87,7 +87,7 @@ async def run(args):
             await referrals(owner, args.artifacts)
 
             operator_context = await browser.new_context(viewport={'width': 1280, 'height': 900})
-            operator = await open_client(operator_context, base, args.operator)
+            operator = await open_client(operator_context, base, args.operator, accept_terms=True)
             await support(owner, operator, base, args.artifacts)
         finally:
             await browser.close()
