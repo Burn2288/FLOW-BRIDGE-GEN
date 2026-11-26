@@ -242,6 +242,39 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             raise web.HTTPServiceUnavailable() from None
         return web.json_response(result)
 
+    async def admin_flux_tariff(request):
+        import asyncpg
+        from elevenbot import fixture_tariff
+
+        session_token(request)
+        try:
+            if request.method == 'POST':
+                async with pool.acquire() as conn:
+                    await fixture_tariff.authorize(conn, await account(request, conn))
+                body = await request.json()
+                confirm = request.match_info['action'] == 'confirm'
+                required = {'amount', 'expected_version', 'request_id'} if confirm else {'amount'}
+                if not isinstance(body, dict) or not required <= body.keys() <= required | {'rollback_of'}:
+                    raise ValueError('Invalid tariff fields')
+            async with pool.acquire() as conn, conn.transaction():
+                actor = await account(request, conn)
+                if request.method in ('GET', 'HEAD'):
+                    result = await fixture_tariff.get(conn, actor)
+                elif confirm:
+                    result = await fixture_tariff.confirm(conn, actor, body['amount'], body['expected_version'],
+                        UUID(body['request_id']), rollback_of=body.get('rollback_of'))
+                else:
+                    result = await fixture_tariff.preview(conn, actor, body['amount'], rollback_of=body.get('rollback_of'))
+        except fixture_tariff.TariffDenied:
+            raise web.HTTPForbidden(text='Тестовый тариф доступен только владельцу стенда.') from None
+        except fixture_tariff.TariffConflict:
+            raise web.HTTPConflict(text='Версия или состояние тарифа изменились. Откройте новый предпросмотр.') from None
+        except (TypeError, ValueError, AttributeError):
+            raise web.HTTPBadRequest() from None
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return web.json_response(result)
+
     def support_json(value):
         # Support DTOs contain only database timestamps, UUIDs and bounded text.
         return web.json_response(value, dumps=lambda item: json.dumps(item, default=str))
@@ -513,6 +546,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_get('/api/v1/admin/capabilities', admin_capabilities)
     app.router.add_get('/api/v1/admin/model-visibility', admin_model_visibility)
     app.router.add_post('/api/v1/admin/model-visibility/{action:preview|confirm}', admin_model_visibility)
+    app.router.add_get('/api/v1/admin/flux-tariff', admin_flux_tariff)
+    app.router.add_post('/api/v1/admin/flux-tariff/{action:preview|confirm}', admin_flux_tariff)
     app.router.add_get('/api/v1/admin/operations', operations_report)
     app.router.add_get('/api/v1/admin/objects/{section}', operations_objects)
     app.router.add_post('/api/v1/admin/support/reply', support_reply)

@@ -910,6 +910,112 @@ function appendModelVisibility(container, current) {
   });
 }
 
+function appendFixtureTariff(container, current) {
+  const path = '/api/v1/admin/flux-tariff';
+  const panel = document.createElement('section');
+  panel.className = 'fixture-tariff';
+  const title = document.createElement('h2');
+  title.textContent = 'Тестовый тариф FLUX Schnell';
+  const summary = document.createElement('p');
+  const audit = document.createElement('p');
+  const notice = document.createElement('p');
+  notice.setAttribute('role', 'status');
+  const preview = document.createElement('button');
+  const approve = document.createElement('button');
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Отменить предпросмотр';
+  panel.append(title, summary, audit, preview, approve, cancel, notice);
+  container.append(panel);
+
+  let state;
+  let pending;
+  let busy = false;
+  const send = async (suffix, value) => (await request(path + '/' + suffix, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(value),
+  })).json();
+  const render = () => {
+    const rollback = state?.amount === 3;
+    preview.textContent = rollback ? 'Предпросмотр отката' : 'Предпросмотр публикации';
+    approve.textContent = rollback ? 'Подтвердить откат' : 'Подтвердить публикацию';
+    preview.disabled = busy || !state;
+    preview.hidden = Boolean(pending);
+    approve.hidden = cancel.hidden = !pending;
+    approve.disabled = cancel.disabled = busy;
+  };
+  function display(value) {
+    state = value;
+    summary.textContent = 'images.generate · n=1 · ' + value.amount + ' токена за запрос · версия ' + value.version;
+    if (value.audit) {
+      const event = value.audit;
+      audit.textContent = 'Аудит · версия ' + event.version + ' · ' + event.previous_amount + ' → ' +
+        event.amount + ' · оператор ' + event.actor_id + ' · ' + new Date(event.recorded_at).toLocaleString('ru-RU') +
+        (event.rollback_of ? ' · откат версии ' + event.rollback_of : '');
+    } else {
+      audit.textContent = 'Публикаций пока нет.';
+    }
+  }
+  async function load() {
+    const value = await (await request(path)).json();
+    if (current()) display(value);
+  }
+  async function action(run) {
+    if (!current() || busy) return;
+    busy = true;
+    render();
+    try {
+      await run();
+    } catch (error) {
+      if (!current()) return;
+      if (error.status === 409) {
+        state = pending = null;
+        notice.textContent = 'Версия или состояние тарифа изменились. Откройте новый предпросмотр.';
+        await load().catch(() => {});
+      } else if (error.status === 401 || error.status === 403) {
+        state = pending = null;
+        summary.textContent = audit.textContent = '';
+        notice.textContent = 'Тестовый тариф доступен только владельцу стенда.';
+      } else {
+        notice.textContent = error.message;
+      }
+    } finally {
+      busy = false;
+      render();
+    }
+  }
+  preview.onclick = () => {
+    void action(async () => {
+      const value = state.amount === 2 ? {amount: 3} : {amount: 2, rollback_of: state.version};
+      const draft = await send('preview', value);
+      if (!current()) return;
+      pending = {...value, expected_version: draft.version, request_id: crypto.randomUUID()};
+      notice.textContent = 'Предпросмотр · ' + draft.amount + ' → ' + draft.desired_amount + ' токена за запрос.';
+    });
+  };
+  approve.onclick = () => {
+    void action(async () => {
+      const result = await send('confirm', pending);
+      if (!current()) return;
+      notice.textContent = pending.rollback_of ? 'Тариф восстановлен.' : 'Тариф опубликован.';
+      pending = null;
+      display(result);
+    });
+  };
+  cancel.onclick = () => {
+    pending = null;
+    notice.textContent = '';
+    render();
+  };
+  render();
+  void action(async () => {
+    try {
+      await load();
+    } catch (error) {
+      if (current() && error.status === 403) panel.remove();
+      else throw error;
+    }
+  });
+}
+
 let adminRequest = 0;
 const operationsFields = {
   registered_users: 'Пользователи',
@@ -1111,6 +1217,7 @@ async function showAdministration() {
   let canReply = false;
   let canSetVisibility = false;
   let canReadOperations = false;
+  let canPublishFixture = false;
   try {
     const auth = await request('/api/v1/admin/capabilities');
     const authority = await auth.json();
@@ -1119,6 +1226,8 @@ async function showAdministration() {
     if (canReply) appendOperatorReply(report, current);
     canSetVisibility = authority.capabilities.includes('settings.visibility');
     if (canSetVisibility) appendModelVisibility(report, current);
+    canPublishFixture = authority.capabilities.includes('pricing.publish_fixture');
+    if (canPublishFixture) appendFixtureTariff(report, current);
     canReadOperations = authority.capabilities.includes('operations.read');
     if (!canReadOperations) {
       notice.textContent = canSetVisibility ? 'Настройки каталога' : canReply ? 'Поддержка' : 'Нет доступа к административному обзору.';
@@ -1136,7 +1245,7 @@ async function showAdministration() {
     notice.textContent = 'Обзор за 7 дней · ' + authority.role;
   } catch (error) {
     if (!current()) return;
-    if ((!canReply && !canSetVisibility && !canReadOperations) || error.status === 401 || error.status === 403) {
+    if ((!canReply && !canSetVisibility && !canReadOperations && !canPublishFixture) || error.status === 401 || error.status === 403) {
       report.replaceChildren();
     }
     notice.textContent = 'Обзор недоступен. ' + error.message;

@@ -75,7 +75,8 @@ ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠
 SUPPORT_ROUTES={'support','supportlist','supportread'}
 VISIBILITY_ROUTES={'modelvis','modelvisconfirm'}
 OPERATIONS_ROUTES={'opobjects','opobject','opoverview','ophelp'}
-SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|SUPPORT_ROUTES|OPERATIONS_ROUTES|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
+FIXTURE_TARIFF_ROUTES={'fluxtariff','fluxtariffpreview','fluxtariffconfirm'}
+SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|SUPPORT_ROUTES|OPERATIONS_ROUTES|FIXTURE_TARIFF_ROUTES|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
 CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','🛠 Функции',MENU[0],OPEN_CATALOGUE)
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
@@ -132,6 +133,7 @@ class TelegramApp:
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.consent_offers = {}
         self.visibility_previews = {}
+        self.fixture_tariff_previews = {}
         self.operation_object_choices = {}
         self.admin_access=AdminAccess()
         self.navigation = Navigation(pool,bot)
@@ -597,7 +599,7 @@ class TelegramApp:
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
-                        or data.partition(':')[0] in SUPPORT_ROUTES|VISIBILITY_ROUTES|OPERATIONS_ROUTES
+                        or data.partition(':')[0] in SUPPORT_ROUTES|VISIBILITY_ROUTES|OPERATIONS_ROUTES|FIXTURE_TARIFF_ROUTES
                         or command in RATE_COMMANDS or command in ('/miniapp','/referral'))
             if update.callback_query:
                 e=update.callback_query
@@ -705,6 +707,10 @@ class TelegramApp:
                 return
             if command=='/model_visibility':
                 await self.visibility_command(u,ext,text.split()[1:])
+                return
+            if command=='/flux_tariff':
+                from .telegram_fixture_tariff import show
+                await show(self,u,ext)
                 return
             if command=='/operations':
                 parts=text.split()[1:]
@@ -1128,6 +1134,8 @@ class TelegramApp:
             rows.append([('Очередь поддержки','ophelp')])
         if has_capability(authority,'settings.visibility'):
             rows.append([('Видимость моделей','modelvis:0')])
+        if has_capability(authority,'pricing.publish_fixture'):
+            rows.append([('Тариф FLUX Schnell','fluxtariff')])
         await self.catalogue_screen(ext,'\n'.join(lines),buttons(rows),panel='operations')
 
     async def callback(self,u,ext,data,*,request_id=None,defer_tasks=False):
@@ -1153,6 +1161,10 @@ class TelegramApp:
             from .telegram_operations import show_support
             ticket=data.partition(':')[2]
             await show_support(self,u,ext,UUID(ticket) if ticket else None)
+            return
+        if route in FIXTURE_TARIFF_ROUTES:
+            from .telegram_fixture_tariff import show
+            await show(self,u,ext,route,data.partition(':')[2])
             return
         if route=='modelvis':
             await self.visibility_command(u,ext,[data.partition(':')[2]])
