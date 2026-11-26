@@ -118,3 +118,32 @@ async def test_support_reply_is_owned_and_revocable(env):
     assert history['status']=='answered'
     assert {item['body'] for item in history['messages']}=={'Synthetic request','Synthetic reply'}
     assert await pool.fetchval('SELECT count(*) FROM support_operator_replies')==1
+
+
+async def test_telegram_operations_report_uses_current_database_role(env):
+    from elevenbot.telegram import TelegramApp
+    from test_admin_access import event
+    from test_ui import Bot
+
+    pool, cfg, _, actor = env
+    first = TelegramApp(pool, cfg, Bot())
+    second = TelegramApp(pool, cfg, Bot())
+    await first.handle(event(600, '/operations'))
+    assert first.bot.sent[-1][0] == 'Обзор операций недоступен.'
+    await pool.execute("""
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,'READ_ONLY_ADMIN','synthetic grant')
+    """, actor)
+    await first.handle(event(601, '/operations'))
+    text = first.bot.sent[-1][0]
+    assert 'Пользователи сейчас: 1' in text and 'В очереди сейчас: 0' in text
+    assert 'Модели:' in text and 'Платежи:' in text
+    await second.handle(event(602, '/operations'))
+    assert second.bot.sent[-1][0] == text
+    await pool.execute("""
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,NULL,'synthetic revoke')
+    """, actor)
+    for index, app in enumerate((first, second), start=603):
+        await app.handle(event(index, '/operations'))
+        assert app.bot.sent[-1][0] == 'Обзор операций недоступен.'

@@ -1,7 +1,7 @@
 from contextvars import ContextVar
 """Telegram transport. Durable inbox polling; business rules live in core."""
 import asyncio,hashlib,json,re,time
-from datetime import datetime,timezone
+from datetime import datetime,timedelta,timezone
 from hmac import compare_digest
 from pathlib import Path
 from uuid import UUID, uuid4, uuid5
@@ -703,6 +703,9 @@ class TelegramApp:
             if command=='/model_visibility':
                 await self.visibility_command(u,ext,text.split()[1:])
                 return
+            if command=='/operations':
+                await self.operations_screen(u,ext)
+                return
             if command=='/paysupport':
                 await self.say(ext,self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
             if command in ('/admit','/revoke','/markup_value'):
@@ -1060,6 +1063,47 @@ class TelegramApp:
         text=f"Видимость сохранена: {row['visibility']} · версия {row['version']}"
         await self.catalogue_screen(ext,text,buttons([[('← Модели','modelvis:0')]]),panel='model_visibility')
         self.visibility_previews.pop(ext,None)
+
+    async def operations_screen(self,u,ext):
+        from .admin_authority import current_capabilities, has_capability
+        from .operations_read_model import read_operations_report
+
+        async with self.pool.acquire() as conn:
+            authority=await current_capabilities(conn,u)
+        if not has_capability(authority,'operations.read'):
+            raise Rejected('Обзор операций недоступен.')
+        end=datetime.now(timezone.utc)
+        report=await read_operations_report(self.pool,end-timedelta(days=1),end,limit=4)
+        state=report['current_state']
+        coverage=report['provider_cost_coverage']
+        lines=[
+            'Обзор операций · за последние 24 ч (UTC)',
+            f"Пользователи сейчас: {state['registered_users']}",
+            f"В очереди сейчас: {state['legacy_queued_jobs']+state['quoted_pending_tasks']}",
+            f"В работе или на сверке: {state['legacy_running_or_uncertain']+state['quoted_running_or_uncertain']}",
+            f"Резерв live-кошельков: {state['live_reserved_tokens']} токенов",
+            f"Задач без данных о расходе: {coverage['without_cost_or_bill_evidence']} "
+            f"из {coverage['accepted_task_count']} принятых",
+            f"Реферальных платежей к сверке: {state['referral_payment_review_cases']}",
+        ]
+        models=report['tasks_by_provider_and_model']
+        lines.append('\nМодели:')
+        for row in models['groups']:
+            lines.append(f"{row['provider'][:64]} · {row['model_id'][:120]} · задач {row['task_count']}")
+        if not models['groups']:
+            lines.append('Задач нет.')
+        if models['truncated']:
+            lines.append(f"Показано {len(models['groups'])} из {models['group_count']} групп.")
+        payments=report['payments']
+        lines.append('\nПлатежи:')
+        for row in payments['groups']:
+            lines.append(f"{row['local_day']} · {row['provider']} · {row['status']} · {row['payment_count']} "
+                         f"на сумму {row['order_amount']} {row['currency']}")
+        if not payments['groups']:
+            lines.append('Платежей нет.')
+        if payments['truncated']:
+            lines.append(f"Показано {len(payments['groups'])} из {payments['group_count']} групп.")
+        await self.say(ext,'\n'.join(lines))
 
     async def callback(self,u,ext,data,*,request_id=None,defer_tasks=False):
         route=data.partition(':')[0]
@@ -2634,6 +2678,7 @@ async def register_commands(bot, admin_ids):
             BotCommand(command='referral',description='Код приглашения'),
             BotCommand(command='cancel',description='Отменить текущее действие')]
     admin = [*base,BotCommand(command='price_report',description='Отчёт по ценам и расходам'),
+             BotCommand(command='operations',description='Обзор операций'),
              BotCommand(command='model_visibility',description='Видимость моделей'),
              BotCommand(command='admin',description='Войти в админку'),
              BotCommand(command='admin_logout',description='Выйти из админки')]
