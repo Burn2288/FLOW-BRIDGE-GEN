@@ -6,15 +6,28 @@ import uuid
 from .referral_reward_policy import CaptureFunding, reward_tokens
 
 
-def functional_test_enabled():
+_DEV_DATABASE_URL = 'postgresql://postgres:isolated-test-only@127.0.0.1:5432/flowbridge_dev'
+
+
+def functional_test_database():
     if os.environ.get('RF02_FUNCTIONAL_TEST') != 'YES':
-        return False
+        return None
+    # The isolated launcher sets this only after validating the dedicated fixed DSN.
+    if (os.environ.get('FLOWBRIDGE_DEV_FIXTURE') == 'YES'
+            and os.environ.get('DATABASE_URL') == _DEV_DATABASE_URL
+            and not os.environ.get('TEST_DATABASE_URL')
+            and not os.environ.get('DATABASE_MIGRATION_URL')):
+        return 'flowbridge_dev'
     from scripts.disposable_test_db import require_disposable_dsn
     try:
         require_disposable_dsn(os.environ)
     except ValueError:
-        return False
-    return True
+        return None
+    return 'elevenbot_test'
+
+
+def functional_test_enabled():
+    return functional_test_database() is not None
 
 
 async def lock_referral_settlement(conn):
@@ -81,11 +94,17 @@ async def post_task_rewards(conn, quote_id=None):
     Call inside a transaction. Serialize posts on the immutable capture row
     and the referrer's wallet; the unique reward identity also protects replay.
     """
-    if not functional_test_enabled():
+    database = functional_test_database()
+    if database is None:
         return
     if not conn.is_in_transaction():
         raise RuntimeError('referral reward requires a transaction')
-    if await conn.fetchval('SELECT current_database()') != 'elevenbot_test':
+    if not await conn.fetchval("""
+        SELECT current_database()=$1::text AND (
+            $1<>'flowbridge_dev' OR
+            (session_user='postgres' AND inet_server_addr()='127.0.0.1'::inet AND inet_server_port()=5432)
+        )
+    """, database):
         return
     await lock_referral_settlement(conn)
     rows = await conn.fetch("""
