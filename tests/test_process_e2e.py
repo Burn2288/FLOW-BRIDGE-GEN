@@ -6,7 +6,10 @@ import pytest
 from pathlib import Path
 from urllib.parse import urlsplit,urlunsplit,parse_qsl,urlencode
 from aiohttp import web
-from elevenbot.telegram import MENU
+from aiohttp.test_utils import TestClient, TestServer
+from dataclasses import replace
+from miniapp.backend.web import create_app
+from miniapp.tests.test_miniapp import signed
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -106,7 +109,13 @@ async def test_bot_worker_process_mock_e2e(env,runtime_role):
         async def sent():
             return await pool.fetchval("SELECT platform_message_id FROM deliveries WHERE job_id=$1 AND status='sent'", job)
         assert await wait_for(sent, 'Restarted gateway did not deliver the saved audio')
-        assert Path(cfg.storage/row['storage_key']).is_file()
+        artifact = Path(cfg.storage / row['storage_key']).read_bytes()
+        async with TestClient(TestServer(create_app(pool, replace(cfg, token='fixture')))) as client:
+            session = await client.post('/api/v1/session', json={'initData': signed('fixture', 100)})
+            assert session.status == 200
+            token = (await session.json())['token']
+            response = await client.get(f'/api/v1/works/audio/{job}', headers={'Authorization': f'Bearer {token}'})
+            assert response.status == 200 and await response.read() == artifact
         assert received.count('sendaudio')==1
         assert received.count('sendphoto')==1
         assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='capture'")==1
