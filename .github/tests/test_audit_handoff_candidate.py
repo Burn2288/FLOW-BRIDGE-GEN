@@ -64,6 +64,13 @@ class CandidateGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inventory mismatch"):
             self.validate()
 
+    def test_hardlinked_artifact(self):
+        import os
+        source = next(self.payload.rglob('*.md'))
+        os.link(source, source.with_suffix('.link'))
+        with self.assertRaisesRegex(ValueError, 'unshared'):
+            self.validate()
+
     def test_unregistered_artifact(self):
         (self.payload / "unexpected.txt").write_bytes(b"unregistered")
         with self.assertRaisesRegex(ValueError, "inventory mismatch"):

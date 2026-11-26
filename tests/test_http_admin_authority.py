@@ -13,7 +13,7 @@ async def test_http_role_is_not_pilot_admission_and_revocation_is_immediate(env)
     path = '/api/v1/admin/capabilities'
     report_path = '/api/v1/admin/operations?start=2026-01-01T00:00:00Z&end=2026-01-02T00:00:00Z'
     async with TestClient(TestServer(create_app(pool,cfg))) as first, TestClient(TestServer(create_app(pool,cfg))) as second:
-        response = await first.post('/api/v1/session', json={'initData': signed_start(cfg.token,100,'')})
+        response = await first.post('/api/v1/session', json={'initData': signed_start(cfg.token,100,'fixture-admin-launch')})
         assert response.status == 200
         headers = {'Authorization': 'Bearer ' + (await response.json())['token']}
         assert (await first.get(path, headers=headers)).status == 403
