@@ -84,6 +84,56 @@ async def create(client, headers, quote_id, key='fixture_key_01'):
     return await client.post('/api/v1/jobs', headers=headers | {'Idempotency-Key':key}, json={'quote_id':quote_id})
 
 
+async def test_http_price_fields_are_rejected_without_financial_side_effects(image_api):
+    pool, users, client, headers, posts, deferred, _, _ = image_api
+    owner, foreign = headers
+    quote_request = {'model': 'flux-schnell', 'prompt': 'fixture contract check'}
+    job_headers = owner | {'Idempotency-Key': 'fixture_price_contract'}
+    extra_fields = ({'price': {'total': '1'}}, {'total': '1'})
+
+    async def wallet_balances():
+        return await pool.fetch(
+            "SELECT user_id,available,reserved FROM wallets WHERE mode='live' ORDER BY user_id"
+        )
+
+    opening_wallets = await wallet_balances()
+    assert [(r['available'], r['reserved']) for r in opening_wallets] == [(100, 0), (100, 0)]
+    opening_ledger = await pool.fetch('SELECT * FROM ledger ORDER BY id')
+    for extra in extra_fields:
+        response = await client.post('/api/v1/quotes', headers=owner, json={**quote_request, **extra})
+        assert response.status == 400
+    assert not await pool.fetchval('SELECT count(*) FROM task_price_quotes')
+
+    response = await client.post('/api/v1/quotes', headers=owner, json=quote_request)
+    assert response.status == 201
+    quote_data = await response.json()
+    quote_id = quote_data['quote_id']
+    assert quote_data['price']['total'] == '10'
+    for extra in extra_fields:
+        response = await client.post('/api/v1/jobs', headers=job_headers, json={'quote_id': quote_id, **extra})
+        assert response.status == 400
+    assert (await create(client, foreign, quote_id, 'fixture_price_contract')).status == 404
+    assert await wallet_balances() == opening_wallets
+    assert await pool.fetch('SELECT * FROM ledger ORDER BY id') == opening_ledger
+    assert not await pool.fetchval('SELECT count(*) FROM task_dispatch')
+    assert not await pool.fetchval('SELECT count(*) FROM http_image_commands')
+    assert not posts and not deferred
+
+    response = await client.post('/api/v1/jobs', headers=job_headers, json={'quote_id': quote_id})
+    assert response.status == 201
+    await deferred.pop()()
+    assert posts == ['/v1/images/generations']
+    balances = {r['user_id']: (r['available'], r['reserved']) for r in await wallet_balances()}
+    assert balances == {users[0]: (90, 0), users[1]: (100, 0)}
+    movements = await pool.fetch("""
+        SELECT user_id,kind,da,dr FROM ledger WHERE task_quote_id=$1::uuid ORDER BY kind
+    """, quote_id)
+    assert [tuple(row) for row in movements] == [
+        (users[0], 'task_capture', 0, -10),
+        (users[0], 'task_reserve', -10, 10),
+    ]
+
+
 async def test_http_image_end_to_end_idempotency_and_isolation(image_api):
     pool, users, client, headers, posts, deferred, _, _ = image_api
     q = await quote(client, headers[0])
