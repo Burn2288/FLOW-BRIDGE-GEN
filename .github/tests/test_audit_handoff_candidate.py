@@ -87,7 +87,7 @@ class CandidateGateTests(unittest.TestCase):
             self.validate()
 
     def test_historical_owner_cannot_replace_trusted_executor(self):
-        self.manifest["developer"] = "other-owner"
+        self.manifest["developer"] = "vankhu21"
         with self.assertRaisesRegex(ValueError, "trusted executor"):
             self.validate()
 
