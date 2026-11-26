@@ -1110,6 +1110,7 @@ async function showAdministration() {
   notice.textContent = 'Проверяем полномочия…';
   let canReply = false;
   let canSetVisibility = false;
+  let canReadOperations = false;
   try {
     const auth = await request('/api/v1/admin/capabilities');
     const authority = await auth.json();
@@ -1118,10 +1119,12 @@ async function showAdministration() {
     if (canReply) appendOperatorReply(report, current);
     canSetVisibility = authority.capabilities.includes('settings.visibility');
     if (canSetVisibility) appendModelVisibility(report, current);
-    if (!authority.capabilities.includes('operations.read')) {
+    canReadOperations = authority.capabilities.includes('operations.read');
+    if (!canReadOperations) {
       notice.textContent = canSetVisibility ? 'Настройки каталога' : canReply ? 'Поддержка' : 'Нет доступа к административному обзору.';
       return;
     }
+    appendOperatorObjects(report, current);
     notice.textContent = 'Загружаем обзор за 7 дней…';
     const end = new Date();
     const start = new Date(end.getTime() - 7 * 86400000);
@@ -1129,12 +1132,13 @@ async function showAdministration() {
     const response = await request('/api/v1/admin/operations?' + query);
     const data = await response.json();
     if (!current()) return;
-    appendOperatorObjects(report, current);
     appendOperationsReport(report, data);
     notice.textContent = 'Обзор за 7 дней · ' + authority.role;
   } catch (error) {
     if (!current()) return;
-    if ((!canReply && !canSetVisibility) || error.status === 401 || error.status === 403) report.replaceChildren();
+    if ((!canReply && !canSetVisibility && !canReadOperations) || error.status === 401 || error.status === 403) {
+      report.replaceChildren();
+    }
     notice.textContent = 'Обзор недоступен. ' + error.message;
   }
 }

@@ -15,7 +15,7 @@ async function until(predicate) {
   assert.fail('condition was not reached');
 }
 
-test('support remains usable when operations report fails, but disappears when access is denied', async () => {
+test('operator tools remain usable when the aggregate report fails and disappear on access denial', async () => {
   const elements = new Map();
   const element = selector => {
     if (!elements.has(selector)) elements.set(selector, {
@@ -40,6 +40,7 @@ test('support remains usable when operations report fails, but disappears when a
     if (url === '/api/v1/settings') return response({theme: 'dark'});
     if (url === '/api/v1/admin/capabilities') return response({role: 'OWNER_ADMIN', capabilities: ['operations.read', 'support.operate']});
     if (url === '/api/v1/admin/support') return response({tickets: []});
+    if (url.startsWith('/api/v1/admin/objects/users?')) return response({items: [], has_more: false, truncated: false});
     if (url.startsWith('/api/v1/admin/operations?')) return response({}, reportStatus);
     assert.fail(`unexpected request ${url}`);
   }
@@ -51,7 +52,7 @@ test('support remains usable when operations report fails, but disappears when a
   await until(() => catalogueRequested);
   tabs.find(tab => tab.dataset.panel === 'administration').onclick();
   await until(() => element('#admin-status').textContent.includes('Обзор недоступен'));
-  assert.equal(element('#admin-report').children.length, 1, 'support form must remain on a reporting outage');
+  assert.equal(element('#admin-report').children.length, 2, 'support and object panels must remain on a reporting outage');
   reportStatus = 403;
   element('#admin-reload').onclick();
   await until(() => element('#admin-status').textContent.includes('проверьте доступ'));
