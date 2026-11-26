@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AU-01 offline candidate manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "batch_id", "source", "developer", "reviewer", "acceptance_state", "owner_approval", "archive_location", "pr_url", "changed_scope", "tests", "artifacts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "task_id": {"type": "string", "pattern": "^[A-Z]{2}-[0-9]{2}$"},
+    "batch_id": {"type": "string", "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)+$"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "base_sha", "head_sha", "tree_sha"],
+      "properties": {
+        "repository": {"const": "Burn2288/FLOW-BRIDGE-GEN"},
+        "base_sha": {"$ref": "#/$defs/sha"},
+        "head_sha": {"$ref": "#/$defs/sha"},
+        "tree_sha": {"$ref": "#/$defs/sha"}
+      }
+    },
+    "developer": {"enum": ["Burn2288", "vankhu21"]},
+    "reviewer": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["identity", "verdict", "evidence_url"],
+          "properties": {
+            "identity": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9.-]{0,63}$"},
+            "verdict": {"enum": ["PENDING", "PASS", "PARTIAL", "BLOCKED", "FAIL"]},
+            "evidence_url": {
+              "type": "string",
+              "pattern": "^https://github\\.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/(blob/[0-9a-f]{40}/[^?#]+|pull/[1-9][0-9]*#(issuecomment|pullrequestreview)-[1-9][0-9]*)$"
+            }
+          }
+        }
+      ]
+    },
+    "acceptance_state": {"const": "CANDIDATE_NOT_ACCEPTED"},
+    "owner_approval": {"type": "null"},
+    "archive_location": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^https://github\\.com/Burn2288/FLOW-BRIDGE-GEN-AUDIT/tree/[0-9a-f]{40}/[^?#]+$"}
+      ]
+    },
+    "pr_url": {"type": "string", "pattern": "^https://github\\.com/Burn2288/FLOW-BRIDGE-GEN/pull/[1-9][0-9]*$"},
+    "changed_scope": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workflow_url", "checkout_sha", "checkout_tree", "conclusion", "summary"],
+        "properties": {
+          "workflow_url": {"type": "string", "pattern": "^https://github\\.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/[1-9][0-9]*$"},
+          "checkout_sha": {"$ref": "#/$defs/sha"},
+          "checkout_tree": {"$ref": "#/$defs/sha"},
+          "conclusion": {"enum": ["SUCCESS", "FAILURE", "PENDING"]},
+          "summary": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]*$"},
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    }
+  },
+  "$defs": {"sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"}}
+}
