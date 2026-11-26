@@ -100,7 +100,10 @@ async def seed(pool, cfg):
     app = TelegramApp(pool, cfg, None)
     try:
         admin = await app.svc.identity(SEED_ADMIN)
-        await app.svc.accept(admin, CURRENT_VERSION)
+        async with pool.acquire() as conn:
+            consent_current = await app.svc.has_current_consent(conn, admin)
+        if not consent_current:
+            await app.svc.accept(admin, CURRENT_VERSION)
         for external in (100, 101, 102):
             user = await app.svc.identity(external)
             async with pool.acquire() as conn, conn.transaction():
