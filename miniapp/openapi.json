@@ -209,7 +209,10 @@
                   ],
                   "properties": {
                     "code": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "has_referrer": {
                       "type": "boolean"
@@ -256,9 +259,27 @@
                           },
                           "policy_version": {
                             "type": "string"
+                          },
+                          "recognized": {
+                            "type": "string"
+                          },
+                          "debt_added": {
+                            "type": "string"
                           }
                         }
                       }
+                    },
+                    "start_command": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "terms": {
+                      "type": "string"
+                    },
+                    "availability": {
+                      "const": "FUNCTIONAL_TEST_ONLY"
                     }
                   }
                 }
@@ -374,14 +395,14 @@
       "delete": {
         "summary": "Завершить текущую сессию",
         "responses": {
+          "204": {
+            "description": "Сессия отозвана"
+          },
           "401": {
             "description": "Сессия отсутствует, истекла или недействительна"
           },
           "403": {
             "description": "Нет доступа или согласия"
-          },
-          "204": {
-            "description": "Сессия отозвана"
           }
         },
         "security": [
@@ -905,7 +926,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "Успешный ответ",
             "content": {
               "application/json": {
@@ -924,7 +945,7 @@
               }
             }
           },
-          "200": {
+          "201": {
             "description": "Успешный ответ",
             "content": {
               "application/json": {

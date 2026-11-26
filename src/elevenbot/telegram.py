@@ -610,8 +610,33 @@ class TelegramApp:
                 return
             await self.svc.rate(u,navigation=navigation)
             if command=='/referral':
-                info=await self.svc.referral_info(u)
-                await self.say(ext,'Ваш код приглашения: '+info['code']+'\nКоманда для приглашения: /start ref_'+info['code'])
+                from .referrals import own_finances
+                parts=text.split()
+                try:
+                    page=int(parts[1])-1 if len(parts)>1 else 0
+                    if not 0<=page<=1000:
+                        raise ValueError()
+                except ValueError:
+                    await self.say(ext,'Укажите номер страницы: /referral 1')
+                    return
+                await self.svc.referral_info(u)
+                info=await own_finances(self.svc,u,page)
+                labels={'referral_reward':'Начисление','referral_reversal':'Сторно',
+                        'referral_debt_repay':'Погашение долга'}
+                lines=[f"Ваш код приглашения: {info['code']}",
+                       f"Команда для приглашения: {info['start_command']}",
+                       f"Приглашено: {info['invitee_count']}",
+                       f"Доступно: {info['available']} · Начислено всего: {info['total_rewards']} · Долг: {info['debt']}",
+                       f"Условия: {info['policy_version']}",info['terms']]
+                lines.extend(f"{labels[item['kind']]}: {item['amount']} · Долг +{item['debt_added']}"
+                             for item in info['history'])
+                if not info['history']:
+                    lines.append('На этой странице нет операций.')
+                if page:
+                    lines.append(f'Предыдущая страница: /referral {page}')
+                if info['has_more']:
+                    lines.append(f'Следующая страница: /referral {page+2}')
+                await self.say(ext,'\n'.join(lines))
                 return
             if command=='/miniapp':
                 if not self.cfg.miniapp_url:
