@@ -34,7 +34,7 @@ docker compose -f compose.dev.yaml -f compose.dev.override.yaml stop
 
 ## Конфигурация стенда
 
-[Config.env](../../src/elevenbot/config.py) читает `ADMIN_TELEGRAM_IDS`, `TELEGRAM_BOT_TOKEN` и `MINIAPP_URL`; имя `ADMIN_TELEGRAM_USER_IDS` не является установленным alias. Telegram Admin Edition использует отдельный вход администратора. Обычная HTTP session Mini App не наследует эту административную сессию; целевая общая RBAC-модель остаётся открытой (D-04).
+[Config.env](../../src/elevenbot/config.py) читает `ADMIN_TELEGRAM_IDS`, `TELEGRAM_BOT_TOKEN` и `MINIAPP_URL`; имя `ADMIN_TELEGRAM_USER_IDS` не является установленным alias. Telegram Admin Edition использует отдельный вход администратора. Обычная HTTP-сессия Mini App не наследует эту административную сессию. Для защищённых административных HTTP-маршрутов источник полномочий — PostgreSQL RBAC (D-04, OPTION_B); актуальная роль проверяется на каждом запросе, а при недоступности источника доступ запрещён.
 
 Для диагностики без изменения БД: `python -m elevenbot reconcile-report --env-file <env-файл> --limit 100`. JSON содержит `wallet_mismatches` — число нарушений двух проверок (один кошелёк может учитываться дважды), ограниченный список причин и `truncated`. Отчёт не переключает `halted` и не исправляет проводки; обычный `reconcile` сохраняет прежнюю остановку при расхождении. Вывод содержит UUID и финансовые значения и предназначен оператору.
 
