@@ -153,7 +153,7 @@ class Telegram:
         raise AssertionError(f'Telegram result {work_id} missing from the first four library pages')
 
 
-async def open_client(context, base, chat):
+async def open_client(context, base, chat, *, accept_terms=False):
     launch = signed_launch(chat)
     async def sdk(route):
         await route.fulfill(content_type='application/javascript', body=
@@ -162,7 +162,12 @@ async def open_client(context, base, chat):
     page = await context.new_page()
     async with page.expect_response(base + '/api/v1/session') as session:
         await page.goto(base)
-    assert (await session.value).status == 200
+    response = await session.value
+    if accept_terms and response.status == 428:
+        async with page.expect_response(base + '/api/v1/session') as accepted:
+            await page.get_by_role('button', name='Принять условия и продолжить').click()
+        response = await accepted.value
+    assert response.status == 200
     await expect(page.get_by_label('Студия')).to_be_enabled()
     assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     return page
@@ -194,6 +199,7 @@ async def start_miniapp_job(page, studio, prompt):
 
 
 async def read_result(project, job):
+    job = UUID(str(job))
     sql = f"""
     SELECT jsonb_build_object(
         'model', q.model_id, 'prompt', q.request->>'prompt',
@@ -289,6 +295,7 @@ async def run(args):
                         continue
                     prompt = f'Functional matrix {label} {uuid4().hex[:8]}'
                     context = await browser.new_context(viewport={'width': 360, 'height': 800})
+                    job = None
                     try:
                         await telegram.start(chat, admin=chat != 101)
                         if studio.key == 'music':
@@ -308,7 +315,8 @@ async def run(args):
                         await telegram.check_result(studio, chat, evidence['work_id'], digest)
                         result = {'route': label, 'status': 'passed', 'job': str(job), 'media_sha256': digest, **evidence}
                     except (AssertionError, BrowserTimeout, httpx.HTTPError) as error:
-                        result = {'route': label, 'status': 'failed', 'error': str(error)}
+                        result = {'route': label, 'status': 'failed', 'chat': chat, 'prompt': prompt,
+                                  'job': str(job) if job else None, 'error': str(error)}
                     finally:
                         await context.close()
                     results.append(result)
