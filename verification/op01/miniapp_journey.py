@@ -200,7 +200,7 @@ async def check_support_journey(browser, telegram, operator, base):
         await expect(operator_page.get_by_text('Пользователи: 2', exact=True)).to_be_visible()
         await expect(operator_page.get_by_text('Текущая доступность провайдеров: не проверена')).to_be_visible()
         await expect(operator_page.get_by_text('Случаев на сверке за период: 0.')).to_be_visible()
-        await operator_page.get_by_text('Платежи', exact=True).click()
+        await operator_page.locator('summary:text-is("Платежи")').click()
         await expect(operator_page.locator('details[open]')).to_contain_text('Нет данных за период.')
 
         select = operator_page.get_by_label('Обращение', exact=True)
