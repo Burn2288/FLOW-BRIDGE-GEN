@@ -168,6 +168,136 @@
         }
       }
     },
+    "/api/v1/referral/finances": {
+      "get": {
+        "summary": "Read the signed-in user's referral balances and history",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own referral balances and a bounded page of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "has_referrer",
+                    "invitee_count",
+                    "available",
+                    "total_rewards",
+                    "debt",
+                    "policy_version",
+                    "page",
+                    "has_more",
+                    "history"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "has_referrer": {
+                      "type": "boolean"
+                    },
+                    "invitee_count": {
+                      "type": "integer"
+                    },
+                    "available": {
+                      "type": "string"
+                    },
+                    "total_rewards": {
+                      "type": "string"
+                    },
+                    "debt": {
+                      "type": "string"
+                    },
+                    "policy_version": {
+                      "type": "string"
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "kind": {
+                            "enum": [
+                              "referral_reward",
+                              "referral_reversal",
+                              "referral_debt_repay"
+                            ]
+                          },
+                          "amount": {
+                            "type": "string"
+                          },
+                          "policy_version": {
+                            "type": "string"
+                          },
+                          "recognized": {
+                            "type": "string"
+                          },
+                          "debt_added": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "start_command": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "terms": {
+                      "type": "string"
+                    },
+                    "availability": {
+                      "const": "FUNCTIONAL_TEST_ONLY"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid page"
+          },
+          "401": {
+            "description": "Missing or invalid session"
+          },
+          "403": {
+            "description": "Access denied"
+          }
+        }
+      }
+    },
     "/api/v1/referral": {
       "get": {
         "summary": "Собственный код приглашения и признак привязки",
@@ -265,14 +395,14 @@
       "delete": {
         "summary": "Завершить текущую сессию",
         "responses": {
+          "204": {
+            "description": "Сессия отозвана"
+          },
           "401": {
             "description": "Сессия отсутствует, истекла или недействительна"
           },
           "403": {
             "description": "Нет доступа или согласия"
-          },
-          "204": {
-            "description": "Сессия отозвана"
           }
         },
         "security": [
@@ -796,7 +926,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "Успешный ответ",
             "content": {
               "application/json": {
@@ -815,7 +945,7 @@
               }
             }
           },
-          "200": {
+          "201": {
             "description": "Успешный ответ",
             "content": {
               "application/json": {

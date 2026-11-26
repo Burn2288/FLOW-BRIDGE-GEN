@@ -419,6 +419,48 @@ async function showReferral() {
   return pending;
 }
 
+let referralFinancePage = 0;
+let referralFinanceRequest = 0;
+async function loadReferralFinances(page) {
+  const ownerToken = token;
+  if (!ownerToken) return;
+  const requestId = ++referralFinanceRequest;
+  const status = document.querySelector('#referral-finances-status');
+  const summary = document.querySelector('#referral-finances-summary');
+  const history = document.querySelector('#referral-finances-history');
+  const previous = document.querySelector('#referral-finances-prev');
+  const next = document.querySelector('#referral-finances-next');
+  const current = () => requestId === referralFinanceRequest && token === ownerToken;
+  summary.textContent = '';
+  history.replaceChildren();
+  previous.hidden = next.hidden = true;
+  status.textContent = 'Загружаем начисления…';
+  try {
+    const response = await request('/api/v1/referral/finances?page=' + page);
+    const data = await response.json();
+    if (!current()) return;
+    referralFinancePage = data.page;
+    summary.textContent = 'Приглашено: ' + data.invitee_count + ' · Доступно: ' + data.available +
+      ' · Начислено: ' + data.total_rewards + ' · Долг: ' + data.debt +
+      ' · ' + data.policy_version + '. ' + data.terms;
+    const labels = {referral_reward: 'Начисление', referral_reversal: 'Сторно',
+      referral_debt_repay: 'Погашение долга'};
+    for (const item of data.history) {
+      const row = document.createElement('li');
+      row.textContent = labels[item.kind] + ': ' + item.amount + ' · Долг +' + item.debt_added;
+      history.append(row);
+    }
+    status.textContent = data.history.length ? '' : 'На этой странице нет операций.';
+    previous.hidden = data.page === 0;
+    next.hidden = !data.has_more;
+  } catch {
+    if (current()) status.textContent = 'Не удалось загрузить начисления. Повторите запрос.';
+  }
+}
+document.querySelector('#load-referral-finances').onclick = () => { void loadReferralFinances(0); };
+document.querySelector('#referral-finances-prev').onclick = () => { void loadReferralFinances(referralFinancePage - 1); };
+document.querySelector('#referral-finances-next').onclick = () => { void loadReferralFinances(referralFinancePage + 1); };
+
 document.querySelector('#copy-referral').onclick = async () => {
   const result = document.querySelector('#referral-copy-status');
   try {

@@ -81,6 +81,23 @@ async def test_real_start_first_attribution_restart_and_miniapp(env):
         response = await client.get('/api/v1/referral', headers=headers)
         assert response.status == 200 and await response.json() == {'code':own, 'has_referrer':True}
         assert (await client.get('/api/v1/referral')).status == 401
+        assert (await client.get('/api/v1/referral/finances')).status == 401
+        data = await client.get('/api/v1/referral/finances?user_id='+str(inviter), headers=headers)
+        assert data.status == 200
+        finance = await data.json()
+        assert finance['code'] == own and finance['invitee_count'] == 0 and finance['history'] == []
+        assert 'Приглашено: 0' in restarted.bot.sent[-1][0]
+        assert 'Долг: 0' in restarted.bot.sent[-1][0]
+        assert (await client.get('/api/v1/referral/finances?page=-1', headers=headers)).status == 400
+        data = await client.get('/api/v1/referral/finances?page=1000', headers=headers)
+        assert data.status == 200 and (await data.json())['history'] == []
+        assert await pool.fetchval('SELECT count(*) FROM ledger WHERE user_id=$1',user) == before
+        assert (await client.delete('/api/v1/session', headers=headers)).status in (200, 204)
+        assert (await client.get('/api/v1/referral/finances', headers=headers)).status == 401
+        response = await client.post('/api/v1/session', json={'initData':signed_start(cfg.token,201,'ref_'+code)})
+        headers = {'Authorization':'Bearer '+(await response.json())['token']}
+        await pool.execute('UPDATE miniapp_sessions SET expires_at=now() WHERE user_id=$1',user)
+        assert (await client.get('/api/v1/referral/finances', headers=headers)).status == 401
     assert await pool.fetchval('SELECT referrer_id FROM referral_attributions WHERE user_id=$1',user) == inviter
 
 

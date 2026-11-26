@@ -55,6 +55,12 @@ test('referral tab selected during delayed login loads once, reports failure, re
       return referralCalls === 1 ? firstReferral.promise
         : response({code: 'AAAAAAAAAAAAAAAA', has_referrer: true});
     }
+    if (url.startsWith('/api/v1/referral/finances?page=')) {
+      const page = Number(url.split('=').at(-1));
+      return response({page, has_more: page === 0, invitee_count: 1, available: '9007199254740993',
+        total_rewards: '100', debt: '30', policy_version: 'C-011-v1-functional-test', terms: 'Тест',
+        history: page ? [] : [{kind: 'referral_reversal', amount: '0', debt_added: '30'}]});
+    }
     if (url === '/api/v1/wallet') return response({available: '0', reserved: '0'});
     if (url === '/api/v1/catalogue') return response({models: [], availability: {}});
     if (url === '/api/v1/settings') return response({theme: 'dark'});
@@ -93,4 +99,11 @@ test('referral tab selected during delayed login loads once, reports failure, re
   assert.equal(element('#referrer-status').textContent, 'Вы зарегистрировались по приглашению.');
   assert.equal(element('#copy-referral').disabled, false);
   assert.equal(element('#retry-referral').hidden, true);
+  element('#load-referral-finances').onclick();
+  await until(() => element('#referral-finances-next').hidden === false);
+  assert.match(element('#referral-finances-summary').textContent, /9007199254740993/);
+  assert.match(element('#referral-finances-history').children[0].textContent, /Сторно: 0 · Долг \+30/);
+  element('#referral-finances-next').onclick();
+  await until(() => element('#referral-finances-status').textContent.includes('нет операций'));
+  assert.equal(element('#referral-finances-prev').hidden, false);
 });

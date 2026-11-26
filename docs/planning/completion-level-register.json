@@ -1912,13 +1912,14 @@
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "PR #114: read-only wallet, provenance, referral obligations and payment review diagnostics. Full negative matrix and controlled correction acceptance remain open."
       ],
       "dependencies": [
         "WL-01",
         "PY-02"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "IN_PROGRESS"
     },
     {
       "list_id": "vankhu21",
@@ -2079,13 +2080,15 @@
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "D-07 approved by Burn2288 in OWNER DECISION — D-07 / C-011 v1. See PR #113 for the earlier blocked decision and PR #114 for the implementation in progress. Transactional evidence is pending.",
+        "PR #114: scoped AnyModel reward, full reversal, referral debt and restoration repayment verified in focused PostgreSQL runs. Chargeback matrix, durable recovery and route coverage remain open."
       ],
       "dependencies": [
         "RF-01",
         "WL-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "IN_PROGRESS"
     },
     {
       "list_id": "vankhu21",
@@ -2102,13 +2105,14 @@
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "PR #114: financial DTO and both fixture clients implemented. Complete Chromium/client parity and protected navigation evidence remain open."
       ],
       "dependencies": [
         "RF-02",
         "AP-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "IN_PROGRESS"
     },
     {
       "list_id": "Burn2288",

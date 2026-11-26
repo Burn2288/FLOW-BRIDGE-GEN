@@ -26,6 +26,190 @@ FIBO_TARIFF={'id':FIBO_MODEL,'endpoint':'/v1/images/generations',
              'billing':{'unit':'image','base_tokens':100000,'coefficient':{'output':0.95}}}
 
 
+@pytest.mark.parametrize('bonus_state',['available','reserved','spent','worker_restart'])
+async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,monkeypatch,bonus_state):
+    from elevenbot.task_wallet import settle_task_tokens
+
+    reserved_bonus=30 if bonus_state in ('reserved','spent') else 0
+    pool,cfg,svc,inviter=env
+    code=(await svc.referral_info(inviter))['code']
+    user=await svc.identity(101,referral_code=code)
+    await svc.accept(user)
+    payment_service,payment_id=await confirmed_credit(pool,cfg,user,1000)
+    monkeypatch.setenv('RF02_FUNCTIONAL_TEST','YES')
+    cfg=replace(cfg,access_mode='private',admin_ids=(101,),anymodel_test_enabled=True,
+                anymodel_image_live=True,anymodel_key='fixture-any',interaction_limit=3,
+                catalogue_path=str(tmp_path/'models.json'))
+    image=encoded_image('PNG')
+    tariff={**FIBO_TARIFF,'billing':{'unit':'image','base_tokens':1000,'coefficient':{'output':1}}}
+
+    remotes=iter(('reward-image','reward-image-second'))
+
+    def respond(req):
+        if req.url.path=='/v1/models/info':
+            return httpx.Response(200,json=tariff)
+        if req.url.path=='/v1/models':
+            return httpx.Response(200,json={'data':[{'id':FIBO_MODEL,'kind':'image'}]})
+        if req.url.path in ('/v1/models/video','/v1/models/tts'):
+            return httpx.Response(200,json={'data':[]})
+        if req.url.path=='/v1/images/generations':
+            return httpx.Response(202,json={'id':next(remotes)},headers={'Retry-After':'0'})
+        assert req.url.path in ('/v1/images/generations/reward-image','/v1/images/generations/reward-image-second')
+        return httpx.Response(200,json={'data':[{'b64_json':b64encode(image).decode()}]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+        adapter=AnyModelProvider(cfg.anymodel_key,client=http)
+        await adapter.refresh(model_store(cfg))
+        monkeypatch.setattr(telegram,'AnyModelProvider',lambda _:adapter)
+        bot=Bot()
+        bot.send_photo=AsyncMock(return_value=SimpleNamespace(message_id=15))
+        app=telegram.TelegramApp(pool,cfg,bot)
+        app.anymodel_images.adapter=adapter
+        app.pricing.adapters['anymodel']=AnyModelPricing(cfg.anymodel_key,api=adapter)
+        async def generate(update_id):
+            await app.callback(user,101,'amimage:detail')
+            await app.callback(user,101,routes(bot)['🖼 Генерировать изображение'])
+            payload=event('Draw a blue square').model_dump(by_alias=True,exclude_none=True)
+            payload['update_id']=update_id
+            payload['message']['chat']['id']=101
+            payload['message']['from']['id']=101
+            await app.handle(type(event()).model_validate(payload))
+            await app.callback(user,101,routes(bot)['Генерировать'],request_id=update_id+1)
+            jobs=AnyModelImageJobs(pool,cfg,adapter=adapter)
+            await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
+            assert await jobs.poll_one(bot)
+            assert await jobs.poll_one(bot)
+            if bonus_state != 'worker_restart':
+                await asyncio.gather(settle_task_tokens(pool),settle_task_tokens(pool))
+        await generate(1)
+        if bonus_state == 'worker_restart':
+            from elevenbot import task_wallet
+            from elevenbot.worker import Worker
+
+            class BootstrapWorker(Worker):
+                async def _poll_work(self, operation):
+                    pass
+
+                async def _maintenance(self):
+                    pass
+
+            class UnavailableProvider:
+                async def synthesize(self, *args, **kwargs):
+                    pytest.fail('Recovery must not call the provider')
+
+            assert await pool.fetchval('SELECT count(*) FROM image_works WHERE user_id=$1',user)==1
+            assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_capture'")==0
+            post_rewards=task_wallet.post_image_rewards
+
+            async def crash_after_reward(conn, quote_id):
+                await post_rewards(conn, quote_id)
+                assert await conn.fetchval('SELECT count(*) FROM referral_rewards')==1
+                raise RuntimeError('synthetic crash before worker cleanup commit')
+
+            with monkeypatch.context() as patch:
+                patch.setattr(task_wallet,'post_image_rewards',crash_after_reward)
+                with pytest.raises(RuntimeError,match='synthetic crash before worker cleanup commit'):
+                    await BootstrapWorker(pool,cfg,UnavailableProvider()).loop()
+
+            assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_capture'")==0
+            assert await pool.fetchval('SELECT count(*) FROM referral_rewards')==0
+            assert await pool.fetchval('SELECT count(*) FROM image_works WHERE user_id=$1',user)==1
+            await BootstrapWorker(pool,cfg,UnavailableProvider()).loop()
+            await BootstrapWorker(pool,cfg,UnavailableProvider()).loop()
+            assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_capture'")==1
+        reward=await pool.fetchrow("""SELECT r.eligible_paid,r.amount,l.da,f.origin
+            FROM referral_rewards r JOIN ledger l ON l.id=r.reward_ledger_id
+            JOIN wallet_funding_lots f ON f.credit_ledger_id=l.id WHERE r.referrer_id=$1""",inviter)
+        assert reward is not None and tuple(reward)==(1000,50,50,'REFERRAL')
+        assert await pool.fetchval('SELECT count(*) FROM referral_rewards')==1
+        assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==50
+        if reserved_bonus:
+            from elevenbot import providers
+            from elevenbot.core import Service
+            monkeypatch.setattr(providers,'catalog',lambda _:[{'id':'fixture-voice'}])
+            speech=Service(pool,replace(cfg,mode='clodex',access_mode='public',retail_per_char=1,budget=10_000))
+            speech_quote,price=await speech.quote(inviter,'x'*reserved_bonus,'fixture-voice')
+            assert price==reserved_bonus
+            speech_job=await speech.confirm(inviter,speech_quote)
+            if bonus_state=='spent':
+                from elevenbot.providers import MockProvider
+                from elevenbot.worker import Worker
+                monkeypatch.setattr('elevenbot.storage.subprocess.run',
+                                    lambda *a, **kw: SimpleNamespace(stdout=b'{"format":{"duration":"1"}}'))
+                assert await Worker(pool,speech.cfg,MockProvider()).run_one()
+                assert await pool.fetchval("SELECT status FROM jobs WHERE id=$1",speech_job)=='succeeded'
+                assert await pool.fetchval("SELECT count(*) FROM ledger WHERE job_id=$1 AND kind='capture'",speech_job)==1
+        quote_id=await pool.fetchval("SELECT task_quote_id FROM ledger WHERE user_id=$1 AND kind='task_capture'",user)
+        import asyncpg
+        with pytest.raises(asyncpg.RaiseError, match='requires its confirmed refund'):
+            await pool.execute('''INSERT INTO referral_reversals(capture_id,refund_id,amount,debited,debt_added)
+                SELECT capture_id,capture_id,amount,0,amount FROM referral_rewards''')
+        assert await pool.fetchval('SELECT count(*) FROM referral_reversals')==0
+        async def refund(remote):
+            assert remote=='reward-image'
+            return FinancialOperation('anymodel',remote,'reward-refund','full_refund',Decimal('2'),'USD',
+                                      'reward-charge',Decimal('2'),'USD')
+        monkeypatch.delenv('RF02_FUNCTIONAL_TEST')
+        assert await asyncio.gather(*(reconcile_generation(pool,quote_id,{'anymodel':refund}) for _ in range(2))) == ['full_refund','full_refund']
+        reversal=await pool.fetchrow('SELECT amount,debited,debt_added FROM referral_reversals')
+        assert tuple(reversal)==(50,50-reserved_bonus,reserved_bonus)
+        assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='referral_reversal'")==1
+        assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",inviter))==(0,30 if bonus_state=='reserved' else 0)
+        assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",user)==1000
+        assert await pool.fetchval('SELECT amount FROM referral_rewards')==50
+        assert await svc.reconcile()==0
+
+        if bonus_state=='reserved':
+            assert await asyncio.gather(speech.cancel(inviter,speech_job), speech.cancel(inviter,speech_job)) == [True,True]
+            with pytest.raises(asyncpg.RaiseError, match='invalid referral restoration event'):
+                await pool.execute('''INSERT INTO referral_restoration_repayments
+                    SELECT id,user_id,1,gen_random_uuid() FROM ledger WHERE kind='referral_reward' ''')
+            restored=await pool.fetchrow("""SELECT p.amount,d.da,r.kind
+                FROM referral_restoration_repayments p JOIN ledger d ON d.id=p.ledger_id
+                JOIN ledger r ON r.id=p.restoration_id WHERE p.user_id=$1""",inviter)
+            assert tuple(restored)==(30,-30,'release')
+            assert await pool.fetchval('SELECT outstanding FROM referral_debt_balances WHERE user_id=$1',inviter)==0
+            assert tuple(await pool.fetchrow("SELECT available,reserved FROM wallets WHERE user_id=$1 AND mode='live'",inviter))==(0,0)
+            assert await svc.reconcile()==0
+        if bonus_state=='spent':
+            monkeypatch.setenv('RF02_FUNCTIONAL_TEST','YES')
+            await generate(10)
+            assert await pool.fetchval('SELECT count(*) FROM referral_rewards')==2
+            assert await pool.fetchval('SELECT amount FROM referral_debt_repayments')==30
+            assert await pool.fetchval("SELECT da FROM ledger WHERE kind='referral_debt_repay'")==-30
+            assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==20
+            assert await pool.fetchval("SELECT sum(available) FROM wallet_funding_lots WHERE user_id=$1 AND origin='REFERRAL'",inviter)==20
+            second=await pool.fetchval("SELECT task_quote_id FROM ledger WHERE user_id=$1 AND kind='task_capture' AND task_quote_id<>$2",user,quote_id)
+            async def second_refund(remote):
+                assert remote=='reward-image-second'
+                return FinancialOperation('anymodel',remote,'second-refund','full_refund',Decimal('2'),'USD',
+                                          'second-charge',Decimal('2'),'USD')
+            assert await asyncio.gather(*(reconcile_generation(pool,second,{'anymodel':second_refund}) for _ in range(2))) == ['full_refund','full_refund']
+            assert await pool.fetchval('SELECT count(*) FROM referral_reversals')==2
+            assert await pool.fetchval('SELECT sum(debt_added) FROM referral_reversals')==60
+            assert await pool.fetchval('SELECT sum(amount) FROM referral_debt_repayments')==30
+            from elevenbot.referrals import own_finances
+            own = await own_finances(svc, inviter, 0)
+            other = await own_finances(svc, user, 0)
+            assert (own['invitee_count'],own['available'],own['total_rewards'],own['debt'])==(1,'0','100','30')
+            assert len(own['history'])==5 and not own['has_more']
+            assert other['history']==[] and other['total_rewards']=='0'
+            await payment_service.prepare_refund(payment_id)
+            await payment_service.complete_refund(payment_id)
+            await asyncio.gather(settle_task_tokens(pool),settle_task_tokens(pool))
+            cases=await pool.fetch('SELECT payment_id,affected_funding,reason FROM referral_payment_review_cases')
+            assert [tuple(row) for row in cases]==[(payment_id,1000,'payment_refunded')]*2
+            report=await svc.reconciliation_report(1)
+            assert report['referral_payment_reviews']==2 and report['referral_payment_reviews_truncated']
+            detail=report['referral_payment_review_details'][0]
+            assert detail['status']=='RECONCILIATION_REQUIRED'
+            assert (detail['affected_funding_basis'],detail['eligible_paid_total'],detail['original_reward'],detail['recorded_reversal']) == ('POTENTIAL_ALLOCATION',1000,50,50)
+            assert detail['unresolved_reward_amount_status']=='NOT_PROVEN'
+            assert await pool.fetchval('SELECT count(*) FROM referral_reversals')==2
+            assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==0
+            assert await svc.reconcile()==0
+
+
 @pytest.mark.parametrize('variant',['base64','corrupt','url','broken','timeout','connect','unsafe',
                                    'refund_before_capture','refund_after_capture','unconfirmed','no_job_id','charged_image'])
 async def test_fibo_provider_and_library(funded_env,tmp_path,monkeypatch,capsys,variant):
