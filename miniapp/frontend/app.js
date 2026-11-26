@@ -267,6 +267,7 @@ async function start() {
     sessionStorage.setItem('miniapp.session', JSON.stringify({ launch, token }));
   }
   // The user may select a panel while authentication is still pending.
+  if (activePanel === 'support') void showSupport();
   if (activePanel === 'referral') void showReferral();
   if (activePanel === 'administration') void showAdministration();
   const [wallet, catalogue, settings] = await Promise.all([
@@ -653,12 +654,85 @@ async function showAdministration() {
 
 document.querySelector('#admin-reload').onclick = () => { void showAdministration(); };
 
+const ownerSupportStatus = document.querySelector('#support-status');
+const ownerSupportDraft = document.querySelector('#owner-support-text');
+const ownerSupportList = document.querySelector('#owner-support-list');
+const ownerSupportHistory = document.querySelector('#owner-support-history');
+let ownerSupportRevision = 0;
+let pendingSupport;
+
+async function showSupport(ticket) {
+  const revision = ++ownerSupportRevision;
+  const session = token;
+  const current = () => revision === ownerSupportRevision && token === session && activePanel === 'support';
+  ownerSupportStatus.textContent = 'Загрузка…';
+  ownerSupportHistory.replaceChildren();
+  try {
+    const path = '/api/v1/support' + (ticket ? '?ticket_id=' + encodeURIComponent(ticket) : '');
+    const data = await (await request(path)).json();
+    if (!current()) return;
+    if (ticket) {
+      ownerSupportHistory.replaceChildren(...data.messages.map(message =>
+        listItem((message.author === 'operator' ? 'Поддержка: ' : 'Вы: ') + message.body)));
+      if (data.has_more) ownerSupportHistory.append(listItem('Показаны первые сообщения.'));
+    } else {
+      ownerSupportList.replaceChildren(...data.tickets.map(entry => {
+        const row = document.createElement('li');
+        const open = document.createElement('button');
+        open.textContent = new Date(entry.created_at).toLocaleString('ru-RU') +
+          (entry.status === 'answered' ? ' · Есть ответ' : ' · Ожидает ответа');
+        open.onclick = () => { void showSupport(entry.id); };
+        row.append(open);
+        return row;
+      }));
+      if (data.has_more) ownerSupportList.append(listItem('Показаны последние обращения.'));
+    }
+    ownerSupportStatus.textContent = ticket || data.tickets.length ? '' : 'Обращений пока нет.';
+  } catch (error) {
+    if (current()) ownerSupportStatus.textContent = error.message;
+  }
+}
+
+document.querySelector('#owner-support-refresh').onclick = () => { if (token) void showSupport(); };
+const ownerSupportCreate = document.querySelector('#owner-support-create');
+ownerSupportCreate.onclick = async () => {
+  if (!token || ownerSupportCreate.disabled) return;
+  const text = ownerSupportDraft.value.trim();
+  if (!text) {
+    ownerSupportStatus.textContent = 'Введите текст обращения.';
+    return;
+  }
+  ownerSupportCreate.disabled = true;
+  ownerSupportDraft.disabled = true;
+  const session = token;
+  try {
+    if (pendingSupport?.text !== text || pendingSupport.session !== session) {
+      pendingSupport = {text, session, id: crypto.randomUUID()};
+    }
+    await request('/api/v1/support', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, request_id: pendingSupport.id}),
+    });
+    pendingSupport = null;
+    if (token !== session) return;
+    ownerSupportDraft.value = '';
+    if (activePanel === 'support') await showSupport();
+  } catch (error) {
+    if (token === session && activePanel === 'support') ownerSupportStatus.textContent = error.message;
+  } finally {
+    ownerSupportCreate.disabled = false;
+    ownerSupportDraft.disabled = false;
+  }
+};
+
 function navigate(panel) {
   cardRevision++;
   history.replaceState({ ...history.state, jobId: null }, '');
   overview.hidden = false;
   card.hidden = true;
   selectPanel(panel);
+  if (panel === 'support' && token) void showSupport();
   if (panel === 'referral' && token) void showReferral();
   if (panel === 'administration' && token) void showAdministration();
   if (panel === 'balance' && token) showBalance().catch(showError);

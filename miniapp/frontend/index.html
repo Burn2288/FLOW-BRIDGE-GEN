@@ -66,6 +66,16 @@
       <button id="retry-theme" hidden>Повторить сохранение</button>
     </fieldset>
   </section>
+  <section id="support" aria-labelledby="support-title" hidden>
+    <h1 id="support-title">Поддержка</h1>
+    <label for="owner-support-text">Текст обращения</label>
+    <textarea id="owner-support-text" rows="4" maxlength="2000"></textarea>
+    <button id="owner-support-create">Отправить</button>
+    <button id="owner-support-refresh">Обновить обращения</button>
+    <p id="support-status" role="status"></p>
+    <ul id="owner-support-list"></ul>
+    <ul id="owner-support-history" aria-label="Переписка"></ul>
+  </section>
   <section id="referral" aria-labelledby="referral-title" hidden>
     <h1 id="referral-title">Приглашения</h1>
     <article class="card">
@@ -97,6 +107,7 @@
   <button data-panel="library">Мои работы</button>
   <button data-panel="balance">Баланс</button>
   <button data-panel="settings">Настройки</button>
+  <button data-panel="support">Поддержка</button>
   <button data-panel="referral">Приглашения</button>
   <button data-panel="administration">Администрирование</button>
 </nav>
