@@ -102,6 +102,11 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
                 assert await pool.fetchval("SELECT status FROM jobs WHERE id=$1",speech_job)=='succeeded'
                 assert await pool.fetchval("SELECT count(*) FROM ledger WHERE job_id=$1 AND kind='capture'",speech_job)==1
         quote_id=await pool.fetchval("SELECT task_quote_id FROM ledger WHERE user_id=$1 AND kind='task_capture'",user)
+        import asyncpg
+        with pytest.raises(asyncpg.RaiseError, match='requires its confirmed refund'):
+            await pool.execute('''INSERT INTO referral_reversals(capture_id,refund_id,amount,debited,debt_added)
+                SELECT capture_id,capture_id,amount,0,amount FROM referral_rewards''')
+        assert await pool.fetchval('SELECT count(*) FROM referral_reversals')==0
         async def refund(remote):
             assert remote=='reward-image'
             return FinancialOperation('anymodel',remote,'reward-refund','full_refund',Decimal('2'),'USD',
