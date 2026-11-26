@@ -59,7 +59,7 @@ class TelegramFixture:
 
     async def submit(self, request):
         value = await request.json()
-        if not isinstance(value, dict) or set(value) - {"chat", "text", "callback", "message_id"}:
+        if not isinstance(value, dict) or set(value) - {"chat", "text", "callback", "message_id", "reply_to"}:
             raise web.HTTPBadRequest()
         chat, text, callback = value.get("chat"), value.get("text"), value.get("callback")
         if chat not in (100, 101, 102, 103, 104) or type(chat) is not int:
@@ -74,6 +74,18 @@ class TelegramFixture:
         if type(message_id) is not int or not 0 < message_id <= 2**31 - 1:
             raise web.HTTPBadRequest()
         payload = {"text": text} if callback is None else {}
+        if "reply_to" in value:
+            reply_to = value["reply_to"]
+            if callback is not None or type(reply_to) is not int:
+                raise web.HTTPBadRequest()
+            source = next((item for item in reversed(self.replies)
+                           if (item["chat"], item["message_id"]) == (chat, reply_to)), None)
+            if source is None:
+                raise web.HTTPBadRequest()
+            payload["reply_to_message"] = {
+                "message_id": reply_to, "date": int(time.time()), "chat": self.chat(chat),
+                "from": {"id": 123456, "is_bot": True, "first_name": "Fixture bot"}, "text": source["text"],
+            }
         number = self.enqueue(chat, payload, message_id, callback)
         return web.json_response({"update_id": number}, status=201)
 
