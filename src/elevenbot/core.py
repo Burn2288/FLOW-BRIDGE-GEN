@@ -71,9 +71,13 @@ class Service:
             raise ConsentRequired('Условия изменились. Откройте их заново.')
         if connection is None:
             async with self.pool.acquire() as c,c.transaction():
-                return await self.accept(u,presented_version,connection=c)
+                await self._store_consent(c,u,presented_version)
+            return
         if not connection.is_in_transaction():
             raise RuntimeError('Consent must be saved in a transaction')
+        await self._store_consent(connection,u,presented_version)
+
+    async def _store_consent(self,connection,u,presented_version):
         await self.authorize(connection,u,False)
         await connection.execute("UPDATE identities SET terms_version=$2,accepted_at=now() WHERE user_id=$1",u,presented_version)
         if self.cfg.balance_wallet_mode=='demo':
