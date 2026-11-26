@@ -46,8 +46,10 @@ async def show(app, user, external, action='fluxtariff', value=''):
 
     heading = 'Тестовый тариф FLUX Schnell\nimages.generate · n=1 · за запрос'
     if action == 'fluxtariffpreview':
-        text = (f"{heading}\nПредпросмотр · {result['amount']} → {result['desired_amount']} токена\n"
-                f"Текущая версия: {result['version']}")
+        text = (f"{heading}\nПредпросмотр\n"
+                f"Базовая цена {result['amount']} → {result['desired_amount']} токена\n"
+                f"Итог с действующей наценкой {result['sale_amount']} → {result['desired_sale_amount']} токена\n"
+                f"Текущая версия {result['version']}")
         rows = [[(f'Подтвердить {label}', f'fluxtariffconfirm:{event}')],
                 [('Отменить предпросмотр', 'fluxtariff')]]
     else:

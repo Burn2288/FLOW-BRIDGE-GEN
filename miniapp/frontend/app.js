@@ -988,7 +988,9 @@ function appendFixtureTariff(container, current) {
       const draft = await send('preview', value);
       if (!current()) return;
       pending = {...value, expected_version: draft.version, request_id: crypto.randomUUID()};
-      notice.textContent = 'Предпросмотр · ' + draft.amount + ' → ' + draft.desired_amount + ' токена за запрос.';
+      notice.textContent = 'Предпросмотр. Базовая цена ' + draft.amount + ' → ' + draft.desired_amount +
+        ' токена за запрос. Итог с действующей наценкой ' + draft.sale_amount + ' → ' +
+        draft.desired_sale_amount + ' токена за запрос.';
     });
   };
   approve.onclick = () => {
