@@ -73,6 +73,7 @@ WELCOME_TEXT=(
 ANYMODEL_SECTIONS={key:title for key,(title,_) in STORE_SECTIONS.items()}
 ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠 Инструменты')
 SUPPORT_ROUTES={'support','supportlist','supportread'}
+VISIBILITY_ROUTES={'modelvis','modelvisconfirm'}
 SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|SUPPORT_ROUTES|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
 CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','🛠 Функции',MENU[0],OPEN_CATALOGUE)
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
@@ -129,6 +130,7 @@ class TelegramApp:
     def __init__(self,pool,cfg,bot,*,providers=None):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.consent_offers = {}
+        self.visibility_previews = {}
         self.admin_access=AdminAccess()
         self.navigation = Navigation(pool,bot)
         self.pending_speech = {}
@@ -592,7 +594,7 @@ class TelegramApp:
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
-                        or data.partition(':')[0] in SUPPORT_ROUTES
+                        or data.partition(':')[0] in SUPPORT_ROUTES|VISIBILITY_ROUTES
                         or command in RATE_COMMANDS or command in ('/miniapp','/referral'))
             if update.callback_query:
                 e=update.callback_query
@@ -697,6 +699,9 @@ class TelegramApp:
                 await self.consent_files(u,ext,(command[1:],));return
             if command=='/support':
                 await self.support_command(u,ext,text,update.update_id)
+                return
+            if command=='/model_visibility':
+                await self.visibility_command(u,ext,text.split()[1:])
                 return
             if command=='/paysupport':
                 await self.say(ext,self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
@@ -978,12 +983,96 @@ class TelegramApp:
             rows.append([('← Мои обращения','supportlist:0')])
         await self.catalogue_screen(ext,text,buttons(rows),panel='support')
 
+    async def visibility_command(self,u,ext,parts):
+        from . import model_visibility
+
+        if self.pool is None:
+            raise Rejected('Управление видимостью недоступно.')
+        try:
+            if not parts or (len(parts)==1 and parts[0].isascii() and parts[0].isdigit()):
+                page=int(parts[0]) if parts else 0
+                async with self.pool.acquire() as conn:
+                    models=await model_visibility.list_models(conn,u)
+                self.visibility_previews.pop(ext,None)
+                first=page*4
+                if page and first>=len(models):
+                    raise Rejected('Такой страницы моделей нет.')
+                lines=['Видимость моделей',
+                       'Предпросмотр: /model_visibility ПРОВАЙДЕР МОДЕЛЬ ОПЕРАЦИЯ VISIBLE|HIDDEN|rollback']
+                for row in models[first:first+4]:
+                    lines.append(f"{row['provider']} {row['model_id']} {row['operation']}\n"
+                                 f"{row['visibility']} · версия {row['version']}")
+                if not models:
+                    lines.append('Моделей пока нет.')
+                nav=[]
+                if page:
+                    nav.append(('← Назад',f'modelvis:{page-1}'))
+                if first+4<len(models):
+                    nav.append(('Далее →',f'modelvis:{page+1}'))
+                await self.catalogue_screen(ext,'\n\n'.join(lines),buttons([nav]) if nav else None,panel='model_visibility')
+                return
+            if len(parts)!=4:
+                raise Rejected('Укажите провайдера, модель, операцию и VISIBLE, HIDDEN или rollback.')
+            provider,model,operation,visibility=parts
+            rollback_of=None
+            async with self.pool.acquire() as conn:
+                if visibility=='rollback':
+                    rows=await model_visibility.list_models(conn,u)
+                    row=next((row for row in rows if (row['provider'],row['model_id'],row['operation'])
+                              ==(provider,model,operation)),None)
+                    if row is None:
+                        raise model_visibility.MissingModel()
+                    if row['previous_visibility'] is None:
+                        raise Rejected('Для модели ещё нет изменения, которое можно откатить.')
+                    visibility,rollback_of=row['previous_visibility'],row['version']
+                preview=await model_visibility.preview(conn,u,provider,model,operation,visibility,
+                                                        rollback_of=rollback_of)
+        except model_visibility.VisibilityDenied:
+            raise Rejected('Управление видимостью недоступно.') from None
+        except model_visibility.MissingModel:
+            raise Rejected('Модель или операция не найдена.') from None
+        except (model_visibility.VisibilityConflict,ValueError):
+            raise Rejected('Изменение недоступно. Проверьте значение и текущую версию модели.') from None
+        request=uuid4()
+        self.visibility_previews[ext]=(request,time.monotonic()+300,preview)
+        title='Предпросмотр отката' if rollback_of is not None else 'Предпросмотр изменения'
+        text=(f"{title}\n{provider} · {model} · {operation}\n"
+              f"{preview['visibility']} → {preview['desired_visibility']} · версия {preview['version']}")
+        rows=[[('Подтвердить',f'modelvisconfirm:{request}')],[('Отмена','modelvis:0')]]
+        await self.catalogue_screen(ext,text,buttons(rows),panel='model_visibility')
+
+    async def confirm_visibility(self,u,ext,token):
+        from . import model_visibility
+
+        pending=self.visibility_previews.get(ext)
+        if pending is None or token!=str(pending[0]) or time.monotonic()>=pending[1]:
+            raise Rejected('Предпросмотр устарел. Откройте /model_visibility.')
+        request,_,preview=pending
+        try:
+            async with self.pool.acquire() as conn,conn.transaction():
+                row=await model_visibility.confirm(
+                    conn,u,preview['provider'],preview['model_id'],preview['operation'],
+                    preview['desired_visibility'],preview['version'],request,rollback_of=preview['rollback_of'])
+        except model_visibility.VisibilityDenied:
+            raise Rejected('Управление видимостью недоступно.') from None
+        except (model_visibility.MissingModel,model_visibility.VisibilityConflict):
+            raise Rejected('Модель изменилась. Откройте новый предпросмотр.') from None
+        text=f"Видимость сохранена: {row['visibility']} · версия {row['version']}"
+        await self.catalogue_screen(ext,text,buttons([[('← Модели','modelvis:0')]]),panel='model_visibility')
+        self.visibility_previews.pop(ext,None)
+
     async def callback(self,u,ext,data,*,request_id=None,defer_tasks=False):
         route=data.partition(':')[0]
         if admin_callback(data) and not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
         if route in SUPPORT_ROUTES:
             await self.support_screen(ext,route,data.partition(':')[2])
+            return
+        if route=='modelvis':
+            await self.visibility_command(u,ext,[data.partition(':')[2]])
+            return
+        if route=='modelvisconfirm':
+            await self.confirm_visibility(u,ext,data.partition(':')[2])
             return
         if route=='walletlog':
             page=data.partition(':')[2]
@@ -2543,6 +2632,7 @@ async def register_commands(bot, admin_ids):
             BotCommand(command='referral',description='Код приглашения'),
             BotCommand(command='cancel',description='Отменить текущее действие')]
     admin = [*base,BotCommand(command='price_report',description='Отчёт по ценам и расходам'),
+             BotCommand(command='model_visibility',description='Видимость моделей'),
              BotCommand(command='admin',description='Войти в админку'),
              BotCommand(command='admin_logout',description='Выйти из админки')]
     scopes = [(BotCommandScopeDefault(),base)]

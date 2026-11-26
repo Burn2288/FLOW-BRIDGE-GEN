@@ -78,6 +78,7 @@ async def test_command_registration_scopes_and_failed_chat(capsys):
     ]
     base=[('start','Запустить бота'),('menu','Главное меню'),('referral','Код приглашения'),('cancel','Отменить текущее действие')]
     admin=[*base,('price_report','Отчёт по ценам и расходам'),
+           ('model_visibility','Видимость моделей'),
            ('admin','Войти в админку'),('admin_logout','Выйти из админки')]
     assert [[(command.command,command.description) for command in call.args[0]] for call in calls]==[base,base,admin,admin]
     output=capsys.readouterr().out
