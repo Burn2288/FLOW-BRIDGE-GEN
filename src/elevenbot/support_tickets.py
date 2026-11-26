@@ -101,6 +101,33 @@ class SupportTickets:
         async with self.pool.acquire() as conn, conn.transaction(isolation='repeatable_read', readonly=True):
             owner = await self._owner(conn, subject, platform)
             owned = await self._ticket(conn, owner, ticket)
-            rows = await conn.fetch("""SELECT id,body,created_at FROM support_messages
-                WHERE ticket_id=$1 ORDER BY created_at,id LIMIT $2 OFFSET $3""", ticket, count, offset)
+            rows = await conn.fetch("""SELECT * FROM (
+                    SELECT id,body,created_at,'owner' AS author FROM support_messages WHERE ticket_id=$1
+                    UNION ALL
+                    SELECT id,body,created_at,'operator' FROM support_operator_replies WHERE ticket_id=$1
+                ) timeline ORDER BY created_at,id LIMIT $2 OFFSET $3""", ticket, count, offset)
         return {**owned, 'messages': [dict(row) for row in rows[:limit]], 'has_more': len(rows) > limit}
+
+async def operator_reply(conn, actor, ticket, request_id, text):
+    """The caller supplies a transaction with an authenticated, locked authority."""
+    if not conn.is_in_transaction():
+        raise RuntimeError('support reply requires a transaction')
+    from .admin_authority import current_capabilities, has_capability
+    await conn.execute('LOCK TABLE http_admin_role_events IN SHARE MODE')
+    if not has_capability(await current_capabilities(conn, actor), 'support.operate'):
+        raise Rejected('Ответ оператора недоступен.')
+    body = SupportTickets._text(text,None)
+    if not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM support_tickets WHERE id=$1)',ticket):
+        return None
+    inserted = await conn.fetchval("""
+        INSERT INTO support_operator_replies(ticket_id,actor_id,request_id,body)
+        VALUES($1,$2,$3,$4) ON CONFLICT(ticket_id,request_id) DO NOTHING RETURNING id
+    """,ticket,actor,request_id,body)
+    if inserted:
+        return inserted
+    old = await conn.fetchrow("""
+        SELECT id,actor_id,body FROM support_operator_replies WHERE ticket_id=$1 AND request_id=$2
+    """,ticket,request_id)
+    if (old['actor_id'],old['body']) != (actor,body):
+        raise Rejected('Конфликт повторного ответа.')
+    return old['id']

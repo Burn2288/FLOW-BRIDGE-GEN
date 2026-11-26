@@ -700,8 +700,8 @@ class TelegramApp:
                         ticket=UUID(body.split(maxsplit=1)[1])
                     except ValueError:
                         raise Rejected('Недопустимый идентификатор обращения.') from None
-                    result=await support.read(ext,ticket,limit=1)
-                    message=result['messages'][0]['body'] if result['messages'] else ''
+                    result=await support.read(ext,ticket,limit=20)
+                    message='\n'.join(('Оператор: ' if row['author']=='operator' else '')+row['body'] for row in result['messages'])[:3000]
                     await self.say(ext,'Обращение '+str(ticket)+' · '+result['status']+'\n'+message)
                 else:
                     result=await support.create(ext,uuid5(u,'telegram-support:'+str(update.update_id)),body)

@@ -1298,6 +1298,66 @@
           }
         }
       }
+    },
+    "/api/v1/admin/support/reply": {
+      "post": {
+        "summary": "Append a reply to an existing ticket",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ticket_id",
+                  "request_id",
+                  "text"
+                ],
+                "properties": {
+                  "ticket_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "request_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reply recorded"
+          },
+          "400": {
+            "description": "Invalid request or conflicting replay"
+          },
+          "401": {
+            "description": "Invalid session"
+          },
+          "403": {
+            "description": "Missing support.operate"
+          },
+          "404": {
+            "description": "Ticket missing"
+          },
+          "503": {
+            "description": "Authority unavailable"
+          }
+        }
+      }
     }
   },
   "components": {

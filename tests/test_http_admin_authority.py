@@ -63,3 +63,31 @@ async def test_trusted_role_event_is_serialized_and_replay_safe(env):
     last = await pool.fetchval(sql,target,owner,None,first,uuid4(),'synthetic revoke')
     assert last > first
     assert await pool.fetchval('SELECT count(*) FROM http_admin_role_events WHERE subject_id=$1',target) == 2
+
+
+async def test_support_reply_is_owned_and_revocable(env):
+    from uuid import uuid4
+    from elevenbot.support_tickets import SupportTickets
+
+    pool, cfg, service, operator = env
+    owner = await service.identity(101)
+    cfg = replace(cfg, token='fixture', access_mode='private', admin_ids=(100,), pilot_user_ids=(101,))
+    support = SupportTickets(pool,cfg)
+    ticket = await support.create(101,uuid4(),'Synthetic request')
+    async with TestClient(TestServer(create_app(pool,cfg))) as app:
+        response = await app.post('/api/v1/session',json={'initData':signed_start(cfg.token,100,'support-fixture')})
+        headers={'Authorization':'Bearer '+(await response.json())['token']}
+        path='/api/v1/admin/support/reply'
+        body={'ticket_id':str(ticket['id']),'request_id':str(uuid4()),'text':'Synthetic reply'}
+        assert (await app.post(path,json=body,headers=headers)).status==403
+        await pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,'SUPPORT_OPERATOR','synthetic grant')""",operator)
+        saved=await app.post(path,json=body,headers=headers)
+        replay=await app.post(path,json=body,headers=headers)
+        assert saved.status==replay.status==200 and await saved.json()==await replay.json()
+        await pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,NULL,'synthetic revoke')""",operator)
+        assert (await app.post(path,json=body,headers=headers)).status==403
+    history=await support.read(101,ticket['id'])
+    assert {item['body'] for item in history['messages']}=={'Synthetic request','Synthetic reply'}
+    assert await pool.fetchval('SELECT count(*) FROM support_operator_replies')==1

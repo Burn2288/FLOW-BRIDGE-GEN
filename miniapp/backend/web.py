@@ -111,24 +111,27 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                 raise web.HTTPUnauthorized(text='Откройте приложение заново из Telegram.')
         return web.json_response({'token': token, 'expires_in': SESSION_SECONDS})
 
-    async def account(request):
+    async def account(request, connection=None):
         scheme, _, token = request.headers.get('Authorization', '').partition(' ')
         if scheme != 'Bearer' or len(token) != 43:
             raise web.HTTPUnauthorized()
-        async with pool.acquire() as conn:
-            user = await conn.fetchval(
-                'SELECT user_id FROM miniapp_sessions WHERE token_hash=$1 AND expires_at>now() AND NOT revoked',
-                token_hash(token)
-            )
-            if user is None:
-                raise web.HTTPUnauthorized()
-            external = await conn.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1",user)
-            if not admitted(cfg,external):
-                raise web.HTTPForbidden()
-            try:
-                await service.authorize(conn, user)
-            except Rejected:
-                raise web.HTTPForbidden() from None
+        if connection is None:
+            async with pool.acquire() as conn:
+                return await account(request, conn)
+        conn = connection
+        user = await conn.fetchval(
+            'SELECT user_id FROM miniapp_sessions WHERE token_hash=$1 AND expires_at>now() AND NOT revoked FOR SHARE',
+            token_hash(token)
+        )
+        if user is None:
+            raise web.HTTPUnauthorized()
+        external = await conn.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1",user)
+        if not admitted(cfg,external):
+            raise web.HTTPForbidden()
+        try:
+            await service.authorize(conn, user)
+        except Rejected:
+            raise web.HTTPForbidden() from None
         return user
 
     async def admin_capabilities(request):
@@ -166,6 +169,31 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         except (asyncpg.PostgresError, OSError, TimeoutError):
             raise web.HTTPServiceUnavailable() from None
         return web.json_response(report)
+
+    async def support_reply(request):
+        import asyncpg
+        from elevenbot.support_tickets import operator_reply
+        try:
+            async with pool.acquire() as conn, conn.transaction():
+                actor = await account(request, conn)
+                await conn.execute('LOCK TABLE http_admin_role_events IN SHARE MODE')
+                from elevenbot.admin_authority import current_capabilities, has_capability
+                if not has_capability(await current_capabilities(conn, actor), 'support.operate'):
+                    raise web.HTTPForbidden()
+                try:
+                    body = await request.json()
+                    if not isinstance(body, dict) or body.get('attachment') is not None:
+                        raise ValueError()
+                    ticket = UUID(body['ticket_id'])
+                    operation = UUID(body['request_id'])
+                    result = await operator_reply(conn, actor, ticket, operation, body['text'])
+                except (KeyError, TypeError, ValueError, Rejected):
+                    raise web.HTTPBadRequest() from None
+                if result is None:
+                    raise web.HTTPNotFound()
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return web.json_response({'reply_id': str(result)})
 
     async def wallet(request):
         user = await account(request)
@@ -345,6 +373,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_get('/api/v1/wallet', wallet)
     app.router.add_get('/api/v1/admin/capabilities', admin_capabilities)
     app.router.add_get('/api/v1/admin/operations', operations_report)
+    app.router.add_post('/api/v1/admin/support/reply', support_reply)
     from .stars import add_stars_routes
     add_stars_routes(app, service, account, cfg, view.bot)
     app.router.add_get('/api/v1/referral', referral)
