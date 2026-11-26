@@ -1,2 +1,8 @@
 # Closed fixture staging uses separate project-scoped volumes and an internal network.
 name: flowbridge-staging
+services:
+  db:
+    ports: !reset []
+networks:
+  default:
+    internal: true

@@ -1,6 +1,6 @@
 # Подготовка эксплуатации
 
-Целевая среда приёмки — Ubuntu 24.04 и PostgreSQL. Исходный стенд предоставляет Telegram gateway, worker и миграции; непринятый функциональный кандидат также содержит [HTTP API Mini App](../../miniapp/openapi.json), с ограниченным image-сценарием, а не полный целевой API. Точки запуска приведены в [руководстве Ubuntu](../../README_UBUNTU_RU.md) и [сервисном runbook](../../SERVICE_RUNBOOK_RU.md). Эти инструкции описывают импортированный стенд, включая исторические результаты.
+Целевая среда приёмки — Ubuntu 24.04 и PostgreSQL. DEV-стенд запускает Telegram gateway, worker и Mini App с общим PostgreSQL. Доступные маршруты Mini App описаны в [HTTP API](../../miniapp/openapi.json). Установка на Ubuntu и сервисные операции описаны в [руководстве Ubuntu](../../README_UBUNTU_RU.md) и [сервисном runbook](../../SERVICE_RUNBOOK_RU.md).
 
 ## Проверки без реальных запросов
 
@@ -15,21 +15,45 @@ python -m pytest -q -ra
 
 ## Локальный Docker-стенд flowbridge-dev
 
-Запускайте из корня рабочей копии. Проект использует внутреннюю сеть без опубликованных портов, собственные тома `flowbridge-dev_postgres` и `flowbridge-dev_runtime` и локальную Telegram-заглушку. Сервис бота использует БД `flowbridge_dev`, а сервис `tests` из `compose.test.yaml` использует отдельный экземпляр PostgreSQL с базой `elevenbot_test`. Разные базы позволяют одновременно запускать smoke-бота и тестовые процессы с PostgreSQL advisory lock.
+Из корня рабочей копии запустите PostgreSQL, Telegram gateway с локальной заглушкой,
+worker и Mini App. Mini App обслуживает frontend и API на одном порту. Внутренние
+сервисы используют `flowbridge_dev` и общий том аудио. PostgreSQL и Telegram
+transport доступны внутри проекта. Порт Mini App опубликован на loopback хоста
+Docker. Для второго независимого проекта задайте другой порт через
+`FLOWBRIDGE_DEV_MINIAPP_PORT`.
 
 ```sh
-docker compose -f compose.dev.yaml -f compose.dev.override.yaml up -d --build
-docker compose -f compose.dev.yaml -f compose.dev.override.yaml ps
-docker compose -f compose.dev.yaml -f compose.dev.override.yaml logs bot
-docker compose -f compose.dev.yaml -f compose.dev.override.yaml exec -T bot python -m elevenbot health --component bot
-docker compose -f compose.test.yaml run --build --rm tests python -m pytest -p no:cacheprovider -q -s tests/test_image_recovery.py
+docker compose -f compose.dev.yaml up -d --build --wait
+docker compose -f compose.dev.yaml ps
+curl --fail http://127.0.0.1:8091/healthz
+docker compose -f compose.dev.yaml logs bot worker miniapp
+docker compose -f compose.dev.yaml exec -T bot python -m elevenbot metrics
 ```
 
-У первого запуска на новом томе ожидаются `migrations applied` и `telegram_stub_smoke=ok` в логах. Dev override монтирует `src/`, `scripts/` и `tests/` из рабочей копии в режиме чтения. После изменения Python-кода для бота перезапустите только `bot`. При изменении зависимостей соберите образ заново. Для остановки используйте `stop`, чтобы сохранить контейнеры и данные.
+Откройте `http://127.0.0.1:8091/` на хосте Docker для проверки загрузки интерфейса.
+Авторизованные сценарии требуют подписанных Telegram Web App init data. Для
+закрытой браузерной проверки с тестовым сертификатом и fixture-пользователями
+используйте существующий [OP-01](../../verification/op01/test_https.py).
+Для запуска через Telegram укажите в настройках тестового бота HTTPS-адрес
+закрытого стенда. Loopback HTTP предназначен для локального просмотра и health-check.
+
+На новом томе ожидаются `migrations applied`, `telegram_stub_smoke=ok` и
+`telegram_stub_delivery=audio` в логах. Добавьте `-f compose.dev.override.yaml`
+после основного файла, если нужен read-only bind mount исходников. Исходники
+должны быть доступны для чтения UID 10001 в контейнере. После изменения
+Python-кода перезапустите соответствующий сервис. После изменения зависимостей
+соберите образ заново. Остановка и запуск сохраняют PostgreSQL и аудио в томах.
 
 ```sh
-docker compose -f compose.dev.yaml -f compose.dev.override.yaml restart bot
-docker compose -f compose.dev.yaml -f compose.dev.override.yaml stop
+docker compose -f compose.dev.yaml stop
+docker compose -f compose.dev.yaml up -d --wait
+```
+
+Проект `compose.test.yaml` использует отдельный экземпляр PostgreSQL и
+одноразовую БД `elevenbot_test`. Для проверки восстановления и process journey:
+
+```sh
+docker compose -p flowbridge-runtime-check -f compose.test.yaml run --build --rm tests python -m pytest -q tests/test_dev_fixture.py tests/test_process_e2e.py tests/test_ft024_backup_restore.py
 ```
 
 ## Конфигурация стенда
@@ -65,7 +89,7 @@ docker compose -f compose.test.yaml run --build --rm tests python -m pytest -q t
 docker compose -f compose.dev.yaml stop
 ```
 
-Закрытая приёмка на отдельных проектных томах, без монтирования исходников:
+Закрытая приёмка на отдельных проектных томах, во внутренней сети без публикации порта и без монтирования исходников:
 
 ```sh
 docker compose -p flowbridge-staging -f compose.dev.yaml -f compose.staging.yaml up -d --build --wait
@@ -80,4 +104,8 @@ loopback в сетевом пространстве контейнера БД. �
 закрытый стенд с тестовым ключом, списком допущенных пользователей, моделью и лимитом
 конкретной операции. В этих двух профилях внешних разрешений нет.
 
-Реферальная ссылка включается необязательной настройкой `TELEGRAM_BOT_USERNAME`: укажите username этого же бота без `@` и проверьте его соответствие `TELEGRAM_BOT_TOKEN`. Без настройки показывается код; ссылка не формируется. Изменение username требует обновления конфигурации.
+В Telegram команда `/referral` показывает код и команду приглашения, число
+приглашённых, доступные начисления, долг, условия и историю. В Mini App эти
+данные доступны в разделе рефералов. Для ссылки приглашения задайте
+`TELEGRAM_BOT_USERNAME` без `@` для бота, которому принадлежит
+`TELEGRAM_BOT_TOKEN`. Изменение username требует обновления конфигурации.

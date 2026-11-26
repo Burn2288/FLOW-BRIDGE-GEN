@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -27,6 +28,7 @@ def fixture_environment():
         "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
         "PYTHONUNBUFFERED": "1",
         "PROVIDER_MODE": "mock",
+        "CLODEX_INTERACTION_MODE": "mock",
         "GENERATION_ENABLED": "true",
         "PAYMENTS_ENABLED": "false",
         "TELEGRAM_BOT_TOKEN": "123456:" + "fixture_" * 5,
@@ -37,10 +39,11 @@ def fixture_environment():
 
 async def main():
     env = fixture_environment()
-    if sys.argv[1:] == ["worker"]:
-        os.execve(sys.executable, [sys.executable, "-m", "elevenbot", "worker"], env)
-    if sys.argv[1:]:
-        raise SystemExit("usage: dev_bot.py [worker]")
+    args = sys.argv[1:]
+    if args in (["worker"], ["miniapp"]):
+        os.execve(sys.executable, [sys.executable, "-m", "elevenbot", args[0]], env)
+    if args:
+        raise SystemExit("usage: dev_bot.py [worker|miniapp]")
     # Drive the same Telegram conversation as the local process acceptance test.
     steps = ["/start", None, "🎙 Создать озвучку", "DEV fixture", "voice:0", "speed:1.0", None]
     actor = {"id": 100, "is_bot": False, "first_name": "Fixture"}
@@ -100,11 +103,14 @@ async def main():
             raise SystemExit(await bot.wait())
         finally:
             if bot.returncode is None:
-                bot.terminate()
+                bot.send_signal(signal.SIGINT)
                 await bot.wait()
     finally:
         await runner.cleanup()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

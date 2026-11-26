@@ -5,7 +5,7 @@ COPY --from=pgtools /usr/lib/postgresql/16/bin/pg_dump /usr/local/bin/pg_dump
 COPY --from=pgtools /usr/lib/postgresql/16/bin/pg_restore /usr/local/bin/pg_restore
 COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /bin/uv
 WORKDIR /app
-COPY . .
+COPY --chown=10001:10001 . .
 RUN uv sync --locked && useradd --uid 10001 --create-home tester
 USER tester
 ENV PATH=/app/.venv/bin:$PATH
