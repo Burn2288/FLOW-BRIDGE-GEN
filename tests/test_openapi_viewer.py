@@ -35,6 +35,6 @@ async def test_existing_http_rejects_unauthenticated_access():
         def acquire(self):
             raise AssertionError('unauthenticated request reached the database')
     async with TestClient(TestServer(create_app(NoDatabase(), Config(token='fixture')))) as client:
-        for path in ('/api/v1/catalogue', '/api/v1/wallet', '/api/v1/settings', '/api/v1/works'):
+        for path in ('/api/v1/catalogue', '/api/v1/wallet', '/api/v1/settings', '/api/v1/works', '/api/v1/referral/finances'):
             assert (await client.get(path)).status == 401
         assert (await client.post('/api/v1/session', json={'initData': 'forged'})).status == 401
