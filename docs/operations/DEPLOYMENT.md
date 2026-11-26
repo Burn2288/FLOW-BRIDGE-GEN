@@ -56,6 +56,24 @@ docker compose -f compose.dev.yaml up -d --wait
 docker compose -p flowbridge-runtime-check -f compose.test.yaml run --build --rm tests python -m pytest -q tests/test_dev_fixture.py tests/test_process_e2e.py tests/test_ft024_backup_restore.py
 ```
 
+### Сборка через корпоративный CA
+
+Если `uv sync` на хосте с HTTPS-прокси сообщает `UnknownIssuer`, передайте
+полный доверенный PEM-bundle хоста с CA прокси. Храните файл вне рабочей копии.
+Дополнительные Compose-файлы передают его в `uv sync` как BuildKit secret.
+Проверка TLS остаётся включённой. Сертификаты не копируются в образ и не
+монтируются в запущенные сервисы. При обычном доступе используйте базовые команды.
+
+```sh
+export FLOWBRIDGE_BUILD_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+docker compose -f compose.dev.yaml -f deploy/compose.dev.build-ca.yaml up -d --build --wait
+docker compose -f compose.test.yaml -f deploy/compose.test.build-ca.yaml run --build --rm tests
+```
+
+Выберите путь к bundle для вашего хоста. Если после смены bundle требуется
+повторная загрузка зависимостей, выполните `build --no-cache` с теми же
+Compose-файлами перед запуском.
+
 ## Конфигурация стенда
 
 [Config.env](../../src/elevenbot/config.py) читает `ADMIN_TELEGRAM_IDS`, `TELEGRAM_BOT_TOKEN` и `MINIAPP_URL`; имя `ADMIN_TELEGRAM_USER_IDS` не является установленным alias. Telegram Admin Edition использует отдельный вход администратора. Обычная HTTP-сессия Mini App не наследует эту административную сессию. Для защищённых административных HTTP-маршрутов источник полномочий — PostgreSQL RBAC (D-04, OPTION_B); актуальная роль проверяется на каждом запросе, а при недоступности источника доступ запрещён.

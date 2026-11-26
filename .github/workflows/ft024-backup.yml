@@ -19,3 +19,39 @@ jobs:
       - name: Remove disposable services
         if: always()
         run: docker compose -p ft024-${{ github.run_id }} -f compose.test.yaml down --remove-orphans
+  dev-release-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      COMPOSE_PROJECT_NAME: ft024-dev-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Start and restart DEV Compose on the Ubuntu runner
+        shell: bash
+        run: |
+          compose() { docker compose -f compose.dev.yaml "$@"; }
+          migrations() {
+            compose exec -T db psql -XAt -v ON_ERROR_STOP=1 -U postgres -d flowbridge_dev \
+              -c "SELECT count(*) FROM schema_migrations"
+          }
+
+          compose up -d --build --wait
+          compose ps
+          curl --fail --silent --show-error http://127.0.0.1:8091/healthz
+          applied=$(migrations)
+          test "$applied" -gt 0
+          echo "Applied migrations: $applied"
+
+          compose stop
+          for service in db bot worker miniapp; do
+            test "$(docker inspect -f '{{.State.ExitCode}}' "$(compose ps -a -q "$service")")" = 0
+          done
+          compose up -d --wait
+          curl --fail --silent --show-error http://127.0.0.1:8091/healthz
+          test "$(migrations)" = "$applied"
+      - name: Remove disposable DEV services and volumes
+        if: always()
+        run: docker compose -f compose.dev.yaml down --volumes --remove-orphans
