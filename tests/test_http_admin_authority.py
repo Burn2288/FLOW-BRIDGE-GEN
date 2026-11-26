@@ -67,16 +67,35 @@ async def test_trusted_role_event_is_serialized_and_replay_safe(env):
 
 async def test_support_reply_is_owned_and_revocable(env):
     from uuid import uuid4
-    from elevenbot.support_tickets import SupportTickets
 
     pool, cfg, service, operator = env
     owner = await service.identity(101)
-    cfg = replace(cfg, token='fixture', access_mode='private', admin_ids=(100,), pilot_user_ids=(101,))
-    support = SupportTickets(pool,cfg)
-    ticket = await support.create(101,uuid4(),'Synthetic request')
+    stranger = await service.identity(102)
+    await service.accept(owner)
+    await service.accept(stranger)
+    cfg = replace(cfg, token='fixture', access_mode='private', admin_ids=(100,), pilot_user_ids=(101,102))
     async with TestClient(TestServer(create_app(pool,cfg))) as app:
         response = await app.post('/api/v1/session',json={'initData':signed_start(cfg.token,100,'support-fixture')})
         headers={'Authorization':'Bearer '+(await response.json())['token']}
+        async def owner_session(subject):
+            response = await app.post('/api/v1/session', json={
+                'initData': signed_start(cfg.token, subject, 'support-owner-fixture')})
+            assert response.status == 200
+            return {'Authorization': 'Bearer ' + (await response.json())['token']}
+
+        own_headers = await owner_session(101)
+        other_headers = await owner_session(102)
+        owner_path = '/api/v1/support'
+        payload = {'request_id': str(uuid4()), 'text': 'Synthetic request'}
+        assert (await app.post(owner_path, json={**payload, 'attachment':'fixture'},
+                               headers=own_headers)).status == 400
+        created = await app.post(owner_path, json=payload, headers=own_headers)
+        assert created.status == 200
+        ticket = await created.json()
+        repeat = await app.post(owner_path, json=payload, headers=own_headers)
+        assert repeat.status == 200 and (await repeat.json())['id'] == ticket['id']
+        owner_detail = owner_path + '?ticket_id=' + ticket['id']
+        assert (await app.get(owner_detail, headers=other_headers)).status == 404
         path='/api/v1/admin/support/reply'
         body={'ticket_id':str(ticket['id']),'request_id':str(uuid4()),'text':'Synthetic reply'}
         assert (await app.post(path,json=body,headers=headers)).status==403
@@ -93,7 +112,9 @@ async def test_support_reply_is_owned_and_revocable(env):
         await pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
             VALUES($1,$1,NULL,'synthetic revoke')""",operator)
         assert (await app.post(path,json=body,headers=headers)).status==403
-    history=await support.read(101,ticket['id'])
+        detail = await app.get(owner_detail, headers=own_headers)
+        assert detail.status == 200
+        history = await detail.json()
     assert history['status']=='answered'
     assert {item['body'] for item in history['messages']}=={'Synthetic request','Synthetic reply'}
     assert await pool.fetchval('SELECT count(*) FROM support_operator_replies')==1
