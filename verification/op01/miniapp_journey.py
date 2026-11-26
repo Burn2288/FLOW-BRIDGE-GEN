@@ -800,6 +800,7 @@ async def check_model_visibility(page, telegram, owner):
 async def check_operator_objects(page, telegram, owner):
     from playwright.async_api import expect
 
+    await page.set_viewport_size({'width':360,'height':800})
     await telegram.pool.execute("""
         INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
         VALUES($1,$1,'READ_ONLY_ADMIN','OP-01 operations grant')

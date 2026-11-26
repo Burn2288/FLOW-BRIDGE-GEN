@@ -113,3 +113,22 @@ async def test_telegram_operator_picks_object_and_replies_using_current_role(env
     await app.handle(event(1016,'/operator_reply '+str(ticket['id'])+' Another reply'))
     assert 'Ответ оператора недоступен' in bot.sent[-1][0]
     assert await pool.fetchval('SELECT count(*) FROM support_operator_replies') == 1
+
+
+async def test_existing_tariff_preview_leaves_ledger_quotes_and_tariffs_unchanged(env):
+    from elevenbot.pricing import BOT_TOKEN
+
+    pool, cfg, service, actor = env
+    cfg = replace(cfg, access_mode='private', admin_ids=(100,))
+    pricing = TelegramApp(pool, cfg, Bot()).pricing
+    before_ledger = await pool.fetchval('SELECT count(*) FROM ledger')
+    before_wallet = await service.wallet(actor)
+    fields = dict(basis='request', unit=BOT_TOKEN, amount='10.25', expires=None,
+                  evidence='synthetic preview')
+    model = 'flux-schnell'
+    previews = await pricing.preview_manual(actor,100,'clodex',[model],'images.generate',{'n':1},fields)
+    assert [(key, price['total'], price['source']) for key,price,_ in previews] == [(model,'11','manual:preview')]
+    assert not await pool.fetchval('SELECT count(*) FROM task_manual_tariffs')
+    assert not await pool.fetchval('SELECT count(*) FROM task_price_quotes')
+    assert await pool.fetchval('SELECT count(*) FROM ledger') == before_ledger
+    assert (await service.wallet(actor)) == before_wallet
