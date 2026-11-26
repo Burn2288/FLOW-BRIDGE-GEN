@@ -15,7 +15,12 @@ async def current_capabilities(conn, user):
     """, user)
     if role not in CAPABILITIES:
         return None
-    return {'role': role, 'capabilities': list(CAPABILITIES[role])}
+    capabilities = list(CAPABILITIES[role])
+    if role == 'OWNER_ADMIN':
+        from .fixture_tariff import CAPABILITY, fixture_profile
+        if fixture_profile() is not None:
+            capabilities.append(CAPABILITY)
+    return {'role': role, 'capabilities': capabilities}
 
 
 def has_capability(authority, capability):

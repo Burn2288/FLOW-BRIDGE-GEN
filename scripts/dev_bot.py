@@ -37,6 +37,7 @@ def fixture_environment():
         "TELEGRAM_API_BASE": "http://127.0.0.1:8081",
         "ALLOW_LOCAL_TELEGRAM_STUB": "true",
         "RF02_FUNCTIONAL_TEST": "YES",
+        "PC02_FUNCTIONAL_TEST": "YES",
         "FLOWBRIDGE_DEV_FIXTURE": "YES",
     }
 
