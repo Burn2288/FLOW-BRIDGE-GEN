@@ -347,7 +347,7 @@ class TelegramApp:
                 await send_saved_image(self.bot,ext,work[kind],work['filename'],caption=caption,reply_markup=markup)
             else:
                 send=getattr(self.bot,{'audio':'send_audio','video':'send_video'}[kind])
-                await send(ext,BufferedInputFile(work[kind],filename=work['filename']),caption=caption,reply_markup=markup)
+                return await send(ext,BufferedInputFile(work[kind],filename=work['filename']),caption=caption,reply_markup=markup)
 
     async def work_rows(self,ext,section,model_id,snapshot=None):
         rows=[]
@@ -381,8 +381,9 @@ class TelegramApp:
                 self.pending_speech.pop(job,None)
                 if status=='succeeded':
                     await self.progress.finish(ext,message,model,success=True)
-                    await self.open_work(u,ext,'audio',str(job),show_prompt=True)
-                    trace_interaction(str(job),'result_notified')
+                    if self.pool is None:  # The standalone demo has no database outbox.
+                        await self.open_work(u,ext,'audio',str(job),show_prompt=True)
+                        trace_interaction(str(job),'result_notified')
                 else:
                     await self.progress.finish(ext,message,model,UNKNOWN if status=='uncertain' else STATUS[status])
             except (Rejected,TelegramBadRequest,TelegramNetworkError) as error:
@@ -1266,7 +1267,8 @@ class TelegramApp:
             if self.cfg.speech_pilot and self.cfg.mode=='clodex':
                 raise Rejected('Оценка устарела. Откройте карточку модели заново.')
             try:
-                job=await self.svc.confirm(u,arg)
+                job = (await self.svc.confirm(u, arg, telegram_delivery=True)
+                       if self.pool is not None else await self.svc.confirm(u, arg))
             except Rejected:
                 trace_interaction(request_id,'reservation_failed',operation='audio.speech',
                                   model=self.cfg.clodex_model or 'demo')
@@ -2717,6 +2719,7 @@ async def poll(pool,cfg,bot,*,app=None):
         loops = [
             asyncio.create_task(dispatch_inbox(dispatcher)),
             asyncio.create_task(maintain_inbox(pool,app,bot)),
+            asyncio.create_task(deliver_speech_results(pool, app)),
             asyncio.create_task(receive_updates(pool,app,bot)),
         ]
         try:
@@ -2768,6 +2771,24 @@ async def maintain_inbox(pool,app,bot):
         await notify_interrupted(pool,bot)
         await app.refresh_speech_results()
         await asyncio.sleep(2)
+
+
+async def deliver_speech_results(pool, app):
+    from .admission import admitted
+    from .worker import Worker
+
+    deliveries = Worker(pool, app.cfg, None)
+
+    async def send(user, external, job):
+        if not admitted(app.cfg, external):
+            raise Rejected('Доступ временно ограничен.')
+        result = await app.open_work(user, external, 'audio', str(job), show_prompt=True)
+        trace_interaction(str(job), 'result_notified')
+        return result.message_id
+
+    while True:
+        await deliveries.delivery_one(telegram_delivery=send)
+        await asyncio.sleep(1)
 
 
 async def receive_updates(pool,app,bot):

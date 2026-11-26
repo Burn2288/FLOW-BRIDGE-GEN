@@ -159,7 +159,7 @@ class Service:
             await c.execute('INSERT INTO quotes(id,user_id,mode,text_content,voice,speed,price,cost_bound,tariff) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',q,u,mode,text,voice,Decimal(str(speed)),price,cost,'retail-v1')
         return q,price
 
-    async def confirm(self,u,q):
+    async def confirm(self,u,q,*,telegram_delivery=False):
         q=uid(q)
         async with self.pool.acquire() as c,c.transaction():
             await self.authorize(c,u)
@@ -188,7 +188,7 @@ class Service:
             if limit is not None and spent+r['cost_bound']>limit: raise Rejected('Дневной лимит сервиса исчерпан. Попробуйте позже.')
             await c.execute('UPDATE budgets SET used=used+$2 WHERE day=$1',day,r['cost_bound'])
             j=uuid.uuid4()
-            await c.execute("INSERT INTO jobs(id,user_id,quote_id,mode,price,cost_bound,budget_day,status) VALUES($1,$2,$3,$4,$5,$6,$7,'queued')",j,u,q,r['mode'],r['price'],r['cost_bound'],day)
+            await c.execute("INSERT INTO jobs(id,user_id,quote_id,mode,price,cost_bound,budget_day,status,telegram_delivery) VALUES($1,$2,$3,$4,$5,$6,$7,'queued',$8)",j,u,q,r['mode'],r['price'],r['cost_bound'],day,telegram_delivery)
             await self.movement(c,u,r['mode'],f'reserve:{j}','reserve',-r['price'],r['price'],j)
             return j
 

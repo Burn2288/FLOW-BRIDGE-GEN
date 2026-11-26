@@ -96,13 +96,16 @@ class Worker:
                 except (ValueError,OSError,subprocess.SubprocessError):
                     pass  # Keep uncertainty; never re-generate or discard evidence.
 
-    async def delivery_one(self):
-        if not self.sender:return False
+    async def delivery_one(self, *, telegram_delivery=None):
+        if self.sender is None and telegram_delivery is None:
+            return False
         async with self.pool.acquire() as c,c.transaction():
-            r=await c.fetchrow("""SELECT d.*,f.storage_key,f.expires_at,f.deleted_at,i.external_id FROM deliveries d
+            r=await c.fetchrow("""SELECT d.*,j.user_id,f.storage_key,f.expires_at,f.deleted_at,i.external_id FROM deliveries d
                 JOIN jobs j ON j.id=d.job_id JOIN files f ON f.job_id=j.id
                 JOIN identities i ON i.user_id=j.user_id AND i.platform='telegram'
-                WHERE d.status IN ('pending','retry') AND d.next_at<=now() ORDER BY d.next_at FOR UPDATE OF d SKIP LOCKED LIMIT 1""")
+                WHERE d.status IN ('pending','retry') AND d.next_at<=now()
+                    AND ($1::boolean = j.telegram_delivery)
+                ORDER BY d.next_at FOR UPDATE OF d SKIP LOCKED LIMIT 1""", telegram_delivery is not None)
             if not r:return False
             if r['deleted_at'] or r['expires_at']<=datetime.now(timezone.utc) or r['attempts']>=8:
                 await c.execute("UPDATE deliveries SET status='expired' WHERE job_id=$1",r['job_id']);return True
@@ -110,7 +113,10 @@ class Worker:
             await c.execute("UPDATE deliveries SET status='sending',attempts=attempts+1,fence=$2,lease_until=now()+interval '180 seconds' WHERE job_id=$1",r['job_id'],f)
         try:
             async with asyncio.timeout(120):
-                message_id=await self.sender.send_audio(r['external_id'],self.storage.path(r['storage_key']))
+                if telegram_delivery is None:
+                    message_id=await self.sender.send_audio(r['external_id'],self.storage.path(r['storage_key']))
+                else:
+                    message_id=await telegram_delivery(r['user_id'],r['external_id'],r['job_id'])
         except Exception:
             # Do not log exception object: SDK exception can include URL token/private data.
             async with self.pool.acquire() as c:

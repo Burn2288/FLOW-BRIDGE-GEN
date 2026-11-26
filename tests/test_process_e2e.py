@@ -66,21 +66,46 @@ async def test_bot_worker_process_mock_e2e(env,runtime_role):
         'ALLOW_LOCAL_TELEGRAM_STUB':'true','AUDIO_STORAGE_DIR':str(cfg.storage),'PYTHONUNBUFFERED':'1',
         'PYTHONPATH':str(ROOT/'src')}
     processes=[]
-    try:
-        for name in ('bot','worker'):
-            processes.append(await asyncio.create_subprocess_exec(sys.executable,'-m','elevenbot',name,env=config,
-                stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE))
-        deadline=time.monotonic()+30
-        while time.monotonic()<deadline:
-            assert all(p.returncode is None for p in processes),'Executable process stopped; inspect sanitized process logs'
-            row=await pool.fetchrow('SELECT j.status,j.settlement,d.status delivery,f.storage_key FROM jobs j JOIN files f ON f.job_id=j.id JOIN deliveries d ON d.job_id=j.id')
-            if row and 'sendaudio' in received:break
+    async def start(component):
+        process = await asyncio.create_subprocess_exec(sys.executable, '-m', 'elevenbot', component, env=config,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        processes.append(process)
+        return process
+
+    async def wait_for(check, message):
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            assert all(p.returncode is None for p in processes), 'Executable process stopped'
+            result = await check()
+            if result:
+                return result
             await asyncio.sleep(.1)
-        else:raise AssertionError('Integrated MOCK E2E did not finish in 30 seconds')
-        assert row['status']=='succeeded' and row['settlement']=='capture'
-        # The active gateway sends directly. Durable delivery acknowledgement is
-        # a separate gap in this baseline, even when the HTTP stub receives audio.
-        assert row['delivery']=='pending'
+        raise AssertionError(message)
+
+    try:
+        gateway = await start('bot')
+        async def queued():
+            return await pool.fetchval("SELECT id FROM jobs WHERE status='queued' AND telegram_delivery")
+        job = await wait_for(queued, 'Telegram did not confirm the speech job')
+        gateway.terminate()
+        await asyncio.wait_for(gateway.communicate(), 5)
+        processes.remove(gateway)
+
+        await start('worker')
+        async def completed():
+            return await pool.fetchrow("""
+                SELECT j.status,j.settlement,d.status AS delivery,f.storage_key
+                FROM jobs j JOIN files f ON f.job_id=j.id JOIN deliveries d ON d.job_id=j.id
+                WHERE j.id=$1
+            """, job)
+        row = await wait_for(completed, 'Worker did not finish while the gateway was stopped')
+        assert row['status'] == 'succeeded' and row['settlement'] == 'capture'
+        assert row['delivery'] == 'pending' and 'sendaudio' not in received
+
+        await start('bot')
+        async def sent():
+            return await pool.fetchval("SELECT platform_message_id FROM deliveries WHERE job_id=$1 AND status='sent'", job)
+        assert await wait_for(sent, 'Restarted gateway did not deliver the saved audio')
         assert Path(cfg.storage/row['storage_key']).is_file()
         assert received.count('sendaudio')==1
         assert received.count('sendphoto')==1
