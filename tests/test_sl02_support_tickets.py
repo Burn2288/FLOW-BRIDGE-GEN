@@ -76,18 +76,64 @@ async def test_support_rejects_attachments_unknown_blocked_and_revoked_subjects(
     assert await pool.fetchval('SELECT count(*) FROM support_messages') == 1
 
 async def test_telegram_delivers_owner_support_without_purchase_consent(env):
+    from aiohttp.test_utils import TestClient, TestServer
+    from aiogram.types import Document
+    from miniapp.backend.web import create_app
     from elevenbot.telegram import TelegramApp
     from test_admin_access import event
+    from test_ft022_referrals import signed_start
     from test_telegram_consent import DocumentTransport
 
-    pool, cfg, _, _ = env
-    cfg = replace(cfg, access_mode='private', admin_ids=(100,), pilot_user_ids=(101,102))
+    pool, cfg, _, operator = env
+    cfg = replace(cfg, token='fixture', access_mode='private', admin_ids=(100,), pilot_user_ids=(101,102))
     app = TelegramApp(pool,cfg,DocumentTransport())
-    await app.handle(event(501,'/support Синтетическое обращение',chat=101))
+    await app.handle(event(500,'/support',chat=101))
+    assert '/support new' in app.bot.sent[-1][0]
+    attachment = event(501,chat=101)
+    attachment = attachment.model_copy(update={'message': attachment.message.model_copy(update={
+        'caption': '/support new\nВложение',
+        'document': Document(file_id='fixture', file_unique_id='fixture'),
+    })})
+    await app.handle(attachment)
+    assert 'Вложения пока недоступны.' in app.bot.sent[-1][0]
+    request = event(502,'/support new '+'З'*2000,chat=101)
+    await app.handle(request)
+    await app.handle(request)
     assert 'Обращение принято' in app.bot.sent[-1][0]
     ticket = await pool.fetchval('SELECT id FROM support_tickets')
-    await app.handle(event(502,'/support show '+str(ticket),chat=102))
-    assert 'Синтетическое обращение' not in app.bot.sent[-1][0]
-    await app.handle(event(503,'/support show '+str(ticket),chat=101))
-    assert 'Синтетическое обращение' in app.bot.sent[-1][0]
+    assert await pool.fetchval('SELECT count(*) FROM support_tickets')==1
     assert await pool.fetchval('SELECT count(*) FROM support_messages')==1
+
+    reply = 'О'*2000
+    async with TestClient(TestServer(create_app(pool,cfg))) as client:
+        session = await client.post('/api/v1/session', json={
+            'initData': signed_start(cfg.token,100,'telegram-support-fixture')})
+        assert session.status==200
+        headers = {'Authorization':'Bearer '+(await session.json())['token']}
+        await pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,'SUPPORT_OPERATOR','synthetic grant')""", operator)
+        inbox = await client.get('/api/v1/admin/support', headers=headers)
+        assert (await inbox.json())['tickets'][0]['id']==str(ticket)
+        payload = {'ticket_id':str(ticket),'request_id':str(uuid4()),'text':reply}
+        response = await client.post('/api/v1/admin/support/reply',json=payload,headers=headers)
+        assert response.status==200
+        await pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,NULL,'synthetic revoke')""", operator)
+        assert (await client.post('/api/v1/admin/support/reply',json=payload,headers=headers)).status==403
+
+    async def click(number,label):
+        active = (await app.navigation.read(101)).active_id
+        _, markup = app.bot.sent[-1]
+        action, = [button.callback_data for row in markup.inline_keyboard for button in row if label in button.text]
+        assert len(action.encode())<=64
+        await app.handle(event(number,callback=action,chat=101,source_message_id=active))
+
+    await app.handle(event(503,'/support show '+str(ticket),chat=102))
+    assert 'Обращение не найдено.' in app.bot.sent[-1][0]
+    await app.handle(event(504,'/support list',chat=101))
+    await click(505,'Есть ответ')
+    text = app.bot.sent[-1][0]
+    assert 'answered' in text and 'З'*2000 in text
+    await click(506,'Следующее')
+    text = app.bot.sent[-1][0]
+    assert 'answered' in text and reply in text and len(text)<4096

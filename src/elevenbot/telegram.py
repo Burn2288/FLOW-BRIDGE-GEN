@@ -4,7 +4,7 @@ import asyncio,hashlib,json,re,time
 from datetime import datetime,timezone
 from hmac import compare_digest
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4, uuid5
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice,BotCommand,
@@ -25,6 +25,7 @@ from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
 from .navigation import Navigation
+from .support_tickets import SupportTickets
 from .model_capabilities import FLUX_MODEL, flux_card
 from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
 from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request,decimal_text,display,ruble_value
@@ -71,7 +72,8 @@ WELCOME_TEXT=(
 )
 ANYMODEL_SECTIONS={key:title for key,(title,_) in STORE_SECTIONS.items()}
 ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠 Инструменты')
-SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
+SUPPORT_ROUTES={'support','supportlist','supportread'}
+SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|SUPPORT_ROUTES|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
 CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','🛠 Функции',MENU[0],OPEN_CATALOGUE)
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
@@ -572,6 +574,9 @@ class TelegramApp:
                 return
             data=(update.callback_query.data or '') if update.callback_query else ''
             text=(update.message.text or '') if update.message else ''
+            caption=(update.message.caption or '').split(maxsplit=1) if update.message else []
+            if caption and caption[0].lower().partition('@')[0]=='/support':
+                raise Rejected('Вложения пока недоступны.')
             if BALANCE_BUTTON.fullmatch(text):
                 text=MENU[2]
             command=text.lstrip().split(maxsplit=1)
@@ -587,6 +592,7 @@ class TelegramApp:
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
+                        or data.partition(':')[0] in SUPPORT_ROUTES
                         or command in RATE_COMMANDS or command in ('/miniapp','/referral'))
             if update.callback_query:
                 e=update.callback_query
@@ -689,28 +695,10 @@ class TelegramApp:
                 return
             if command in ('/terms','/privacy'):
                 await self.consent_files(u,ext,(command[1:],));return
-            if command=='/support' and len(text.split(maxsplit=1))==2 and not data:
-                from uuid import UUID, uuid5
-                from .support_tickets import SupportTickets
-                body=text.split(maxsplit=1)[1].strip()
-                support=SupportTickets(self.pool,self.cfg)
-                if body=='list':
-                    result=await support.list(ext)
-                    rows=[str(ticket['id'])+' · '+ticket['status'] for ticket in result['tickets']]
-                    await self.say(ext,'Ваши обращения:\n'+('\n'.join(rows) or 'Обращений пока нет.'))
-                elif body.startswith('show '):
-                    try:
-                        ticket=UUID(body.split(maxsplit=1)[1])
-                    except ValueError:
-                        raise Rejected('Недопустимый идентификатор обращения.') from None
-                    result=await support.read(ext,ticket,limit=20)
-                    message='\n'.join(('Оператор: ' if row['author']=='operator' else '')+row['body'] for row in result['messages'])[:3000]
-                    await self.say(ext,'Обращение '+str(ticket)+' · '+result['status']+'\n'+message)
-                else:
-                    result=await support.create(ext,uuid5(u,'telegram-support:'+str(update.update_id)),body)
-                    await self.say(ext,'Обращение принято: '+str(result['id']))
+            if command=='/support':
+                await self.support_command(u,ext,text,update.update_id)
                 return
-            if text in ('/support','/paysupport'):
+            if command=='/paysupport':
                 await self.say(ext,self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
             if command in ('/admit','/revoke','/markup_value'):
                 await self.models.command(u,ext,command,text.split()[1:]);return
@@ -916,13 +904,87 @@ class TelegramApp:
                 rows.append([('Пополнить','buy')])
         else:
             text=self.cfg.brand+'\nОткройте каталог и выберите нужное действие.\n/terms /privacy /support /paysupport'
+            rows.append([('Поддержка','support')])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),panel='balance' if section==2 else 'help')
+
+    def support_tickets(self):
+        if self.pool is None:
+            raise Rejected('Поддержка недоступна.')
+        return SupportTickets(self.pool,self.cfg)
+
+    async def support_command(self,u,ext,text,update_id):
+        parts=text.split(maxsplit=1)
+        if len(parts)==1:
+            await self.support_screen(ext,'support','')
+            return
+        body=parts[1].strip()
+        if body=='list':
+            await self.support_screen(ext,'supportlist','0')
+        elif body.startswith('show '):
+            await self.support_screen(ext,'supportread',body.split(maxsplit=1)[1]+':0')
+        else:
+            if body.startswith('new '):
+                body=body.split(maxsplit=1)[1]
+            result=await self.support_tickets().create(ext,uuid5(u,'telegram-support:'+str(update_id)),body)
+            rows=[[('Открыть обращение',f"supportread:{result['id']}:0")],
+                  [('Мои обращения','supportlist:0')]]
+            await self.catalogue_screen(ext,'Обращение принято: '+str(result['id']),buttons(rows),panel='support')
+
+    async def support_screen(self,ext,route,value):
+        support=self.support_tickets()
+        rows=[]
+        if route=='support':
+            text=self.cfg.support+'\nСоздать текстовое обращение: /support new Ваше сообщение'
+            rows=[[('Мои обращения','supportlist:0')],[('← Помощь','section:3')]]
+        elif route=='supportlist':
+            offset=int(value)
+            result=await support.list(ext,limit=5,offset=offset)
+            text='Ваши обращения:' if result['tickets'] else 'Обращений на этой странице нет.'
+            for ticket in result['tickets']:
+                number=str(ticket['id'])
+                status='Есть ответ' if ticket['status']=='answered' else 'Ожидает ответа'
+                label=f"{ticket['created_at']:%d.%m %H:%M} UTC · {number[:8]} · {status}"
+                rows.append([(label,f'supportread:{number}:0')])
+            nav=[]
+            if offset:
+                nav.append(('← Ранее',f'supportlist:{max(0,offset-5)}'))
+            if result['has_more'] and offset+5<=5000:
+                nav.append(('Далее →',f'supportlist:{offset+5}'))
+            if nav:
+                rows.append(nav)
+            rows.append([('← Поддержка','support')])
+        else:
+            number,_,offset_text=value.partition(':')
+            try:
+                ticket=UUID(number)
+            except ValueError:
+                raise Rejected('Недопустимый идентификатор обращения.') from None
+            offset=int(offset_text)
+            result=await support.read(ext,ticket,limit=1,offset=offset)
+            status='Есть ответ' if result['status']=='answered' else 'Ожидает ответа'
+            text=f'Обращение {ticket} · {status} ({result["status"]})'
+            if result['messages']:
+                row=result['messages'][0]
+                author='Оператор' if row['author']=='operator' else 'Ваше сообщение'
+                text+=f'\n\nСообщение {offset+1} · {author}\n{row["body"]}'
+            nav=[]
+            if offset:
+                nav.append(('← Предыдущее',f'supportread:{ticket}:{offset-1}'))
+            if result['has_more'] and offset<5000:
+                nav.append(('Следующее →',f'supportread:{ticket}:{offset+1}'))
+            if nav:
+                rows.append(nav)
+            rows.append([('← Мои обращения','supportlist:0')])
+        await self.catalogue_screen(ext,text,buttons(rows),panel='support')
 
     async def callback(self,u,ext,data,*,request_id=None,defer_tasks=False):
         route=data.partition(':')[0]
         if admin_callback(data) and not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
+        if route in SUPPORT_ROUTES:
+            await self.support_screen(ext,route,data.partition(':')[2])
+            return
         if route=='walletlog':
             page=data.partition(':')[2]
             if self.pool is None or not page.isascii() or not page.isdigit() or len(page)>8:
