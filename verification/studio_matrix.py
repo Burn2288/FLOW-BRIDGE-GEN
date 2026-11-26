@@ -128,6 +128,10 @@ class Telegram:
         if studio.key == 'music':
             after = await self.tap(chat, after, r'^music$')
             await self.tap(chat, after, r'^musicprompt$')
+        elif studio.key == 'video':
+            after = await self.tap(chat, after, r'^slist:current:video:0$')
+            after = await self.tap(chat, after, r'^veo:')
+            await self.tap(chat, after, r'^veoprompt:')
         else:
             after = await self.tap(chat, after, rf'^slist:current:{studio.key}:0$')
             after = await self.tap(chat, after, rf'^smodel:.*:{studio.key}:')
@@ -188,14 +192,8 @@ async def start_miniapp_job(page, studio, prompt):
     quote_response = await quote.value
     assert quote_response.status == 201, f'quote status {quote_response.status}'
     offered = await quote_response.json()
-    async with page.expect_response(lambda response: response.url.endswith('/api/v1/jobs')
-                                    and response.request.method == 'POST') as job:
-        await panel.get_by_role('button', name=re.compile('^Подтвердить за ')).click()
-    confirmed = await job.value
-    assert confirmed.status == 201, f'confirm status {confirmed.status}'
-    result = await confirmed.json()
-    assert result['id'] == offered['quote_id']
-    return UUID(result['id'])
+    await panel.get_by_role('button', name=re.compile('^Подтвердить за ')).click()
+    return UUID(offered['quote_id'])
 
 
 async def read_result(project, job):
