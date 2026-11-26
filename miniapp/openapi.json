@@ -1606,6 +1606,136 @@
           }
         }
       }
+    },
+    "/api/v1/admin/objects/{section}": {
+      "get": {
+        "summary": "Список или карточка объекта операционного обзора",
+        "description": "Требует operations.read. Возвращает минимальные поля раздела. Суммы передаются строками без потери точности.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "section",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "users",
+                "jobs",
+                "queue",
+                "models",
+                "providers",
+                "payments",
+                "wallets",
+                "reconciliation",
+                "incidents"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Одна карточка при переданном id или список объектов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "has_more",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "has_more": {
+                          "type": "boolean"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные параметры"
+          },
+          "401": {
+            "description": "Сессия отсутствует или истекла"
+          },
+          "403": {
+            "description": "Нет полномочия operations.read"
+          },
+          "404": {
+            "description": "Раздел или объект отсутствует"
+          },
+          "503": {
+            "description": "Хранилище временно недоступно"
+          }
+        }
+      }
     }
   },
   "components": {

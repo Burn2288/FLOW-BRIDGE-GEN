@@ -972,6 +972,133 @@ function appendOperationsReport(report, data) {
   }
 }
 
+const operatorSections = {
+  users: 'Пользователи', jobs: 'Задания', queue: 'Очередь', models: 'Модели',
+  providers: 'Провайдеры', payments: 'Платежи', wallets: 'Кошельки',
+  reconciliation: 'Финансовая сверка', incidents: 'Инциденты',
+};
+const operatorFields = {
+  id: 'Идентификатор', user_id: 'Аккаунт', job_id: 'Задание', model_id: 'Модель',
+  title: 'Название', blocked: 'Заблокирован', status: 'Статус', operation: 'Операция',
+  provider: 'Провайдер', created_at: 'Создано', completed_at: 'Завершено', next_check: 'Следующая проверка',
+  settlement: 'Расчёт по заданию', overdue: 'Просрочено', visibility: 'Видимость',
+  visibility_version: 'Версия видимости', catalogue_adapter: 'Адаптер каталога',
+  execution_adapter: 'Адаптер запуска', manifest_status: 'Манифест', health: 'Доступность',
+  currency: 'Валюта', amount: 'Сумма в минимальных единицах', credits: 'Токены',
+  topup_state: 'Состояние пополнения', returned_minor: 'Возвращено в минимальных единицах',
+  returned_tokens: 'Возвращено токенов', referral_review: 'Реферальная сверка',
+  mode: 'Режим', available: 'Доступно', reserved: 'В резерве', payment_debt: 'Платёжный долг',
+  referral_debt: 'Реферальный долг', kind: 'Тип', check: 'Проверка', components: 'Состав обязательств',
+  capture_id: 'Списание', payment_id: 'Платёж', ledger_id: 'Запись ledger', reason: 'Причина',
+  actual: 'Фактически', expected: 'Ожидалось', unsettled_jobs: 'Задания', refunding_payments: 'Возвраты',
+  task_ledger: 'Резервы заданий', affected_funding: 'Возможное связанное финансирование',
+  payment_state: 'Состояние платежа', affected_funding_basis: 'Основание оценки',
+  eligible_paid_total: 'Допустимое PAID финансирование', original_reward: 'Исходная награда',
+  recorded_reversal: 'Подтверждённое сторно', unresolved_reward_amount_status: 'Статус оставшейся суммы',
+};
+
+function appendOperatorObjects(container, current) {
+  const panel = document.createElement('section');
+  const title = document.createElement('h2');
+  title.textContent = 'Операторские разделы';
+  const sections = document.createElement('select');
+  sections.setAttribute('aria-label', 'Операторский раздел');
+  for (const [value, label] of Object.entries(operatorSections)) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    sections.append(option);
+  }
+  const items = document.createElement('ul');
+  items.className = 'cards';
+  const detail = document.createElement('ul');
+  detail.className = 'cards';
+  detail.setAttribute('aria-label', 'Сведения об объекте');
+  const notice = document.createElement('p');
+  notice.setAttribute('role', 'status');
+  const previous = document.createElement('button');
+  previous.textContent = 'Предыдущая страница';
+  const next = document.createElement('button');
+  next.textContent = 'Следующая страница';
+  previous.disabled = next.disabled = true;
+  panel.append(title, sections, notice, items, previous, next, detail);
+  container.append(panel);
+
+  const pageSize = 10;
+  let offset = 0;
+  let generation = 0;
+  const path = section => '/api/v1/admin/objects/' + encodeURIComponent(section);
+  const valueText = value => {
+    if (value === 'NOT_PROVEN') return 'Не подтверждено';
+    if (typeof value === 'boolean') return value ? 'Да' : 'Нет';
+    if (value && typeof value === 'object') return Object.entries(value).map(([key, value]) =>
+      (operatorFields[key] ?? key) + ': ' + valueText(value)).join(' · ');
+    return value ?? '—';
+  };
+  function displayError(error) {
+    if (error.status === 401 || error.status === 403) {
+      items.replaceChildren();
+      detail.replaceChildren();
+      previous.disabled = next.disabled = true;
+      notice.textContent = 'Доступ к операторским разделам закрыт.';
+    } else {
+      notice.textContent = error.status === 404 ? 'Объект больше недоступен.' : 'Не удалось загрузить данные.';
+    }
+  }
+  async function selectObject(section, id) {
+    const revision = ++generation;
+    detail.replaceChildren();
+    notice.textContent = 'Загружаем сведения…';
+    try {
+      const response = await request(path(section) + '?' + new URLSearchParams({id}));
+      const entry = await response.json();
+      if (!current() || revision !== generation) return;
+      const fields = Object.entries(entry).filter(([key, value]) => key in operatorFields && value !== null);
+      detail.replaceChildren(...fields.map(([key, value]) => listItem(operatorFields[key] + ': ' + valueText(value))));
+      notice.textContent = 'Сведения загружены.';
+    } catch (error) {
+      if (current() && revision === generation) displayError(error);
+    }
+  }
+  async function load() {
+    const revision = ++generation;
+    const section = sections.value || 'users';
+    detail.replaceChildren();
+    items.replaceChildren();
+    previous.disabled = next.disabled = true;
+    notice.textContent = 'Загрузка…';
+    try {
+      const response = await request(path(section) + '?' + new URLSearchParams({limit: pageSize, offset}));
+      const data = await response.json();
+      if (!current() || revision !== generation) return;
+      for (const object of data.items) {
+        const item = document.createElement('li');
+        const choose = document.createElement('button');
+        const label = object.title ?? object.model_id ?? object.reason ?? object.check ?? object.kind ??
+          object.provider ?? object.user_id?.slice(0, 8) ?? object.id.slice(0, 8);
+        const state = object.status ?? object.visibility ?? object.mode;
+        choose.textContent = label + (state ? ' · ' + state : '');
+        choose.onclick = () => { void selectObject(section, object.id); };
+        item.append(choose);
+        items.append(item);
+      }
+      notice.textContent = data.truncated ? 'Показаны первые случаи каждой проверки.' :
+        (data.items.length ? '' : 'Записей пока нет.');
+      previous.disabled = offset === 0;
+      next.disabled = !data.has_more;
+    } catch (error) {
+      if (current() && revision === generation) {
+        previous.disabled = offset === 0;
+        displayError(error);
+      }
+    }
+  }
+  sections.onchange = () => { offset = 0; void load(); };
+  previous.onclick = () => { offset = Math.max(0, offset - pageSize); void load(); };
+  next.onclick = () => { offset += pageSize; void load(); };
+  void load();
+}
+
 async function showAdministration() {
   if (!token) return;
   const id = ++adminRequest;
@@ -1002,6 +1129,7 @@ async function showAdministration() {
     const response = await request('/api/v1/admin/operations?' + query);
     const data = await response.json();
     if (!current()) return;
+    appendOperatorObjects(report, current);
     appendOperationsReport(report, data);
     notice.textContent = 'Обзор за 7 дней · ' + authority.role;
   } catch (error) {

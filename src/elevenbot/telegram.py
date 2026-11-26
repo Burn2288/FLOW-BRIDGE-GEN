@@ -74,7 +74,8 @@ ANYMODEL_SECTIONS={key:title for key,(title,_) in STORE_SECTIONS.items()}
 ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠 Инструменты')
 SUPPORT_ROUTES={'support','supportlist','supportread'}
 VISIBILITY_ROUTES={'modelvis','modelvisconfirm'}
-SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|SUPPORT_ROUTES|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
+OPERATIONS_ROUTES={'opobjects','opobject','opoverview','ophelp'}
+SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|SUPPORT_ROUTES|OPERATIONS_ROUTES|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
 CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','🛠 Функции',MENU[0],OPEN_CATALOGUE)
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
@@ -131,6 +132,7 @@ class TelegramApp:
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.consent_offers = {}
         self.visibility_previews = {}
+        self.operation_object_choices = {}
         self.admin_access=AdminAccess()
         self.navigation = Navigation(pool,bot)
         self.pending_speech = {}
@@ -595,7 +597,7 @@ class TelegramApp:
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
-                        or data.partition(':')[0] in SUPPORT_ROUTES|VISIBILITY_ROUTES
+                        or data.partition(':')[0] in SUPPORT_ROUTES|VISIBILITY_ROUTES|OPERATIONS_ROUTES
                         or command in RATE_COMMANDS or command in ('/miniapp','/referral'))
             if update.callback_query:
                 e=update.callback_query
@@ -705,7 +707,20 @@ class TelegramApp:
                 await self.visibility_command(u,ext,text.split()[1:])
                 return
             if command=='/operations':
-                await self.operations_screen(u,ext)
+                parts=text.split()[1:]
+                if parts:
+                    from .telegram_operations import show_objects
+                    await show_objects(self,u,ext,parts[0])
+                else:
+                    await self.operations_screen(u,ext)
+                return
+            if command=='/operator_support':
+                from .telegram_operations import show_support
+                await show_support(self,u,ext)
+                return
+            if command=='/operator_reply':
+                from .telegram_operations import reply_support
+                await reply_support(self,u,ext,text,update.update_id)
                 return
             if command=='/paysupport':
                 await self.say(ext,self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
@@ -1067,8 +1082,11 @@ class TelegramApp:
 
     async def operations_screen(self,u,ext):
         from .admin_authority import current_capabilities, has_capability
+        from .operations_objects import SECTIONS
         from .operations_read_model import read_operations_report
 
+        if self.pool is None:
+            raise Rejected('Обзор операций недоступен.')
         async with self.pool.acquire() as conn:
             authority=await current_capabilities(conn,u)
         if not has_capability(authority,'operations.read'):
@@ -1104,7 +1122,13 @@ class TelegramApp:
             lines.append('Платежей нет.')
         if payments['truncated']:
             lines.append(f"Показано {len(payments['groups'])} из {payments['group_count']} групп.")
-        await self.say(ext,'\n'.join(lines))
+        links=[(label,f'opobjects:{section}:0') for section,label in SECTIONS.items()]
+        rows=[links[index:index+2] for index in range(0,len(links),2)]
+        if has_capability(authority,'support.operate'):
+            rows.append([('Очередь поддержки','ophelp')])
+        if has_capability(authority,'settings.visibility'):
+            rows.append([('Видимость моделей','modelvis:0')])
+        await self.catalogue_screen(ext,'\n'.join(lines),buttons(rows),panel='operations')
 
     async def callback(self,u,ext,data,*,request_id=None,defer_tasks=False):
         route=data.partition(':')[0]
@@ -1112,6 +1136,23 @@ class TelegramApp:
             raise Rejected('Действие доступно только администратору.')
         if route in SUPPORT_ROUTES:
             await self.support_screen(ext,route,data.partition(':')[2])
+            return
+        if route=='opoverview':
+            await self.operations_screen(u,ext)
+            return
+        if route=='opobjects':
+            from .telegram_operations import show_objects
+            _,section,offset=data.split(':')
+            await show_objects(self,u,ext,section,int(offset))
+            return
+        if route=='opobject':
+            from .telegram_operations import show_objects
+            await show_objects(self,u,ext,None,choice=data.partition(':')[2])
+            return
+        if route=='ophelp':
+            from .telegram_operations import show_support
+            ticket=data.partition(':')[2]
+            await show_support(self,u,ext,UUID(ticket) if ticket else None)
             return
         if route=='modelvis':
             await self.visibility_command(u,ext,[data.partition(':')[2]])
@@ -2681,6 +2722,7 @@ async def register_commands(bot, admin_ids):
             BotCommand(command='cancel',description='Отменить текущее действие')]
     admin = [*base,BotCommand(command='price_report',description='Отчёт по ценам и расходам'),
              BotCommand(command='operations',description='Обзор операций'),
+             BotCommand(command='operator_support',description='Очередь поддержки'),
              BotCommand(command='model_visibility',description='Видимость моделей'),
              BotCommand(command='admin',description='Войти в админку'),
              BotCommand(command='admin_logout',description='Выйти из админки')]

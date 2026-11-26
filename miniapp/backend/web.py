@@ -186,6 +186,28 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             raise web.HTTPServiceUnavailable() from None
         return web.json_response(report)
 
+    async def operations_objects(request):
+        import asyncpg
+        from elevenbot.operations_objects import OperationsDenied, read_objects
+
+        try:
+            actor = await account(request)
+            async with pool.acquire() as conn, conn.transaction(isolation='repeatable_read', readonly=True):
+                result = await read_objects(conn, actor, view.providers, request.match_info['section'],
+                    object_id=request.query.get('id'), offset=request.query.get('offset', 0),
+                    limit=request.query.get('limit', 20))
+        except OperationsDenied:
+            raise web.HTTPForbidden() from None
+        except KeyError:
+            raise web.HTTPNotFound() from None
+        except ValueError:
+            raise web.HTTPBadRequest() from None
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        if result is None:
+            raise web.HTTPNotFound()
+        return web.json_response(result)
+
     async def admin_model_visibility(request):
         import asyncpg
         from elevenbot import model_visibility as visibility
@@ -492,6 +514,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_get('/api/v1/admin/model-visibility', admin_model_visibility)
     app.router.add_post('/api/v1/admin/model-visibility/{action:preview|confirm}', admin_model_visibility)
     app.router.add_get('/api/v1/admin/operations', operations_report)
+    app.router.add_get('/api/v1/admin/objects/{section}', operations_objects)
     app.router.add_post('/api/v1/admin/support/reply', support_reply)
     app.router.add_get('/api/v1/admin/support', support_inbox)
     app.router.add_get('/api/v1/support', owner_support)

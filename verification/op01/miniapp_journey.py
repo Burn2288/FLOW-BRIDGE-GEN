@@ -140,6 +140,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     assert replacement.status == 200
                     assert (await replacement.json())['token'] != original_token
                     await check_model_visibility(page, telegram, owner)
+                    await check_operator_objects(page, telegram, owner)
                 else:
                     await expect(page.get_by_role('button', name='Выбрать Veo', include_hidden=True)).to_have_count(0)
                     denied = await client.post(base + '/api/v1/quotes', headers=tester_headers,
@@ -792,5 +793,34 @@ async def check_model_visibility(page, telegram, owner):
     ''', owner)
     await page.get_by_role('button', name='Администрирование').click()
     await expect(models).to_have_count(0)
+    await page.get_by_role('button', name='Каталог', exact=True).click()
+    await expect(page.locator('#models')).to_contain_text('MA-01 Image')
+
+
+async def check_operator_objects(page, telegram, owner):
+    from playwright.async_api import expect
+
+    await telegram.pool.execute("""
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,'READ_ONLY_ADMIN','OP-01 operations grant')
+    """, owner)
+    await page.get_by_role('button', name='Администрирование').click()
+    section = page.get_by_label('Операторский раздел')
+    await expect(section).to_be_visible()
+    await section.select_option('models')
+    await page.get_by_role('button', name='FLUX Schnell · VISIBLE', exact=True).click()
+    detail = page.get_by_label('Сведения об объекте')
+    await expect(detail).to_contain_text('Видимость: VISIBLE')
+    await section.select_option('wallets')
+    await page.locator('section').filter(has=section).last.locator('ul.cards button').first.click()
+    await expect(detail).to_contain_text('Доступно:')
+    assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    await telegram.pool.execute("""
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,NULL,'OP-01 operations revoke')
+    """, owner)
+    await section.select_option('users')
+    await expect(page.get_by_text('Доступ к операторским разделам закрыт.')).to_be_visible()
+    await expect(detail).to_be_empty()
     await page.get_by_role('button', name='Каталог', exact=True).click()
     await expect(page.locator('#models')).to_contain_text('MA-01 Image')
