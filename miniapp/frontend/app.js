@@ -7,6 +7,7 @@ let wantedTheme;
 const works = document.querySelector('#works');
 let token;
 let page = 0;
+let worksRevision = 0;
 let referralLoaded = false;
 let referralRequest;
 let activePanel = 'catalogue';
@@ -97,7 +98,9 @@ async function download(work) {
 }
 
 async function showWorks(target) {
+  const revision = ++worksRevision;
   const data = await (await request('/api/v1/works?page=' + target)).json();
+  if (revision !== worksRevision) return;
   works.replaceChildren();
   for (const work of data.works) {
     const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст', music: 'Музыка' };
