@@ -1,7 +1,7 @@
 """Reserve the live wallet before dispatch and settle from durable outcomes."""
 
 from .core import Rejected
-from .referral_rewards import functional_test_enabled, lock_referral_settlement, post_image_rewards, record_payment_reviews
+from .referral_rewards import functional_test_enabled, lock_referral_settlement, post_task_rewards, record_payment_reviews
 
 
 async def check_task_balance(conn, user, amount):
@@ -63,6 +63,6 @@ async def settle_task_tokens(conn, quote_id=None):
         ON CONFLICT (event_key) DO NOTHING
         """, quote_id)
     if functional_test_enabled():
-        await post_image_rewards(conn, quote_id)
+        await post_task_rewards(conn, quote_id)
     if quote_id is None:
         await record_payment_reviews(conn)

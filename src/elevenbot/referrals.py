@@ -1,4 +1,4 @@
-"""Stable referral codes and first-registration attribution, without rewards."""
+"""Referral attribution and owner-scoped reward history."""
 import re
 import secrets
 
