@@ -27,7 +27,7 @@ jobs:
       - name: Install Chromium
         run: python -m playwright install --with-deps chromium
       - name: Verify OB-02 demo in headless Chromium
-        run: python -m pytest -q -ra -p no:cacheprovider verification/ob02/test_read_model_demo.py
+        run: python -m pytest -q -ra -p no:cacheprovider verification/ob02/test_read_model_demo.py verification/ob02/test_referral_finances_browser.py
       - name: Upload OB-02 demo screenshot
         if: always()
         uses: actions/upload-artifact@v4
