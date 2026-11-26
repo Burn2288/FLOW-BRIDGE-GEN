@@ -156,7 +156,8 @@ class MusicPilot:
 
     def owner(self, chat):
         return self.cfg.access_mode == 'private' and not self.cfg.payments_enabled and (
-            chat > 0 and chat == self.cfg.clodex_music_owner and chat in self.cfg.admin_ids
+            chat in self.cfg.admin_ids and chat > 0 and (chat == self.cfg.clodex_music_owner
+                                           or chat in self.cfg.fixture_music_owners)
         )
 
     def enabled(self):

@@ -100,7 +100,8 @@ class ClodexExecution:
                 await provider.close()
             await app.pool.execute('UPDATE task_speech_works SET audio=$2 WHERE id=$1',quote.id,audio)
             return Outcome('audio',quote.id)
-        result = await execute(req.operation,model,req.prompt,req.history,mode='live',key=app.cfg.clodex_key,
+        mode = 'mock' if app.cfg.mock_image_enabled(req.provider, req.model, req.operation) else 'live'
+        result = await execute(req.operation,model,req.prompt,req.history,mode=mode,key=app.cfg.clodex_key,
                                request_id=update_id,quality=req.params.get('quality'))
         if req.operation==IMAGE_OP:
             work = await app.svc.save_image_work(user,update_id,req.model,req.prompt,result)

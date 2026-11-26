@@ -6,15 +6,28 @@ import uuid
 from .referral_reward_policy import CaptureFunding, reward_tokens
 
 
-def functional_test_enabled():
+_DEV_DATABASE_URL = 'postgresql://postgres:isolated-test-only@127.0.0.1:5432/flowbridge_dev'
+
+
+def functional_test_database():
     if os.environ.get('RF02_FUNCTIONAL_TEST') != 'YES':
-        return False
+        return None
+    # The isolated launcher sets this only after validating the dedicated fixed DSN.
+    if (os.environ.get('FLOWBRIDGE_DEV_FIXTURE') == 'YES'
+            and os.environ.get('DATABASE_URL') == _DEV_DATABASE_URL
+            and not os.environ.get('TEST_DATABASE_URL')
+            and not os.environ.get('DATABASE_MIGRATION_URL')):
+        return 'flowbridge_dev'
     from scripts.disposable_test_db import require_disposable_dsn
     try:
         require_disposable_dsn(os.environ)
     except ValueError:
-        return False
-    return True
+        return None
+    return 'elevenbot_test'
+
+
+def functional_test_enabled():
+    return functional_test_database() is not None
 
 
 async def lock_referral_settlement(conn):
@@ -75,17 +88,23 @@ async def _repay_debt(conn, user, capture_id, reward):
     await _debit(conn, ledger_id, user, 'referral_debt_repay', f'referral-debt-repay:{capture_id}', amount)
 
 
-async def post_image_rewards(conn, quote_id=None):
-    """Post only captured images with an independently persisted result.
+async def post_task_rewards(conn, quote_id=None):
+    """Post only captures backed by an independently persisted result.
 
     Call inside a transaction. Serialize posts on the immutable capture row
     and the referrer's wallet; the unique reward identity also protects replay.
     """
-    if not functional_test_enabled():
+    database = functional_test_database()
+    if database is None:
         return
     if not conn.is_in_transaction():
         raise RuntimeError('referral reward requires a transaction')
-    if await conn.fetchval('SELECT current_database()') != 'elevenbot_test':
+    if not await conn.fetchval("""
+        SELECT current_database()=$1::text AND (
+            $1<>'flowbridge_dev' OR
+            (session_user='postgres' AND inet_server_addr()='127.0.0.1'::inet AND inet_server_port()=5432)
+        )
+    """, database):
         return
     await lock_referral_settlement(conn)
     rows = await conn.fetch("""
@@ -93,11 +112,25 @@ async def post_image_rewards(conn, quote_id=None):
         FROM ledger c JOIN task_price_quotes q ON q.id=c.task_quote_id
         JOIN referral_policy_snapshots p ON p.quote_id=q.id
         JOIN referral_attributions a ON a.user_id=c.user_id
-        JOIN anymodel_image_jobs i ON i.update_id=q.update_id AND i.user_id=c.user_id
-        JOIN image_works w ON w.update_id=q.update_id AND w.user_id=c.user_id
         WHERE c.kind='task_capture' AND c.mode='live'
-          AND q.provider='anymodel' AND q.operation='images.generate'
-          AND i.status IN ('ready','delivered')
+          AND (
+              (q.operation='images.generate' AND EXISTS (
+                  SELECT 1 FROM image_works w
+                  WHERE w.update_id=q.update_id AND w.user_id=c.user_id AND w.model_id=q.model_id
+              ) AND (q.provider='clodex' OR (q.provider='anymodel' AND EXISTS (
+                  SELECT 1 FROM anymodel_image_jobs i
+                  WHERE i.update_id=q.update_id AND i.user_id=c.user_id AND i.status IN ('ready','delivered')
+              ))))
+              OR (q.operation='video' AND EXISTS (
+                  SELECT 1 FROM video_jobs v WHERE v.id=q.id AND v.user_id=c.user_id
+                    AND v.provider=q.provider AND v.model_id=q.model_id
+                    AND v.status='succeeded' AND v.video IS NOT NULL
+              ))
+              OR (q.operation='audio.speech' AND EXISTS (
+                  SELECT 1 FROM task_speech_works s WHERE s.id=q.id AND s.user_id=c.user_id
+                    AND s.provider=q.provider AND s.model_id=q.model_id AND s.audio IS NOT NULL
+              ))
+          )
           AND ($1::uuid IS NULL OR q.id=$1)
           AND NOT EXISTS (SELECT 1 FROM referral_rewards r WHERE r.capture_id=c.id)
           AND NOT EXISTS (SELECT 1 FROM ledger f WHERE f.task_quote_id=q.id AND f.kind='task_refund')

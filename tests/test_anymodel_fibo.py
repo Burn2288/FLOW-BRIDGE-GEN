@@ -99,7 +99,7 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
 
             assert await pool.fetchval('SELECT count(*) FROM image_works WHERE user_id=$1',user)==1
             assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_capture'")==0
-            post_rewards=task_wallet.post_image_rewards
+            post_rewards=task_wallet.post_task_rewards
 
             async def crash_after_reward(conn, quote_id):
                 await post_rewards(conn, quote_id)
@@ -107,7 +107,7 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
                 raise RuntimeError('synthetic crash before worker cleanup commit')
 
             with monkeypatch.context() as patch:
-                patch.setattr(task_wallet,'post_image_rewards',crash_after_reward)
+                patch.setattr(task_wallet,'post_task_rewards',crash_after_reward)
                 with pytest.raises(RuntimeError,match='synthetic crash before worker cleanup commit'):
                     await BootstrapWorker(pool,cfg,UnavailableProvider()).loop()
 

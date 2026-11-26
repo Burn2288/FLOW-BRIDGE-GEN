@@ -19,7 +19,7 @@ def test_contract_matches_existing_http_routes():
     assert all('401' in op['responses'] for path, methods in spec['paths'].items()
                for method, op in methods.items() if path.startswith('/api/'))
     assert spec['paths']['/api/v1/wallet']['get']['security'] == [{'bearerAuth': []}]
-    assert '/api/v1/admin' not in spec['paths']
+    assert spec['paths']['/api/v1/admin/capabilities']['get']['security'] == [{'bearerAuth': []}]
     assert 'Mini App API' in render(spec)
 
 
@@ -35,6 +35,6 @@ async def test_existing_http_rejects_unauthenticated_access():
         def acquire(self):
             raise AssertionError('unauthenticated request reached the database')
     async with TestClient(TestServer(create_app(NoDatabase(), Config(token='fixture')))) as client:
-        for path in ('/api/v1/catalogue', '/api/v1/wallet', '/api/v1/settings', '/api/v1/works', '/api/v1/referral/finances'):
+        for path in ('/api/v1/catalogue', '/api/v1/wallet', '/api/v1/settings', '/api/v1/works', '/api/v1/referral/finances', '/api/v1/admin/capabilities'):
             assert (await client.get(path)).status == 401
         assert (await client.post('/api/v1/session', json={'initData': 'forged'})).status == 401

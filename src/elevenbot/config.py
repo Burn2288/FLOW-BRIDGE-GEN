@@ -25,6 +25,7 @@ class Config:
     queue_max_pending: int = 100
     token: str = ''
     miniapp_url: str = ''
+    bot_username: str = ''
     storage: Path = Path('data/audio')
     support: str = 'Поддержка пока не настроена.'
     terms: str = 'Условия коммерческого сервиса пока не опубликованы.'
@@ -34,6 +35,7 @@ class Config:
     admin_password: str = field(default='', repr=False)
     clodex_key: str = ''
     clodex_music_owner: int = 0
+    fixture_music_owners: tuple[int, ...] = ()  # Programmatic disposable profile only.
     clodex_music_live: bool = False
     anymodel_key: str = ''
     anymodel_test_enabled: bool = False
@@ -65,6 +67,12 @@ class Config:
 
     def allows_public_image(self, provider, model, operation):
         return (operation == 'images.generate' and f'{provider}:{model}' in self.public_image_models)
+
+    def mock_image_enabled(self, provider, model, operation):
+        return (self.mode == 'mock' and self.access_mode == 'private'
+                and self.interaction_mode == 'mock'
+                and self.generation_enabled and not self.payments_enabled
+                and self.allows_public_image(provider, model, operation))
 
     @property
     def wallet_mode(self): return 'demo' if self.mode == 'mock' else 'live'
@@ -98,6 +106,7 @@ class Config:
               retail_per_char=int(os.getenv('RETAIL_CREDITS_PER_CHAR','1')),
               concurrency=int(os.getenv('PROVIDER_CONCURRENCY','2')),queue_max_pending=int(os.getenv('QUEUE_MAX_PENDING','100')),token=os.getenv('TELEGRAM_BOT_TOKEN',''),
               miniapp_url=os.getenv('MINIAPP_URL','').strip(),
+              bot_username=os.getenv('TELEGRAM_BOT_USERNAME','').strip(),
               storage=Path(local(os.getenv('AUDIO_STORAGE_DIR','data/audio'))),
               support=os.getenv('SUPPORT_CONTACT',cls.support),terms=os.getenv('TERMS_TEXT',cls.terms),
               privacy=os.getenv('PRIVACY_TEXT',cls.privacy),
@@ -129,6 +138,10 @@ class Config:
               platega_failed=os.getenv('PLATEGA_FAILED_URL',''),
               platega_method=int(os.getenv('PLATEGA_PAYMENT_METHOD','2')),
               voices_file=local(os.getenv('VOICES_FILE','')),speech_pilot=flag('CLODEX_SPEECH_PILOT'),economy_verified=flag('ECONOMY_VERIFIED'))
+        if c.bot_username:
+            from .referrals import valid_bot_username
+            if not valid_bot_username(c.bot_username):
+                raise ValueError('Invalid TELEGRAM_BOT_USERNAME')
         if c.miniapp_url:
             url = urlsplit(c.miniapp_url)
             if (url.scheme != 'https' or not url.hostname or url.username is not None

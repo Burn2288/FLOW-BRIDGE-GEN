@@ -6,3 +6,8 @@ services:
       - ./scripts:/app/scripts:ro
   worker:
     volumes: *sources
+  miniapp:
+    volumes:
+      - ./src:/app/src:ro
+      - ./miniapp:/app/miniapp:ro
+      - ./scripts:/app/scripts:ro

@@ -236,3 +236,17 @@ async def test_window_validation_fails_before_database_access(start,end,timezone
             raise AssertionError('invalid windows must be rejected before DB access')
     with pytest.raises(ValueError):
         await read_operations_report(NoDatabase(),start,end,timezone_name=timezone_name,limit=limit)
+
+async def test_operational_snapshot_keeps_financial_liabilities_separate(env):
+    pool, cfg, service, user = env
+    quote, _ = await service.quote(user, 'fixture-only text', 'demo')
+    await service.confirm(user, quote)
+    now = datetime.now(timezone.utc)
+    report = await read_operations_report(pool, now-timedelta(days=1), now+timedelta(days=1))
+    snapshot = report['current_state']
+    assert snapshot['evidence'] == 'DATABASE_SNAPSHOT'
+    assert snapshot['registered_users'] == snapshot['legacy_queued_jobs'] == snapshot['wallets_with_holds'] == 1
+    assert snapshot['live_reserved_tokens'] == snapshot['live_payment_debt_tokens'] == snapshot['referral_debt_tokens'] == '0'
+    assert snapshot['users_with_payment_debt'] == snapshot['users_with_referral_debt'] == 0
+    assert snapshot['provider_health'] == 'NOT_PROVEN'
+    assert str(user) not in json.dumps(snapshot) and 'fixture-only text' not in json.dumps(snapshot)

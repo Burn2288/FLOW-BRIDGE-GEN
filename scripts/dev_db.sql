@@ -1,1 +1,0 @@
-CREATE DATABASE flowbridge_acceptance;

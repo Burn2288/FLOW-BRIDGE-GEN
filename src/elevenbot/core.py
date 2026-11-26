@@ -62,18 +62,26 @@ class Service:
         from .consent import is_current
         return await is_current(c,u)
 
-    async def accept(self,u,presented_version=None):
+    async def accept(self,u,presented_version=None,*,connection=None):
         from . import consent
         # Existing Telegram callback has no version; never carry that fallback to a new version.
         if presented_version is None and consent.CURRENT_VERSION == consent.LEGACY_VERSION:
             presented_version = consent.LEGACY_VERSION
         if presented_version != consent.CURRENT_VERSION:
             raise ConsentRequired('Условия изменились. Откройте их заново.')
-        async with self.pool.acquire() as c,c.transaction():
-            await self.authorize(c,u,False)
-            await c.execute("UPDATE identities SET terms_version=$2,accepted_at=now() WHERE user_id=$1",u,presented_version)
-            if self.cfg.balance_wallet_mode=='demo':
-                await self.movement(c,u,'demo',f'demo:{u}','demo_grant',10000,0)
+        if connection is None:
+            async with self.pool.acquire() as c,c.transaction():
+                await self._store_consent(c,u,presented_version)
+            return
+        if not connection.is_in_transaction():
+            raise RuntimeError('Consent must be saved in a transaction')
+        await self._store_consent(connection,u,presented_version)
+
+    async def _store_consent(self,connection,u,presented_version):
+        await self.authorize(connection,u,False)
+        await connection.execute("UPDATE identities SET terms_version=$2,accepted_at=now() WHERE user_id=$1",u,presented_version)
+        if self.cfg.balance_wallet_mode=='demo':
+            await self.movement(connection,u,'demo',f'demo:{u}','demo_grant',10000,0)
 
     async def rate(self,u,*,navigation=False):
         column,limit=('navigation_n',60) if navigation else ('n',10)
@@ -151,7 +159,7 @@ class Service:
             await c.execute('INSERT INTO quotes(id,user_id,mode,text_content,voice,speed,price,cost_bound,tariff) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',q,u,mode,text,voice,Decimal(str(speed)),price,cost,'retail-v1')
         return q,price
 
-    async def confirm(self,u,q):
+    async def confirm(self,u,q,*,telegram_delivery=False):
         q=uid(q)
         async with self.pool.acquire() as c,c.transaction():
             await self.authorize(c,u)
@@ -181,6 +189,8 @@ class Service:
             await c.execute('UPDATE budgets SET used=used+$2 WHERE day=$1',day,r['cost_bound'])
             j=uuid.uuid4()
             await c.execute("INSERT INTO jobs(id,user_id,quote_id,mode,price,cost_bound,budget_day,status) VALUES($1,$2,$3,$4,$5,$6,$7,'queued')",j,u,q,r['mode'],r['price'],r['cost_bound'],day)
+            if telegram_delivery:
+                await c.execute('UPDATE jobs SET telegram_delivery=true WHERE id=$1', j)
             await self.movement(c,u,r['mode'],f'reserve:{j}','reserve',-r['price'],r['price'],j)
             return j
 

@@ -1,8 +1,8 @@
-"""Bounded, aggregate-only internal operational and financial read models.
+"""Bounded, aggregate-only operational and financial read models.
 
-This module is intentionally not mounted as an HTTP endpoint. It exposes no
-account identifiers, prompts, provider operation identifiers, secrets, or
-free-text reconciliation evidence.
+The Mini App serves this report through its operations.read capability.
+The report omits account identifiers, prompts, provider operation identifiers,
+secrets and free-text reconciliation evidence.
 """
 
 from datetime import date, datetime, timedelta, timezone
@@ -221,14 +221,31 @@ WHERE q.state='accepted' AND q.accepted_at >= $1 AND q.accepted_at < $2
 '''
 
 
+CURRENT_OPERATIONS = '''
+SELECT
+    (SELECT count(*) FROM users)::bigint AS registered_users,
+    (SELECT count(*) FROM jobs WHERE status='queued')::bigint AS legacy_queued_jobs,
+    (SELECT count(*) FROM jobs WHERE status IN ('dispatching','uncertain'))::bigint AS legacy_running_or_uncertain,
+    (SELECT count(*) FROM task_dispatch WHERE state='pending')::bigint AS quoted_pending_tasks,
+    (SELECT count(*) FROM task_dispatch WHERE state IN ('dispatching','uncertain'))::bigint AS quoted_running_or_uncertain,
+    (SELECT count(*) FROM wallets WHERE reserved>0)::bigint AS wallets_with_holds,
+    (SELECT coalesce(sum(reserved),0) FROM wallets WHERE mode='live') AS live_reserved_tokens,
+    (SELECT count(DISTINCT user_id) FROM wallet_debts WHERE amount>0)::bigint AS users_with_payment_debt,
+    (SELECT coalesce(sum(amount),0) FROM wallet_debts WHERE mode='live') AS live_payment_debt_tokens,
+    (SELECT count(*) FROM referral_debt_balances WHERE outstanding>0)::bigint AS users_with_referral_debt,
+    (SELECT coalesce(sum(outstanding),0) FROM referral_debt_balances WHERE outstanding>0) AS referral_debt_tokens,
+    (SELECT count(*) FROM referral_payment_review_cases WHERE state='required')::bigint AS referral_payment_review_cases
+'''
+
+
 async def read_operations_report(pool, start, end, *, timezone_name='UTC', limit=100):
     """Return bounded aggregate facts without writing or identifying users.
 
     Time windows are half-open in absolute time; only grouping uses the selected
-    IANA timezone. This API is internal and deliberately has no HTTP route.
+    IANA timezone. Callers enforce the applicable access policy.
     """
     start, end = _validate_window(start, end, timezone_name, limit)
-    async with pool.acquire() as conn, conn.transaction(readonly=True):
+    async with pool.acquire() as conn, conn.transaction(isolation='repeatable_read', readonly=True):
         result = {
             'window': {'start': start.isoformat(), 'end_exclusive': end.isoformat(),
                        'timezone': timezone_name},
@@ -245,6 +262,11 @@ async def read_operations_report(pool, start, end, *, timezone_name='UTC', limit
             'provider_receipts': await _groups(conn,PROVIDER_RECEIPTS,start,end,timezone_name,limit),
             'video_quote_estimates': await _groups(conn,VIDEO_ESTIMATES,start,end,timezone_name,limit),
         }
+        snapshot = await conn.fetchrow(CURRENT_OPERATIONS)
+        result['current_state'] = {'evidence': 'DATABASE_SNAPSHOT',
+                                   'provider_health': 'NOT_PROVEN',
+                                   **{key: str(value) if key.endswith('_tokens') else int(value)
+                                      for key,value in snapshot.items()}}
         unknown = await conn.fetchrow(UNKNOWN_COST,start,end)
         result['provider_cost_coverage'] = {key: int(value) for key,value in unknown.items()}
     return result

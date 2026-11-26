@@ -4,7 +4,7 @@ from .config import Config
 from .db import connect,migrate
 from .core import Service,uid,Rejected
 
-async def main():
+async def main(config_override=None):
     p=argparse.ArgumentParser();p.add_argument('command',choices=['migrate','bot','worker','health','metrics','reconcile','reconcile-report','operations-report','release-uncertain','reconcile-stars','platega-webhook','miniapp','catalog-refresh','anymodel-catalog-refresh','doctor','speech-pilot-credit','voice-candidates'])
     p.add_argument('--component',default='worker');p.add_argument('--job');p.add_argument('--reason');p.add_argument('--telegram-id',type=int);p.add_argument('--credits',type=int,default=300)
     p.add_argument('--limit',type=int,default=100,help='Maximum rows/groups (reconciliation: 1–1000; operations: 1–200)')
@@ -12,7 +12,7 @@ async def main():
     p.add_argument('--end',help='Exclusive ISO 8601 instant with UTC offset for operations-report')
     p.add_argument('--timezone',default='UTC',help='IANA timezone used only for daily grouping')
     p.add_argument('--env-file',help='Explicit UTF-8 KEY=value file; exported environment takes priority')
-    a=p.parse_args();cfg=Config.env(a.env_file)
+    a=p.parse_args();cfg=Config.env(a.env_file) if config_override is None else config_override
     if a.command=='anymodel-catalog-refresh':
         from .anymodel import refresh_anymodel
         if not cfg.anymodel_test_enabled:

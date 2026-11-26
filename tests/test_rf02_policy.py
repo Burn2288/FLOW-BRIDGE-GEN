@@ -1,10 +1,38 @@
 from itertools import product
 import unittest
+from unittest.mock import patch
 
 from elevenbot.referral_reward_policy import CaptureFunding, allocate_reserve, cumulative_refund, reward_tokens
+from elevenbot.referral_rewards import functional_test_database
 
 
 class ReferralRewardPolicyTests(unittest.TestCase):
+    def test_reward_only_uses_explicit_disposable_database_profiles(self):
+        dev = {
+            'RF02_FUNCTIONAL_TEST': 'YES',
+            'FLOWBRIDGE_DEV_FIXTURE': 'YES',
+            'DATABASE_URL': 'postgresql://postgres:isolated-test-only@127.0.0.1:5432/flowbridge_dev',
+        }
+        with patch.dict('os.environ', dev, clear=True):
+            self.assertEqual(functional_test_database(), 'flowbridge_dev')
+        for overrides in (
+            {'RF02_FUNCTIONAL_TEST': 'NO'},
+            {'FLOWBRIDGE_DEV_FIXTURE': ''},
+            {'DATABASE_URL': dev['DATABASE_URL'].replace('127.0.0.1', 'db.example.test')},
+            {'DATABASE_URL': dev['DATABASE_URL'].replace('/flowbridge_dev', '/main')},
+            {'DATABASE_MIGRATION_URL': 'configured-elsewhere'},
+            {'TEST_DATABASE_URL': 'different-test-profile'},
+        ):
+            with patch.dict('os.environ', dev | overrides, clear=True), self.subTest(overrides=overrides):
+                self.assertIsNone(functional_test_database())
+        with patch.dict('os.environ', {
+            'RF02_FUNCTIONAL_TEST': 'YES',
+            'TEST_DATABASE_URL': 'postgresql://postgres:isolated-test-only@127.0.0.1:5432/elevenbot_test',
+            'DISPOSABLE_POSTGRES_PROFILE': 'compose-service',
+            'DISPOSABLE_POSTGRES_CONFIRM': 'YES',
+        }, clear=True):
+            self.assertEqual(functional_test_database(), 'elevenbot_test')
+
     def test_reserve_spend_order(self):
         available = CaptureFunding(5, 7, 11, 13)
         self.assertEqual(allocate_reserve(available, 8).amounts, (5, 3, 0, 0))

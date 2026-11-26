@@ -3,11 +3,13 @@ from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import replace
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import httpx
 import pytest
 
 from elevenbot.core import Rejected
+from elevenbot.model_visibility import confirm
 from elevenbot.pricing import NoProviderPrice, Request
 from test_provider_extensibility import app_with_fixture
 from test_ui import Bot
@@ -65,9 +67,24 @@ async def test_versioned_quotes_and_dispatch_preserve_snapshots(env, confirmed_c
         restarted = Pricing(pool, app.cfg, app.pricing.adapters)
         quote_b = await restarted.quote(user, req)
         assert quote_b.request.model_version['version'] == str(b)
-        await pool.execute("DELETE FROM approved_models WHERE provider='fixture' AND model_id='fixture/chat' AND operation='chat'")
+        await pool.execute('''
+            INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,'SETTINGS_OPERATOR','synthetic visibility grant')
+        ''', user)
+        async with pool.acquire() as conn, conn.transaction():
+            event = await confirm(conn, user, 'fixture', 'fixture/chat', 'chat', 'HIDDEN', 0, uuid4())
         with pytest.raises(Rejected):
             await app.launch.confirm(user, 100, quote_b.id, 9193, progress=lambda _: nullcontext(), background=None)
+        assert await app.svc.chat_work(user, quote_a.id) == 'mock result'
+        assert await pool.fetchval(
+            "SELECT count(*) FROM ledger WHERE task_quote_id=$1 AND kind='task_capture'", quote_a.id,
+        ) == 1
+        await pool.execute("DELETE FROM approved_models WHERE provider='fixture' AND model_id='fixture/chat' AND operation='chat'")
+        with pytest.raises(Rejected):
+            await app.launch.confirm(user, 100, quote_b.id, 9194, progress=lambda _: nullcontext(), background=None)
+        await pool.execute("INSERT INTO approved_models VALUES('fixture','fixture/chat','chat','Fixture')")
+        assert await pool.fetchval("SELECT visibility_version FROM approved_models WHERE provider='fixture'") == event['version']
+        assert not await policy.allowed('fixture', 'fixture/chat', 'chat')
         assert await pool.fetchval('SELECT state FROM task_dispatch WHERE quote_id=$1', quote_a.id) == 'completed'
         assert await app.svc.chat_work(user, quote_a.id) == 'mock result'
         assert any(row['id'] == quote_a.id for row in await app.svc.history(user))
