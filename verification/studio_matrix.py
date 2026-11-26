@@ -108,12 +108,13 @@ class Telegram:
             after = await self.update(chat, text='/admin')
             def admin_reply(event):
                 if 'паролем Admin Edition' in (event.get('text') or ''):
-                    return 'password'
+                    return event['message_id']
                 for row in (event.get('reply_markup') or {}).get('inline_keyboard', ()):
                     if any(button.get('callback_data', '').startswith('provider:') for button in row):
                         return 'ready'
-            if await self.wait(chat, after, admin_reply, 'admin menu or password prompt') == 'password':
-                after = await self.update(chat, text='fixture-password')
+            prompt = await self.wait(chat, after, admin_reply, 'admin menu or password prompt')
+            if isinstance(prompt, int):
+                after = await self.update(chat, text='fixture-password', reply_to=prompt)
                 assert await self.wait(chat, after, admin_reply, 'admin menu') == 'ready'
 
     async def grant_music(self, chat):
@@ -238,8 +239,12 @@ async def read_result(project, job):
     raise AssertionError(f'No stored result or settlement for {job}: {evidence}')
 
 
-async def verify_browser_result(page, studio, evidence, screenshot):
+async def verify_browser_result(page, studio, evidence, screenshot, *, job=None):
     await page.get_by_role('button', name='Мои работы', exact=True).click()
+    if job:
+        await page.get_by_role('button', name='Открыть задание ' + str(job), exact=True).click()
+        await expect(page.locator('#job-status')).to_have_text('Завершено')
+        await page.get_by_role('button', name='Показать результат', exact=True).click()
     artifact = page.locator('#work-' + evidence['work_id'])
     assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     await artifact.get_by_role('button', name='Просмотр', exact=True).click()
@@ -297,7 +302,9 @@ async def run(args):
                             assert evidence['capture'] == 0 and evidence['grant_capture'] == 1 and evidence['grant'] > 0
                         else:
                             assert evidence['capture'] == 1 and evidence['grant_capture'] == 0
-                        digest = await verify_browser_result(page, studio, evidence, args.artifacts / f'{label}.png')
+                        digest = await verify_browser_result(
+                            page, studio, evidence, args.artifacts / f'{label}.png', job=job,
+                        )
                         await telegram.check_result(studio, chat, evidence['work_id'], digest)
                         result = {'route': label, 'status': 'passed', 'job': str(job), 'media_sha256': digest, **evidence}
                     except (AssertionError, BrowserTimeout, httpx.HTTPError) as error:
