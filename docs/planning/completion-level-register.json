@@ -697,13 +697,13 @@
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
-        "PR #115: D-04 owner choice A/B and role authority pending; no HTTP roles activated."
+        "D-04 Option B approved for FUNCTIONAL_TEST; capability endpoint and isolated bootstrap await exact PostgreSQL evidence."
       ],
       "dependencies": [
         "AP-01",
         "TA-01"
       ],
-      "implementation_status": "BLOCKED"
+      "implementation_status": "IN_PROGRESS"
     },
     {
       "list_id": "Burn2288",

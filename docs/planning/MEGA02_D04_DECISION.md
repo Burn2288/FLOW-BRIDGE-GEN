@@ -1,6 +1,6 @@
 # MEGA-02 D-04 decision record
 
-Status: **BLOCKED_PENDING_OWNER_DECISION**. AD-01 HTTP RBAC remains disabled. Owner approval reference: pending.
+Status: **OPTION_B APPROVED_FUNCTIONAL_TEST_ONLY**. Owner approval: Burn2288, OWNER DECISION — D-04 / ADMIN AUTHORITY v1, in the project conversation.
 
 Source: [AD-01 preflight #107](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/107) and [revocation ADR](../testing/ADMISSION_REVOCATION_ADR.md). Historical [#100](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/100) cannot authorize a new HTTP role model.
 
@@ -15,3 +15,7 @@ Source: [AD-01 preflight #107](https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/
 Proposal for owner decision: choose B for the isolated LEVEL 1 prototype. Reuse verified identity and persistent sessions, default deny, check capability on each protected request. Limit the first candidate to a read-only capability and a chooser. Treat environment allowlists as existing pilot admission, not as HTTP roles. Preserve Telegram Admin Edition independently.
 
 Approval must specify bootstrap identity, role names and scope, revocation and outage semantics, env compatibility, audited policy writers and rollback. Option A additionally needs an enforceable all-instance fencing design. Until approved, expose operational aggregates only through the existing internal service and CLI. AD-02 live writes and SL-02 operator routes remain blocked.
+
+## Approved scope and implementation progress
+
+The owner approved PostgreSQL authority with four role names, append-only role audit and server-side revocation. The capability read and isolated bootstrap are implemented. No specific bootstrap identity has been assigned. Operator ticket operations, the preview/CAS/rollback visibility setting, chooser UI and trusted role-management workflow remain open. Existing Telegram admission is independent.
