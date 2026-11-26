@@ -16,7 +16,7 @@ def _digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def validate_candidate(manifest, payload, *, expected_source, previous_hashes=None):
+def validate_candidate(manifest, payload, *, expected_source, expected_executor, previous_hashes=None):
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     Draft202012Validator(schema).validate(manifest)
@@ -26,8 +26,10 @@ def validate_candidate(manifest, payload, *, expected_source, previous_hashes=No
     for run in manifest["tests"]:
         if (run["checkout_sha"], run["checkout_tree"]) != (source["head_sha"], source["tree_sha"]):
             raise ValueError("CI checkout is not exact head/tree")
+    if not expected_executor.strip() or manifest["developer"].casefold() != expected_executor.casefold():
+        raise ValueError("manifest executor differs from trusted executor")
     reviewer = manifest["reviewer"]
-    if reviewer and reviewer["identity"].casefold() == manifest["developer"].casefold():
+    if reviewer and reviewer["identity"].casefold() == expected_executor.casefold():
         raise ValueError("self-review cannot be recorded as independent")
     if payload.is_symlink() or not payload.is_dir():
         raise ValueError("artifact payload is not a regular directory")
@@ -43,7 +45,7 @@ def validate_candidate(manifest, payload, *, expected_source, previous_hashes=No
         actual[path.relative_to(payload).as_posix()] = path
     for name in artifacts:
         relative = PurePosixPath(name)
-        if relative.is_absolute() or "\\\\" in name or relative.as_posix() != name or any(part in (".", "..") for part in relative.parts):
+        if relative.is_absolute() or "\\" in name or relative.as_posix() != name or any(part in (".", "..") for part in relative.parts):
             raise ValueError("invalid artifact path")
     if set(actual) != set(artifacts):
         raise ValueError("artifact inventory mismatch")
@@ -60,6 +62,7 @@ def main():
     parser.add_argument("manifest", type=Path)
     parser.add_argument("payload", type=Path)
     parser.add_argument("trusted_source", type=Path, help="Independently obtained repository/base/head/tree JSON")
+    parser.add_argument("--trusted-executor", required=True, help="Executor independently established by the caller")
     parser.add_argument("--trusted-prior-inventory", type=Path)
     args = parser.parse_args()
 
@@ -70,6 +73,7 @@ def main():
         read(args.manifest),
         args.payload,
         expected_source=read(args.trusted_source),
+        expected_executor=args.trusted_executor,
         previous_hashes=read(args.trusted_prior_inventory) if args.trusted_prior_inventory else None,
     )
     print("AU-01 candidate manifest and artifact checksums validated (offline; acceptance not evaluated)")

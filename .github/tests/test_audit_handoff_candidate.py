@@ -38,7 +38,7 @@ class CandidateGateTests(unittest.TestCase):
         }
 
     def validate(self, **options):
-        validate_candidate(self.manifest, self.payload, expected_source=self.source, **options)
+        validate_candidate(self.manifest, self.payload, expected_source=self.source, expected_executor="Burn2288", **options)
 
     def test_valid_offline_candidate(self):
         self.validate(previous_hashes={"results.txt": self.digest})
@@ -77,6 +77,11 @@ class CandidateGateTests(unittest.TestCase):
     def test_false_ready(self):
         self.manifest["acceptance_state"] = "READY"
         with self.assertRaises(ValidationError):
+            self.validate()
+
+    def test_historical_owner_cannot_replace_trusted_executor(self):
+        self.manifest["developer"] = "other-owner"
+        with self.assertRaisesRegex(ValueError, "trusted executor"):
             self.validate()
 
     def test_self_pass(self):
