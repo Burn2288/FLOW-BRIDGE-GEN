@@ -26,11 +26,11 @@ FIBO_TARIFF={'id':FIBO_MODEL,'endpoint':'/v1/images/generations',
              'billing':{'unit':'image','base_tokens':100000,'coefficient':{'output':0.95}}}
 
 
-@pytest.mark.parametrize('bonus_state',['available','reserved','spent'])
+@pytest.mark.parametrize('bonus_state',['available','reserved','spent','worker_restart'])
 async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,monkeypatch,bonus_state):
     from elevenbot.task_wallet import settle_task_tokens
 
-    reserved_bonus=0 if bonus_state=='available' else 30
+    reserved_bonus=30 if bonus_state in ('reserved','spent') else 0
     pool,cfg,svc,inviter=env
     code=(await svc.referral_info(inviter))['code']
     user=await svc.identity(101,referral_code=code)
@@ -79,8 +79,44 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
             await pool.execute('UPDATE anymodel_image_jobs SET next_at=now()')
             assert await jobs.poll_one(bot)
             assert await jobs.poll_one(bot)
-            await asyncio.gather(settle_task_tokens(pool),settle_task_tokens(pool))
+            if bonus_state != 'worker_restart':
+                await asyncio.gather(settle_task_tokens(pool),settle_task_tokens(pool))
         await generate(1)
+        if bonus_state == 'worker_restart':
+            from elevenbot import task_wallet
+            from elevenbot.worker import Worker
+
+            class BootstrapWorker(Worker):
+                async def _poll_work(self, operation):
+                    pass
+
+                async def _maintenance(self):
+                    pass
+
+            class UnavailableProvider:
+                async def synthesize(self, *args, **kwargs):
+                    pytest.fail('Recovery must not call the provider')
+
+            assert await pool.fetchval('SELECT count(*) FROM image_works WHERE user_id=$1',user)==1
+            assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_capture'")==0
+            post_rewards=task_wallet.post_image_rewards
+
+            async def crash_after_reward(conn, quote_id):
+                await post_rewards(conn, quote_id)
+                assert await conn.fetchval('SELECT count(*) FROM referral_rewards')==1
+                raise RuntimeError('synthetic crash before worker cleanup commit')
+
+            with monkeypatch.context() as patch:
+                patch.setattr(task_wallet,'post_image_rewards',crash_after_reward)
+                with pytest.raises(RuntimeError,match='synthetic crash before worker cleanup commit'):
+                    await BootstrapWorker(pool,cfg,UnavailableProvider()).loop()
+
+            assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_capture'")==0
+            assert await pool.fetchval('SELECT count(*) FROM referral_rewards')==0
+            assert await pool.fetchval('SELECT count(*) FROM image_works WHERE user_id=$1',user)==1
+            await BootstrapWorker(pool,cfg,UnavailableProvider()).loop()
+            await BootstrapWorker(pool,cfg,UnavailableProvider()).loop()
+            assert await pool.fetchval("SELECT count(*) FROM ledger WHERE kind='task_capture'")==1
         reward=await pool.fetchrow("""SELECT r.eligible_paid,r.amount,l.da,f.origin
             FROM referral_rewards r JOIN ledger l ON l.id=r.reward_ledger_id
             JOIN wallet_funding_lots f ON f.credit_ledger_id=l.id WHERE r.referrer_id=$1""",inviter)
