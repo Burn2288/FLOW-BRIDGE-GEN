@@ -98,6 +98,9 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await page.keyboard.press('Enter')
                 await expect(page.locator('#catalogue')).to_be_visible()
                 await expect(page.locator('#models')).to_contain_text('MA-01 Image')
+                await page.get_by_label('Студия').select_option('video')
+                await expect(page.get_by_text('MA-01 Image', exact=False)).to_be_hidden()
+                await page.get_by_label('Студия').select_option('')
                 assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 await page.get_by_role('button', name='Баланс').click()
                 await expect(page.locator('#available')).to_have_text(str(credits))
@@ -105,6 +108,13 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                 await page.get_by_role('button', name='Мои работы').click()
                 await expect(page.locator('#works > li')).to_have_count(1)
                 await expect(page.locator('#works > li')).to_contain_text(model)
+                await page.get_by_role('button', name='Просмотр', exact=True).click()
+                preview = page.get_by_role('img', name='Результат генерации')
+                await expect(preview).to_be_visible()
+                await expect(preview).to_have_js_property('complete', True)
+                assert await preview.evaluate('image => image.naturalWidth') > 0
+                await page.get_by_role('button', name='Закрыть просмотр', exact=True).click()
+                await expect(preview).to_have_count(0)
                 async with page.expect_download() as download:
                     await page.get_by_role('button', name='Скачать').click()
                 file = await download.value

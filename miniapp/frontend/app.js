@@ -8,6 +8,8 @@ const works = document.querySelector('#works');
 let token;
 let page = 0;
 let worksRevision = 0;
+let previewRevision = 0;
+let openPreview;
 let referralLoaded = false;
 let referralRequest;
 let activePanel = 'catalogue';
@@ -100,10 +102,71 @@ async function download(work) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
+const previewFormats = {
+  image: ['img', 'image/png'],
+  video: ['video', 'video/mp4'],
+  audio: ['audio', 'audio/mpeg'],
+  music: ['audio', 'audio/mpeg'],
+};
+
+function closePreview() {
+  previewRevision++;
+  if (!openPreview) return;
+  openPreview.container.replaceChildren();
+  openPreview.button.textContent = 'Просмотр';
+  URL.revokeObjectURL(openPreview.url);
+  openPreview = null;
+}
+
+function appendPreview(item, work) {
+  const [tag, contentType] = previewFormats[work.kind];
+  const button = document.createElement('button');
+  button.textContent = 'Просмотр';
+  const container = document.createElement('div');
+  const message = document.createElement('p');
+  message.className = 'notice';
+  message.setAttribute('role', 'status');
+  button.onclick = async () => {
+    if (openPreview?.button === button) {
+      closePreview();
+      return;
+    }
+    closePreview();
+    const revision = previewRevision;
+    button.disabled = true;
+    message.textContent = 'Загружаем результат…';
+    try {
+      const response = await request('/api/v1/works/' + encodeURIComponent(work.kind) + '/' + work.id);
+      const file = await response.blob();
+      if (revision !== previewRevision) return;
+      const jpeg = tag === 'img' && response.headers.get('Content-Disposition')?.endsWith('.jpg"');
+      const url = URL.createObjectURL(file.slice(0, file.size, jpeg ? 'image/jpeg' : contentType));
+      const media = document.createElement(tag);
+      if (tag === 'img') media.alt = 'Результат генерации';
+      else {
+        media.controls = true;
+        if (tag === 'video') media.playsInline = true;
+      }
+      media.onerror = () => { message.textContent = 'Этот результат можно скачать для просмотра.'; };
+      media.src = url;
+      container.replaceChildren(media);
+      openPreview = {url, container, button};
+      button.textContent = 'Закрыть просмотр';
+    } catch (error) {
+      if (revision === previewRevision) message.textContent = error.message;
+    } finally {
+      button.disabled = false;
+      if (message.textContent === 'Загружаем результат…') message.textContent = '';
+    }
+  };
+  item.append(button, message, container);
+}
+
 async function showWorks(target) {
   const revision = ++worksRevision;
   const data = await (await request('/api/v1/works?page=' + target)).json();
   if (revision !== worksRevision) return;
+  closePreview();
   works.replaceChildren();
   for (const work of data.works) {
     const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст', music: 'Музыка' };
@@ -113,6 +176,7 @@ async function showWorks(target) {
     const state = states[work.status] ?? work.status;
     const price = work.price === null ? 'Цена недоступна' : work.price + ' кредитов';
     const item = listItem([label, work.model, state, price].filter(Boolean).join(' · '));
+    item.id = 'work-' + work.id;
     if (work.prompt) {
       const prompt = document.createElement('p');
       prompt.textContent = 'Запрос: ' + work.prompt;
@@ -140,6 +204,7 @@ async function showWorks(target) {
     };
     if (work.kind !== 'music') item.append(historyButton, details);
     if (work.available) {
+      if (previewFormats[work.kind]) appendPreview(item, work);
       const button = document.createElement('button');
       button.textContent = 'Скачать';
       button.onclick = () => download(work).catch(showError);
@@ -348,9 +413,25 @@ async function start(termsVersion) {
   }
 }
 
+const studioSelect = document.querySelector('#studio-select');
+const catalogueEmpty = document.querySelector('#catalogue-empty');
+let catalogueEntries = [];
+
+function filterStudios() {
+  const studio = studioSelect.value || '';
+  let visible = 0;
+  for (const {item, operation} of catalogueEntries) {
+    item.hidden = Boolean(studio) && operation !== studio;
+    if (!item.hidden) visible++;
+  }
+  catalogueEmpty.hidden = visible > 0;
+}
+studioSelect.onchange = filterStudios;
+
 function renderCatalogue(catalogue) {
   const models = document.querySelector('#models');
   models.replaceChildren();
+  catalogueEntries = [];
   for (const model of catalogue.models) {
     const item = listItem(model.aggregator + ' · ' + model.title);
     if (model.music_card) {
@@ -391,11 +472,17 @@ function renderCatalogue(catalogue) {
       }
     }
     models.append(item);
+    catalogueEntries.push({item, operation: model.operation});
   }
   for (const [name, available] of Object.entries(catalogue.availability)) {
-    if (!available) models.append(listItem(name + ' · каталог временно недоступен'));
+    if (!available) {
+      const item = listItem(name + ' · каталог временно недоступен');
+      models.append(item);
+      catalogueEntries.push({item});
+    }
   }
-  if (!models.children.length) models.append(listItem('Нет доступных моделей.'));
+  studioSelect.disabled = false;
+  filterStudios();
 }
 
 
@@ -986,6 +1073,7 @@ ownerSupportCreate.onclick = async () => {
 
 function navigate(panel) {
   cardRevision++;
+  if (panel !== 'library') closePreview();
   history.replaceState({ ...history.state, jobId: null }, '');
   overview.hidden = false;
   card.hidden = true;

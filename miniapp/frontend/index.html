@@ -20,6 +20,15 @@
   </section>
   <section id="catalogue" aria-labelledby="catalogue-title">
     <h1 id="catalogue-title">Каталог</h1>
+    <label for="studio-select">Студия</label>
+    <select id="studio-select" disabled>
+      <option value="">Все студии</option>
+      <option value="images.generate">Изображения</option>
+      <option value="video">Видео</option>
+      <option value="audio.speech">Озвучка</option>
+      <option value="audio.generate">Музыка</option>
+    </select>
+    <p id="catalogue-empty" role="status" hidden>В этой студии пока нет доступных моделей.</p>
     <template id="image-form">
       <form class="image-form">
         <label><span>Описание изображения</span>

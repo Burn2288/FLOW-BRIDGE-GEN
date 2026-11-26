@@ -56,6 +56,12 @@ nav button[aria-current] { background: var(--active); border-color: var(--stroke
 .image-form [role=status] { margin: .5rem 0; }
 .image-form [role=status]:empty { display: none; }
 .image-form [type=button] { background: var(--active); }
+#studio-select {
+  max-width: 100%; padding: .45rem; font: inherit; color: var(--text); background: var(--card);
+  border: 1px solid var(--stroke); border-radius: .5rem;
+}
+#works :is(img, video, audio) { display: block; max-width: 100%; margin-top: .6rem; }
+#works :is(img, video) { border-radius: .5rem; }
 
 .operator-support { display: grid; gap: .6rem; margin: 1rem 0; }
 .operator-support ul { margin: 0; padding-inline-start: 1.5rem; }

@@ -66,7 +66,7 @@ async def headers(request, handler):
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Content-Security-Policy'] = (
         "default-src 'none'; script-src 'self' https://telegram.org; connect-src 'self'; "
-        "style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"
+        "style-src 'self'; img-src 'self' blob:; media-src blob:; base-uri 'none'; form-action 'none'"
     )
     return response
 
