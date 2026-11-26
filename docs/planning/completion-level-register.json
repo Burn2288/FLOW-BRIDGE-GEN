@@ -696,13 +696,14 @@
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "PR #115: D-04 owner choice A/B and role authority pending; no HTTP roles activated."
       ],
       "dependencies": [
         "AP-01",
         "TA-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "BLOCKED"
     },
     {
       "list_id": "Burn2288",
@@ -719,13 +720,14 @@
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "PR #115: live settings write requires AD-01 authority and an approved typed MC-01 settings contract."
       ],
       "dependencies": [
         "AD-01",
         "MC-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "BLOCKED"
     },
     {
       "list_id": "vankhu21",
@@ -2169,12 +2171,13 @@
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "PR #115: owner-scoped text support fixture; operator authority, attachment retention and client workflow remain open."
       ],
       "dependencies": [
         "AD-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "IN_PROGRESS"
     },
     {
       "list_id": "vankhu21",
@@ -2511,7 +2514,8 @@
       "integrated_sha": "2cbf6657fafdae986d5f842cc5324e3cbd9a3b79",
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "PR #115: internal current-state snapshot extension pending exact CI; existing candidate evidence retained."
       ],
       "dependencies": [
         "OB-01",
@@ -2866,7 +2870,8 @@
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
-        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
+        "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards.",
+        "PR #115: offline candidate manifest gate. Trusted archive and independent verdict remain open; existing evidence retained."
       ],
       "dependencies": [
         "IN-18"
