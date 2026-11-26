@@ -94,7 +94,7 @@ async def test_real_start_first_attribution_restart_and_miniapp(env):
         assert await pool.fetchval('SELECT count(*) FROM ledger WHERE user_id=$1',user) == before
         assert (await client.delete('/api/v1/session', headers=headers)).status in (200, 204)
         assert (await client.get('/api/v1/referral/finances', headers=headers)).status == 401
-        response = await client.post('/api/v1/session', json={'initData':signed_start(cfg.token,201,'ref_'+other_code)})
+        response = await client.post('/api/v1/session', json={'initData':signed_start(cfg.token,201,'ref_'+code)})
         headers = {'Authorization':'Bearer '+(await response.json())['token']}
         await pool.execute('UPDATE miniapp_sessions SET expires_at=now() WHERE user_id=$1',user)
         assert (await client.get('/api/v1/referral/finances', headers=headers)).status == 401
