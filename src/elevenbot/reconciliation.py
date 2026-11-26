@@ -77,6 +77,39 @@ async def read_report(conn, limit):
         if row['actual'] is not None:
             detail['available'] = {'actual': int(row['actual']), 'expected': int(row['expected'])}
         funding_details.append(detail)
+    obligations = await conn.fetch("""
+        WITH findings AS (
+            SELECT 'reward_ledger_identity' AS reason,r.referrer_id AS user_id,r.capture_id
+            FROM referral_rewards r JOIN ledger c ON c.id=r.capture_id
+            JOIN referral_policy_snapshots p ON p.reserve_ledger_id=r.reserve_id
+            JOIN ledger l ON l.id=r.reward_ledger_id
+            LEFT JOIN referral_attributions a ON a.user_id=c.user_id
+            WHERE c.kind<>'task_capture' OR c.task_quote_id IS DISTINCT FROM p.quote_id
+               OR a.referrer_id IS DISTINCT FROM r.referrer_id OR r.eligible_paid > -c.dr
+               OR r.amount<>floor(r.eligible_paid::numeric*p.rate_bps/10000)
+               OR l.user_id<>r.referrer_id OR l.kind<>'referral_reward' OR l.da<>r.amount
+               OR l.event_key<>'referral-reward:'||c.id
+            UNION ALL
+            SELECT 'reversal_refund_identity',r.referrer_id,v.capture_id
+            FROM referral_reversals v JOIN referral_rewards r USING(capture_id)
+            JOIN ledger c ON c.id=v.capture_id JOIN ledger f ON f.id=v.refund_id
+            LEFT JOIN ledger l ON l.id=v.ledger_id
+            WHERE f.kind<>'task_refund' OR f.task_quote_id IS DISTINCT FROM c.task_quote_id
+               OR f.user_id<>c.user_id OR f.da<>-c.dr OR v.amount<>r.amount
+               OR (v.debited>0 AND (l.kind IS DISTINCT FROM 'referral_reversal'
+                    OR l.user_id IS DISTINCT FROM r.referrer_id OR l.da IS DISTINCT FROM -v.debited))
+            UNION ALL
+            SELECT 'missing_referral_reversal',r.referrer_id,r.capture_id
+            FROM referral_rewards r JOIN ledger c ON c.id=r.capture_id
+            JOIN ledger f ON f.task_quote_id=c.task_quote_id AND f.kind='task_refund'
+            WHERE NOT EXISTS(SELECT 1 FROM referral_reversals v WHERE v.capture_id=r.capture_id)
+            UNION ALL
+            SELECT 'negative_referral_debt',user_id,NULL::uuid FROM referral_debt_balances WHERE outstanding<0
+        )
+        SELECT *,count(*) OVER() AS total FROM findings
+        ORDER BY user_id,reason,capture_id LIMIT $1
+    """, limit)
+    obligation_count = int(obligations[0]['total']) if obligations else 0
     review_rows = await conn.fetch('''SELECT c.payment_id,c.capture_id,c.affected_funding,c.payment_state,c.reason,
         r.eligible_paid,r.amount AS original_reward,coalesce(v.amount,0) AS recorded_reversal,
         count(*) OVER() AS total FROM referral_payment_review_cases c
@@ -85,7 +118,11 @@ async def read_report(conn, limit):
         WHERE c.state='required'
         ORDER BY c.payment_id,c.capture_id LIMIT $1''', limit)
     review_count = int(review_rows[0]['total']) if review_rows else 0
-    return {'referral_payment_reviews': review_count,
+    return {'referral_obligation_mismatches': obligation_count,
+            'referral_obligations_truncated': obligation_count > len(obligations),
+            'referral_obligation_details': [dict(status='MISMATCH', check=row['reason'], user_id=str(row['user_id']),
+                capture_id=str(row['capture_id']) if row['capture_id'] else None) for row in obligations],
+            'referral_payment_reviews': review_count,
             'referral_payment_reviews_truncated': review_count > len(review_rows),
             'referral_payment_review_details': [dict(payment_id=str(row['payment_id']),
                 capture_id=str(row['capture_id']), affected_funding=int(row['affected_funding']),

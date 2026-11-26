@@ -59,6 +59,8 @@ async def test_runtime_cannot_write_funding_provenance(trusted_env):
         for statement in (
             f"UPDATE {schema}.wallet_funding_lots SET available=0",
             f"DELETE FROM {schema}.wallet_funding_allocations",
+            f"UPDATE {schema}.referral_restoration_repayments SET amount=1",
+            f"DELETE FROM {schema}.referral_restoration_repayments",
             f"INSERT INTO {schema}.wallet_funding_lots(user_id,mode,origin,available) "
             "VALUES(gen_random_uuid(),'live','UNKNOWN_LEGACY',1)",
             f"SELECT nextval('{schema}.wallet_funding_lots_id_seq')",
