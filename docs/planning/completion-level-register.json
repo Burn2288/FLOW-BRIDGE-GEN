@@ -15,15 +15,33 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
         "Review historical acceptance, proof, test and risk for LEVEL 2/3; retain immediate critical-risk safeguards."
       ],
       "dependencies": [],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 1,
+          "task_id": "IN-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "e251dafba9cd369d34dbaab74e3f942aeb642169",
+          "tree_relation": "SYNTHETIC_EQUAL_TREE",
+          "tree_proof_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/bf1a83d8bb1266aad25b92d32bae0914d7ffec6e...e251dafba9cd369d34dbaab74e3f942aeb642169",
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600303",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Approved integration order and preserved base/draft/prior-candidate refs; registry/document validation passed.",
+          "limitations": "Original #18 divergent documentation and formal global review remain open.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -35,8 +53,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -45,7 +63,25 @@
       "dependencies": [
         "IN-01"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 2,
+          "task_id": "IN-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "e251dafba9cd369d34dbaab74e3f942aeb642169",
+          "tree_relation": "SYNTHETIC_EQUAL_TREE",
+          "tree_proof_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/bf1a83d8bb1266aad25b92d32bae0914d7ffec6e...e251dafba9cd369d34dbaab74e3f942aeb642169",
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600303",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Documentation foundation #1 merged as 01ef3ea, an ancestor of accepted main; current documentation checks passed.",
+          "limitations": "Global review applies to subsequent changes.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -57,8 +93,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -67,7 +103,25 @@
       "dependencies": [
         "IN-02"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 1,
+          "task_id": "IN-08",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600098",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Saved image recovery and owned image routes preserve the earlier image pilot behavior. Source #8 is in accepted ancestry.",
+          "limitations": "Mock image execution. Provider live approval and global acceptance are separate.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -79,8 +133,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -89,7 +143,25 @@
       "dependencies": [
         "IN-08"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 2,
+          "task_id": "IN-09",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600160",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Veo create/poll, durable video and client coverage in the complete regression. Source #9 is in accepted ancestry.",
+          "limitations": "Provider fixture and disposable PostgreSQL.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -101,8 +173,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -111,7 +183,25 @@
       "dependencies": [
         "IN-09"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 3,
+          "task_id": "IN-10",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600322",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "AnyModel registry and adapter manifests are covered, with source #10 preserved in accepted ancestry.",
+          "limitations": "Manifest/registry fixtures; capabilities of paid live models are subject to approval.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -123,8 +213,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -133,7 +223,25 @@
       "dependencies": [
         "IN-10"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 4,
+          "task_id": "IN-11",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600025",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Async FIBO result, refunds and recovery covered by PostgreSQL. Source #11 is in accepted ancestry.",
+          "limitations": "Provider fixtures; no live spending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -145,8 +253,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -155,7 +263,25 @@
       "dependencies": [
         "IN-11"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 5,
+          "task_id": "IN-12",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600160",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Grok async video and process restart fixture are covered by the general regression. Source #12 is in accepted ancestry.",
+          "limitations": "Provider fixtures; live behavior remains unverified.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -167,8 +293,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -177,7 +303,25 @@
       "dependencies": [
         "IN-12"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 6,
+          "task_id": "IN-13",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600146",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "AnyModel speech models, UTF-16 billing and audio fixtures. Source #13 is in accepted ancestry.",
+          "limitations": "Test providers and rates; paid service outside this run.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -189,8 +333,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -199,7 +343,25 @@
       "dependencies": [
         "IN-13"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 7,
+          "task_id": "IN-14",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600425",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Telegram welcome, menu/back, migration and shared wallet/profile. Source #14 is in accepted ancestry.",
+          "limitations": "Local Telegram transport, independent global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -211,8 +373,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -221,7 +383,25 @@
       "dependencies": [
         "IN-14"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 8,
+          "task_id": "IN-15",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600141",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Owned job projection and status/timeout regressions. Source #15 is in accepted ancestry.",
+          "limitations": "Restart delivery is separately verified by Sprint 03 recovery evidence.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -233,8 +413,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -243,7 +423,25 @@
       "dependencies": [
         "IN-15"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 9,
+          "task_id": "IN-16",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600160",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Telegram Admin, catalog, tariff and payment fixture parity preserved. Source #16 is in accepted ancestry.",
+          "limitations": "Legacy admin paths and synthetic money only; live checkout and commercial approval separate.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -255,8 +453,8 @@
       "owner": "vankhu21",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -265,7 +463,25 @@
       "dependencies": [
         "IN-16"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "vankhu21",
+          "list_position": 10,
+          "task_id": "IN-17",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600160",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Mini App sessions, ownership, replay and inbox/queue are covered. Source #17 is in accepted ancestry.",
+          "limitations": "Telegram WebView approval and global acceptance pending.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -277,8 +493,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -287,7 +503,25 @@
       "dependencies": [
         "IN-02"
       ],
-      "implementation_status": "NOT_ASSESSED"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 3,
+          "task_id": "IN-18",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "e251dafba9cd369d34dbaab74e3f942aeb642169",
+          "tree_relation": "SYNTHETIC_EQUAL_TREE",
+          "tree_proof_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/compare/bf1a83d8bb1266aad25b92d32bae0914d7ffec6e...e251dafba9cd369d34dbaab74e3f942aeb642169",
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600303",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Planning procedure, canonical task registry and contract map pass documentation validation.",
+          "limitations": "Historical #18 remains divergent; full historical supersession is unverified.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -299,8 +533,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -310,7 +544,25 @@
         "IN-17",
         "IN-18"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 4,
+          "task_id": "IN-19",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600160",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Seeded upgrade confirms identity, session, ledger, media and migration persistence; exact local disposable Compose startup and restart verified.",
+          "limitations": "Separate developer machines and external release host remain unverified. Historical #23 entire delta has not been superseded.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -2428,8 +2680,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2439,7 +2691,25 @@
         "AR-01",
         "AD-01"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 25,
+          "task_id": "SE-01",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600160",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Defensive PostgreSQL regressions for app-role ACL, role revocation, consent, owned media and support.",
+          "limitations": "Independent security acceptance remains part of global audits.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "Burn2288",
@@ -2451,8 +2721,8 @@
       "owner": "Burn2288",
       "target_level": "FUNCTIONAL_TEST",
       "completed_level": null,
-      "pr_ref": null,
-      "tested_sha": null,
+      "pr_ref": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
       "integrated_sha": null,
       "global_audit_status": "NOT_ASSESSED",
       "deferred_work": [
@@ -2462,7 +2732,25 @@
         "SE-01",
         "ML-02"
       ],
-      "implementation_status": "IN_PROGRESS"
+      "implementation_status": "CANDIDATE_PREPARED",
+      "evidence": [
+        {
+          "list_id": "Burn2288",
+          "list_position": 26,
+          "task_id": "SE-02",
+          "pr_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+          "tested_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "checkout_sha": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+          "tree_relation": "EXACT_HEAD",
+          "tree_proof_url": null,
+          "ci_url": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600191",
+          "ci_conclusion": "SUCCESS",
+          "coverage": "Synthetic export canaries and auditable artifacts, with targeted safe timeline and retained-data verification.",
+          "limitations": "Functional baseline. Full legal retention and log export policies remain open.",
+          "integrated_sha": null,
+          "integration_evidence_url": null
+        }
+      ]
     },
     {
       "list_id": "vankhu21",
@@ -3231,6 +3519,13 @@
       "tested_sha": "ff75efdfa6e2012c56d3ea7cf27ba520744ac9da",
       "tested_tree": "e1a32dd1cd63cd07f01c75ab024d767c18a7af0c",
       "note": "Scoped successful workflows are recorded per task. Later candidate heads carry their own CI results."
+    },
+    "cloud_finalization_mega_03": {
+      "pr": "https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/115",
+      "base_head": "bf1a83d8bb1266aad25b92d32bae0914d7ffec6e",
+      "base_tree": "3db9730990e329652c8443248bbb035aeeb552a5",
+      "base_synthetic_merge": "e251dafba9cd369d34dbaab74e3f942aeb642169",
+      "note": "Historical behavior revalidated against the approved baseline. Additional Sprint 03 checks are listed in the build report and Draft."
     }
   },
   "completion_levels": {

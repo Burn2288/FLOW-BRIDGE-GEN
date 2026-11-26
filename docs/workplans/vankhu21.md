@@ -37,16 +37,16 @@
 
 | LIST_POSITION | MASTER_POSITION | TASK_ID | Задача | Зависимости | IMPLEMENTATION_STATUS | TARGET_LEVEL | COMPLETED_LEVEL |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 3 | IN-08 | Интегрировать PR #8 и доказать supersession ранних пилотов | IN-02 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 2 | 4 | IN-09 | Провести отдельную приёмку и интеграцию PR #9: Veo video | IN-08 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 3 | 5 | IN-10 | Провести отдельную приёмку и интеграцию PR #10: AnyModel registry | IN-09 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 4 | 6 | IN-11 | Провести отдельную приёмку и интеграцию PR #11: FIBO async image | IN-10 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 5 | 7 | IN-12 | Провести отдельную приёмку и интеграцию PR #12: Grok video | IN-11 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 6 | 8 | IN-13 | Провести отдельную приёмку и интеграцию PR #13: AnyModel speech | IN-12 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 7 | 9 | IN-14 | Провести отдельную приёмку и интеграцию PR #14: Welcome/navigation | IN-13 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 8 | 10 | IN-15 | Провести отдельную приёмку и интеграцию PR #15: Task progress | IN-14 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 9 | 11 | IN-16 | Принять PR #16: финансы, каталог и Telegram Admin | IN-15 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
-| 10 | 12 | IN-17 | Принять PR #17: Mini App и новый inbox | IN-16 | NOT_ASSESSED | FUNCTIONAL_TEST | — |
+| 1 | 3 | IN-08 | Интегрировать PR #8 и доказать supersession ранних пилотов | IN-02 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 2 | 4 | IN-09 | Провести отдельную приёмку и интеграцию PR #9: Veo video | IN-08 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 3 | 5 | IN-10 | Провести отдельную приёмку и интеграцию PR #10: AnyModel registry | IN-09 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 4 | 6 | IN-11 | Провести отдельную приёмку и интеграцию PR #11: FIBO async image | IN-10 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 5 | 7 | IN-12 | Провести отдельную приёмку и интеграцию PR #12: Grok video | IN-11 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 6 | 8 | IN-13 | Провести отдельную приёмку и интеграцию PR #13: AnyModel speech | IN-12 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 7 | 9 | IN-14 | Провести отдельную приёмку и интеграцию PR #14: Welcome/navigation | IN-13 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 8 | 10 | IN-15 | Провести отдельную приёмку и интеграцию PR #15: Task progress | IN-14 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 9 | 11 | IN-16 | Принять PR #16: финансы, каталог и Telegram Admin | IN-15 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
+| 10 | 12 | IN-17 | Принять PR #17: Mini App и новый inbox | IN-16 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 11 | 17 | TG-01 | Перевести главное меню и Back без потери старых маршрутов | IN-19 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 12 | 18 | TG-02 | Подключить документы и текущий consent к Telegram UX | SL-01, TG-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
 | 13 | 19 | TG-03 | Личный кабинет и история общего кошелька | PY-01, TG-01 | CANDIDATE_PREPARED | FUNCTIONAL_TEST | — |
