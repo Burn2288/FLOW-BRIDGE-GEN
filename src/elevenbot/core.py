@@ -457,5 +457,5 @@ class Service:
 
     async def reconciliation_report(self,limit=100):
         from .reconciliation import read_report
-        async with self.pool.acquire() as c,c.transaction(readonly=True):
+        async with self.pool.acquire() as c,c.transaction(isolation='repeatable_read', readonly=True):
             return await read_report(c,limit)

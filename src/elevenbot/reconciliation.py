@@ -77,15 +77,22 @@ async def read_report(conn, limit):
         if row['actual'] is not None:
             detail['available'] = {'actual': int(row['actual']), 'expected': int(row['expected'])}
         funding_details.append(detail)
-    review_rows = await conn.fetch('''SELECT payment_id,capture_id,affected_funding,payment_state,reason,
-        count(*) OVER() AS total FROM referral_payment_review_cases WHERE state='required'
-        ORDER BY payment_id,capture_id LIMIT $1''', limit)
+    review_rows = await conn.fetch('''SELECT c.payment_id,c.capture_id,c.affected_funding,c.payment_state,c.reason,
+        r.eligible_paid,r.amount AS original_reward,coalesce(v.amount,0) AS recorded_reversal,
+        count(*) OVER() AS total FROM referral_payment_review_cases c
+        JOIN referral_rewards r USING(capture_id)
+        LEFT JOIN referral_reversals v USING(capture_id)
+        WHERE c.state='required'
+        ORDER BY c.payment_id,c.capture_id LIMIT $1''', limit)
     review_count = int(review_rows[0]['total']) if review_rows else 0
     return {'referral_payment_reviews': review_count,
             'referral_payment_reviews_truncated': review_count > len(review_rows),
             'referral_payment_review_details': [dict(payment_id=str(row['payment_id']),
                 capture_id=str(row['capture_id']), affected_funding=int(row['affected_funding']),
-                payment_state=row['payment_state'], reason=row['reason'], status='RECONCILIATION_REQUIRED')
+                payment_state=row['payment_state'], reason=row['reason'], status='RECONCILIATION_REQUIRED',
+                affected_funding_basis='POTENTIAL_ALLOCATION', eligible_paid_total=int(row['eligible_paid']),
+                original_reward=int(row['original_reward']), recorded_reversal=int(row['recorded_reversal']),
+                unresolved_reward_amount_status='NOT_PROVEN')
                 for row in review_rows],
             'wallet_mismatches': total, 'limit': limit, 'truncated': total > len(details),
             'details': details, 'funding_mismatches': funding_mismatches,

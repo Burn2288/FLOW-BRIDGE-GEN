@@ -125,6 +125,9 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
 
         if bonus_state=='reserved':
             assert await asyncio.gather(speech.cancel(inviter,speech_job), speech.cancel(inviter,speech_job)) == [True,True]
+            with pytest.raises(asyncpg.RaiseError, match='invalid referral restoration event'):
+                await pool.execute('''INSERT INTO referral_restoration_repayments
+                    SELECT id,user_id,1,gen_random_uuid() FROM ledger WHERE kind='referral_reward' ''')
             restored=await pool.fetchrow("""SELECT p.amount,d.da,r.kind
                 FROM referral_restoration_repayments p JOIN ledger d ON d.id=p.ledger_id
                 JOIN ledger r ON r.id=p.restoration_id WHERE p.user_id=$1""",inviter)
@@ -162,7 +165,10 @@ async def test_referral_reward_for_saved_image(env,confirmed_credit,tmp_path,mon
             assert [tuple(row) for row in cases]==[(payment_id,1000,'payment_refunded')]*2
             report=await svc.reconciliation_report(1)
             assert report['referral_payment_reviews']==2 and report['referral_payment_reviews_truncated']
-            assert report['referral_payment_review_details'][0]['status']=='RECONCILIATION_REQUIRED'
+            detail=report['referral_payment_review_details'][0]
+            assert detail['status']=='RECONCILIATION_REQUIRED'
+            assert (detail['affected_funding_basis'],detail['eligible_paid_total'],detail['original_reward'],detail['recorded_reversal']) == ('POTENTIAL_ALLOCATION',1000,50,50)
+            assert detail['unresolved_reward_amount_status']=='NOT_PROVEN'
             assert await pool.fetchval('SELECT count(*) FROM referral_reversals')==2
             assert await pool.fetchval("SELECT available FROM wallets WHERE user_id=$1 AND mode='live'",inviter)==0
             assert await svc.reconcile()==0
