@@ -25,6 +25,9 @@ async function request(path, options = {}) {
   }
   if (response.status === 401) throw Object.assign(Error('Откройте приложение заново из Telegram.'), {status: 401});
   if (response.status === 403) throw Object.assign(Error('Откройте бот и проверьте доступ к аккаунту.'), {status: 403});
+  if (response.status === 428 && path === '/api/v1/session') {
+    throw Object.assign(Error('Прочитайте документы и подтвердите согласие.'), {documents: await response.json()});
+  }
   if (!response.ok) throw Object.assign(Error('Не удалось получить данные.'), { status: response.status });
   return response;
 }
@@ -246,7 +249,43 @@ function generationForm(model, operation, voices) {
   return form;
 }
 
-async function start() {
+const consentPanel = document.querySelector('#consent');
+const consentAccept = document.querySelector('#accept-consent');
+const navigation = document.querySelector('nav');
+let presentedTerms;
+
+function showDocuments(container, docs) {
+  const version = document.createElement('p');
+  version.textContent = 'Версия документов ' + docs.version + (docs.test_only ? ' · Тестовые документы' : '');
+  container.replaceChildren(version);
+  for (const [field, label] of [['terms', 'Условия использования'], ['privacy', 'Обработка данных']]) {
+    const details = document.createElement('details');
+    const title = document.createElement('summary');
+    const text = document.createElement('pre');
+    title.textContent = label;
+    text.textContent = docs[field];
+    details.append(title, text);
+    container.append(details);
+  }
+}
+
+async function showProfile() {
+  const notice = document.querySelector('#profile-status');
+  const docs = document.querySelector('#profile-documents');
+  notice.textContent = 'Загружаем профиль…';
+  docs.replaceChildren();
+  try {
+    const profile = await (await request('/api/v1/profile')).json();
+    notice.textContent = 'Telegram ID: ' + profile.telegram_id + ' · Условия приняты';
+    showDocuments(docs, profile.documents);
+  } catch (error) {
+    notice.textContent = error.message;
+  }
+}
+
+document.querySelector('#reload-profile').onclick = () => { if (token) void showProfile(); };
+
+async function start(termsVersion) {
   telegram?.ready();
   if (!telegram?.initData) {
     const hint = telegram?.sendData
@@ -262,15 +301,32 @@ async function start() {
   if (saved?.launch === launch) token = saved.token;
   if (!token) {
     history.replaceState({ ...history.state, jobId: null }, '');
-    const session = await request('/api/v1/session', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: telegram.initData }),
-    });
-    token = (await session.json()).token;
+    try {
+      const session = await request('/api/v1/session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({initData: telegram.initData, terms_version: termsVersion}),
+      });
+      token = (await session.json()).token;
+    } catch (error) {
+      if (!error.documents) throw error;
+      selectPanel('consent');
+      navigation.hidden = true;
+      status.textContent = error.message;
+      consentPanel.hidden = false;
+      showDocuments(document.querySelector('#consent-documents'), error.documents);
+      presentedTerms = error.documents.version;
+      return;
+    }
     sessionStorage.setItem('miniapp.session', JSON.stringify({ launch, token }));
+  }
+  if (activePanel === 'consent') {
+    consentPanel.hidden = true;
+    navigation.hidden = false;
+    selectPanel('catalogue');
   }
   // The user may select a panel while authentication is still pending.
   if (activePanel === 'support') void showSupport();
+  if (activePanel === 'profile') void showProfile();
   if (activePanel === 'referral') void showReferral();
   if (activePanel === 'administration') void showAdministration();
   const [wallet, catalogue, settings] = await Promise.all([
@@ -935,6 +991,7 @@ function navigate(panel) {
   card.hidden = true;
   selectPanel(panel);
   if (panel === 'support' && token) void showSupport();
+  if (panel === 'profile' && token) void showProfile();
   if (panel === 'referral' && token) void showReferral();
   if (panel === 'administration' && token) void showAdministration();
   if (panel === 'balance' && token) showBalance().catch(showError);
@@ -950,6 +1007,17 @@ document.querySelector('#previous').onclick = () => showWorks(page - 1).catch(sh
 document.querySelector('#next').onclick = () => showWorks(page + 1).catch(showError);
 const retryStartup = document.querySelector('#retry-startup');
 retryStartup.onclick = () => location.reload();
+consentAccept.onclick = async () => {
+  if (!presentedTerms || consentAccept.disabled) return;
+  consentAccept.disabled = true;
+  try {
+    await start(presentedTerms);
+  } catch (error) {
+    showError(error);
+  } finally {
+    consentAccept.disabled = false;
+  }
+};
 start().catch(error => {
   showError(error);
   // Reload resumes the signed-in session and fetches the screens again.

@@ -1,4 +1,4 @@
-"""Read-only Mini App over the same account and work services as Telegram."""
+"""Mini App over the same account and work services as Telegram."""
 
 import asyncio
 import hashlib
@@ -85,6 +85,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         return web.json_response({'status': 'ok' if healthy else 'unavailable'}, status=200 if healthy else 503)
 
     async def login(request):
+        from elevenbot.consent import CURRENT_VERSION
+
         try:
             body = await request.json()
             external, signed = verified_identity(body.get('initData'), cfg.token, now=time.time())
@@ -98,9 +100,12 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                 "SELECT user_id FROM identities WHERE platform='telegram' AND external_id=$1", external
             )
             try:
-                await service.authorize(conn, user)
+                await service.authorize(conn, user, terms=False)
             except Rejected:
-                raise web.HTTPForbidden(text='Сначала откройте бот и примите условия.') from None
+                raise web.HTTPForbidden(text='Сначала откройте бот через /start.') from None
+            needs_consent = not await service.has_current_consent(conn, user)
+            if needs_consent and body.get('terms_version') != CURRENT_VERSION:
+                return web.json_response(service.get_consent_documents(), status=428)
             await conn.execute('DELETE FROM miniapp_sessions WHERE expires_at<=now()')
             created = await conn.fetchval(
                 """INSERT INTO miniapp_sessions(token_hash,init_hash,user_id,expires_at) VALUES($1,$2,$3,now()+$4*interval '1 second')
@@ -109,6 +114,11 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             )
             if not created:
                 raise web.HTTPUnauthorized(text='Откройте приложение заново из Telegram.')
+            if needs_consent:
+                try:
+                    await service.accept(user, body['terms_version'], connection=conn)
+                except Rejected:
+                    raise web.HTTPForbidden() from None
         return web.json_response({'token': token, 'expires_in': SESSION_SECONDS})
 
     async def account(request, connection=None):
@@ -280,6 +290,18 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         user = await account(request)
         row = await service.wallet(user)
         return web.json_response({key: str(row[key]) for key in ('available', 'reserved')})
+
+    async def profile(request):
+        async with pool.acquire() as conn, conn.transaction():
+            user = await account(request, conn)
+            subject = await conn.fetchval(
+                "SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1", user
+            )
+        return web.json_response({
+            'telegram_id': str(subject),
+            'terms_accepted': True,
+            'documents': service.get_consent_documents(),
+        })
 
     async def referral(request):
         user = await account(request)
@@ -457,6 +479,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_delete('/api/v1/session', logout)
     app.router.add_get('/api/v1/catalogue', catalogue)
     app.router.add_get('/api/v1/wallet', wallet)
+    app.router.add_get('/api/v1/profile', profile)
     app.router.add_get('/api/v1/admin/capabilities', admin_capabilities)
     app.router.add_get('/api/v1/admin/model-visibility', admin_model_visibility)
     app.router.add_post('/api/v1/admin/model-visibility/{action:preview|confirm}', admin_model_visibility)

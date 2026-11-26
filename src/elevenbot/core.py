@@ -62,18 +62,22 @@ class Service:
         from .consent import is_current
         return await is_current(c,u)
 
-    async def accept(self,u,presented_version=None):
+    async def accept(self,u,presented_version=None,*,connection=None):
         from . import consent
         # Existing Telegram callback has no version; never carry that fallback to a new version.
         if presented_version is None and consent.CURRENT_VERSION == consent.LEGACY_VERSION:
             presented_version = consent.LEGACY_VERSION
         if presented_version != consent.CURRENT_VERSION:
             raise ConsentRequired('Условия изменились. Откройте их заново.')
-        async with self.pool.acquire() as c,c.transaction():
-            await self.authorize(c,u,False)
-            await c.execute("UPDATE identities SET terms_version=$2,accepted_at=now() WHERE user_id=$1",u,presented_version)
-            if self.cfg.balance_wallet_mode=='demo':
-                await self.movement(c,u,'demo',f'demo:{u}','demo_grant',10000,0)
+        if connection is None:
+            async with self.pool.acquire() as c,c.transaction():
+                return await self.accept(u,presented_version,connection=c)
+        if not connection.is_in_transaction():
+            raise RuntimeError('Consent must be saved in a transaction')
+        await self.authorize(connection,u,False)
+        await connection.execute("UPDATE identities SET terms_version=$2,accepted_at=now() WHERE user_id=$1",u,presented_version)
+        if self.cfg.balance_wallet_mode=='demo':
+            await self.movement(connection,u,'demo',f'demo:{u}','demo_grant',10000,0)
 
     async def rate(self,u,*,navigation=False):
         column,limit=('navigation_n',60) if navigation else ('n',10)

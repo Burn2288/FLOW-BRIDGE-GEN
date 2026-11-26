@@ -142,6 +142,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await check_job_card(page, telegram.pool, tester)
                     await compare_model_cards(page, telegram, owner, tester)
                 await context.close()
+            await check_consent_journey(browser, telegram, base, client)
         finally:
             await browser.close()
 
@@ -221,6 +222,66 @@ async def check_support_journey(browser, telegram, operator, base):
     finally:
         await operator_context.close()
         await owner_context.close()
+
+
+async def check_consent_journey(browser, telegram, base, client):
+    from playwright.async_api import expect
+
+    subject = 103
+    await telegram.handle(event(6000, '/start', chat=subject))
+    user = await telegram.pool.fetchval(
+        "SELECT user_id FROM identities WHERE platform='telegram' AND external_id=$1", subject
+    )
+    assert user is not None
+    await telegram.handle(event(6001, '/miniapp', chat=subject))
+    launch_url = telegram.bot.sent[-1][1].inline_keyboard[0][0].web_app.url
+    assert launch_url == base + '/'
+    session_url = base + '/api/v1/session'
+    launch_data = signed(telegram.cfg.token, subject, query_id='sl03-consent')
+    docs = telegram.svc.get_consent_documents()
+    stale = await client.post(session_url, json={'initData': launch_data, 'terms_version': 'previous'})
+    assert stale.status == 428 and await stale.json() == docs
+    async with telegram.pool.acquire() as conn:
+        assert not await telegram.svc.has_current_consent(conn, user)
+
+    context = await browser.new_context(viewport={'width': 320, 'height': 800})
+    try:
+        async def sdk(route):
+            await route.fulfill(content_type='application/javascript', body=
+                'window.Telegram={WebApp:{ready(){},initData:' + json.dumps(launch_data) + '}};')
+
+        await context.route('https://telegram.org/js/telegram-web-app.js', sdk)
+        page = await context.new_page()
+        async with page.expect_response(session_url) as pending:
+            await page.goto(launch_url)
+        assert (await pending.value).status == 428
+        await expect(page.get_by_role('heading', name='Условия доступа')).to_be_visible()
+        await expect(page.locator('nav')).to_be_hidden()
+        await page.get_by_text('Условия использования', exact=True).click()
+        await expect(page.locator('#consent details[open] pre')).to_have_text(docs['terms'].strip())
+        await page.get_by_text('Обработка данных', exact=True).click()
+        await expect(page.locator('#consent details[open] pre').last).to_have_text(docs['privacy'].strip())
+        async with page.expect_response(session_url) as accepted:
+            await page.get_by_role('button', name='Принять условия и продолжить').click()
+        assert (await accepted.value).status == 200
+        await expect(page.get_by_role('heading', name='Каталог')).to_be_visible()
+        await page.get_by_role('button', name='Профиль', exact=True).click()
+        await expect(page.locator('#profile-status')).to_have_text('Telegram ID: 103 · Условия приняты')
+        await expect(page.locator('#profile-documents')).to_contain_text('Версия документов ' + docs['version'])
+        assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+
+        launch_data = signed(telegram.cfg.token, subject, query_id='sl03-returning')
+        async with page.expect_response(session_url) as reopened:
+            await page.reload()
+        assert (await reopened.value).status == 200
+        await expect(page.get_by_role('button', name='Принять условия и продолжить')).to_be_hidden()
+        async with telegram.pool.acquire() as conn:
+            await telegram.svc.authorize(conn, user)
+        await telegram.handle(event(6002, '/start', chat=subject))
+        assert await telegram.svc.welcome_message(subject) is not None
+        print('MINIAPP_SL03=pass; SHARED_CONSENT=pass; LEGAL_VERSION=pass; PROFILE=pass')
+    finally:
+        await context.close()
 
 
 async def check_flux_confirmation(page, pool, owner, pending_jobs):

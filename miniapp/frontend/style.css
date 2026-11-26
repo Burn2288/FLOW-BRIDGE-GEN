@@ -67,3 +67,6 @@ nav button[aria-current] { background: var(--active); border-color: var(--stroke
 #owner-support-text { margin-bottom: .6rem; resize: vertical; }
 .operator-support p { margin: 0; }
 #admin-report summary { cursor: pointer; padding-block: .45rem; }
+#consent pre, #profile pre { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
+#consent summary, #profile summary { cursor: pointer; padding-block: .45rem; }
+#accept-consent { margin-top: .7rem; }

@@ -13,6 +13,11 @@
   <header class="brand"><img src="/assets/darkflow-banner.png" alt="DarkFlow | Gen"></header>
   <p id="status" class="notice" role="status">Подключение…</p>
   <button id="retry-startup" hidden>Повторить загрузку</button>
+  <section id="consent" aria-labelledby="consent-title" hidden>
+    <h1 id="consent-title">Условия доступа</h1>
+    <div id="consent-documents"></div>
+    <button id="accept-consent" type="button">Принять условия и продолжить</button>
+  </section>
   <section id="catalogue" aria-labelledby="catalogue-title">
     <h1 id="catalogue-title">Каталог</h1>
     <template id="image-form">
@@ -66,6 +71,12 @@
       <button id="retry-theme" hidden>Повторить сохранение</button>
     </fieldset>
   </section>
+  <section id="profile" aria-labelledby="profile-title" hidden>
+    <h1 id="profile-title">Профиль</h1>
+    <p id="profile-status" role="status"></p>
+    <div id="profile-documents"></div>
+    <button id="reload-profile" type="button">Обновить профиль</button>
+  </section>
   <section id="support" aria-labelledby="support-title" hidden>
     <h1 id="support-title">Поддержка</h1>
     <label for="owner-support-text">Текст обращения</label>
@@ -108,6 +119,7 @@
   <button data-panel="library">Мои работы</button>
   <button data-panel="balance">Баланс</button>
   <button data-panel="settings">Настройки</button>
+  <button data-panel="profile">Профиль</button>
   <button data-panel="support">Поддержка</button>
   <button data-panel="referral">Приглашения</button>
   <button data-panel="administration">Администрирование</button>
