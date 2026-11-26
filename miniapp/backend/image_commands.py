@@ -167,10 +167,30 @@ def add_routes(app, *, pool, cfg, view, account, scheduler=None):
                   AND ($2::uuid IS NULL OR q.id=$2)
             ORDER BY q.accepted_at DESC LIMIT 100""", user, job_id)
         kinds = {'video': 'video', 'audio.speech': 'audio', 'images.generate': 'image'}
-        return [{'id': str(r['id']), 'model': r['model_id'], 'operation': r['operation'], 'state': 'cancelled' if r['cancelled_at'] else r['state'],
+        jobs = [{'id': str(r['id']), 'model': r['model_id'], 'operation': r['operation'],
+                 'state': 'cancelled' if r['cancelled_at'] else r['state'],
                  'origin': 'http' if r['http_origin'] else 'telegram',
                  'result_url': f"/api/v1/works/{kinds[r['operation']]}/{r['work_id']}" if r['work_id'] else None}
                 for r in rows]
+        if (not job_id or not jobs) and view.music.enabled() and await view.music.miniapp_access(pool, await external_for(user)):
+            music_jobs = await pool.fetch("""
+                SELECT m.id,m.status,m.mp3 IS NOT NULL AND m.expires_at>now() AS available,
+                       h.quote_id IS NOT NULL AS http_origin
+                FROM clodex_music_jobs m
+                LEFT JOIN http_image_commands h ON h.quote_id=m.id AND h.user_id=m.user_id
+                WHERE m.user_id=$1 AND m.provider='clodex' AND ($2::uuid IS NULL OR m.id=$2)
+                ORDER BY m.created_at DESC LIMIT 100
+            """, user, job_id)
+            music_states = {'queued': 'pending', 'ready': 'completed', 'delivering': 'completed',
+                            'delivered': 'completed', 'delivery_unknown': 'completed', 'unknown': 'uncertain',
+                            'failed': 'failed'}
+            jobs.extend({
+                'id': str(row['id']), 'model': MUSIC_MODEL, 'operation': 'audio.generate',
+                'state': music_states.get(row['status'], 'dispatching'),
+                'origin': 'http' if row['http_origin'] else 'telegram',
+                'result_url': f"/api/v1/works/music/{row['id']}" if row['available'] else None,
+            } for row in music_jobs)
+        return jobs
 
     async def list_jobs(request):
         return web.json_response({'jobs': await get_jobs(await account(request))})

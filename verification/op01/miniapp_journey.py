@@ -681,6 +681,9 @@ async def check_music(page, view, owner, client, base, token):
         await confirm.click()
         work = page.locator('#works > li').filter(has_text=MODEL)
         await expect(work).to_contain_text('В очереди')
+        status_url = base + '/api/v1/jobs/' + quote['quote_id']
+        queued = await client.get(status_url, headers=headers)
+        assert queued.status == 200 and (await queued.json())['state'] == 'pending'
         for _ in range(3):
             assert await bot.music.tick(bot.bot)
         assert creates == [dict(model=MODEL, prompt=prompt, n=1)]
@@ -688,6 +691,10 @@ async def check_music(page, view, owner, client, base, token):
         await expect(work).to_contain_text('Готово')
         job = quote['quote_id']
         assert await counts() == (1, 1)
+        await page.get_by_role('button', name='Открыть задание ' + job, exact=True).click()
+        await expect(page.locator('#job-status')).to_have_text('Завершено')
+        await page.get_by_role('button', name='Показать результат').click()
+        await expect(work).to_be_visible()
         replay = await client.post(base + '/api/v1/jobs', json={'quote_id': job},
                                    headers={**headers, 'Idempotency-Key': job})
         assert replay.status == 200 and (await replay.json())['id'] == job
@@ -719,6 +726,7 @@ async def check_music(page, view, owner, client, base, token):
         from elevenbot import admin_access
         bot.admin_access.sessions[100] = (admin_access.monotonic() - 1, bot.admin_access.sessions[100][1])
         assert not await view.music.miniapp_access(view.pool, 100)
+        assert (await client.get(status_url, headers=headers)).status == 404
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
         assert (await client.post(base + '/api/v1/quotes', headers=headers,
                                   json={'model': MODEL, 'prompt': prompt})).status == 403

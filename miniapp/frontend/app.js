@@ -114,6 +114,7 @@ function closePreview() {
   if (!openPreview) return;
   openPreview.container.replaceChildren();
   openPreview.button.textContent = 'Просмотр';
+  openPreview.message.textContent = '';
   URL.revokeObjectURL(openPreview.url);
   openPreview = null;
 }
@@ -150,7 +151,7 @@ function appendPreview(item, work) {
       media.onerror = () => { message.textContent = 'Этот результат можно скачать для просмотра.'; };
       media.src = url;
       container.replaceChildren(media);
-      openPreview = {url, container, button};
+      openPreview = {url, container, button, message};
       button.textContent = 'Закрыть просмотр';
     } catch (error) {
       if (revision === previewRevision) message.textContent = error.message;
@@ -522,6 +523,7 @@ const tabs = [...document.querySelectorAll('nav [data-panel]')];
 const card = document.querySelector('#job-card');
 const overview = document.querySelector('#library-overview');
 const jobStatus = document.querySelector('#job-status');
+const jobResult = document.querySelector('#job-result');
 const cancelJob = document.querySelector('#cancel-job');
 const reloadJob = document.querySelector('#reload-job');
 const states = {
@@ -651,6 +653,7 @@ async function openJob(id, cancel = false) {
   card.hidden = false;
   document.querySelector('#job-id').textContent = id;
   cancelJob.hidden = true;
+  jobResult.hidden = true;
   reloadJob.disabled = true;
   jobStatus.textContent = cancel ? 'Проверяем отмену…' : 'Получаем статус…';
   try {
@@ -660,6 +663,17 @@ async function openJob(id, cancel = false) {
     if (revision !== cardRevision) return;
     jobStatus.textContent = states[job.state] ?? job.state;
     cancelJob.hidden = !(job.operation === 'images.generate' && job.origin === 'http' && job.state === 'pending');
+    if (job.result_url) {
+      jobResult.hidden = false;
+      jobResult.onclick = async () => {
+        await navigate('library');
+        const work = document.getElementById('work-' + job.result_url.split('/').at(-1));
+        if (work) {
+          work.scrollIntoView({block: 'center'});
+          work.querySelector('button')?.focus({preventScroll: true});
+        }
+      };
+    }
   } catch (error) {
     if (revision === cardRevision) jobStatus.textContent = error.message;
   } finally {
@@ -1083,7 +1097,7 @@ function navigate(panel) {
   if (panel === 'referral' && token) void showReferral();
   if (panel === 'administration' && token) void showAdministration();
   if (panel === 'balance' && token) showBalance().catch(showError);
-  if (panel === 'library' && token) Promise.all([showJobs(), showWorks(0)]).catch(showError);
+  if (panel === 'library' && token) return Promise.all([showJobs(), showWorks(0)]).catch(showError);
 }
 
 for (const tab of tabs) tab.onclick = () => navigate(tab.dataset.panel);
