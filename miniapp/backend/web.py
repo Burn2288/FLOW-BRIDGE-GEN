@@ -131,6 +131,19 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                 raise web.HTTPForbidden() from None
         return user
 
+    async def admin_capabilities(request):
+        import asyncpg
+        from elevenbot.admin_authority import current_capabilities
+        try:
+            user = await account(request)
+            async with pool.acquire() as conn:
+                capability = await current_capabilities(conn, user)
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        if capability is None:
+            raise web.HTTPForbidden()
+        return web.json_response(capability)
+
     async def wallet(request):
         user = await account(request)
         row = await service.wallet(user)
@@ -307,6 +320,7 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_delete('/api/v1/session', logout)
     app.router.add_get('/api/v1/catalogue', catalogue)
     app.router.add_get('/api/v1/wallet', wallet)
+    app.router.add_get('/api/v1/admin/capabilities', admin_capabilities)
     from .stars import add_stars_routes
     add_stars_routes(app, service, account, cfg, view.bot)
     app.router.add_get('/api/v1/referral', referral)

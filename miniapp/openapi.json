@@ -1213,6 +1213,30 @@
           }
         }
       }
+    },
+    "/api/v1/admin/capabilities": {
+      "get": {
+        "summary": "Read current administrative capabilities for the authenticated user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current role and capabilities"
+          },
+          "401": {
+            "description": "Invalid session"
+          },
+          "403": {
+            "description": "No current role"
+          },
+          "503": {
+            "description": "Authority unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
