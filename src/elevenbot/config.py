@@ -35,6 +35,7 @@ class Config:
     admin_password: str = field(default='', repr=False)
     clodex_key: str = ''
     clodex_music_owner: int = 0
+    fixture_music_owners: tuple[int, ...] = ()  # Programmatic disposable profile only.
     clodex_music_live: bool = False
     anymodel_key: str = ''
     anymodel_test_enabled: bool = False
