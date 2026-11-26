@@ -38,6 +38,14 @@ FIXTURE_TOKEN = '123456:' + 'fixture_' * 5
 TIMEOUT = 45
 
 
+class TelegramRateLimited(AssertionError):
+    pass
+
+
+async def wait_for_telegram_minute():
+    await asyncio.sleep(61 - time.time() % 60)
+
+
 def signed_launch(chat):
     fields = {
         'auth_date': str(int(time.time())),
@@ -70,6 +78,8 @@ class Telegram:
         for _ in range(TIMEOUT * 5):
             recent = [event for event in await self.replies(after) if event['chat'] == chat]
             for event in reversed(recent):
+                if 'Слишком много действий' in (event.get('text') or ''):
+                    raise TelegramRateLimited(f'Telegram {chat} rate limit while waiting for {label}')
                 if value := select(event):
                     return value
             await asyncio.sleep(.2)
@@ -123,6 +133,14 @@ class Telegram:
         assert response.json()['granted'] >= 0
 
     async def start_job(self, studio, chat, prompt):
+        try:
+            return await self.prepare_job(studio, chat, prompt)
+        except TelegramRateLimited:
+            # The missed response precedes confirmation and any ledger mutation.
+            await wait_for_telegram_minute()
+            return await self.prepare_job(studio, chat, prompt)
+
+    async def prepare_job(self, studio, chat, prompt):
         after = await self.update(chat, text='🌐 Агрегаторы')
         after = await self.tap(chat, after, r'^provider:')
         if studio.key == 'music':
@@ -151,7 +169,7 @@ class Telegram:
                    for event in replies):
                 # The gateway explicitly declined the action. Retry the same quote
                 # when the normal minute window renews.
-                await asyncio.sleep(61 - time.time() % 60)
+                await wait_for_telegram_minute()
                 await self.update(chat, callback=callback, message_id=message_id)
                 return
             await asyncio.sleep(.2)
