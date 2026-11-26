@@ -170,6 +170,36 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             raise web.HTTPServiceUnavailable() from None
         return web.json_response(report)
 
+    async def admin_model_visibility(request):
+        import asyncpg
+        from elevenbot import model_visibility as visibility
+
+        try:
+            body = await request.json() if request.method == 'POST' else None
+            async with pool.acquire() as conn, conn.transaction():
+                actor = await account(request, conn)
+                if request.method == 'GET':
+                    result = {'models': await visibility.list_models(conn, actor)}
+                else:
+                    keys = [body[key] for key in ('provider', 'model_id', 'operation', 'visibility')]
+                    rollback_of = body.get('rollback_of')
+                    if request.match_info['action'] == 'preview':
+                        result = await visibility.preview(conn, actor, *keys, rollback_of=rollback_of)
+                    else:
+                        result = await visibility.confirm(conn, actor, *keys, body['expected_version'],
+                            UUID(body['request_id']), rollback_of=rollback_of)
+        except visibility.VisibilityDenied:
+            raise web.HTTPForbidden() from None
+        except visibility.MissingModel:
+            raise web.HTTPNotFound(text='Модель недоступна.') from None
+        except visibility.VisibilityConflict:
+            raise web.HTTPConflict(text='Настройка изменилась. Запросите новый предпросмотр.') from None
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise web.HTTPBadRequest() from None
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return web.json_response(result)
+
     def support_json(value):
         # Support DTOs contain only database timestamps, UUIDs and bounded text.
         return web.json_response(value, dumps=lambda item: json.dumps(item, default=str))
@@ -425,6 +455,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_get('/api/v1/catalogue', catalogue)
     app.router.add_get('/api/v1/wallet', wallet)
     app.router.add_get('/api/v1/admin/capabilities', admin_capabilities)
+    app.router.add_get('/api/v1/admin/model-visibility', admin_model_visibility)
+    app.router.add_post('/api/v1/admin/model-visibility/{action:preview|confirm}', admin_model_visibility)
     app.router.add_get('/api/v1/admin/operations', operations_report)
     app.router.add_post('/api/v1/admin/support/reply', support_reply)
     app.router.add_get('/api/v1/admin/support', support_inbox)

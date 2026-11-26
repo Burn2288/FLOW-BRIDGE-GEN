@@ -283,7 +283,18 @@ async function start() {
   document.querySelector('#reserved').textContent = wallet.reserved;
   applyTheme(settings.theme);
   themeInputs.forEach(input => input.disabled = false);
+  renderCatalogue(catalogue);
+  status.textContent = '';
+  if (!document.querySelector('#balance').hidden) await showBalance();
+  if (history.state?.jobId) {
+    selectPanel('library');
+    await openJob(history.state.jobId);
+  }
+}
+
+function renderCatalogue(catalogue) {
   const models = document.querySelector('#models');
+  models.replaceChildren();
   for (const model of catalogue.models) {
     const item = listItem(model.aggregator + ' · ' + model.title);
     if (model.music_card) {
@@ -329,13 +340,8 @@ async function start() {
     if (!available) models.append(listItem(name + ' · каталог временно недоступен'));
   }
   if (!models.children.length) models.append(listItem('Нет доступных моделей.'));
-  status.textContent = '';
-  if (!document.querySelector('#balance').hidden) await showBalance();
-  if (history.state?.jobId) {
-    selectPanel('library');
-    await openJob(history.state.jobId);
-  }
 }
+
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -630,6 +636,123 @@ function appendOperatorReply(container, current) {
   container.append(form);
 }
 
+async function refreshCatalogue() {
+  const session = token;
+  const catalogue = await (await request('/api/v1/catalogue')).json();
+  if (session === token) renderCatalogue(catalogue);
+}
+
+function appendModelVisibility(container, current) {
+  const path = '/api/v1/admin/model-visibility';
+  const form = document.createElement('form');
+  const title = document.createElement('h3');
+  const selection = document.createElement('select');
+  const notice = document.createElement('p');
+  const preview = document.createElement('button');
+  const rollback = document.createElement('button');
+  const confirm = document.createElement('button');
+  title.textContent = 'Видимость моделей';
+  selection.setAttribute('aria-label', 'Модель');
+  notice.setAttribute('role', 'status');
+  preview.type = rollback.type = confirm.type = 'button';
+  rollback.textContent = 'Предпросмотр отката';
+  confirm.textContent = 'Подтвердить видимость';
+  let models = [];
+  let pending;
+
+  const selected = () => models[Number(selection.value)];
+  const display = value => value === 'VISIBLE' ? 'Видима' : 'Скрыта';
+  const render = () => {
+    const model = selected();
+    preview.textContent = model?.visibility === 'VISIBLE' ? 'Предпросмотр скрытия' : 'Предпросмотр показа';
+    preview.disabled = !model;
+    rollback.disabled = !model?.previous_visibility;
+    confirm.hidden = !pending;
+  };
+  const send = async (action, body) => (await request(path + '/' + action, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+  })).json();
+  async function load() {
+    const response = await request(path);
+    const data = await response.json();
+    if (!current()) return;
+    const index = selection.selectedIndex;
+    models = data.models;
+    selection.replaceChildren();
+    models.forEach((model, position) => {
+      const option = document.createElement('option');
+      option.value = String(position);
+      option.textContent = model.title + ' · ' + model.provider + ' · ' + model.operation +
+        ' · ' + display(model.visibility);
+      selection.append(option);
+    });
+    if (index >= 0 && index < models.length) selection.selectedIndex = index;
+    if (!models.length) notice.textContent = 'Моделей пока нет.';
+    render();
+  }
+  selection.onchange = () => {
+    pending = null;
+    notice.textContent = '';
+    render();
+  };
+  async function action(run) {
+    if (!current() || selection.disabled) return;
+    selection.disabled = preview.disabled = rollback.disabled = confirm.disabled = true;
+    try {
+      await run();
+    } catch (error) {
+      if (!current()) return;
+      if (error.status === 409) {
+        pending = null;
+        notice.textContent = 'Настройка изменилась. Запросите новый предпросмотр.';
+        await load().catch(() => {});
+      } else {
+        if ([400, 401, 403, 404].includes(error.status)) pending = null;
+        notice.textContent = error.message;
+      }
+    } finally {
+      selection.disabled = confirm.disabled = false;
+      render();
+    }
+  }
+  function prepare(restore) {
+    const model = selected();
+    if (!model) return;
+    pending = null;
+    const visibility = restore ? model.previous_visibility : (model.visibility === 'VISIBLE' ? 'HIDDEN' : 'VISIBLE');
+    const keys = {provider: model.provider, model_id: model.model_id, operation: model.operation, visibility};
+    if (restore) keys.rollback_of = model.version;
+    return action(async () => {
+      notice.textContent = 'Проверяем настройку…';
+      const result = await send('preview', keys);
+      if (!current()) return;
+      pending = {...keys, expected_version: result.version, request_id: crypto.randomUUID()};
+      notice.textContent = result.title + ' · ' + display(result.visibility) + ' → ' +
+        display(result.desired_visibility);
+    });
+  }
+  preview.onclick = () => { void prepare(false); };
+  rollback.onclick = () => { void prepare(true); };
+  confirm.onclick = () => {
+    if (!pending) return;
+    void action(async () => {
+      const result = await send('confirm', pending);
+      pending = null;
+      if (current()) {
+        notice.textContent = result.title + ' · ' + display(result.visibility) + '. Изменение сохранено.';
+      }
+      await Promise.all([current() && load(), refreshCatalogue()]);
+    });
+  };
+  form.onsubmit = event => event.preventDefault();
+  form.append(title, selection, preview, rollback, confirm, notice);
+  container.append(form);
+  render();
+  void load().catch(error => {
+    if (current()) notice.textContent = error.message;
+  });
+}
+
 let adminRequest = 0;
 const operationsFields = {
   registered_users: 'Пользователи',
@@ -702,14 +825,17 @@ async function showAdministration() {
   report.replaceChildren();
   notice.textContent = 'Проверяем полномочия…';
   let canReply = false;
+  let canSetVisibility = false;
   try {
     const auth = await request('/api/v1/admin/capabilities');
     const authority = await auth.json();
     if (!current()) return;
     canReply = authority.capabilities.includes('support.operate');
     if (canReply) appendOperatorReply(report, current);
+    canSetVisibility = authority.capabilities.includes('settings.visibility');
+    if (canSetVisibility) appendModelVisibility(report, current);
     if (!authority.capabilities.includes('operations.read')) {
-      notice.textContent = canReply ? 'Поддержка' : 'Нет доступа к административному обзору.';
+      notice.textContent = canSetVisibility ? 'Настройки каталога' : canReply ? 'Поддержка' : 'Нет доступа к административному обзору.';
       return;
     }
     notice.textContent = 'Загружаем обзор за 7 дней…';
@@ -723,7 +849,7 @@ async function showAdministration() {
     notice.textContent = 'Обзор за 7 дней · ' + authority.role;
   } catch (error) {
     if (!current()) return;
-    if (!canReply || error.status === 401 || error.status === 403) report.replaceChildren();
+    if ((!canReply && !canSetVisibility) || error.status === 401 || error.status === 403) report.replaceChildren();
     notice.textContent = 'Обзор недоступен. ' + error.message;
   }
 }
