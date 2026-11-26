@@ -437,6 +437,7 @@ async def compare_model_cards(page, telegram, owner, tester):
 
 async def check_veo_video(page, telegram, owner, pending_jobs):
     from playwright.async_api import expect
+    from elevenbot.video import MODES
 
     model = 'clodex-video/veo-3.1'
     prompt = 'Маяк на рассвете'
@@ -450,10 +451,10 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
             if request.url.path.endswith('/estimate'):
                 return httpx.Response(200, json={'success': True, 'data': {'model': model, 'cost_usd': '0.45'}})
             assert request.url.path == '/v1/videos'
-            return httpx.Response(200, json={'id': 'veo-fixture'})
-        if request.url.path == '/v1/videos/veo-fixture/content':
+            return httpx.Response(200, json={'id': 'veo-fixture-' + str(calls.count(('POST', '/v1/videos')))})
+        if request.url.path.endswith('/content'):
             return httpx.Response(200, content=mp4, headers={'Content-Type': 'video/mp4'})
-        assert request.url.path == '/v1/videos/veo-fixture'
+        assert request.url.path in ('/v1/videos/veo-fixture-1', '/v1/videos/veo-fixture-2')
         return httpx.Response(200, json={'status': 'done'})
 
     telegram.video.api.transport = httpx.MockTransport(provider)
@@ -496,12 +497,38 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     chat, upload = telegram.bot.send_video.await_args.args
     assert chat == 100 and upload.data == mp4
     assert calls.count(('POST', '/v1/videos')) == 1
-    assert calls.count(('GET', '/v1/videos/veo-fixture/content')) == 1
+    assert calls.count(('GET', '/v1/videos/veo-fixture-1/content')) == 1
     # The bot's maintenance loop settles terminal work independently of polling.
     from elevenbot.task_wallet import settle_task_tokens
     await settle_task_tokens(telegram.pool)
     await settle_task_tokens(telegram.pool)
     assert await telegram.pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_capture'", job) == 1
+
+    def button(label):
+        return next(item.callback_data for row in telegram.bot.sent[-1][1].inline_keyboard
+                    for item in row if item.text == label)
+
+    await telegram.handle(event(4011, callback='slist:current:video:0'))
+    await telegram.handle(event(4012, callback=button('Veo 3.1')))
+    await telegram.handle(event(4013, callback=button(MODES['standard'][2])))
+    await telegram.handle(event(4014, prompt))
+    confirm_telegram = button('Генерировать')
+    assert '450' in telegram.bot.sent[-1][0]
+    await telegram.handle(event(4015, callback=confirm_telegram))
+    assert await telegram.video.poll_one(telegram.bot)
+    await settle_task_tokens(telegram.pool)
+    await page.get_by_role('button', name='Мои работы').click()
+    telegram_work = page.locator('#works > li').filter(has_text='Видео')
+    await expect(telegram_work).to_have_count(2)
+    async with page.expect_download() as downloaded:
+        await telegram_work.first.get_by_role('button', name='Скачать').click()
+    assert (await (await downloaded.value).path()).read_bytes() == mp4
+    assert calls.count(('POST', '/v1/videos')) == 2
+    assert calls.count(('GET', '/v1/videos/veo-fixture-2/content')) == 1
+    assert await telegram.pool.fetchval("""
+        SELECT count(*) FROM ledger JOIN task_price_quotes q ON q.id=task_quote_id
+        WHERE q.user_id=$1 AND q.operation='video' AND ledger.kind='task_capture'
+        """, owner) == 2
     return job
 
 
@@ -516,15 +543,19 @@ async def check_speech(page, telegram, owner, pending_jobs):
     def buttons():
         return {b.text: b.callback_data for row in telegram.bot.sent[-1][1].inline_keyboard for b in row}
 
-    await telegram.callback(owner, 100, 'slist:current:speech:0')
-    await telegram.callback(owner, 100, buttons()['ElevenLabs v4'])
-    launch, = [data for data in buttons().values() if data.startswith('srun:')]
-    with patch('elevenbot.providers.voice_candidates', AsyncMock(return_value={'candidates': [
-            {'id': voice, 'name': 'Голос стенда'}]})):
-        await telegram.callback(owner, 100, launch)
-    await telegram.callback(owner, 100, buttons()['Голос стенда'])
-    await telegram.handle(event(4200, prompt))
-    assert 'Оценка: 80 ' in telegram.bot.sent[-1][0], telegram.bot.sent[-1][0]
+    async def telegram_quote(update_id):
+        await telegram.callback(owner, 100, 'slist:current:speech:0')
+        await telegram.callback(owner, 100, buttons()['ElevenLabs v4'])
+        launch, = [data for data in buttons().values() if data.startswith('srun:')]
+        with patch('elevenbot.providers.voice_candidates', AsyncMock(return_value={'candidates': [
+                {'id': voice, 'name': 'Голос стенда'}]})):
+            await telegram.callback(owner, 100, launch)
+        await telegram.callback(owner, 100, buttons()['Голос стенда'])
+        await telegram.handle(event(update_id, prompt))
+        assert 'Оценка: 80 ' in telegram.bot.sent[-1][0], telegram.bot.sent[-1][0]
+        return buttons()['Генерировать']
+
+    await telegram_quote(4200)
 
     await page.get_by_role('button', name='Каталог').click()
     await page.reload()
@@ -571,6 +602,19 @@ async def check_speech(page, telegram, owner, pending_jobs):
     await telegram.handle(event(4202, callback=callback))
     (args, _), = telegram.bot.audio
     assert args[0] == 100 and args[1].data == mp3
+    telegram_confirm = await telegram_quote(4203)
+    with patch.object(httpx, 'AsyncClient', side_effect=lambda **kw: client_class(transport=httpx.MockTransport(provider), **kw)):
+        await telegram.handle(event(4204, callback=telegram_confirm))
+    assert posts == [dict(model='eleven_v4', voice=voice, input=prompt)] * 2
+    await page.get_by_role('button', name='Мои работы').click()
+    await expect(work).to_have_count(2)
+    async with page.expect_download() as downloaded:
+        await work.first.get_by_role('button', name='Скачать').click()
+    assert (await (await downloaded.value).path()).read_bytes() == mp3
+    assert await telegram.pool.fetchval("""
+        SELECT count(*) FROM ledger JOIN task_price_quotes q ON q.id=task_quote_id
+        WHERE q.user_id=$1 AND q.operation='audio.speech' AND ledger.kind='task_capture'
+        """, owner) == 2
     return job
 
 
