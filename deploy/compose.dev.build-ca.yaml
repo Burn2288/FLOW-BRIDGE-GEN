@@ -1,0 +1,11 @@
+x-build-ca: &build-ca
+  build:
+    secrets:
+      - flowbridge_ca_bundle
+services:
+  bot: *build-ca
+  worker: *build-ca
+  miniapp: *build-ca
+secrets:
+  flowbridge_ca_bundle:
+    file: ${FLOWBRIDGE_BUILD_CA_BUNDLE:?Set FLOWBRIDGE_BUILD_CA_BUNDLE to a trusted CA bundle outside the checkout}

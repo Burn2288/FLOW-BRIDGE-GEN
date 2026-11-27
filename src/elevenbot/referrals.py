@@ -1,10 +1,21 @@
-"""Stable referral codes and first-registration attribution, without rewards."""
+"""Referral attribution and owner-scoped reward history."""
 import re
 import secrets
 
 from .core import Rejected
 
 CODE = re.compile(r'^[A-Za-z0-9_-]{16}$', re.ASCII)
+BOT_USERNAME = re.compile(r'^[A-Za-z0-9_]{2,29}bot$', re.ASCII | re.IGNORECASE)
+
+
+def valid_bot_username(username):
+    return isinstance(username, str) and bool(BOT_USERNAME.fullmatch(username))
+
+
+def referral_link(username, code):
+    if valid_bot_username(username) and isinstance(code, str) and CODE.fullmatch(code):
+        return f'https://t.me/{username}?start=ref_{code}'
+    return None
 
 
 def start_code(text):
@@ -43,3 +54,58 @@ async def own_info(service, user):
             raise Rejected('Не удалось получить код приглашения. Попробуйте позже.')
         referred = await conn.fetchval('SELECT EXISTS(SELECT 1 FROM referral_attributions WHERE user_id=$1)', user)
         return {'code': existing, 'has_referrer': referred}
+
+async def own_finances(service, user, page):
+    """Read an authorized user's own reward events on a single snapshot."""
+    if type(page) is not int or not 0 <= page <= 1000:
+        raise ValueError('Invalid referral history page')
+    async with service.pool.acquire() as conn, conn.transaction(isolation='repeatable_read', readonly=True):
+        await service.authorize(conn, user)
+        summary = await conn.fetchrow("""
+            WITH own AS (
+                SELECT * FROM referral_rewards WHERE referrer_id=$1
+            )
+            SELECT
+                (SELECT code FROM referral_codes WHERE user_id=$1) AS code,
+                EXISTS(SELECT 1 FROM referral_attributions WHERE user_id=$1) AS has_referrer,
+                (SELECT count(*) FROM referral_attributions WHERE referrer_id=$1) AS invitee_count,
+                (SELECT coalesce(sum(available),0) FROM wallet_funding_lots
+                 WHERE user_id=$1 AND mode='live' AND origin='REFERRAL') AS available,
+                (SELECT coalesce(sum(amount),0) FROM own) AS earned,
+                coalesce((SELECT outstanding FROM referral_debt_balances WHERE user_id=$1),0) AS debt
+        """, user)
+        rows = await conn.fetch("""
+            WITH own_rewards AS (
+                SELECT r.*,p.policy_version FROM referral_rewards r
+                JOIN referral_policy_snapshots p ON p.reserve_ledger_id=r.reserve_id
+                WHERE r.referrer_id=$1
+            ), own_events AS (
+                SELECT l.id,l.created_at,l.kind,l.da,r.policy_version,
+                       r.amount AS recognized,0::bigint AS debt_added
+                FROM own_rewards r JOIN ledger l ON l.id=r.reward_ledger_id
+                UNION ALL
+                SELECT f.id,f.created_at,'referral_reversal',-v.debited,r.policy_version,v.amount,v.debt_added
+                FROM own_rewards r JOIN referral_reversals v USING(capture_id)
+                JOIN ledger f ON f.id=v.refund_id
+                UNION ALL
+                SELECT l.id,l.created_at,l.kind,l.da,r.policy_version,d.amount,0
+                FROM own_rewards r JOIN referral_debt_repayments d USING(capture_id)
+                JOIN ledger l ON l.id=d.ledger_id
+                UNION ALL
+                SELECT l.id,l.created_at,l.kind,l.da,'C-011-v1-functional-test',r.amount,0
+                FROM referral_restoration_repayments r JOIN ledger l ON l.id=r.ledger_id
+                WHERE r.user_id=$1 AND l.user_id=$1
+            )
+            SELECT * FROM own_events ORDER BY created_at DESC,id DESC LIMIT 11 OFFSET $2
+        """, user, page * 10)
+    return {'code': summary['code'], 'has_referrer': summary['has_referrer'],
+            'start_command': '/start ref_'+summary['code'] if summary['code'] else None,
+            'terms': 'Бонусы действуют только в функциональном тесте. Вывод и перевод недоступны.',
+            'availability': 'FUNCTIONAL_TEST_ONLY', 'invitee_count': summary['invitee_count'],
+            'available': str(summary['available']), 'total_rewards': str(summary['earned']),
+            'debt': str(summary['debt']), 'policy_version': 'C-011-v1-functional-test',
+            'page': page, 'has_more': len(rows) > 10,
+            'history': [{'at': row['created_at'].isoformat(), 'kind': row['kind'],
+                         'amount': str(row['da']), 'recognized': str(row['recognized']),
+                         'debt_added': str(row['debt_added']), 'policy_version': row['policy_version']}
+                        for row in rows[:10]]}

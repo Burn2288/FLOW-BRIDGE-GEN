@@ -53,6 +53,26 @@ async def test_definer_acl_and_uninitialized_fail_closed(trusted_env):
     assert not await pool.fetchval('SELECT rolcanlogin FROM pg_roles WHERE rolname=$1', owner)
 
 
+async def test_runtime_cannot_write_funding_provenance(trusted_env):
+    pool, schema, _, _, runtime_pool, _ = trusted_env
+    async with runtime_pool.acquire() as conn:
+        for statement in (
+            f"UPDATE {schema}.wallet_funding_lots SET available=0",
+            f"DELETE FROM {schema}.wallet_funding_allocations",
+            f"UPDATE {schema}.referral_restoration_repayments SET amount=1",
+            f"DELETE FROM {schema}.referral_restoration_repayments",
+            f"INSERT INTO {schema}.wallet_funding_lots(user_id,mode,origin,available) "
+            "VALUES(gen_random_uuid(),'live','UNKNOWN_LEGACY',1)",
+            f"SELECT nextval('{schema}.wallet_funding_lots_id_seq')",
+        ):
+            with pytest.raises(asyncpg.InsufficientPrivilegeError):
+                await conn.execute(statement)
+    assert not await pool.fetchval("""SELECT EXISTS(SELECT 1 FROM pg_proc p
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+        WHERE p.oid=$1::regprocedure AND a.grantee=0 AND a.privilege_type='EXECUTE')""",
+        f'{schema}.track_wallet_funding()')
+
+
 async def test_revoke_first_denies_and_cannot_be_spoofed(trusted_env):
     pool, schema, (_, runtime, _), owner, runtime_pool, policy_pool = trusted_env
     await update(policy_pool, 0)

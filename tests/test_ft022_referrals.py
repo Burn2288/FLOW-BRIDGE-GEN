@@ -7,6 +7,7 @@ import time
 from dataclasses import replace
 from unittest.mock import AsyncMock
 from urllib.parse import urlencode
+from uuid import uuid4
 
 import asyncpg
 import pytest
@@ -14,6 +15,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from elevenbot.core import Rejected, Service
 from elevenbot.referrals import start_code
+from elevenbot.task_wallet import reserve_task_tokens, settle_task_tokens
 from elevenbot.telegram import TelegramApp
 from miniapp.backend.web import create_app
 from test_admin_access import event
@@ -81,6 +83,23 @@ async def test_real_start_first_attribution_restart_and_miniapp(env):
         response = await client.get('/api/v1/referral', headers=headers)
         assert response.status == 200 and await response.json() == {'code':own, 'has_referrer':True}
         assert (await client.get('/api/v1/referral')).status == 401
+        assert (await client.get('/api/v1/referral/finances')).status == 401
+        data = await client.get('/api/v1/referral/finances?user_id='+str(inviter), headers=headers)
+        assert data.status == 200
+        finance = await data.json()
+        assert finance['code'] == own and finance['invitee_count'] == 0 and finance['history'] == []
+        assert 'Приглашено: 0' in restarted.bot.sent[-1][0]
+        assert 'Долг: 0' in restarted.bot.sent[-1][0]
+        assert (await client.get('/api/v1/referral/finances?page=-1', headers=headers)).status == 400
+        data = await client.get('/api/v1/referral/finances?page=1000', headers=headers)
+        assert data.status == 200 and (await data.json())['history'] == []
+        assert await pool.fetchval('SELECT count(*) FROM ledger WHERE user_id=$1',user) == before
+        assert (await client.delete('/api/v1/session', headers=headers)).status in (200, 204)
+        assert (await client.get('/api/v1/referral/finances', headers=headers)).status == 401
+        response = await client.post('/api/v1/session', json={'initData':signed_start(cfg.token,201,'ref_'+code)})
+        headers = {'Authorization':'Bearer '+(await response.json())['token']}
+        await pool.execute('UPDATE miniapp_sessions SET expires_at=now() WHERE user_id=$1',user)
+        assert (await client.get('/api/v1/referral/finances', headers=headers)).status == 401
     assert await pool.fetchval('SELECT referrer_id FROM referral_attributions WHERE user_id=$1',user) == inviter
 
 
@@ -148,3 +167,94 @@ async def test_concurrent_code_issuance_and_database_immutability(env):
     with pytest.raises(asyncpg.PostgresError):
         await pool.execute('DELETE FROM referral_codes WHERE user_id=$1', user)
     assert await pool.fetchval('SELECT referrer_id FROM referral_attributions WHERE user_id=$1', invited) == user
+
+
+async def test_configured_invitation_link_in_both_clients(env, monkeypatch):
+    from elevenbot.config import Config
+    from elevenbot.referrals import referral_link
+
+    pool, cfg, svc, user = env
+    await svc.accept(user)
+    cfg = replace(cfg, token='fixture', bot_username='Fixture_bot')
+    code = (await svc.referral_info(user))['code']
+    link = f'https://t.me/Fixture_bot?start=ref_{code}'
+    assert referral_link(cfg.bot_username, code) == link
+    assert start_code('/start ' + link.split('start=')[1]) == code
+    assert referral_link('bad.example/redirect', code) is None
+    assert referral_link('Fixture_bot', '../invalid') is None
+    monkeypatch.setenv('TELEGRAM_BOT_USERNAME', 'bad.example')
+    with pytest.raises(ValueError, match='TELEGRAM_BOT_USERNAME'):
+        Config.env()
+
+    bot = DocumentTransport()
+    app = TelegramApp(pool, cfg, bot)
+    await app.handle(event(601, '/referral', chat=100))
+    assert link in bot.sent[-1][0]
+    async with TestClient(TestServer(create_app(pool, cfg))) as client:
+        login = await client.post('/api/v1/session', json={'initData': signed_start(cfg.token, 100, 'ref_' + code)})
+        assert login.status == 200
+        headers = {'Authorization': 'Bearer ' + (await login.json())['token']}
+        response = await client.get('/api/v1/referral', headers=headers)
+        assert (await response.json())['link'] == link
+
+
+@pytest.mark.parametrize('operation', ['images.generate', 'video', 'audio.speech'])
+async def test_paid_durable_task_reward_in_both_clients(env, confirmed_credit, monkeypatch, operation):
+    pool, cfg, svc, inviter = env
+    cfg = replace(cfg, token='fixture')
+    monkeypatch.setenv('RF02_FUNCTIONAL_TEST', 'YES')
+    code = (await svc.referral_info(inviter))['code']
+    transport = DocumentTransport()
+    app = TelegramApp(pool, cfg, transport)
+    await app.handle(event(1, '/start ref_' + code, chat=201))
+    user = await svc.identity(201)
+    await app.handle(event(2, callback=transport.trace[2], chat=201))
+    await confirmed_credit(pool, cfg, user, 1000)
+
+    quote = uuid4()
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute("""
+            INSERT INTO task_price_quotes(id,user_id,provider,model_id,operation,request,price,state,update_id)
+            VALUES($1,$2,'clodex','fixture-model',$3,'{}','{"total": "1000"}','accepted',100)
+            """, quote, user, operation)
+        await conn.execute("INSERT INTO task_dispatch(quote_id,state) VALUES($1,'dispatching')", quote)
+        await reserve_task_tokens(conn, user, quote, 1000)
+    await settle_task_tokens(pool, quote)
+    assert await pool.fetchval('SELECT count(*) FROM referral_rewards') == 0
+
+    # Fixture bytes represent the durable result already validated by its adapter.
+    async with pool.acquire() as conn, conn.transaction():
+        if operation == 'images.generate':
+            await conn.execute("""
+                INSERT INTO image_works(id,update_id,user_id,model_id,prompt,image,filename)
+                VALUES($1,100,$2,'fixture-model','fixture',$3,'test.png')
+                """, uuid4(), user, b'image')
+        elif operation == 'video':
+            await conn.execute("""
+                INSERT INTO video_jobs(id,user_id,model_id,prompt,cost_usd,status,video)
+                VALUES($1,$2,'fixture-model','fixture',1,'succeeded',$3)
+                """, quote, user, b'fixture-video')
+        else:
+            await conn.execute("""
+                INSERT INTO task_speech_works(id,user_id,model_id,title,input,cost_tokens,provider,claimed,audio)
+                VALUES($1,$2,'fixture-model','fixture','fixture',1,'clodex',true,$3)
+                """, quote, user, b'audio')
+        await conn.execute("UPDATE task_dispatch SET state=$2 WHERE quote_id=$1",
+                           quote, 'delegated' if operation == 'video' else 'completed')
+    await asyncio.gather(settle_task_tokens(pool, quote), settle_task_tokens(pool, quote))
+    rewards = await pool.fetch('SELECT eligible_paid,amount FROM referral_rewards')
+    assert [tuple(row) for row in rewards] == [(1000, 50)]
+
+    await app.handle(event(3, '/referral', chat=100))
+    assert 'Приглашено: 1' in transport.sent[-1][0]
+    assert 'Начисление: 50' in transport.sent[-1][0]
+    async with TestClient(TestServer(create_app(pool, cfg))) as client:
+        for external in (100, 201):
+            session = await client.post('/api/v1/session',
+                                        json={'initData': signed_start(cfg.token, external, 'ref_' + code)})
+            assert session.status == 200
+            headers = {'Authorization': 'Bearer ' + (await session.json())['token']}
+            response = await client.get('/api/v1/referral/finances', headers=headers)
+            assert response.status == 200
+            history = (await response.json())['history']
+            assert [row['amount'] for row in history] == (['50'] if external == 100 else [])

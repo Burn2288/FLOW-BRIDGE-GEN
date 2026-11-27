@@ -4,6 +4,21 @@
 пары реплик в БД. Длинные ответы отправляются как `answer.txt`. Для промпта
 можно отправить текст или UTF-8-файл `.txt` до 24 КБ. Команда `/menu` завершает сессию.
 
+## Возможности адаптеров в FUNCTIONAL_TEST
+
+Общий DEV-стенд запускает четыре маршрута CLODEX из Telegram и Mini App. Внешний HTTP провайдера заменён локальной заглушкой. AnyModel и Fal проверяются отдельными профильными наборами.
+
+| Адаптер | Модель или операция | Доказательство | Live на текущем кандидате |
+| --- | --- | --- | --- |
+| CLODEX | FLUX Schnell (`flux-schnell`), изображение | [Матрица восьми маршрутов DEV](verification/studio_matrix.py), [HTTP image и изоляция владельца](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600376) | Не проверен |
+| CLODEX | Veo 3.1 (`clodex-video/veo-3.1`), видео | [Матрица DEV](verification/studio_matrix.py), [CLODEX video: quote, восстановление и библиотека](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600189) | Не проверен |
+| CLODEX | ElevenLabs v4 (`eleven_v4`), озвучка | [Матрица DEV](verification/studio_matrix.py), [общие голосовые capabilities и тарифные единицы](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600146) | Не проверен |
+| CLODEX | Music v1 (`clodex-video/music-v1`), один трек по тестовому гранту | [Матрица DEV](verification/studio_matrix.py), [обработка и история пилота](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600236) | Не проверен |
+| AnyModel | Каталог и маршрутизация чата, асинхронный FIBO, Grok Imagine Video 1.5, Fish Audio S2.1 и AnyVoice | [Маршрутизация чата и каталог](tests/test_anymodel.py), [FIBO и восстановление](tests/test_anymodel_fibo.py), [Grok и перезапуск](tests/test_anymodel_video.py), [Mock-озвучка и оплата](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600146) | Не проверен |
+| Fal | Lyria 3.5 (`google/lyria-3.5`), закрытый музыкальный пилот | [Метаданные маршрута и совместимость адаптеров](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600322), [Mock-исполнение и история](https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/45893600236) | Не проверен |
+
+Для live-приёмки PR-03 (D-06) требуется отдельное разрешение и подтверждение конкретной модели, параметров, цены и сохранённого результата.
+
 ## Пилот генерации изображений
 
 Добавьте эти записи в локальный `.env` отдельного стенда. Сохраните настройки

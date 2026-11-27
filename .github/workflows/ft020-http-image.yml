@@ -29,4 +29,5 @@ jobs:
       - run: >-
           python -m pytest -q -p no:cacheprovider
           tests/test_ft020_http_image.py tests/test_task_pricing.py
+          tests/test_fixture_tariff_roundtrip.py
           tests/test_ft011_smoke.py miniapp/tests/test_miniapp.py

@@ -5,9 +5,11 @@ services:
     environment:
       POSTGRES_PASSWORD: isolated-test-only
       POSTGRES_DB: flowbridge_dev
+    ports:
+      - "127.0.0.1:${FLOWBRIDGE_DEV_MINIAPP_PORT:-8091}:8091"
+      - "127.0.0.1:${FLOWBRIDGE_DEV_TELEGRAM_PORT:-8081}:8081"
     volumes:
       - postgres:/var/lib/postgresql/data
-      - ./scripts/dev_db.sql:/docker-entrypoint-initdb.d/10-acceptance.sql:ro
     healthcheck:
       test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U postgres -d flowbridge_dev']
       interval: 2s
@@ -19,11 +21,11 @@ services:
       context: .
       dockerfile: Dockerfile.test
     command: [python, -u, scripts/dev_bot.py]
+    stop_signal: SIGINT
     environment:
       DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/flowbridge_dev
-      TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/flowbridge_acceptance
       AUDIO_STORAGE_DIR: /home/tester/data/audio
-      PYTHONPATH: /app/src
+      PYTHONPATH: /app/src:/app
     depends_on:
       db:
         condition: service_healthy
@@ -46,9 +48,15 @@ services:
       interval: 3s
       timeout: 5s
       retries: 20
-networks:
-  default:
-    internal: true
+  miniapp:
+    extends:
+      service: bot
+    command: [python, -u, scripts/dev_bot.py, miniapp]
+    depends_on:
+      bot:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "from urllib.request import urlopen; urlopen('http://127.0.0.1:8091/healthz', timeout=3).close()"]
 volumes:
   postgres:
   runtime:

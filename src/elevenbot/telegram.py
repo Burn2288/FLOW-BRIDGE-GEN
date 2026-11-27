@@ -1,10 +1,10 @@
 from contextvars import ContextVar
 """Telegram transport. Durable inbox polling; business rules live in core."""
 import asyncio,hashlib,json,re,time
-from datetime import datetime,timezone
+from datetime import datetime,timedelta,timezone
 from hmac import compare_digest
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4, uuid5
 from aiogram import Bot
 from aiogram.types import (Message,Update,InlineKeyboardMarkup,InlineKeyboardButton,ReplyKeyboardMarkup,
                            KeyboardButton,FSInputFile,BufferedInputFile,LabeledPrice,BotCommand,
@@ -25,6 +25,7 @@ from .anymodel_speech import FISH,FISH_TITLE,SpeechPilot,voice_key
 from .anymodel_image_jobs import AnyModelImageJobs
 from .anymodel_pricing import AnyModelPricing
 from .navigation import Navigation
+from .support_tickets import SupportTickets
 from .model_capabilities import FLUX_MODEL, flux_card
 from .model_policy import ModelPolicy,ROUTES as MODEL_POLICY_ROUTES
 from .pricing import BOT_UNIT,MissingRate,PriceUnavailable,Pricing,Request,decimal_text,display,ruble_value
@@ -71,7 +72,11 @@ WELCOME_TEXT=(
 )
 ANYMODEL_SECTIONS={key:title for key,(title,_) in STORE_SECTIONS.items()}
 ANYMODEL_SECTIONS.update(chat='💬 Классический чат',tools='🛠 Инструменты')
-SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
+SUPPORT_ROUTES={'support','supportlist','supportread'}
+VISIBILITY_ROUTES={'modelvis','modelvisconfirm'}
+OPERATIONS_ROUTES={'opobjects','opobject','opoverview','ophelp'}
+FIXTURE_TARIFF_ROUTES={'fluxtariff','fluxtariffpreview','fluxtariffconfirm'}
+SCREEN_CALLBACKS=CATALOGUE_CALLBACKS|SUPPORT_ROUTES|OPERATIONS_ROUTES|FIXTURE_TARIFF_ROUTES|{'home','section','history','srun','speak','voice-demo','voices','voice','speed','confirm'}
 CATALOGUE_COMMANDS=('/models','🧩 Модели','/aggregators','/functions','🛠 Функции',MENU[0],OPEN_CATALOGUE)
 RATE_COMMANDS={'/rate_set','/rate_calc','/ruble_set'}
 ADMIN_COMMANDS=RATE_COMMANDS|{'/models','/functions','/admit','/revoke','/markup_value','/refund',
@@ -127,6 +132,9 @@ class TelegramApp:
     def __init__(self,pool,cfg,bot,*,providers=None):
         self.pool,self.cfg,self.bot=pool,cfg,bot;self.svc=Service(pool,cfg)
         self.consent_offers = {}
+        self.visibility_previews = {}
+        self.fixture_tariff_previews = {}
+        self.operation_object_choices = {}
         self.admin_access=AdminAccess()
         self.navigation = Navigation(pool,bot)
         self.pending_speech = {}
@@ -331,12 +339,19 @@ class TelegramApp:
                 caption+='\nПромпт: '+prompt[:450]+('…' if len(prompt)>450 else '')
                 if len(prompt)>450:
                     markup=buttons([[('Полный промпт',f'prompt:{kind}:{job}')]])
+            if kind=='image' and work.get('request') and not show_prompt:
+                caption += '\nПромпт: '+prompt[:450]+('…' if len(prompt)>450 else '')
+                caption += '\nЦена: '+(str(work['price'])+' кредитов' if work['price'] is not None else 'недоступна')
+                rows = [[('Создать похожее',f'similar:{job}')]]
+                if len(prompt)>450:
+                    rows.append([('Полный промпт',f'prompt:image:{job}')])
+                markup=buttons(rows)
             if kind=='image':
                 from .image_delivery import send_saved_image
                 await send_saved_image(self.bot,ext,work[kind],work['filename'],caption=caption,reply_markup=markup)
             else:
                 send=getattr(self.bot,{'audio':'send_audio','video':'send_video'}[kind])
-                await send(ext,BufferedInputFile(work[kind],filename=work['filename']),caption=caption,reply_markup=markup)
+                return await send(ext,BufferedInputFile(work[kind],filename=work['filename']),caption=caption,reply_markup=markup)
 
     async def work_rows(self,ext,section,model_id,snapshot=None):
         rows=[]
@@ -370,8 +385,9 @@ class TelegramApp:
                 self.pending_speech.pop(job,None)
                 if status=='succeeded':
                     await self.progress.finish(ext,message,model,success=True)
-                    await self.open_work(u,ext,'audio',str(job),show_prompt=True)
-                    trace_interaction(str(job),'result_notified')
+                    if self.pool is None:  # The standalone demo has no database outbox.
+                        await self.open_work(u,ext,'audio',str(job),show_prompt=True)
+                        trace_interaction(str(job),'result_notified')
                 else:
                     await self.progress.finish(ext,message,model,UNKNOWN if status=='uncertain' else STATUS[status])
             except (Rejected,TelegramBadRequest,TelegramNetworkError) as error:
@@ -565,6 +581,9 @@ class TelegramApp:
                 return
             data=(update.callback_query.data or '') if update.callback_query else ''
             text=(update.message.text or '') if update.message else ''
+            caption=(update.message.caption or '').split(maxsplit=1) if update.message else []
+            if caption and caption[0].lower().partition('@')[0]=='/support':
+                raise Rejected('Вложения пока недоступны.')
             if BALANCE_BUTTON.fullmatch(text):
                 text=MENU[2]
             command=text.lstrip().split(maxsplit=1)
@@ -580,6 +599,7 @@ class TelegramApp:
             navigation=(data in ('providers','home') or data.partition(':')[0] in CATALOGUE_CALLBACKS
                         or data.startswith(('voices:','history:','section:','get:','image:','mget:','mimage:','video:','prompt:','chatwork:'))
                         or aggregator_menu or text==TOPUP_MENU or text in CATALOGUE_COMMANDS or text in MENU or text in ('/cancel',RUBLE_MENU)
+                        or data.partition(':')[0] in SUPPORT_ROUTES|VISIBILITY_ROUTES|OPERATIONS_ROUTES|FIXTURE_TARIFF_ROUTES
                         or command in RATE_COMMANDS or command in ('/miniapp','/referral'))
             if update.callback_query:
                 e=update.callback_query
@@ -603,8 +623,36 @@ class TelegramApp:
                 return
             await self.svc.rate(u,navigation=navigation)
             if command=='/referral':
-                info=await self.svc.referral_info(u)
-                await self.say(ext,'Ваш код приглашения: '+info['code']+'\nКоманда для приглашения: /start ref_'+info['code'])
+                from .referrals import own_finances, referral_link
+                parts=text.split()
+                try:
+                    page=int(parts[1])-1 if len(parts)>1 else 0
+                    if not 0<=page<=1000:
+                        raise ValueError()
+                except ValueError:
+                    await self.say(ext,'Укажите номер страницы: /referral 1')
+                    return
+                await self.svc.referral_info(u)
+                info=await own_finances(self.svc,u,page)
+                labels={'referral_reward':'Начисление','referral_reversal':'Сторно',
+                        'referral_debt_repay':'Погашение долга'}
+                lines=[f"Ваш код приглашения: {info['code']}",
+                       f"Команда для приглашения: {info['start_command']}",
+                       f"Приглашено: {info['invitee_count']}",
+                       f"Доступно: {info['available']} · Начислено всего: {info['total_rewards']} · Долг: {info['debt']}",
+                       f"Условия: {info['policy_version']}",info['terms']]
+                link=referral_link(self.cfg.bot_username,info['code'])
+                if link:
+                    lines.insert(1,f'Ссылка для приглашения: {link}')
+                lines.extend(f"{labels[item['kind']]}: {item['amount']} · Долг +{item['debt_added']}"
+                             for item in info['history'])
+                if not info['history']:
+                    lines.append('На этой странице нет операций.')
+                if page:
+                    lines.append(f'Предыдущая страница: /referral {page}')
+                if info['has_more']:
+                    lines.append(f'Следующая страница: /referral {page+2}')
+                await self.say(ext,'\n'.join(lines))
                 return
             if command=='/miniapp':
                 if not self.cfg.miniapp_url:
@@ -654,7 +702,33 @@ class TelegramApp:
                 return
             if command in ('/terms','/privacy'):
                 await self.consent_files(u,ext,(command[1:],));return
-            if text in ('/support','/paysupport'):
+            if command=='/support':
+                await self.support_command(u,ext,text,update.update_id)
+                return
+            if command=='/model_visibility':
+                await self.visibility_command(u,ext,text.split()[1:])
+                return
+            if command=='/flux_tariff':
+                from .telegram_fixture_tariff import show
+                await show(self,u,ext)
+                return
+            if command=='/operations':
+                parts=text.split()[1:]
+                if parts:
+                    from .telegram_operations import show_objects
+                    await show_objects(self,u,ext,parts[0])
+                else:
+                    await self.operations_screen(u,ext)
+                return
+            if command=='/operator_support':
+                from .telegram_operations import show_support
+                await show_support(self,u,ext)
+                return
+            if command=='/operator_reply':
+                from .telegram_operations import reply_support
+                await reply_support(self,u,ext,text,update.update_id)
+                return
+            if command=='/paysupport':
                 await self.say(ext,self.cfg.support+'\nПо покупкам обращайтесь владельцу сервиса, а не поддержке Telegram.');return
             if command in ('/admit','/revoke','/markup_value'):
                 await self.models.command(u,ext,command,text.split()[1:]);return
@@ -805,21 +879,26 @@ class TelegramApp:
         if music_providers:
             if self.music_access(ext):
                 music_providers.append('clodex')
-            jobs=await self.svc.history(u,page*10,model_id,music_providers=music_providers)
+            jobs=await self.svc.history(u,page*5,model_id,music_providers=music_providers)
         elif self.music_access(ext):
-            jobs=await self.svc.history(u,page*10,model_id,include_music=True)
+            jobs=await self.svc.history(u,page*5,model_id,include_music=True)
         else:
-            jobs=await (self.svc.history(u,page*10,model_id) if model else self.svc.history(u,page*10))
+            jobs=await (self.svc.history(u,page*5,model_id) if model else self.svc.history(u,page*5))
+        has_more = len(jobs) > 5
+        jobs = jobs[:5]
         lines=[f'Работы модели {model_id}:' if model else 'Ваши работы:'] if jobs else ['Работ пока нет.']
         rows=[]
-        for index,r in enumerate(jobs,start=page*10+1):
+        for index,r in enumerate(jobs,start=page*5+1):
             kind,_,music_provider=r.get('kind','audio').partition(':')
             name={'image':'Изображение','audio':'Озвучка','video':'Видео','chat':'Ответ чата','music':'Музыка'}[kind]
-            price=f" · {r['price']} кредитов" if r['price'] is not None else ''
+            price=f" · {r['price']} кредитов" if r['price'] is not None else ' · Цена недоступна'
             music_status={'queued':'В очереди','dispatching':'Выполняется','failed':'Не удалось выполнить',
                           'uncertain':'Результат требует проверки','succeeded':'Результат сохранён'}
             status=music_status[r['status']] if kind=='music' else STATUS[r['status']]
             lines.append(f"{index}. {r['created_at']:%d.%m %H:%M} UTC · {name} · {status}{price}")
+            if r.get('prompt'):
+                prompt = r['prompt'].replace('\n', ' ')
+                lines.append('Запрос: ' + prompt[:160] + ('…' if len(prompt) > 160 else ''))
             if r['status']=='succeeded' and r.get('file_available',True):
                 route={'image':'image','audio':'get','video':'video','chat':'chatwork','music':'musicwork'}[kind]
                 if music_provider:route=f'pilotwork:{music_provider}'
@@ -829,7 +908,7 @@ class TelegramApp:
                 rows.append([(f'Отменить №{index}',f"cancel:{r['id']}")])
         nav=[]
         if page:nav.append(('Назад',f'{origin}:{page-1}'))
-        if len(jobs)==10:nav.append(('Далее',f'{origin}:{page+1}'))
+        if has_more:nav.append(('Далее',f'{origin}:{page+1}'))
         if nav:rows.append(nav)
         if model:
             _,version,section,index=origin.split(':')
@@ -855,13 +934,244 @@ class TelegramApp:
                 rows.append([('Пополнить','buy')])
         else:
             text=self.cfg.brand+'\nОткройте каталог и выберите нужное действие.\n/terms /privacy /support /paysupport'
+            rows.append([('Поддержка','support')])
         rows.append([('Главное меню','home')])
         await self.catalogue_screen(ext,text,buttons(rows),panel='balance' if section==2 else 'help')
+
+    def support_tickets(self):
+        if self.pool is None:
+            raise Rejected('Поддержка недоступна.')
+        return SupportTickets(self.pool,self.cfg)
+
+    async def support_command(self,u,ext,text,update_id):
+        parts=text.split(maxsplit=1)
+        if len(parts)==1:
+            await self.support_screen(ext,'support','')
+            return
+        body=parts[1].strip()
+        if body=='list':
+            await self.support_screen(ext,'supportlist','0')
+        elif body.startswith('show '):
+            await self.support_screen(ext,'supportread',body.split(maxsplit=1)[1]+':0')
+        else:
+            if body.startswith('new '):
+                body=body.split(maxsplit=1)[1]
+            result=await self.support_tickets().create(ext,uuid5(u,'telegram-support:'+str(update_id)),body)
+            rows=[[('Открыть обращение',f"supportread:{result['id']}:0")],
+                  [('Мои обращения','supportlist:0')]]
+            await self.catalogue_screen(ext,'Обращение принято: '+str(result['id']),buttons(rows),panel='support')
+
+    async def support_screen(self,ext,route,value):
+        support=self.support_tickets()
+        rows=[]
+        if route=='support':
+            text=self.cfg.support+'\nСоздать текстовое обращение: /support new Ваше сообщение'
+            rows=[[('Мои обращения','supportlist:0')],[('← Помощь','section:3')]]
+        elif route=='supportlist':
+            offset=int(value)
+            result=await support.list(ext,limit=5,offset=offset)
+            text='Ваши обращения:' if result['tickets'] else 'Обращений на этой странице нет.'
+            for ticket in result['tickets']:
+                number=str(ticket['id'])
+                status='Есть ответ' if ticket['status']=='answered' else 'Ожидает ответа'
+                label=f"{ticket['created_at']:%d.%m %H:%M} UTC · {number[:8]} · {status}"
+                rows.append([(label,f'supportread:{number}:0')])
+            nav=[]
+            if offset:
+                nav.append(('← Ранее',f'supportlist:{max(0,offset-5)}'))
+            if result['has_more'] and offset+5<=5000:
+                nav.append(('Далее →',f'supportlist:{offset+5}'))
+            if nav:
+                rows.append(nav)
+            rows.append([('← Поддержка','support')])
+        else:
+            number,_,offset_text=value.partition(':')
+            try:
+                ticket=UUID(number)
+            except ValueError:
+                raise Rejected('Недопустимый идентификатор обращения.') from None
+            offset=int(offset_text)
+            result=await support.read(ext,ticket,limit=1,offset=offset)
+            status='Есть ответ' if result['status']=='answered' else 'Ожидает ответа'
+            text=f'Обращение {ticket} · {status} ({result["status"]})'
+            if result['messages']:
+                row=result['messages'][0]
+                author='Оператор' if row['author']=='operator' else 'Ваше сообщение'
+                text+=f'\n\nСообщение {offset+1} · {author}\n{row["body"]}'
+            nav=[]
+            if offset:
+                nav.append(('← Предыдущее',f'supportread:{ticket}:{offset-1}'))
+            if result['has_more'] and offset<5000:
+                nav.append(('Следующее →',f'supportread:{ticket}:{offset+1}'))
+            if nav:
+                rows.append(nav)
+            rows.append([('← Мои обращения','supportlist:0')])
+        await self.catalogue_screen(ext,text,buttons(rows),panel='support')
+
+    async def visibility_command(self,u,ext,parts):
+        from . import model_visibility
+
+        if self.pool is None:
+            raise Rejected('Управление видимостью недоступно.')
+        try:
+            if not parts or (len(parts)==1 and parts[0].isascii() and parts[0].isdigit()):
+                page=int(parts[0]) if parts else 0
+                async with self.pool.acquire() as conn:
+                    models=await model_visibility.list_models(conn,u)
+                self.visibility_previews.pop(ext,None)
+                first=page*4
+                if page and first>=len(models):
+                    raise Rejected('Такой страницы моделей нет.')
+                lines=['Видимость моделей',
+                       'Предпросмотр: /model_visibility ПРОВАЙДЕР МОДЕЛЬ ОПЕРАЦИЯ VISIBLE|HIDDEN|rollback']
+                for row in models[first:first+4]:
+                    lines.append(f"{row['provider']} {row['model_id']} {row['operation']}\n"
+                                 f"{row['visibility']} · версия {row['version']}")
+                if not models:
+                    lines.append('Моделей пока нет.')
+                nav=[]
+                if page:
+                    nav.append(('← Назад',f'modelvis:{page-1}'))
+                if first+4<len(models):
+                    nav.append(('Далее →',f'modelvis:{page+1}'))
+                await self.catalogue_screen(ext,'\n\n'.join(lines),buttons([nav]) if nav else None,panel='model_visibility')
+                return
+            if len(parts)!=4:
+                raise Rejected('Укажите провайдера, модель, операцию и VISIBLE, HIDDEN или rollback.')
+            provider,model,operation,visibility=parts
+            rollback_of=None
+            async with self.pool.acquire() as conn:
+                if visibility=='rollback':
+                    rows=await model_visibility.list_models(conn,u)
+                    row=next((row for row in rows if (row['provider'],row['model_id'],row['operation'])
+                              ==(provider,model,operation)),None)
+                    if row is None:
+                        raise model_visibility.MissingModel()
+                    if row['previous_visibility'] is None:
+                        raise Rejected('Для модели ещё нет изменения, которое можно откатить.')
+                    visibility,rollback_of=row['previous_visibility'],row['version']
+                preview=await model_visibility.preview(conn,u,provider,model,operation,visibility,
+                                                        rollback_of=rollback_of)
+        except model_visibility.VisibilityDenied:
+            raise Rejected('Управление видимостью недоступно.') from None
+        except model_visibility.MissingModel:
+            raise Rejected('Модель или операция не найдена.') from None
+        except (model_visibility.VisibilityConflict,ValueError):
+            raise Rejected('Изменение недоступно. Проверьте значение и текущую версию модели.') from None
+        request=uuid4()
+        self.visibility_previews[ext]=(request,time.monotonic()+300,preview)
+        title='Предпросмотр отката' if rollback_of is not None else 'Предпросмотр изменения'
+        text=(f"{title}\n{provider} · {model} · {operation}\n"
+              f"{preview['visibility']} → {preview['desired_visibility']} · версия {preview['version']}")
+        rows=[[('Подтвердить',f'modelvisconfirm:{request}')],[('Отмена','modelvis:0')]]
+        await self.catalogue_screen(ext,text,buttons(rows),panel='model_visibility')
+
+    async def confirm_visibility(self,u,ext,token):
+        from . import model_visibility
+
+        pending=self.visibility_previews.get(ext)
+        if pending is None or token!=str(pending[0]) or time.monotonic()>=pending[1]:
+            raise Rejected('Предпросмотр устарел. Откройте /model_visibility.')
+        request,_,preview=pending
+        try:
+            async with self.pool.acquire() as conn,conn.transaction():
+                row=await model_visibility.confirm(
+                    conn,u,preview['provider'],preview['model_id'],preview['operation'],
+                    preview['desired_visibility'],preview['version'],request,rollback_of=preview['rollback_of'])
+        except model_visibility.VisibilityDenied:
+            raise Rejected('Управление видимостью недоступно.') from None
+        except (model_visibility.MissingModel,model_visibility.VisibilityConflict):
+            raise Rejected('Модель изменилась. Откройте новый предпросмотр.') from None
+        text=f"Видимость сохранена: {row['visibility']} · версия {row['version']}"
+        await self.catalogue_screen(ext,text,buttons([[('← Модели','modelvis:0')]]),panel='model_visibility')
+        self.visibility_previews.pop(ext,None)
+
+    async def operations_screen(self,u,ext):
+        from .admin_authority import current_capabilities, has_capability
+        from .operations_objects import SECTIONS
+        from .operations_read_model import read_operations_report
+
+        if self.pool is None:
+            raise Rejected('Обзор операций недоступен.')
+        async with self.pool.acquire() as conn:
+            authority=await current_capabilities(conn,u)
+        if not has_capability(authority,'operations.read'):
+            raise Rejected('Обзор операций недоступен.')
+        end=datetime.now(timezone.utc)
+        report=await read_operations_report(self.pool,end-timedelta(days=1),end,limit=4)
+        state=report['current_state']
+        coverage=report['provider_cost_coverage']
+        lines=[
+            'Обзор операций · за последние 24 ч (UTC)',
+            f"Пользователи сейчас: {state['registered_users']}",
+            f"В очереди сейчас: {state['legacy_queued_jobs']+state['quoted_pending_tasks']}",
+            f"В работе или на сверке: {state['legacy_running_or_uncertain']+state['quoted_running_or_uncertain']}",
+            f"Резерв live-кошельков: {state['live_reserved_tokens']} токенов",
+            f"Задач без данных о расходе: {coverage['without_cost_or_bill_evidence']} "
+            f"из {coverage['accepted_task_count']} принятых",
+            f"Реферальных платежей к сверке: {state['referral_payment_review_cases']}",
+        ]
+        models=report['tasks_by_provider_and_model']
+        lines.append('\nМодели:')
+        for row in models['groups']:
+            lines.append(f"{row['provider'][:64]} · {row['model_id'][:120]} · задач {row['task_count']}")
+        if not models['groups']:
+            lines.append('Задач нет.')
+        if models['truncated']:
+            lines.append(f"Показано {len(models['groups'])} из {models['group_count']} групп.")
+        payments=report['payments']
+        lines.append('\nПлатежи:')
+        for row in payments['groups']:
+            lines.append(f"{row['local_day']} · {row['provider']} · {row['status']} · {row['payment_count']} "
+                         f"на сумму {row['order_amount']} {row['currency']}")
+        if not payments['groups']:
+            lines.append('Платежей нет.')
+        if payments['truncated']:
+            lines.append(f"Показано {len(payments['groups'])} из {payments['group_count']} групп.")
+        links=[(label,f'opobjects:{section}:0') for section,label in SECTIONS.items()]
+        rows=[links[index:index+2] for index in range(0,len(links),2)]
+        if has_capability(authority,'support.operate'):
+            rows.append([('Очередь поддержки','ophelp')])
+        if has_capability(authority,'settings.visibility'):
+            rows.append([('Видимость моделей','modelvis:0')])
+        if has_capability(authority,'pricing.publish_fixture'):
+            rows.append([('Тариф FLUX Schnell','fluxtariff')])
+        await self.catalogue_screen(ext,'\n'.join(lines),buttons(rows),panel='operations')
 
     async def callback(self,u,ext,data,*,request_id=None,defer_tasks=False):
         route=data.partition(':')[0]
         if admin_callback(data) and not self.has_admin_session(ext):
             raise Rejected('Действие доступно только администратору.')
+        if route in SUPPORT_ROUTES:
+            await self.support_screen(ext,route,data.partition(':')[2])
+            return
+        if route=='opoverview':
+            await self.operations_screen(u,ext)
+            return
+        if route=='opobjects':
+            from .telegram_operations import show_objects
+            _,section,offset=data.split(':')
+            await show_objects(self,u,ext,section,int(offset))
+            return
+        if route=='opobject':
+            from .telegram_operations import show_objects
+            await show_objects(self,u,ext,None,choice=data.partition(':')[2])
+            return
+        if route=='ophelp':
+            from .telegram_operations import show_support
+            ticket=data.partition(':')[2]
+            await show_support(self,u,ext,UUID(ticket) if ticket else None)
+            return
+        if route in FIXTURE_TARIFF_ROUTES:
+            from .telegram_fixture_tariff import show
+            await show(self,u,ext,route,data.partition(':')[2])
+            return
+        if route=='modelvis':
+            await self.visibility_command(u,ext,[data.partition(':')[2]])
+            return
+        if route=='modelvisconfirm':
+            await self.confirm_visibility(u,ext,data.partition(':')[2])
+            return
         if route=='walletlog':
             page=data.partition(':')[2]
             if self.pool is None or not page.isascii() or not page.isdigit() or len(page)>8:
@@ -1010,7 +1320,8 @@ class TelegramApp:
             if self.cfg.speech_pilot and self.cfg.mode=='clodex':
                 raise Rejected('Оценка устарела. Откройте карточку модели заново.')
             try:
-                job=await self.svc.confirm(u,arg)
+                job = (await self.svc.confirm(u, arg, telegram_delivery=True)
+                       if self.pool is not None else await self.svc.confirm(u, arg))
             except Rejected:
                 trace_interaction(request_id,'reservation_failed',operation='audio.speech',
                                   model=self.cfg.clodex_model or 'demo')
@@ -1024,6 +1335,22 @@ class TelegramApp:
             return
         if kind=='chatwork':
             await self.send_chat_answer(ext,await self.svc.chat_work(u,arg));return
+        if kind=='similar':
+            work=await self.svc.image_work(u,arg)
+            if not work['request']:
+                raise Rejected('Параметры этой работы недоступны.')
+            req=Request(**json.loads(work['request']))
+            from dataclasses import replace
+            req=replace(req,model_version=None)
+            from .model_policy import admitted
+            async with self.pool.acquire() as conn:
+                await self.launch.authorize_request(conn,u,ext,req)
+                if not await admitted(conn,req.provider,req.model,req.operation):
+                    raise Rejected('Модель больше недоступна.')
+            if req.provider=='clodex' and not self.clodex_launch_model(ext,req):
+                raise Rejected('Модель больше недоступна.')
+            await self.show_price(ext,await self.pricing.quote(u,req))
+            return
         if kind=='video':
             await self.open_work(u,ext,'video',arg);return
         if kind in ('get','image','mget','mimage'):
@@ -1627,11 +1954,30 @@ class TelegramApp:
             result=await reconcile_generation(self.pool,uid(args[0]),self.providers.financial_sources)
             await self.say(ext,result)
             return
+        elif command=='/price_account' and len(args)==6 and args[1]=='manual-review':
+            from .task_receipts import manually_review_case
+            result=await manually_review_case(
+                self.pool,uid(args[0]),reviewer_external_id=ext,operation_id=args[2],
+                amount=args[3],unit=args[4],evidence_ref=args[5],
+            )
+            await self.say(ext,'Доказательство ручной проверки сохранено; случай остаётся в очереди до финансового решения.'
+                            if result=='manual_review_recorded_no_credit' else result)
+            return
+        elif command=='/price_account' and len(args)==6 and args[1]=='no-refund':
+            from .task_receipts import manually_resolve_no_refund_case
+            result=await manually_resolve_no_refund_case(
+                self.pool,uid(args[0]),reviewer_external_id=ext,operation_id=args[2],
+                amount=args[3],unit=args[4],evidence_ref=args[5],
+            )
+            await self.say(ext,'Подтверждено отсутствие возврата провайдера; случай закрыт без проводки кошелька.'
+                            if result=='no_refund_resolved_no_credit' else result)
+            return
         elif command=='/price_account' and len(args)==5:
             await self.pricing.reconcile(u,ext,uid(args[0]),*args[1:])
         else:
             raise Rejected('Формат: /markup агрегатор|* модель|* percent|fixed сумма или remove; '
                            '/price_rate единица курс; /price_account оценка списано возвращено расход|- ссылка; '
+                           '/price_account <quote> manual-review|no-refund <operation_id> <amount> <unit> <evidence_ref>; '
                            '/price_report; /tariff агрегатор модель операция JSON [test] основание единица ставка [срок] источник или disable. Основания: request, utf16, image, second, started_minute, token (вход:выход)')
         await self.say(ext,'Настройки учёта обновлены.')
 
@@ -2004,6 +2350,8 @@ class TelegramApp:
         await self.catalogue_screen(ext,'Выберите модель для проверки формы. Совместимость с операцией ещё нужно подтвердить.',buttons(rows))
 
     def public_clodex_image(self, model, operation):
+        if self.cfg.mock_image_enabled('clodex', model, operation):
+            return True
         return (self.cfg.mode == 'clodex' and self.cfg.generation_enabled
                 and self.cfg.economy_verified and bool(self.cfg.clodex_key)
                 and self.cfg.allows_public_image('clodex', model, operation))
@@ -2021,7 +2369,7 @@ class TelegramApp:
             )
         from .interaction import supports
         if self.public_clodex_image(model['id'],operation):
-            return supports(model,operation,live=True)
+            return supports(model,operation,live=self.cfg.mode == 'clodex')
         mode=self.cfg.interaction_mode
         return mode in ('mock','live') and supports(model,operation,live=mode=='live')
 
@@ -2085,8 +2433,8 @@ class TelegramApp:
                 or not await self.models.allowed('clodex',model['id'],operation)):
             raise Rejected('Модель больше не доступна. Откройте каталог.')
         public = self.public_clodex_image(model['id'],operation)
-        mode='live' if public else self.cfg.interaction_mode
-        if mode=='live' and ((not public and self.cfg.access_mode!='private') or snapshot['fresh_until']<time.time()):
+        mode='live' if public and self.cfg.mode == 'clodex' else self.cfg.interaction_mode
+        if (mode=='live' or public) and ((not public and self.cfg.access_mode!='private') or snapshot['fresh_until']<time.time()):
             raise Rejected('Запуск недоступен. Проверьте доступ и обновите каталог.')
         message=update.message
         prompt=message.text
@@ -2107,7 +2455,7 @@ class TelegramApp:
             raise Rejected('Пришлите текст от 1 до 6000 символов или файл .txt.')
         request_id=update.update_id
         trace_interaction(request_id,'input_validated',model=model['id'],operation=operation,mode=mode)
-        if mode=='live':
+        if mode=='live' or public:
             params=default_params('clodex',operation)
             if context.get('quality'):
                 params['quality']=context['quality']
@@ -2385,6 +2733,9 @@ async def register_commands(bot, admin_ids):
             BotCommand(command='referral',description='Код приглашения'),
             BotCommand(command='cancel',description='Отменить текущее действие')]
     admin = [*base,BotCommand(command='price_report',description='Отчёт по ценам и расходам'),
+             BotCommand(command='operations',description='Обзор операций'),
+             BotCommand(command='operator_support',description='Очередь поддержки'),
+             BotCommand(command='model_visibility',description='Видимость моделей'),
              BotCommand(command='admin',description='Войти в админку'),
              BotCommand(command='admin_logout',description='Выйти из админки')]
     scopes = [(BotCommandScopeDefault(),base)]
@@ -2422,6 +2773,7 @@ async def poll(pool,cfg,bot,*,app=None):
         loops = [
             asyncio.create_task(dispatch_inbox(dispatcher)),
             asyncio.create_task(maintain_inbox(pool,app,bot)),
+            asyncio.create_task(deliver_speech_results(pool, app)),
             asyncio.create_task(receive_updates(pool,app,bot)),
         ]
         try:
@@ -2473,6 +2825,24 @@ async def maintain_inbox(pool,app,bot):
         await notify_interrupted(pool,bot)
         await app.refresh_speech_results()
         await asyncio.sleep(2)
+
+
+async def deliver_speech_results(pool, app):
+    from .admission import admitted
+    from .worker import Worker
+
+    deliveries = Worker(pool, app.cfg, None)
+
+    async def send(user, external, job):
+        if not admitted(app.cfg, external):
+            raise Rejected('Доступ временно ограничен.')
+        result = await app.open_work(user, external, 'audio', str(job), show_prompt=True)
+        trace_interaction(str(job), 'result_notified')
+        return result.message_id
+
+    while True:
+        await deliveries.delivery_one(telegram_delivery=send)
+        await asyncio.sleep(1)
 
 
 async def receive_updates(pool,app,bot):

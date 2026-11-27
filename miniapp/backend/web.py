@@ -1,4 +1,4 @@
-"""Read-only Mini App over the same account and work services as Telegram."""
+"""Mini App over the same account and work services as Telegram."""
 
 import asyncio
 import hashlib
@@ -66,7 +66,7 @@ async def headers(request, handler):
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Content-Security-Policy'] = (
         "default-src 'none'; script-src 'self' https://telegram.org; connect-src 'self'; "
-        "style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"
+        "style-src 'self'; img-src 'self' blob:; media-src blob:; base-uri 'none'; form-action 'none'"
     )
     return response
 
@@ -85,6 +85,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
         return web.json_response({'status': 'ok' if healthy else 'unavailable'}, status=200 if healthy else 503)
 
     async def login(request):
+        from elevenbot.consent import CURRENT_VERSION
+
         try:
             body = await request.json()
             external, signed = verified_identity(body.get('initData'), cfg.token, now=time.time())
@@ -98,9 +100,14 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                 "SELECT user_id FROM identities WHERE platform='telegram' AND external_id=$1", external
             )
             try:
-                await service.authorize(conn, user)
+                await service.authorize(conn, user, terms=False)
             except Rejected:
-                raise web.HTTPForbidden(text='Сначала откройте бот и примите условия.') from None
+                raise web.HTTPForbidden(text='Сначала откройте бот через /start.') from None
+            needs_consent = not await service.has_current_consent(conn, user)
+            if needs_consent and 'terms_version' not in body:
+                raise web.HTTPForbidden(text='Сначала откройте бот и примите условия.')
+            if needs_consent and body.get('terms_version') != CURRENT_VERSION:
+                return web.json_response(service.get_consent_documents(), status=428)
             await conn.execute('DELETE FROM miniapp_sessions WHERE expires_at<=now()')
             created = await conn.fetchval(
                 """INSERT INTO miniapp_sessions(token_hash,init_hash,user_id,expires_at) VALUES($1,$2,$3,now()+$4*interval '1 second')
@@ -109,36 +116,273 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
             )
             if not created:
                 raise web.HTTPUnauthorized(text='Откройте приложение заново из Telegram.')
+            if needs_consent:
+                try:
+                    await service.accept(user, body['terms_version'], connection=conn)
+                except Rejected:
+                    raise web.HTTPForbidden() from None
         return web.json_response({'token': token, 'expires_in': SESSION_SECONDS})
 
-    async def account(request):
+    def session_token(request):
         scheme, _, token = request.headers.get('Authorization', '').partition(' ')
         if scheme != 'Bearer' or len(token) != 43:
             raise web.HTTPUnauthorized()
-        async with pool.acquire() as conn:
-            user = await conn.fetchval(
-                'SELECT user_id FROM miniapp_sessions WHERE token_hash=$1 AND expires_at>now() AND NOT revoked',
-                token_hash(token)
-            )
-            if user is None:
-                raise web.HTTPUnauthorized()
-            external = await conn.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1",user)
-            if not admitted(cfg,external):
+        return token
+
+    async def account(request, connection=None):
+        token = session_token(request)
+        if connection is None:
+            async with pool.acquire() as conn:
+                return await account(request, conn)
+        conn = connection
+        user = await conn.fetchval(
+            'SELECT user_id FROM miniapp_sessions WHERE token_hash=$1 AND expires_at>now() AND NOT revoked FOR SHARE',
+            token_hash(token)
+        )
+        if user is None:
+            raise web.HTTPUnauthorized()
+        external = await conn.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1",user)
+        if not admitted(cfg,external):
+            raise web.HTTPForbidden()
+        try:
+            await service.authorize(conn, user)
+        except Rejected:
+            raise web.HTTPForbidden() from None
+        return user
+
+    async def admin_capabilities(request):
+        import asyncpg
+        from elevenbot.admin_authority import current_capabilities
+        try:
+            user = await account(request)
+            async with pool.acquire() as conn:
+                capability = await current_capabilities(conn, user)
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        if capability is None:
+            raise web.HTTPForbidden()
+        return web.json_response(capability)
+
+    async def operations_report(request):
+        import asyncpg
+        from datetime import datetime
+        from elevenbot.admin_authority import current_capabilities, has_capability
+        from elevenbot.operations_read_model import read_operations_report
+        try:
+            user = await account(request)
+            async with pool.acquire() as conn:
+                authority = await current_capabilities(conn, user)
+            if not has_capability(authority, 'operations.read'):
                 raise web.HTTPForbidden()
             try:
-                await service.authorize(conn, user)
-            except Rejected:
-                raise web.HTTPForbidden() from None
-        return user
+                start = datetime.fromisoformat(request.query['start'])
+                end = datetime.fromisoformat(request.query['end'])
+                limit = int(request.query.get('limit', '100'))
+                report = await read_operations_report(pool, start, end,
+                    timezone_name=request.query.get('timezone', 'UTC'), limit=limit)
+            except (KeyError, ValueError, OverflowError):
+                raise web.HTTPBadRequest() from None
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return web.json_response(report)
+
+    async def operations_objects(request):
+        import asyncpg
+        from elevenbot.operations_objects import OperationsDenied, read_objects
+
+        try:
+            actor = await account(request)
+            async with pool.acquire() as conn, conn.transaction(isolation='repeatable_read', readonly=True):
+                result = await read_objects(conn, actor, view.providers, request.match_info['section'],
+                    object_id=request.query.get('id'), offset=request.query.get('offset', 0),
+                    limit=request.query.get('limit', 20))
+        except OperationsDenied:
+            raise web.HTTPForbidden() from None
+        except KeyError:
+            raise web.HTTPNotFound() from None
+        except ValueError:
+            raise web.HTTPBadRequest() from None
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        if result is None:
+            raise web.HTTPNotFound()
+        return web.json_response(result)
+
+    async def admin_model_visibility(request):
+        import asyncpg
+        from elevenbot import model_visibility as visibility
+
+        session_token(request)
+        try:
+            if request.method == 'POST':
+                async with pool.acquire() as conn:
+                    await visibility.authorize(conn, await account(request, conn))
+                body = await request.json()
+            async with pool.acquire() as conn, conn.transaction():
+                actor = await account(request, conn)
+                if request.method in ('GET', 'HEAD'):
+                    result = {'models': await visibility.list_models(conn, actor)}
+                else:
+                    keys = [body[key] for key in ('provider', 'model_id', 'operation', 'visibility')]
+                    rollback_of = body.get('rollback_of')
+                    if request.match_info['action'] == 'preview':
+                        result = await visibility.preview(conn, actor, *keys, rollback_of=rollback_of)
+                    else:
+                        result = await visibility.confirm(conn, actor, *keys, body['expected_version'],
+                            UUID(body['request_id']), rollback_of=rollback_of)
+        except visibility.VisibilityDenied:
+            raise web.HTTPForbidden() from None
+        except visibility.MissingModel:
+            raise web.HTTPNotFound(text='Модель недоступна.') from None
+        except visibility.VisibilityConflict:
+            raise web.HTTPConflict(text='Настройка изменилась. Запросите новый предпросмотр.') from None
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise web.HTTPBadRequest() from None
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return web.json_response(result)
+
+    async def admin_flux_tariff(request):
+        import asyncpg
+        from elevenbot import fixture_tariff
+
+        session_token(request)
+        try:
+            if request.method == 'POST':
+                async with pool.acquire() as conn:
+                    await fixture_tariff.authorize(conn, await account(request, conn))
+                body = await request.json()
+                confirm = request.match_info['action'] == 'confirm'
+                required = {'amount', 'expected_version', 'request_id'} if confirm else {'amount'}
+                if not isinstance(body, dict) or not required <= body.keys() <= required | {'rollback_of'}:
+                    raise ValueError('Invalid tariff fields')
+            async with pool.acquire() as conn, conn.transaction():
+                actor = await account(request, conn)
+                if request.method in ('GET', 'HEAD'):
+                    result = await fixture_tariff.get(conn, actor)
+                elif confirm:
+                    result = await fixture_tariff.confirm(conn, actor, body['amount'], body['expected_version'],
+                        UUID(body['request_id']), rollback_of=body.get('rollback_of'))
+                else:
+                    result = await fixture_tariff.preview(conn, actor, body['amount'], rollback_of=body.get('rollback_of'))
+        except fixture_tariff.TariffDenied:
+            raise web.HTTPForbidden(text='Тестовый тариф доступен только владельцу стенда.') from None
+        except fixture_tariff.TariffConflict:
+            raise web.HTTPConflict(text='Версия или состояние тарифа изменились. Откройте новый предпросмотр.') from None
+        except (TypeError, ValueError, AttributeError):
+            raise web.HTTPBadRequest() from None
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return web.json_response(result)
+
+    def support_json(value):
+        # Support DTOs contain only database timestamps, UUIDs and bounded text.
+        return web.json_response(value, dumps=lambda item: json.dumps(item, default=str))
+
+    async def owner_support(request):
+        from elevenbot.support_tickets import SupportTickets
+        user = await account(request)
+        subject = await pool.fetchval("SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1",user)
+        support = SupportTickets(pool,cfg)
+        try:
+            if request.method=='POST':
+                body=await request.json()
+                if not isinstance(body,dict):
+                    raise ValueError()
+                result=await support.create(subject,UUID(body['request_id']),body['text'],
+                                            attachment=body.get('attachment'))
+            elif 'ticket_id' in request.query:
+                result=await support.read(subject,UUID(request.query['ticket_id']))
+            else:
+                result=await support.list(subject)
+        except Rejected as error:
+            if request.method=='GET':
+                raise web.HTTPNotFound() from None
+            raise web.HTTPBadRequest(text=str(error)) from None
+        except (KeyError, TypeError, ValueError):
+            raise web.HTTPBadRequest() from None
+        return support_json(result)
+
+    async def support_inbox(request):
+        import asyncpg
+        from elevenbot.support_tickets import operator_inbox
+        from elevenbot.admin_authority import current_capabilities, has_capability
+        try:
+            async with pool.acquire() as conn, conn.transaction(isolation='repeatable_read'):
+                actor=await account(request,conn)
+                if not has_capability(await current_capabilities(conn,actor),'support.operate'):
+                    raise web.HTTPForbidden()
+                try:
+                    ticket=UUID(request.query['ticket_id']) if 'ticket_id' in request.query else None
+                except ValueError:
+                    raise web.HTTPBadRequest() from None
+                result=await operator_inbox(conn,ticket)
+                if result is None:
+                    raise web.HTTPNotFound()
+        except (asyncpg.PostgresError,OSError,TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return support_json(result)
+
+    async def support_reply(request):
+        import asyncpg
+        from elevenbot.support_tickets import operator_reply
+        try:
+            async with pool.acquire() as conn, conn.transaction():
+                actor = await account(request, conn)
+                await conn.execute('LOCK TABLE http_admin_role_events IN SHARE MODE')
+                from elevenbot.admin_authority import current_capabilities, has_capability
+                if not has_capability(await current_capabilities(conn, actor), 'support.operate'):
+                    raise web.HTTPForbidden()
+                try:
+                    body = await request.json()
+                    if not isinstance(body, dict) or body.get('attachment') is not None:
+                        raise ValueError()
+                    ticket = UUID(body['ticket_id'])
+                    operation = UUID(body['request_id'])
+                    result = await operator_reply(conn, actor, ticket, operation, body['text'])
+                except (KeyError, TypeError, ValueError, Rejected):
+                    raise web.HTTPBadRequest() from None
+                if result is None:
+                    raise web.HTTPNotFound()
+        except (asyncpg.PostgresError, OSError, TimeoutError):
+            raise web.HTTPServiceUnavailable() from None
+        return web.json_response({'reply_id': str(result)})
 
     async def wallet(request):
         user = await account(request)
         row = await service.wallet(user)
         return web.json_response({key: str(row[key]) for key in ('available', 'reserved')})
 
+    async def profile(request):
+        session_token(request)
+        async with pool.acquire() as conn, conn.transaction():
+            user = await account(request, conn)
+            subject = await conn.fetchval(
+                "SELECT external_id FROM identities WHERE platform='telegram' AND user_id=$1", user
+            )
+        return web.json_response({
+            'telegram_id': str(subject),
+            'terms_accepted': True,
+            'documents': service.get_consent_documents(),
+        })
+
     async def referral(request):
         user = await account(request)
-        return web.json_response(await service.referral_info(user))
+        from elevenbot.referrals import referral_link
+        info = await service.referral_info(user)
+        link = referral_link(cfg.bot_username, info['code'])
+        if link:
+            info['link'] = link
+        return web.json_response(info)
+
+    async def referral_finances(request):
+        from elevenbot.referrals import own_finances
+        user = await account(request)
+        try:
+            page = int(request.query.get('page', '0'))
+            return web.json_response(await own_finances(service, user, page))
+        except ValueError:
+            raise web.HTTPBadRequest() from None
 
     async def music_access(user):
         if not cfg.clodex_music_owner:
@@ -248,8 +492,8 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
                                   'video': (service.video_work, 'mp4')}[kind]
                 row = await method(user, work_id)
                 data = row[kind]
-                if kind == 'image' and data.startswith(b'\xff\xd8'):
-                    suffix = 'jpg'
+                if kind == 'image':
+                    suffix = {'result.jpg': 'jpg', 'result.bin': 'bin'}.get(row['filename'], 'png')
         except (KeyError, ValueError, Rejected):
             raise web.HTTPNotFound() from None
         return web.Response(body=data, content_type='application/octet-stream',
@@ -298,9 +542,22 @@ def create_app(pool, cfg, *, view=None, job_scheduler=None):
     app.router.add_delete('/api/v1/session', logout)
     app.router.add_get('/api/v1/catalogue', catalogue)
     app.router.add_get('/api/v1/wallet', wallet)
+    app.router.add_get('/api/v1/profile', profile)
+    app.router.add_get('/api/v1/admin/capabilities', admin_capabilities)
+    app.router.add_get('/api/v1/admin/model-visibility', admin_model_visibility)
+    app.router.add_post('/api/v1/admin/model-visibility/{action:preview|confirm}', admin_model_visibility)
+    app.router.add_get('/api/v1/admin/flux-tariff', admin_flux_tariff)
+    app.router.add_post('/api/v1/admin/flux-tariff/{action:preview|confirm}', admin_flux_tariff)
+    app.router.add_get('/api/v1/admin/operations', operations_report)
+    app.router.add_get('/api/v1/admin/objects/{section}', operations_objects)
+    app.router.add_post('/api/v1/admin/support/reply', support_reply)
+    app.router.add_get('/api/v1/admin/support', support_inbox)
+    app.router.add_get('/api/v1/support', owner_support)
+    app.router.add_post('/api/v1/support', owner_support)
     from .stars import add_stars_routes
     add_stars_routes(app, service, account, cfg, view.bot)
     app.router.add_get('/api/v1/referral', referral)
+    app.router.add_get('/api/v1/referral/finances', referral_finances)
     app.router.add_get('/api/v1/settings', settings)
     app.router.add_put('/api/v1/settings', settings)
     app.router.add_get('/api/v1/works', history)

@@ -84,8 +84,11 @@ async def test_miniapp_shared_wallet_library_and_session(account_db):
             if status == 200:
                 return {'Authorization': 'Bearer ' + (await response.json())['token']}
 
+        page = await client.get('/')
+        page_html = await page.text()
+        assert page.status == 200 and 'id="referral"' in page_html and 'data-panel="referral"' in page_html
         for path, marker in (
-            ('/', 'data-panel="catalogue"'), ('/assets/app.js', 'applyTheme'),
+            ('/', 'data-panel="catalogue"'), ('/assets/app.js', 'showReferral'),
             ('/assets/style.css', 'data-theme="light"')
         ):
             response = await client.get(path)
@@ -101,6 +104,16 @@ async def test_miniapp_shared_wallet_library_and_session(account_db):
         main = await login(raw)
         await login(raw, 401)
         other = await login(signed(cfg.token, 101))
+        ledger_before_referral = await pool.fetchval('SELECT count(*) FROM ledger')
+        referral_response = await client.get('/api/v1/referral', headers=main)
+        referral = await referral_response.json()
+        assert referral_response.status == 200 and referral['has_referrer'] is False
+        assert len(referral['code']) == 16
+        assert await (await client.get('/api/v1/referral', headers=other)).json() == {
+            'code': (await service.referral_info(stranger))['code'], 'has_referrer': False
+        }
+        assert (await client.get('/api/v1/referral')).status == 401
+        assert await pool.fetchval('SELECT count(*) FROM ledger') == ledger_before_referral
         settings = '/api/v1/settings'
         assert await (await client.get(settings, headers=main)).json() == {'theme': 'dark'}
         response = await client.put(settings, headers=main, json={'theme': 'light'})

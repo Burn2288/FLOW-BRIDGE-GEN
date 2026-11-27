@@ -17,10 +17,12 @@ def canonical(provider,model,operation):
     return model
 
 
-async def admitted(conn,provider,model,operation):
+async def admitted(conn,provider,model,operation,*,include_hidden=False):
     return bool(await conn.fetchval("""
-        SELECT 1 FROM approved_models WHERE provider=$1 AND model_id=$2 AND operation=$3 FOR KEY SHARE
-        """,provider,canonical(provider,model,operation),operation))
+        SELECT 1 FROM approved_models
+        WHERE provider=$1 AND model_id=$2 AND operation=$3 AND ($4 OR visibility='VISIBLE')
+        FOR SHARE
+        """,provider,canonical(provider,model,operation),operation,include_hidden))
 
 
 def rule_label(kind,amount):
@@ -44,12 +46,12 @@ class ModelPolicy:
         await self.app.tariffs.authorize(user, external)
         return await publish(self, user, external, provider, model, operation, version)
 
-    async def list(self,provider,operation=None,*,snapshot=None):
+    async def list(self,provider,operation=None,*,snapshot=None,include_hidden=False):
         rows = await self.app.pool.fetch("""
             SELECT model_id,operation,title FROM approved_models
-            WHERE provider=$1 AND ($2::text IS NULL OR operation=$2)
+            WHERE provider=$1 AND ($2::text IS NULL OR operation=$2) AND ($3 OR visibility='VISIBLE')
             ORDER BY title,model_id,operation
-            """,provider,operation)
+            """,provider,operation,include_hidden)
 
         if provider!='clodex' or not any(row['operation']=='video' for row in rows):
             return rows
@@ -97,7 +99,7 @@ class ModelPolicy:
                 await self.app.pool.execute("""
                     DELETE FROM approved_models WHERE provider=$1 AND model_id=$2 AND operation=$3
                     """,provider,model,operation)
-            ordered=list(dict.fromkeys(row['model_id'] for row in await self.list(provider)))
+            ordered=list(dict.fromkeys(row['model_id'] for row in await self.list(provider,include_hidden=True)))
             page=ordered.index(model)//4 if model in ordered else 0
             await self.show(user,ext,provider,page)
             return
@@ -105,7 +107,7 @@ class ModelPolicy:
         draft=context.get('our_markup')
         if len(args)!=2 or not draft or draft['code']!=args[0]:
             raise Rejected('Откройте настройку наценки в «Наших моделях».')
-        if draft['model'] and not any(row['model_id']==draft['model'] for row in await self.list(draft['provider'])):
+        if draft['model'] and not any(row['model_id']==draft['model'] for row in await self.list(draft['provider'],include_hidden=True)):
             raise Rejected('Модель больше не допущена.')
         await self.app.pricing.set_rule(user,ext,draft['provider'],draft['model'],'percent',args[1])
         await self.app.svc.conversation(user,'home')
@@ -120,7 +122,7 @@ class ModelPolicy:
             return
         from .anymodel_speech import voice_key
         key=parts[2]
-        entries=[row for row in await self.list(provider) if voice_key(row['model_id'])[:16]==key]
+        entries=[row for row in await self.list(provider,include_hidden=True) if voice_key(row['model_id'])[:16]==key]
         candidates={row['model_id'] for row in entries}
         if key!='general' and len(candidates)!=1:
             raise Rejected('Модель больше не допущена.')
@@ -154,7 +156,7 @@ class ModelPolicy:
         if provider not in self.app.providers.prices:
             raise Rejected('Агрегатор недоступен.')
         grouped={}
-        for row in await self.list(provider):
+        for row in await self.list(provider,include_hidden=True):
             grouped.setdefault(row['model_id'],[]).append(row)
         page=max(0,min(page,max(0,(len(grouped)-1)//4)))
         async with self.app.pool.acquire() as conn:

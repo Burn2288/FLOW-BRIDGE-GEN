@@ -7,6 +7,12 @@ let wantedTheme;
 const works = document.querySelector('#works');
 let token;
 let page = 0;
+let worksRevision = 0;
+let previewRevision = 0;
+let openPreview;
+let referralLoaded = false;
+let referralRequest;
+let activePanel = 'catalogue';
 
 async function request(path, options = {}) {
   let response;
@@ -19,8 +25,11 @@ async function request(path, options = {}) {
     if (!(error instanceof TypeError)) throw error;
     throw Object.assign(Error('Нет связи с сервером. Проверьте подключение.'), {networkError: true});
   }
-  if (response.status === 401) throw Error('Откройте приложение заново из Telegram.');
-  if (response.status === 403) throw Error('Откройте бот и проверьте доступ к аккаунту.');
+  if (response.status === 401) throw Object.assign(Error('Откройте приложение заново из Telegram.'), {status: 401});
+  if (response.status === 403) throw Object.assign(Error('Откройте бот и проверьте доступ к аккаунту.'), {status: 403});
+  if (response.status === 428 && path === '/api/v1/session') {
+    throw Object.assign(Error('Прочитайте документы и подтвердите согласие.'), {documents: await response.json()});
+  }
   if (!response.ok) throw Object.assign(Error('Не удалось получить данные.'), { status: response.status });
   return response;
 }
@@ -93,16 +102,98 @@ async function download(work) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
+const previewFormats = {
+  image: ['img', 'image/png'],
+  video: ['video', 'video/mp4'],
+  audio: ['audio', 'audio/mpeg'],
+  music: ['audio', 'audio/mpeg'],
+};
+
+function closePreview() {
+  previewRevision++;
+  if (!openPreview) return;
+  openPreview.container.replaceChildren();
+  openPreview.button.textContent = 'Просмотр';
+  openPreview.message.textContent = '';
+  URL.revokeObjectURL(openPreview.url);
+  openPreview = null;
+}
+
+function appendPreview(item, work) {
+  const [tag, contentType] = previewFormats[work.kind];
+  const button = document.createElement('button');
+  button.textContent = 'Просмотр';
+  const container = document.createElement('div');
+  const message = document.createElement('p');
+  message.className = 'notice';
+  message.setAttribute('role', 'status');
+  button.onclick = async () => {
+    if (openPreview?.button === button) {
+      closePreview();
+      return;
+    }
+    closePreview();
+    const revision = previewRevision;
+    button.disabled = true;
+    message.textContent = 'Загружаем результат…';
+    try {
+      const response = await request('/api/v1/works/' + encodeURIComponent(work.kind) + '/' + work.id);
+      const file = await response.blob();
+      if (revision !== previewRevision) return;
+      const jpeg = tag === 'img' && response.headers.get('Content-Disposition')?.endsWith('.jpg"');
+      const url = URL.createObjectURL(file.slice(0, file.size, jpeg ? 'image/jpeg' : contentType));
+      const media = document.createElement(tag);
+      if (tag === 'img') media.alt = 'Результат генерации';
+      else {
+        media.controls = true;
+        if (tag === 'video') media.playsInline = true;
+      }
+      media.onerror = () => { message.textContent = 'Этот результат можно скачать для просмотра.'; };
+      media.src = url;
+      container.replaceChildren(media);
+      openPreview = {url, container, button, message};
+      button.textContent = 'Закрыть просмотр';
+    } catch (error) {
+      if (revision === previewRevision) message.textContent = error.message;
+    } finally {
+      button.disabled = false;
+      if (message.textContent === 'Загружаем результат…') message.textContent = '';
+    }
+  };
+  item.append(button, message, container);
+}
+
 async function showWorks(target) {
-  const data = await (await request('/api/v1/works?page=' + target)).json();
+  const revision = ++worksRevision;
+  closePreview();
   works.replaceChildren();
+  const data = await (await request('/api/v1/works?page=' + target)).json();
+  if (revision !== worksRevision) return;
   for (const work of data.works) {
     const kinds = { image: 'Изображение', video: 'Видео', audio: 'Аудио', chat: 'Текст', music: 'Музыка' };
     const states = { queued: 'В очереди', dispatching: 'Выполняется', succeeded: 'Готово',
       failed: 'Ошибка', cancelled: 'Отменено', uncertain: 'Требует проверки' };
     const label = kinds[work.kind] ?? work.kind;
     const state = states[work.status] ?? work.status;
-    const item = listItem([label, work.model, state].filter(Boolean).join(' · '));
+    const price = work.price === null ? 'Цена недоступна' : work.price + ' кредитов';
+    const item = listItem([label, work.model, state, price].filter(Boolean).join(' · '));
+    item.id = 'work-' + work.id;
+    if (work.prompt) {
+      const prompt = document.createElement('p');
+      prompt.textContent = 'Запрос: ' + work.prompt;
+      item.append(prompt);
+      if (work.kind === 'image' && work.model === 'flux-schnell') {
+        const similar = document.createElement('button');
+        similar.textContent = 'Создать похожее';
+        similar.onclick = () => {
+          const form = generationForm(work.model, 'images.generate');
+          form.elements.prompt.value = work.prompt;
+          form.elements.prompt.dispatchEvent(new Event('input'));
+          similar.replaceWith(form);
+        };
+        item.append(similar);
+      }
+    }
     const historyButton = document.createElement('button');
     historyButton.textContent = 'История';
     const details = document.createElement('ul');
@@ -114,6 +205,7 @@ async function showWorks(target) {
     };
     if (work.kind !== 'music') item.append(historyButton, details);
     if (work.available) {
+      if (previewFormats[work.kind]) appendPreview(item, work);
       const button = document.createElement('button');
       button.textContent = 'Скачать';
       button.onclick = () => download(work).catch(showError);
@@ -223,7 +315,43 @@ function generationForm(model, operation, voices) {
   return form;
 }
 
-async function start() {
+const consentPanel = document.querySelector('#consent');
+const consentAccept = document.querySelector('#accept-consent');
+const navigation = document.querySelector('nav');
+let presentedTerms;
+
+function showDocuments(container, docs) {
+  const version = document.createElement('p');
+  version.textContent = 'Версия документов ' + docs.version + (docs.test_only ? ' · Тестовые документы' : '');
+  container.replaceChildren(version);
+  for (const [field, label] of [['terms', 'Условия использования'], ['privacy', 'Обработка данных']]) {
+    const details = document.createElement('details');
+    const title = document.createElement('summary');
+    const text = document.createElement('pre');
+    title.textContent = label;
+    text.textContent = docs[field];
+    details.append(title, text);
+    container.append(details);
+  }
+}
+
+async function showProfile() {
+  const notice = document.querySelector('#profile-status');
+  const docs = document.querySelector('#profile-documents');
+  notice.textContent = 'Загружаем профиль…';
+  docs.replaceChildren();
+  try {
+    const profile = await (await request('/api/v1/profile')).json();
+    notice.textContent = 'Telegram ID: ' + profile.telegram_id + ' · Условия приняты';
+    showDocuments(docs, profile.documents);
+  } catch (error) {
+    notice.textContent = error.message;
+  }
+}
+
+document.querySelector('#reload-profile').onclick = () => { if (token) void showProfile(); };
+
+async function start(termsVersion) {
   telegram?.ready();
   if (!telegram?.initData) {
     const hint = telegram?.sendData
@@ -239,13 +367,34 @@ async function start() {
   if (saved?.launch === launch) token = saved.token;
   if (!token) {
     history.replaceState({ ...history.state, jobId: null }, '');
-    const session = await request('/api/v1/session', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: telegram.initData }),
-    });
-    token = (await session.json()).token;
+    try {
+      const session = await request('/api/v1/session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({initData: telegram.initData, terms_version: termsVersion ?? null}),
+      });
+      token = (await session.json()).token;
+    } catch (error) {
+      if (!error.documents) throw error;
+      selectPanel('consent');
+      navigation.hidden = true;
+      status.textContent = error.message;
+      consentPanel.hidden = false;
+      showDocuments(document.querySelector('#consent-documents'), error.documents);
+      presentedTerms = error.documents.version;
+      return;
+    }
     sessionStorage.setItem('miniapp.session', JSON.stringify({ launch, token }));
   }
+  if (activePanel === 'consent') {
+    consentPanel.hidden = true;
+    navigation.hidden = false;
+    selectPanel('catalogue');
+  }
+  // The user may select a panel while authentication is still pending.
+  if (activePanel === 'support') void showSupport();
+  if (activePanel === 'profile') void showProfile();
+  if (activePanel === 'referral') void showReferral();
+  if (activePanel === 'administration') void showAdministration();
   const [wallet, catalogue, settings] = await Promise.all([
     request('/api/v1/wallet').then(response => response.json()),
     request('/api/v1/catalogue').then(response => response.json()),
@@ -256,12 +405,39 @@ async function start() {
   document.querySelector('#reserved').textContent = wallet.reserved;
   applyTheme(settings.theme);
   themeInputs.forEach(input => input.disabled = false);
+  renderCatalogue(catalogue);
+  status.textContent = '';
+  if (!document.querySelector('#balance').hidden) await showBalance();
+  if (history.state?.jobId) {
+    selectPanel('library');
+    await openJob(history.state.jobId);
+  }
+}
+
+const studioSelect = document.querySelector('#studio-select');
+const catalogueEmpty = document.querySelector('#catalogue-empty');
+let catalogueEntries = [];
+
+function filterStudios() {
+  const studio = studioSelect.value || '';
+  let visible = 0;
+  for (const {item, operation} of catalogueEntries) {
+    item.hidden = Boolean(studio) && operation !== studio;
+    if (!item.hidden) visible++;
+  }
+  catalogueEmpty.hidden = visible > 0;
+}
+studioSelect.onchange = filterStudios;
+
+function renderCatalogue(catalogue) {
   const models = document.querySelector('#models');
+  models.replaceChildren();
+  catalogueEntries = [];
   for (const model of catalogue.models) {
     const item = listItem(model.aggregator + ' · ' + model.title);
     if (model.music_card) {
       const limits = document.createElement('small');
-      limits.textContent = 'Одна попытка · Один MP3 · До 5000 символов · Хранение 7 дней · Отдельный тестовый баланс. Лицензия не указана.';
+      limits.textContent = 'Тестовый пилот без оплаты · Одна попытка · Один MP3 · До 5000 символов · Хранение 7 дней · Отдельный тестовый баланс. Лицензия не указана.';
       item.append(limits);
       if (model.music_card.used) item.append(document.createTextNode('Попытка использована.'));
       else {
@@ -297,18 +473,19 @@ async function start() {
       }
     }
     models.append(item);
+    catalogueEntries.push({item, operation: model.operation});
   }
   for (const [name, available] of Object.entries(catalogue.availability)) {
-    if (!available) models.append(listItem(name + ' · каталог временно недоступен'));
+    if (!available) {
+      const item = listItem(name + ' · каталог временно недоступен');
+      models.append(item);
+      catalogueEntries.push({item});
+    }
   }
-  if (!models.children.length) models.append(listItem('Нет доступных моделей.'));
-  status.textContent = '';
-  if (!document.querySelector('#balance').hidden) await showBalance();
-  if (history.state?.jobId) {
-    selectPanel('library');
-    await openJob(history.state.jobId);
-  }
+  studioSelect.disabled = false;
+  filterStudios();
 }
+
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -346,6 +523,7 @@ const tabs = [...document.querySelectorAll('nav [data-panel]')];
 const card = document.querySelector('#job-card');
 const overview = document.querySelector('#library-overview');
 const jobStatus = document.querySelector('#job-status');
+const jobResult = document.querySelector('#job-result');
 const cancelJob = document.querySelector('#cancel-job');
 const reloadJob = document.querySelector('#reload-job');
 const states = {
@@ -356,6 +534,7 @@ const states = {
 let cardRevision = 0;
 
 function selectPanel(panel) {
+  activePanel = panel;
   for (const button of tabs) {
     const selected = button.dataset.panel === panel;
     document.getElementById(button.dataset.panel).hidden = !selected;
@@ -363,6 +542,96 @@ function selectPanel(panel) {
     else button.removeAttribute('aria-current');
   }
 }
+
+async function showReferral() {
+  if (referralLoaded) return;
+  if (referralRequest) return referralRequest;
+  const status = document.querySelector('#referral-status');
+  const retry = document.querySelector('#retry-referral');
+  const copy = document.querySelector('#copy-referral');
+  status.textContent = 'Загружаем код приглашения…';
+  retry.hidden = true;
+  retry.disabled = true;
+  copy.disabled = true;
+  const pending = (async () => {
+    try {
+      const response = await request('/api/v1/referral');
+      const referral = await response.json();
+      document.querySelector('#referral-code').textContent = referral.code;
+      const link = document.querySelector('#referral-link');
+      link.textContent = referral.link ?? '';
+      link.hidden = !referral.link;
+      copy.textContent = referral.link ? 'Скопировать ссылку' : 'Скопировать код';
+      document.querySelector('#referrer-status').textContent = referral.has_referrer
+        ? 'Вы зарегистрировались по приглашению.' : 'Вы зарегистрировались без приглашения.';
+      copy.disabled = false;
+      status.textContent = '';
+      referralLoaded = true;
+    } catch (error) {
+      status.textContent = `Не удалось загрузить приглашения. ${error.message}`;
+      retry.hidden = false;
+    } finally {
+      retry.disabled = false;
+      if (referralRequest === pending) referralRequest = null;
+    }
+  })();
+  referralRequest = pending;
+  return pending;
+}
+
+let referralFinancePage = 0;
+let referralFinanceRequest = 0;
+async function loadReferralFinances(page) {
+  const ownerToken = token;
+  if (!ownerToken) return;
+  const requestId = ++referralFinanceRequest;
+  const status = document.querySelector('#referral-finances-status');
+  const summary = document.querySelector('#referral-finances-summary');
+  const history = document.querySelector('#referral-finances-history');
+  const previous = document.querySelector('#referral-finances-prev');
+  const next = document.querySelector('#referral-finances-next');
+  const current = () => requestId === referralFinanceRequest && token === ownerToken;
+  summary.textContent = '';
+  history.replaceChildren();
+  previous.hidden = next.hidden = true;
+  status.textContent = 'Загружаем начисления…';
+  try {
+    const response = await request('/api/v1/referral/finances?page=' + page);
+    const data = await response.json();
+    if (!current()) return;
+    referralFinancePage = data.page;
+    summary.textContent = 'Приглашено: ' + data.invitee_count + ' · Доступно: ' + data.available +
+      ' · Начислено: ' + data.total_rewards + ' · Долг: ' + data.debt +
+      ' · ' + data.policy_version + '. ' + data.terms;
+    const labels = {referral_reward: 'Начисление', referral_reversal: 'Сторно',
+      referral_debt_repay: 'Погашение долга'};
+    for (const item of data.history) {
+      const row = document.createElement('li');
+      row.textContent = labels[item.kind] + ': ' + item.amount + ' · Долг +' + item.debt_added;
+      history.append(row);
+    }
+    status.textContent = data.history.length ? '' : 'На этой странице нет операций.';
+    previous.hidden = data.page === 0;
+    next.hidden = !data.has_more;
+  } catch {
+    if (current()) status.textContent = 'Не удалось загрузить начисления. Повторите запрос.';
+  }
+}
+document.querySelector('#load-referral-finances').onclick = () => { void loadReferralFinances(0); };
+document.querySelector('#referral-finances-prev').onclick = () => { void loadReferralFinances(referralFinancePage - 1); };
+document.querySelector('#referral-finances-next').onclick = () => { void loadReferralFinances(referralFinancePage + 1); };
+
+document.querySelector('#copy-referral').onclick = async () => {
+  const result = document.querySelector('#referral-copy-status');
+  try {
+    const link = document.querySelector('#referral-link').textContent;
+    await navigator.clipboard.writeText(link || document.querySelector('#referral-code').textContent);
+    result.textContent = link ? 'Ссылка скопирована.' : 'Код скопирован.';
+  } catch {
+    result.textContent = 'Не удалось скопировать. Выделите ссылку или код вручную.';
+  }
+};
+document.querySelector('#retry-referral').onclick = () => { void showReferral(); };
 
 async function showJobs() {
   const { jobs } = await (await request('/api/v1/jobs')).json();
@@ -384,6 +653,7 @@ async function openJob(id, cancel = false) {
   card.hidden = false;
   document.querySelector('#job-id').textContent = id;
   cancelJob.hidden = true;
+  jobResult.hidden = true;
   reloadJob.disabled = true;
   jobStatus.textContent = cancel ? 'Проверяем отмену…' : 'Получаем статус…';
   try {
@@ -393,6 +663,17 @@ async function openJob(id, cancel = false) {
     if (revision !== cardRevision) return;
     jobStatus.textContent = states[job.state] ?? job.state;
     cancelJob.hidden = !(job.operation === 'images.generate' && job.origin === 'http' && job.state === 'pending');
+    if (job.result_url) {
+      jobResult.hidden = false;
+      jobResult.onclick = async () => {
+        await navigate('library');
+        const work = document.getElementById('work-' + job.result_url.split('/').at(-1));
+        if (work) {
+          work.scrollIntoView({block: 'center'});
+          work.querySelector('button')?.focus({preventScroll: true});
+        }
+      };
+    }
   } catch (error) {
     if (revision === cardRevision) jobStatus.textContent = error.message;
   } finally {
@@ -400,14 +681,666 @@ async function openJob(id, cancel = false) {
   }
 }
 
+function appendOperatorReply(container, current) {
+  const form = document.createElement('form');
+  form.className = 'operator-support card';
+  const ticket = document.createElement('select');
+  const ticketHistory = document.createElement('ul');
+  const body = document.createElement('textarea');
+  const send = document.createElement('button');
+  const notice = document.createElement('p');
+  ticket.setAttribute('aria-label', 'Обращение');
+  ticket.required = true;
+  body.setAttribute('aria-label', 'Ответ оператора');
+  body.placeholder = 'Ответ оператора';
+  body.maxLength = 2000;
+  body.required = true;
+  send.type = 'submit';
+  send.disabled = true;
+  send.textContent = 'Сохранить ответ';
+  notice.setAttribute('role', 'status');
+  let historyRevision = 0;
+  async function loadTicket() {
+    const revision = ++historyRevision;
+    send.disabled = true;
+    ticketHistory.replaceChildren();
+    if (!ticket.value) return;
+    const selection = ticket.value;
+    const response = await request('/api/v1/admin/support?ticket_id=' + encodeURIComponent(selection));
+    const data = await response.json();
+    if (!current() || revision !== historyRevision) return;
+    const selected = ticket.selectedOptions[0];
+    selected.textContent = ticketLabel(data);
+    for (const item of data.messages) {
+      const row = document.createElement('li');
+      row.textContent = (item.author === 'operator' ? 'Оператор: ' : 'Пользователь: ') + item.body;
+      ticketHistory.append(row);
+    }
+    send.disabled = false;
+  }
+  function ticketLabel(item) {
+    return (item.status === 'answered' ? 'Есть ответ' : 'Открыто') + ' · ' +
+      new Date(item.created_at).toLocaleString('ru-RU') + ' · ' + item.id;
+  }
+  const refreshHistory = async () => {
+    const loading = loadTicket();
+    const revision = historyRevision;
+    try {
+      await loading;
+    } catch (error) {
+      if (!current() || revision !== historyRevision) return;
+      if (error.status === 401 || error.status === 403) void showAdministration();
+      else notice.textContent = 'Не удалось открыть обращение. ' + error.message;
+    }
+  };
+  ticket.onchange = refreshHistory;
+  void (async () => {
+    const response = await request('/api/v1/admin/support');
+    const inbox = await response.json();
+    if (!current()) return;
+    for (const item of inbox.tickets) {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = ticketLabel(item);
+      ticket.append(option);
+    }
+    if (!inbox.tickets.length) notice.textContent = 'Обращений пока нет.';
+    else refreshHistory();
+  })().catch(error => {
+    if (current()) notice.textContent = 'Не удалось загрузить обращения. ' + error.message;
+  });
+  let pending;
+  form.onsubmit = async event => {
+    event.preventDefault();
+    if (!current() || send.disabled) return;
+    const ticketId = ticket.value.trim();
+    const text = body.value.trim();
+    if (!ticketId || !text) return;
+    if (!pending || pending.ticket_id !== ticketId || pending.text !== text) {
+      pending = {ticket_id: ticketId, text, request_id: crypto.randomUUID()};
+    }
+    send.disabled = true;
+    ticket.disabled = true;
+    body.disabled = true;
+    notice.textContent = 'Сохраняем ответ…';
+    try {
+      await request('/api/v1/admin/support/reply', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(pending),
+      });
+      if (!current()) return;
+      body.value = '';
+      pending = null;
+      notice.textContent = 'Ответ сохранён. Владелец увидит его в истории обращения.';
+      await loadTicket();
+    } catch (error) {
+      if (!current()) return;
+      if (error.status === 401 || error.status === 403) {
+        void showAdministration();
+        return;
+      }
+      if (pending) {
+        notice.textContent = 'Ответ не подтверждён. ' + error.message;
+        send.disabled = false;
+      } else {
+        notice.textContent = 'Ответ сохранён. Не удалось обновить историю. ' + error.message;
+      }
+    } finally {
+      ticket.disabled = false;
+      body.disabled = false;
+    }
+  };
+  form.append(ticket, ticketHistory, body, send, notice);
+  container.append(form);
+}
+
+async function refreshCatalogue() {
+  const session = token;
+  const catalogue = await (await request('/api/v1/catalogue')).json();
+  if (session === token) renderCatalogue(catalogue);
+}
+
+function appendModelVisibility(container, current) {
+  const path = '/api/v1/admin/model-visibility';
+  const form = document.createElement('form');
+  const title = document.createElement('h3');
+  const selection = document.createElement('select');
+  const notice = document.createElement('p');
+  const preview = document.createElement('button');
+  const rollback = document.createElement('button');
+  const confirm = document.createElement('button');
+  title.textContent = 'Видимость моделей';
+  selection.setAttribute('aria-label', 'Модель');
+  notice.setAttribute('role', 'status');
+  preview.type = rollback.type = confirm.type = 'button';
+  rollback.textContent = 'Предпросмотр отката';
+  confirm.textContent = 'Подтвердить видимость';
+  let models = [];
+  let pending;
+
+  const selected = () => models[Number(selection.value)];
+  const display = value => value === 'VISIBLE' ? 'Видима' : 'Скрыта';
+  const render = () => {
+    const model = selected();
+    preview.textContent = model?.visibility === 'VISIBLE' ? 'Предпросмотр скрытия' : 'Предпросмотр показа';
+    preview.disabled = !model;
+    rollback.disabled = !model?.previous_visibility;
+    confirm.hidden = !pending;
+  };
+  const send = async (action, body) => (await request(path + '/' + action, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+  })).json();
+  async function load() {
+    const response = await request(path);
+    const data = await response.json();
+    if (!current()) return;
+    const index = selection.selectedIndex;
+    models = data.models;
+    selection.replaceChildren();
+    models.forEach((model, position) => {
+      const option = document.createElement('option');
+      option.value = String(position);
+      option.textContent = model.title + ' · ' + model.provider + ' · ' + model.operation +
+        ' · ' + display(model.visibility);
+      selection.append(option);
+    });
+    if (index >= 0 && index < models.length) selection.selectedIndex = index;
+    if (!models.length) notice.textContent = 'Моделей пока нет.';
+    render();
+  }
+  selection.onchange = () => {
+    pending = null;
+    notice.textContent = '';
+    render();
+  };
+  async function action(run) {
+    if (!current() || selection.disabled) return;
+    selection.disabled = preview.disabled = rollback.disabled = confirm.disabled = true;
+    try {
+      await run();
+    } catch (error) {
+      if (!current()) return;
+      if (error.status === 409) {
+        pending = null;
+        notice.textContent = 'Настройка изменилась. Запросите новый предпросмотр.';
+        await load().catch(() => {});
+      } else {
+        if ([400, 401, 403, 404].includes(error.status)) pending = null;
+        notice.textContent = error.message;
+      }
+    } finally {
+      selection.disabled = confirm.disabled = false;
+      render();
+    }
+  }
+  function prepare(restore) {
+    const model = selected();
+    if (!model) return;
+    pending = null;
+    const visibility = restore ? model.previous_visibility : (model.visibility === 'VISIBLE' ? 'HIDDEN' : 'VISIBLE');
+    const keys = {provider: model.provider, model_id: model.model_id, operation: model.operation, visibility};
+    if (restore) keys.rollback_of = model.version;
+    return action(async () => {
+      notice.textContent = 'Проверяем настройку…';
+      const result = await send('preview', keys);
+      if (!current()) return;
+      pending = {...keys, expected_version: result.version, request_id: crypto.randomUUID()};
+      notice.textContent = result.title + ' · ' + display(result.visibility) + ' → ' +
+        display(result.desired_visibility);
+    });
+  }
+  preview.onclick = () => { void prepare(false); };
+  rollback.onclick = () => { void prepare(true); };
+  confirm.onclick = () => {
+    if (!pending) return;
+    void action(async () => {
+      const result = await send('confirm', pending);
+      pending = null;
+      if (current()) {
+        notice.textContent = result.title + ' · ' + display(result.visibility) + '. Изменение сохранено.';
+      }
+      await Promise.all([current() && load(), refreshCatalogue()]);
+    });
+  };
+  form.onsubmit = event => event.preventDefault();
+  form.append(title, selection, preview, rollback, confirm, notice);
+  container.append(form);
+  render();
+  void load().catch(error => {
+    if (current()) notice.textContent = error.message;
+  });
+}
+
+function appendFixtureTariff(container, current) {
+  const path = '/api/v1/admin/flux-tariff';
+  const panel = document.createElement('section');
+  panel.className = 'fixture-tariff';
+  const title = document.createElement('h2');
+  title.textContent = 'Тестовый тариф FLUX Schnell';
+  const summary = document.createElement('p');
+  const audit = document.createElement('p');
+  const notice = document.createElement('p');
+  notice.setAttribute('role', 'status');
+  const preview = document.createElement('button');
+  const approve = document.createElement('button');
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Отменить предпросмотр';
+  panel.append(title, summary, audit, preview, approve, cancel, notice);
+  container.append(panel);
+
+  let state;
+  let pending;
+  let busy = false;
+  const send = async (suffix, value) => (await request(path + '/' + suffix, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(value),
+  })).json();
+  const render = () => {
+    const rollback = state?.amount === 3;
+    preview.textContent = rollback ? 'Предпросмотр отката' : 'Предпросмотр публикации';
+    approve.textContent = rollback ? 'Подтвердить откат' : 'Подтвердить публикацию';
+    preview.disabled = busy || !state;
+    preview.hidden = Boolean(pending);
+    approve.hidden = cancel.hidden = !pending;
+    approve.disabled = cancel.disabled = busy;
+  };
+  function display(value) {
+    state = value;
+    summary.textContent = 'images.generate · n=1 · ' + value.amount + ' токена за запрос · версия ' + value.version;
+    if (value.audit) {
+      const event = value.audit;
+      audit.textContent = 'Аудит · версия ' + event.version + ' · ' + event.previous_amount + ' → ' +
+        event.amount + ' · оператор ' + event.actor_id + ' · ' + new Date(event.recorded_at).toLocaleString('ru-RU') +
+        (event.rollback_of ? ' · откат версии ' + event.rollback_of : '');
+    } else {
+      audit.textContent = 'Публикаций пока нет.';
+    }
+  }
+  async function load() {
+    const value = await (await request(path)).json();
+    if (current()) display(value);
+  }
+  async function action(run) {
+    if (!current() || busy) return;
+    busy = true;
+    render();
+    try {
+      await run();
+    } catch (error) {
+      if (!current()) return;
+      if (error.status === 409) {
+        state = pending = null;
+        notice.textContent = 'Версия или состояние тарифа изменились. Откройте новый предпросмотр.';
+        await load().catch(() => {});
+      } else if (error.status === 401 || error.status === 403) {
+        state = pending = null;
+        summary.textContent = audit.textContent = '';
+        notice.textContent = 'Тестовый тариф доступен только владельцу стенда.';
+      } else {
+        notice.textContent = error.message;
+      }
+    } finally {
+      busy = false;
+      render();
+    }
+  }
+  preview.onclick = () => {
+    void action(async () => {
+      const value = state.amount === 2 ? {amount: 3} : {amount: 2, rollback_of: state.version};
+      const draft = await send('preview', value);
+      if (!current()) return;
+      pending = {...value, expected_version: draft.version, request_id: crypto.randomUUID()};
+      notice.textContent = 'Предпросмотр. Базовая цена ' + draft.amount + ' → ' + draft.desired_amount +
+        ' токена за запрос. Итог с действующей наценкой ' + draft.sale_amount + ' → ' +
+        draft.desired_sale_amount + ' токена за запрос.';
+    });
+  };
+  approve.onclick = () => {
+    void action(async () => {
+      const result = await send('confirm', pending);
+      if (!current()) return;
+      notice.textContent = pending.rollback_of ? 'Тариф восстановлен.' : 'Тариф опубликован.';
+      pending = null;
+      display(result);
+    });
+  };
+  cancel.onclick = () => {
+    pending = null;
+    notice.textContent = '';
+    render();
+  };
+  render();
+  void action(async () => {
+    try {
+      await load();
+    } catch (error) {
+      if (current() && error.status === 403) panel.remove();
+      else throw error;
+    }
+  });
+}
+
+let adminRequest = 0;
+const operationsFields = {
+  registered_users: 'Пользователи',
+  legacy_queued_jobs: 'Задания в старой очереди',
+  quoted_pending_tasks: 'Задания с расчётом, ожидающие запуска',
+  legacy_running_or_uncertain: 'Запущенные или неопределённые задания в старой очереди',
+  quoted_running_or_uncertain: 'Запущенные или неопределённые задания с расчётом',
+  live_reserved_tokens: 'Токены в резерве',
+  live_payment_debt_tokens: 'Платёжный долг, токены',
+  referral_debt_tokens: 'Реферальный долг, токены',
+  referral_payment_review_cases: 'Реферальные платежи на сверке',
+};
+const operationsSections = [
+  ['tasks_by_period_and_status', 'Задания по дням', {local_day: 'Дата', source: 'Очередь', status: 'Статус', task_count: 'Заданий'}],
+  ['tasks_by_provider_and_model', 'Провайдеры и модели', {provider: 'Провайдер', model_id: 'Модель', source: 'Очередь', task_count: 'Заданий'}],
+  ['provider_job_statuses', 'Статусы заданий у провайдеров', {provider: 'Провайдер', model_id: 'Модель', kind: 'Тип', status: 'Статус', task_count: 'Заданий'}],
+  ['wallet_movements', 'Движения кошелька', {local_day: 'Дата', mode: 'Режим', kind: 'Тип', operation_count: 'Операций',
+    available_delta: 'Изменение баланса, токены', reserved_delta: 'Изменение резерва, токены'}],
+  ['payments', 'Платежи', {local_day: 'Дата', provider: 'Провайдер', currency: 'Валюта', status: 'Статус',
+    payment_count: 'Платежей', order_amount: 'Сумма'}],
+  ['reconciliation_queue', 'Очередь сверки', {source: 'Источник', provider: 'Провайдер', operation: 'Операция', status: 'Статус', case_count: 'Случаев'}],
+  ['provider_cost_evidence', 'Подтверждённая себестоимость', {provider: 'Провайдер', unit: 'Единица', known_count: 'Подтверждено',
+    unknown_count: 'Неизвестно', confirmed_unbilled_count: 'Без списания', amount: 'Сумма'}],
+];
+
+function appendOperationsReport(report, data) {
+  const snapshot = document.createElement('ul');
+  for (const [key, label] of Object.entries(operationsFields)) {
+    snapshot.append(listItem(label + ': ' + data.current_state[key]));
+  }
+  const health = document.createElement('p');
+  health.textContent = 'Текущая доступность провайдеров: ' +
+    (data.current_state.provider_health === 'NOT_PROVEN' ? 'не проверена' : data.current_state.provider_health);
+  const cost = document.createElement('p');
+  const coverage = data.provider_cost_coverage;
+  cost.textContent = 'Без подтверждения стоимости или списания: ' +
+    coverage.without_cost_or_bill_evidence + ' из ' + coverage.accepted_task_count + ' принятых заданий.';
+  const alerts = document.createElement('p');
+  const queue = data.reconciliation_queue;
+  const cases = queue.groups.reduce((sum, item) => sum + item.case_count, 0);
+  alerts.textContent = 'Случаев на сверке за период: ' + (queue.truncated ? 'не менее ' : '') + cases + '.';
+  report.append(snapshot, health, cost, alerts);
+
+  for (const [key, label, columns] of operationsSections) {
+    const section = data[key];
+    const details = document.createElement('details');
+    const title = document.createElement('summary');
+    title.textContent = label;
+    details.append(title);
+    const rows = document.createElement('ul');
+    rows.className = 'cards';
+    for (const row of section.groups) {
+      rows.append(listItem(Object.entries(columns).map(([field, caption]) =>
+        caption + ': ' + (row[field] ?? '—')).join(' · ')));
+    }
+    if (!section.groups.length) rows.append(listItem('Нет данных за период.'));
+    if (section.truncated) rows.append(listItem('Показано групп: ' + section.groups.length + ' из ' + section.group_count + '.'));
+    details.append(rows);
+    report.append(details);
+  }
+}
+
+const operatorSections = {
+  users: 'Пользователи', jobs: 'Задания', queue: 'Очередь', models: 'Модели',
+  providers: 'Провайдеры', payments: 'Платежи', wallets: 'Кошельки',
+  reconciliation: 'Финансовая сверка', incidents: 'Инциденты',
+};
+const operatorFields = {
+  id: 'Идентификатор', user_id: 'Аккаунт', job_id: 'Задание', model_id: 'Модель',
+  title: 'Название', blocked: 'Заблокирован', status: 'Статус', operation: 'Операция',
+  provider: 'Провайдер', created_at: 'Создано', completed_at: 'Завершено', next_check: 'Следующая проверка',
+  settlement: 'Расчёт по заданию', overdue: 'Просрочено', visibility: 'Видимость',
+  visibility_version: 'Версия видимости', catalogue_adapter: 'Адаптер каталога',
+  execution_adapter: 'Адаптер запуска', manifest_status: 'Манифест', health: 'Доступность',
+  currency: 'Валюта', amount: 'Сумма в минимальных единицах', credits: 'Токены',
+  topup_state: 'Состояние пополнения', returned_minor: 'Возвращено в минимальных единицах',
+  returned_tokens: 'Возвращено токенов', referral_review: 'Реферальная сверка',
+  mode: 'Режим', available: 'Доступно', reserved: 'В резерве', payment_debt: 'Платёжный долг',
+  referral_debt: 'Реферальный долг', kind: 'Тип', check: 'Проверка', components: 'Состав обязательств',
+  capture_id: 'Списание', payment_id: 'Платёж', ledger_id: 'Запись ledger', reason: 'Причина',
+  actual: 'Фактически', expected: 'Ожидалось', unsettled_jobs: 'Задания', refunding_payments: 'Возвраты',
+  task_ledger: 'Резервы заданий', affected_funding: 'Возможное связанное финансирование',
+  payment_state: 'Состояние платежа', affected_funding_basis: 'Основание оценки',
+  eligible_paid_total: 'Допустимое PAID финансирование', original_reward: 'Исходная награда',
+  recorded_reversal: 'Подтверждённое сторно', unresolved_reward_amount_status: 'Статус оставшейся суммы',
+};
+
+function appendOperatorObjects(container, current) {
+  const panel = document.createElement('section');
+  const title = document.createElement('h2');
+  title.textContent = 'Операторские разделы';
+  const sections = document.createElement('select');
+  sections.setAttribute('aria-label', 'Операторский раздел');
+  for (const [value, label] of Object.entries(operatorSections)) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    sections.append(option);
+  }
+  const items = document.createElement('ul');
+  items.className = 'cards';
+  const detail = document.createElement('ul');
+  detail.className = 'cards';
+  detail.setAttribute('aria-label', 'Сведения об объекте');
+  const notice = document.createElement('p');
+  notice.setAttribute('role', 'status');
+  const previous = document.createElement('button');
+  previous.textContent = 'Предыдущая страница';
+  const next = document.createElement('button');
+  next.textContent = 'Следующая страница';
+  previous.disabled = next.disabled = true;
+  panel.append(title, sections, notice, items, previous, next, detail);
+  container.append(panel);
+
+  const pageSize = 10;
+  let offset = 0;
+  let generation = 0;
+  const path = section => '/api/v1/admin/objects/' + encodeURIComponent(section);
+  const valueText = value => {
+    if (value === 'NOT_PROVEN') return 'Не подтверждено';
+    if (typeof value === 'boolean') return value ? 'Да' : 'Нет';
+    if (value && typeof value === 'object') return Object.entries(value).map(([key, value]) =>
+      (operatorFields[key] ?? key) + ': ' + valueText(value)).join(' · ');
+    return value ?? '—';
+  };
+  function displayError(error) {
+    if (error.status === 401 || error.status === 403) {
+      items.replaceChildren();
+      detail.replaceChildren();
+      previous.disabled = next.disabled = true;
+      notice.textContent = 'Доступ к операторским разделам закрыт.';
+    } else {
+      notice.textContent = error.status === 404 ? 'Объект больше недоступен.' : 'Не удалось загрузить данные.';
+    }
+  }
+  async function selectObject(section, id) {
+    const revision = ++generation;
+    detail.replaceChildren();
+    notice.textContent = 'Загружаем сведения…';
+    try {
+      const response = await request(path(section) + '?' + new URLSearchParams({id}));
+      const entry = await response.json();
+      if (!current() || revision !== generation) return;
+      const fields = Object.entries(entry).filter(([key, value]) => key in operatorFields && value !== null);
+      detail.replaceChildren(...fields.map(([key, value]) => listItem(operatorFields[key] + ': ' + valueText(value))));
+      notice.textContent = 'Сведения загружены.';
+    } catch (error) {
+      if (current() && revision === generation) displayError(error);
+    }
+  }
+  async function load() {
+    const revision = ++generation;
+    const section = sections.value || 'users';
+    detail.replaceChildren();
+    items.replaceChildren();
+    previous.disabled = next.disabled = true;
+    notice.textContent = 'Загрузка…';
+    try {
+      const response = await request(path(section) + '?' + new URLSearchParams({limit: pageSize, offset}));
+      const data = await response.json();
+      if (!current() || revision !== generation) return;
+      for (const object of data.items) {
+        const item = document.createElement('li');
+        const choose = document.createElement('button');
+        const label = object.title ?? object.model_id ?? object.reason ?? object.check ?? object.kind ??
+          object.provider ?? object.user_id?.slice(0, 8) ?? object.id.slice(0, 8);
+        const state = object.status ?? object.visibility ?? object.mode;
+        choose.textContent = label + (state ? ' · ' + state : '');
+        choose.onclick = () => { void selectObject(section, object.id); };
+        item.append(choose);
+        items.append(item);
+      }
+      notice.textContent = data.truncated ? 'Показаны первые случаи каждой проверки.' :
+        (data.items.length ? '' : 'Записей пока нет.');
+      previous.disabled = offset === 0;
+      next.disabled = !data.has_more;
+    } catch (error) {
+      if (current() && revision === generation) {
+        previous.disabled = offset === 0;
+        displayError(error);
+      }
+    }
+  }
+  sections.onchange = () => { offset = 0; void load(); };
+  previous.onclick = () => { offset = Math.max(0, offset - pageSize); void load(); };
+  next.onclick = () => { offset += pageSize; void load(); };
+  void load();
+}
+
+async function showAdministration() {
+  if (!token) return;
+  const id = ++adminRequest;
+  const session = token;
+  const current = () => id === adminRequest && token === session && activePanel === 'administration';
+  const notice = document.querySelector('#admin-status');
+  const report = document.querySelector('#admin-report');
+  report.replaceChildren();
+  notice.textContent = 'Проверяем полномочия…';
+  let canReply = false;
+  let canSetVisibility = false;
+  let canReadOperations = false;
+  let canPublishFixture = false;
+  try {
+    const auth = await request('/api/v1/admin/capabilities');
+    const authority = await auth.json();
+    if (!current()) return;
+    canReply = authority.capabilities.includes('support.operate');
+    if (canReply) appendOperatorReply(report, current);
+    canSetVisibility = authority.capabilities.includes('settings.visibility');
+    if (canSetVisibility) appendModelVisibility(report, current);
+    canPublishFixture = authority.capabilities.includes('pricing.publish_fixture');
+    if (canPublishFixture) appendFixtureTariff(report, current);
+    canReadOperations = authority.capabilities.includes('operations.read');
+    if (!canReadOperations) {
+      notice.textContent = canSetVisibility ? 'Настройки каталога' : canReply ? 'Поддержка' : 'Нет доступа к административному обзору.';
+      return;
+    }
+    appendOperatorObjects(report, current);
+    notice.textContent = 'Загружаем обзор за 7 дней…';
+    const end = new Date();
+    const start = new Date(end.getTime() - 7 * 86400000);
+    const query = new URLSearchParams({start: start.toISOString(), end: end.toISOString(), limit: '30'});
+    const response = await request('/api/v1/admin/operations?' + query);
+    const data = await response.json();
+    if (!current()) return;
+    appendOperationsReport(report, data);
+    notice.textContent = 'Обзор за 7 дней · ' + authority.role;
+  } catch (error) {
+    if (!current()) return;
+    if ((!canReply && !canSetVisibility && !canReadOperations && !canPublishFixture) || error.status === 401 || error.status === 403) {
+      report.replaceChildren();
+    }
+    notice.textContent = 'Обзор недоступен. ' + error.message;
+  }
+}
+
+document.querySelector('#admin-reload').onclick = () => { void showAdministration(); };
+
+const ownerSupportStatus = document.querySelector('#support-status');
+const ownerSupportDraft = document.querySelector('#owner-support-text');
+const ownerSupportList = document.querySelector('#owner-support-list');
+const ownerSupportHistory = document.querySelector('#owner-support-history');
+let ownerSupportRevision = 0;
+let pendingSupport;
+
+async function showSupport(ticket) {
+  const revision = ++ownerSupportRevision;
+  const session = token;
+  const current = () => revision === ownerSupportRevision && token === session && activePanel === 'support';
+  ownerSupportStatus.textContent = 'Загрузка…';
+  ownerSupportHistory.replaceChildren();
+  try {
+    const path = '/api/v1/support' + (ticket ? '?ticket_id=' + encodeURIComponent(ticket) : '');
+    const data = await (await request(path)).json();
+    if (!current()) return;
+    if (ticket) {
+      ownerSupportHistory.replaceChildren(...data.messages.map(message =>
+        listItem((message.author === 'operator' ? 'Поддержка: ' : 'Вы: ') + message.body)));
+      if (data.has_more) ownerSupportHistory.append(listItem('Показаны первые сообщения.'));
+    } else {
+      ownerSupportList.replaceChildren(...data.tickets.map(entry => {
+        const row = document.createElement('li');
+        const open = document.createElement('button');
+        open.textContent = new Date(entry.created_at).toLocaleString('ru-RU') +
+          (entry.status === 'answered' ? ' · Есть ответ' : ' · Ожидает ответа');
+        open.onclick = () => { void showSupport(entry.id); };
+        row.append(open);
+        return row;
+      }));
+      if (data.has_more) ownerSupportList.append(listItem('Показаны последние обращения.'));
+    }
+    ownerSupportStatus.textContent = ticket || data.tickets.length ? '' : 'Обращений пока нет.';
+  } catch (error) {
+    if (current()) ownerSupportStatus.textContent = error.message;
+  }
+}
+
+document.querySelector('#owner-support-refresh').onclick = () => { if (token) void showSupport(); };
+const ownerSupportCreate = document.querySelector('#owner-support-create');
+ownerSupportCreate.onclick = async () => {
+  if (!token || ownerSupportCreate.disabled) return;
+  const text = ownerSupportDraft.value.trim();
+  if (!text) {
+    ownerSupportStatus.textContent = 'Введите текст обращения.';
+    return;
+  }
+  ownerSupportCreate.disabled = true;
+  ownerSupportDraft.disabled = true;
+  const session = token;
+  try {
+    if (pendingSupport?.text !== text || pendingSupport.session !== session) {
+      pendingSupport = {text, session, id: crypto.randomUUID()};
+    }
+    await request('/api/v1/support', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, request_id: pendingSupport.id}),
+    });
+    pendingSupport = null;
+    if (token !== session) return;
+    ownerSupportDraft.value = '';
+    if (activePanel === 'support') await showSupport();
+  } catch (error) {
+    if (token === session && activePanel === 'support') ownerSupportStatus.textContent = error.message;
+  } finally {
+    ownerSupportCreate.disabled = false;
+    ownerSupportDraft.disabled = false;
+  }
+};
+
 function navigate(panel) {
   cardRevision++;
+  if (panel !== 'library') closePreview();
   history.replaceState({ ...history.state, jobId: null }, '');
   overview.hidden = false;
   card.hidden = true;
   selectPanel(panel);
+  if (panel === 'support' && token) void showSupport();
+  if (panel === 'profile' && token) void showProfile();
+  if (panel === 'referral' && token) void showReferral();
+  if (panel === 'administration' && token) void showAdministration();
   if (panel === 'balance' && token) showBalance().catch(showError);
-  if (panel === 'library' && token) Promise.all([showJobs(), showWorks(0)]).catch(showError);
+  if (panel === 'library' && token) return Promise.all([showJobs(), showWorks(0)]).catch(showError);
 }
 
 for (const tab of tabs) tab.onclick = () => navigate(tab.dataset.panel);
@@ -419,6 +1352,17 @@ document.querySelector('#previous').onclick = () => showWorks(page - 1).catch(sh
 document.querySelector('#next').onclick = () => showWorks(page + 1).catch(showError);
 const retryStartup = document.querySelector('#retry-startup');
 retryStartup.onclick = () => location.reload();
+consentAccept.onclick = async () => {
+  if (!presentedTerms || consentAccept.disabled) return;
+  consentAccept.disabled = true;
+  try {
+    await start(presentedTerms);
+  } catch (error) {
+    showError(error);
+  } finally {
+    consentAccept.disabled = false;
+  }
+};
 start().catch(error => {
   showError(error);
   // Reload resumes the signed-in session and fetches the screens again.

@@ -62,18 +62,26 @@ class Service:
         from .consent import is_current
         return await is_current(c,u)
 
-    async def accept(self,u,presented_version=None):
+    async def accept(self,u,presented_version=None,*,connection=None):
         from . import consent
         # Existing Telegram callback has no version; never carry that fallback to a new version.
         if presented_version is None and consent.CURRENT_VERSION == consent.LEGACY_VERSION:
             presented_version = consent.LEGACY_VERSION
         if presented_version != consent.CURRENT_VERSION:
             raise ConsentRequired('Условия изменились. Откройте их заново.')
-        async with self.pool.acquire() as c,c.transaction():
-            await self.authorize(c,u,False)
-            await c.execute("UPDATE identities SET terms_version=$2,accepted_at=now() WHERE user_id=$1",u,presented_version)
-            if self.cfg.balance_wallet_mode=='demo':
-                await self.movement(c,u,'demo',f'demo:{u}','demo_grant',10000,0)
+        if connection is None:
+            async with self.pool.acquire() as c,c.transaction():
+                await self._store_consent(c,u,presented_version)
+            return
+        if not connection.is_in_transaction():
+            raise RuntimeError('Consent must be saved in a transaction')
+        await self._store_consent(connection,u,presented_version)
+
+    async def _store_consent(self,connection,u,presented_version):
+        await self.authorize(connection,u,False)
+        await connection.execute("UPDATE identities SET terms_version=$2,accepted_at=now() WHERE user_id=$1",u,presented_version)
+        if self.cfg.balance_wallet_mode=='demo':
+            await self.movement(connection,u,'demo',f'demo:{u}','demo_grant',10000,0)
 
     async def rate(self,u,*,navigation=False):
         column,limit=('navigation_n',60) if navigation else ('n',10)
@@ -151,7 +159,7 @@ class Service:
             await c.execute('INSERT INTO quotes(id,user_id,mode,text_content,voice,speed,price,cost_bound,tariff) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',q,u,mode,text,voice,Decimal(str(speed)),price,cost,'retail-v1')
         return q,price
 
-    async def confirm(self,u,q):
+    async def confirm(self,u,q,*,telegram_delivery=False):
         q=uid(q)
         async with self.pool.acquire() as c,c.transaction():
             await self.authorize(c,u)
@@ -181,6 +189,8 @@ class Service:
             await c.execute('UPDATE budgets SET used=used+$2 WHERE day=$1',day,r['cost_bound'])
             j=uuid.uuid4()
             await c.execute("INSERT INTO jobs(id,user_id,quote_id,mode,price,cost_bound,budget_day,status) VALUES($1,$2,$3,$4,$5,$6,$7,'queued')",j,u,q,r['mode'],r['price'],r['cost_bound'],day)
+            if telegram_delivery:
+                await c.execute('UPDATE jobs SET telegram_delivery=true WHERE id=$1', j)
             await self.movement(c,u,r['mode'],f'reserve:{j}','reserve',-r['price'],r['price'],j)
             return j
 
@@ -230,9 +240,11 @@ class Service:
                     FROM jobs j LEFT JOIN files f ON f.job_id=j.id
                     WHERE j.user_id=$1 AND ($3::text IS NULL OR j.model_id=$3)
                     UNION ALL
-                    SELECT id::text,'succeeded',NULL,created_at,'image',model_id,true
-                    FROM image_works WHERE user_id=$1 AND expires_at>now()
-                    AND ($3::text IS NULL OR model_id=$3)
+                    SELECT w.id::text,'succeeded',(q.price->>'total')::numeric,w.created_at,'image',w.model_id,true
+                    FROM image_works w LEFT JOIN task_price_quotes q
+                         ON q.update_id=w.update_id AND q.user_id=w.user_id AND q.state='accepted'
+                    WHERE w.user_id=$1 AND w.expires_at>now()
+                    AND ($3::text IS NULL OR w.model_id=$3)
                     UNION ALL
                     SELECT 'image-job:' || j.update_id::text,
                            CASE j.status WHEN 'pending' THEN 'queued' WHEN 'submitting' THEN 'dispatching'
@@ -287,7 +299,15 @@ class Service:
                 ) works ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $2
                 """,u,max(0,offset),model_id,music_providers if music_providers is not None else ['clodex'] if include_music else [],include_pending_tasks)
             from .library import project_history
-            return [project_history(row) for row in rows]
+            result = [project_history(row) for row in rows]
+            ids = [row['id'] for row in result if row['kind'] == 'image' and row['status'] == 'succeeded']
+            prompts = await c.fetch(
+                'SELECT id,prompt FROM image_works WHERE user_id=$1 AND id=ANY($2::uuid[]) AND expires_at>now()',
+                u, ids) if ids else []
+            by_id = {row['id']: row['prompt'] for row in prompts}
+            for row in result:
+                row['prompt'] = by_id.get(row['id'])
+            return result
 
     async def save_image_work(self,u,update_id,model_id,prompt,result):
         async with self.pool.acquire() as c:
@@ -307,8 +327,11 @@ class Service:
         async with self.pool.acquire() as c:
             await self.authorize(c,u)
             row=await c.fetchrow("""
-                SELECT prompt,image,filename FROM image_works
-                WHERE id=$1 AND user_id=$2 AND expires_at>now()
+                SELECT w.prompt,w.image,w.filename,w.model_id,q.request,
+                       q.price->>'total' AS price
+                FROM image_works w LEFT JOIN task_price_quotes q
+                  ON q.update_id=w.update_id AND q.user_id=w.user_id AND q.state='accepted'
+                WHERE w.id=$1 AND w.user_id=$2 AND w.expires_at>now()
                 """,uid(j),u)
             if not row:raise Rejected('Файл недоступен или срок хранения истёк.')
             return row
@@ -444,5 +467,5 @@ class Service:
 
     async def reconciliation_report(self,limit=100):
         from .reconciliation import read_report
-        async with self.pool.acquire() as c,c.transaction(readonly=True):
+        async with self.pool.acquire() as c,c.transaction(isolation='repeatable_read', readonly=True):
             return await read_report(c,limit)

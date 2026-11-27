@@ -1,14 +1,18 @@
 import argparse,asyncio,json,os,sys
+from datetime import datetime
 from .config import Config
 from .db import connect,migrate
 from .core import Service,uid,Rejected
 
-async def main():
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['migrate','bot','worker','health','metrics','reconcile','reconcile-report','release-uncertain','reconcile-stars','platega-webhook','miniapp','catalog-refresh','anymodel-catalog-refresh','doctor','speech-pilot-credit','voice-candidates'])
+async def main(config_override=None):
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['migrate','bot','worker','health','metrics','reconcile','reconcile-report','operations-report','release-uncertain','reconcile-stars','platega-webhook','miniapp','catalog-refresh','anymodel-catalog-refresh','doctor','speech-pilot-credit','voice-candidates'])
     p.add_argument('--component',default='worker');p.add_argument('--job');p.add_argument('--reason');p.add_argument('--telegram-id',type=int);p.add_argument('--credits',type=int,default=300)
-    p.add_argument('--limit',type=int,default=100,help='Maximum reconciliation report details (1–1000)')
+    p.add_argument('--limit',type=int,default=100,help='Maximum rows/groups (reconciliation: 1–1000; operations: 1–200)')
+    p.add_argument('--start',help='Inclusive ISO 8601 instant with UTC offset for operations-report')
+    p.add_argument('--end',help='Exclusive ISO 8601 instant with UTC offset for operations-report')
+    p.add_argument('--timezone',default='UTC',help='IANA timezone used only for daily grouping')
     p.add_argument('--env-file',help='Explicit UTF-8 KEY=value file; exported environment takes priority')
-    a=p.parse_args();cfg=Config.env(a.env_file)
+    a=p.parse_args();cfg=Config.env(a.env_file) if config_override is None else config_override
     if a.command=='anymodel-catalog-refresh':
         from .anymodel import refresh_anymodel
         if not cfg.anymodel_test_enabled:
@@ -61,6 +65,13 @@ async def main():
             print(json.dumps({'wallet_mismatches':await Service(pool,cfg).reconcile()}));return
         if a.command=='reconcile-report':
             print(json.dumps(await Service(pool,cfg).reconciliation_report(a.limit)));return
+        if a.command=='operations-report':
+            if not a.start or not a.end:
+                raise ValueError('--start and --end are required for operations-report')
+            from .operations_read_model import read_operations_report
+            report=await read_operations_report(pool,datetime.fromisoformat(a.start),
+                datetime.fromisoformat(a.end),timezone_name=a.timezone,limit=a.limit)
+            print(json.dumps(report,ensure_ascii=False,default=str));return
         if a.command=='metrics':
             async with pool.acquire() as c:
                 rows=await c.fetch('SELECT status,count(*) n FROM jobs GROUP BY status')
@@ -138,3 +149,4 @@ if __name__=='__main__':
         # Never expose DB DSN, credentials or provider response contents in default logs.
         print(json.dumps({'event':'process_stopped','error_type':type(e).__name__}),file=sys.stderr)
         sys.exit(1)
+

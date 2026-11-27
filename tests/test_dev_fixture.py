@@ -1,15 +1,21 @@
 import asyncio
+import hashlib
 import runpy
 from pathlib import Path
 
+import httpx
 import pytest
+from aiohttp import FormData
+from aiohttp.test_utils import TestClient, TestServer
 
 from elevenbot.providers import MockProvider
 from elevenbot.worker import Worker
+from scripts.dev_runtime import KEY, offline_clients
 
-fixture_environment = runpy.run_path(
+fixture_module = runpy.run_path(
     str(Path(__file__).resolve().parents[1] / "scripts" / "dev_bot.py")
-)["fixture_environment"]
+)
+fixture_environment = fixture_module["fixture_environment"]
 
 
 def test_dev_environment_is_fixture_only(monkeypatch):
@@ -28,6 +34,38 @@ def test_dev_environment_is_fixture_only(monkeypatch):
         monkeypatch.setenv("DATABASE_URL", invalid)
         with pytest.raises(SystemExit):
             fixture_environment()
+
+
+async def test_telegram_fixture_orders_updates_and_records_media():
+    fixture = fixture_module["TelegramFixture"](None, None, 9)
+    async with TestClient(TestServer(fixture.app())) as client:
+        token = fixture_module["TOKEN"]
+        update = await client.post("/fixture/updates", json={"chat": 101, "text": "/start"})
+        assert update.status == 201 and await update.json() == {"update_id": 9}
+        callback = await client.post("/fixture/updates", json={
+            "chat": 101, "callback": "home", "message_id": 1000})
+        assert callback.status == 201 and await callback.json() == {"update_id": 10}
+        polled = await client.post(f"/bot{token}/getUpdates", data={"offset": "10"})
+        event, = (await polled.json())["result"]
+        assert event["update_id"] == 10 and event["callback_query"]["message"]["message_id"] == 1000
+        assert (await client.post("/botwrong/getUpdates")).status == 404
+        video = FormData()
+        video.add_field("chat_id", "101")
+        video.add_field("video", b"fixture", filename="fixture.mp4")
+        assert (await client.post(f"/bot{token}/sendVideo", data=video)).status == 200
+        reply, = (await (await client.get("/fixture/replies?after=0")).json())["replies"]
+        assert reply["method"] == "sendvideo" and reply["chat"] == 101
+        assert reply["media_sha256"] == hashlib.sha256(b"fixture").hexdigest()
+
+
+async def test_offline_provider_has_no_external_fallback():
+    with offline_clients():
+        async with httpx.AsyncClient() as client:
+            blocked = await client.get("https://outside.invalid", headers={"Authorization": f"Bearer {KEY}"})
+            assert blocked.status_code == 403
+            speech = await client.post("https://clodex.xyz/v1/audio/speech",
+                                       headers={"Authorization": f"Bearer {KEY}"})
+            assert speech.status_code == 200 and speech.headers["Content-Type"] == "audio/mpeg"
 
 
 async def test_two_users_make_progress_with_two_workers(env):

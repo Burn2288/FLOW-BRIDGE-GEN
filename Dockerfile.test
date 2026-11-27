@@ -5,8 +5,11 @@ COPY --from=pgtools /usr/lib/postgresql/16/bin/pg_dump /usr/local/bin/pg_dump
 COPY --from=pgtools /usr/lib/postgresql/16/bin/pg_restore /usr/local/bin/pg_restore
 COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /bin/uv
 WORKDIR /app
-COPY . .
-RUN uv sync --locked && useradd --uid 10001 --create-home tester
+COPY --chown=10001:10001 . .
+RUN --mount=type=secret,id=flowbridge_ca_bundle \
+    if [ -f /run/secrets/flowbridge_ca_bundle ]; then \
+        export SSL_CERT_FILE=/run/secrets/flowbridge_ca_bundle; \
+    fi && uv sync --locked && useradd --uid 10001 --create-home tester
 USER tester
 ENV PATH=/app/.venv/bin:$PATH
 CMD ["python","-m","pytest","-q","--junitxml=/tmp/test-results.xml"]

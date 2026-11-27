@@ -1,0 +1,22 @@
+name: IM01 ML03 integration regression
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Raw image preservation, library history and finance reconciliation
+        run: >-
+          docker compose -p owner-im01-${{ github.run_id }} -f compose.test.yaml run --build --rm tests
+          sh -ec 'sh scripts/check-pg16-tools.sh && python -m pytest -q -ra -p no:cacheprovider
+          tests/test_image_validation.py tests/test_generation_finance.py tests/test_ml03_pages.py
+          tests/test_public_image_topup.py tests/test_ft020_http_image.py tests/test_library_projection.py
+          tests/test_ft030_library_integrity.py'
+      - name: Remove disposable services
+        if: always()
+        run: docker compose -p owner-im01-${{ github.run_id }} -f compose.test.yaml down --remove-orphans

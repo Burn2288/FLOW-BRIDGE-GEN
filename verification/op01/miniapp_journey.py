@@ -1,4 +1,5 @@
 """MA-01 browser journey on the running OP-01 HTTPS fixture."""
+import asyncio
 import base64
 import hashlib
 import json
@@ -55,6 +56,7 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(executable_path=chrome, args=['--ignore-certificate-errors-spki-list=' + pin])
         try:
+            await check_support_journey(browser, telegram, owner, base)
             for external, _, credits, model, content in profiles:
                 context = await browser.new_context(
                     viewport={'width': 320 if external == 101 else 1280, 'height': 800},
@@ -97,6 +99,9 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await page.keyboard.press('Enter')
                 await expect(page.locator('#catalogue')).to_be_visible()
                 await expect(page.locator('#models')).to_contain_text('MA-01 Image')
+                await page.get_by_label('Студия').select_option('video')
+                await expect(page.get_by_text('MA-01 Image', exact=False)).to_be_hidden()
+                await page.get_by_label('Студия').select_option('')
                 assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 await page.get_by_role('button', name='Баланс').click()
                 await expect(page.locator('#available')).to_have_text(str(credits))
@@ -104,6 +109,13 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                 await page.get_by_role('button', name='Мои работы').click()
                 await expect(page.locator('#works > li')).to_have_count(1)
                 await expect(page.locator('#works > li')).to_contain_text(model)
+                await page.get_by_role('button', name='Просмотр', exact=True).click()
+                preview = page.get_by_role('img', name='Результат генерации')
+                await expect(preview).to_be_visible()
+                await expect(preview).to_have_js_property('complete', True)
+                assert await preview.evaluate('image => image.naturalWidth') > 0
+                await page.get_by_role('button', name='Закрыть просмотр', exact=True).click()
+                await expect(preview).to_have_count(0)
                 async with page.expect_download() as download:
                     await page.get_by_role('button', name='Скачать').click()
                 file = await download.value
@@ -128,6 +140,8 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     replacement = await login.value
                     assert replacement.status == 200
                     assert (await replacement.json())['token'] != original_token
+                    await check_model_visibility(page, telegram, owner)
+                    await check_operator_objects(page, telegram, owner)
                 else:
                     await expect(page.get_by_role('button', name='Выбрать Veo', include_hidden=True)).to_have_count(0)
                     denied = await client.post(base + '/api/v1/quotes', headers=tester_headers,
@@ -140,12 +154,146 @@ async def check_miniapp_journey(telegram, owner, tester, base, cert, client, pen
                     await check_job_card(page, telegram.pool, tester)
                     await compare_model_cards(page, telegram, owner, tester)
                 await context.close()
+            await check_consent_journey(browser, telegram, base, client)
         finally:
             await browser.close()
 
     foreign = await client.get(f'{base}/api/v1/works/image/{work_ids[0]}', headers=tester_headers)
     assert foreign.status == 404 and 'Content-Disposition' not in foreign.headers
     assert await foreign.text() == '404: Not Found'
+
+
+async def check_support_journey(browser, telegram, operator, base):
+    from playwright.async_api import expect
+
+    async def launch(context, subject):
+        launch_data = signed(telegram.cfg.token, subject, query_id='sl02-browser')
+
+        async def sdk(route):
+            await route.fulfill(content_type='application/javascript', body=
+                'window.Telegram={WebApp:{ready(){},initData:' + json.dumps(launch_data) + '}};')
+
+        await context.route('https://telegram.org/js/telegram-web-app.js', sdk)
+        page = await context.new_page()
+        await page.goto(base)
+        await expect(page.locator('#catalogue')).to_be_visible()
+        return page
+
+    owner_context = await browser.new_context(viewport={'width': 320, 'height': 800})
+    operator_context = await browser.new_context()
+    owner_page = await launch(owner_context, 101)
+    operator_page = await launch(operator_context, 100)
+    try:
+        await owner_page.get_by_role('button', name='Поддержка', exact=True).click()
+        for body in ('Не получается скачать работу', 'Вопрос о настройках'):
+            await owner_page.get_by_label('Текст обращения').fill(body)
+            await owner_page.get_by_role('button', name='Отправить', exact=True).click()
+            await expect(owner_page.get_by_label('Текст обращения')).to_have_value('')
+        await expect(owner_page.locator('#owner-support-list button')).to_have_count(2)
+        assert await owner_page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+
+        await operator_page.get_by_role('button', name='Поддержка', exact=True).click()
+        await expect(operator_page.locator('#support-status')).to_have_text('Обращений пока нет.')
+        await telegram.pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,'OWNER_ADMIN','synthetic browser grant')""", operator)
+        await operator_page.get_by_role('button', name='Администрирование', exact=True).click()
+        await expect(operator_page.locator('#admin-status')).to_have_text('Обзор за 7 дней · OWNER_ADMIN')
+        await expect(operator_page.get_by_text('Пользователи: 2', exact=True)).to_be_visible()
+        await expect(operator_page.get_by_text('Текущая доступность провайдеров: не проверена')).to_be_visible()
+        await expect(operator_page.get_by_text('Случаев на сверке за период: 0.')).to_be_visible()
+        await operator_page.locator('summary:text-is("Платежи")').click()
+        await expect(operator_page.locator('details[open]')).to_contain_text('Нет данных за период.')
+
+        select = operator_page.get_by_label('Обращение', exact=True)
+        await expect(select.locator('option')).to_have_count(2)
+        await expect(operator_page.get_by_text('Пользователь: Вопрос о настройках', exact=True)).to_be_visible()
+        await select.select_option(index=1)
+        await expect(operator_page.get_by_text('Пользователь: Не получается скачать работу', exact=True)).to_be_visible()
+        await operator_page.get_by_label('Ответ оператора').fill('Уточните название работы.')
+        await operator_page.get_by_role('button', name='Сохранить ответ').click()
+        await expect(operator_page.get_by_text('Оператор: Уточните название работы.', exact=True)).to_be_visible()
+        await expect(select.locator('option:checked')).to_contain_text('Есть ответ')
+
+        await owner_page.get_by_role('button', name='Обновить обращения').click()
+        await owner_page.get_by_role('button', name='Есть ответ').click()
+        history = owner_page.get_by_role('list', name='Переписка')
+        await expect(history).to_contain_text('Вы: Не получается скачать работу')
+        await expect(history).to_contain_text('Поддержка: Уточните название работы.')
+
+        await telegram.pool.execute("""INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+            VALUES($1,$1,NULL,'synthetic browser revocation')""", operator)
+        await operator_page.get_by_label('Ответ оператора').fill('Этот ответ должен быть отклонён.')
+        async with operator_page.expect_response(lambda r: r.url.endswith('/api/v1/admin/support/reply')) as denied:
+            await operator_page.get_by_role('button', name='Сохранить ответ').click()
+        assert (await denied.value).status == 403
+        await expect(operator_page.get_by_role('button', name='Сохранить ответ')).to_have_count(0)
+        assert await telegram.pool.fetchval('SELECT count(*) FROM support_operator_replies') == 1
+        await operator_page.get_by_role('button', name='Баланс', exact=True).click()
+        await expect(operator_page.locator('#available')).to_have_text('1200')
+        print('MINIAPP_SL02=pass; POSTGRES_RBAC=pass; OWNER_ISOLATION=pass; ADMIN_OPERATIONS=pass')
+    finally:
+        await operator_context.close()
+        await owner_context.close()
+
+
+async def check_consent_journey(browser, telegram, base, client):
+    from playwright.async_api import expect
+
+    subject = 103
+    await telegram.handle(event(6000, '/start', chat=subject))
+    user = await telegram.pool.fetchval(
+        "SELECT user_id FROM identities WHERE platform='telegram' AND external_id=$1", subject
+    )
+    assert user is not None
+    await telegram.handle(event(6001, '/miniapp', chat=subject))
+    launch_url = telegram.bot.sent[-1][1].inline_keyboard[0][0].web_app.url
+    assert launch_url == base + '/'
+    session_url = base + '/api/v1/session'
+    launch_data = signed(telegram.cfg.token, subject, query_id='sl03-consent')
+    docs = telegram.svc.get_consent_documents()
+    stale = await client.post(session_url, json={'initData': launch_data, 'terms_version': 'previous'})
+    assert stale.status == 428 and await stale.json() == docs
+    async with telegram.pool.acquire() as conn:
+        assert not await telegram.svc.has_current_consent(conn, user)
+
+    context = await browser.new_context(viewport={'width': 320, 'height': 800})
+    try:
+        async def sdk(route):
+            await route.fulfill(content_type='application/javascript', body=
+                'window.Telegram={WebApp:{ready(){},initData:' + json.dumps(launch_data) + '}};')
+
+        await context.route('https://telegram.org/js/telegram-web-app.js', sdk)
+        page = await context.new_page()
+        async with page.expect_response(session_url) as pending:
+            await page.goto(launch_url)
+        assert (await pending.value).status == 428
+        await expect(page.get_by_role('heading', name='Условия доступа')).to_be_visible()
+        await expect(page.locator('nav')).to_be_hidden()
+        await page.get_by_text('Условия использования', exact=True).click()
+        await expect(page.locator('#consent details[open] pre')).to_have_text(docs['terms'].strip())
+        await page.get_by_text('Обработка данных', exact=True).click()
+        await expect(page.locator('#consent details[open] pre').last).to_have_text(docs['privacy'].strip())
+        async with page.expect_response(session_url) as accepted:
+            await page.get_by_role('button', name='Принять условия и продолжить').click()
+        assert (await accepted.value).status == 200
+        await expect(page.get_by_role('heading', name='Каталог')).to_be_visible()
+        await page.get_by_role('button', name='Профиль', exact=True).click()
+        await expect(page.locator('#profile-status')).to_have_text('Telegram ID: 103 · Условия приняты')
+        await expect(page.locator('#profile-documents')).to_contain_text('Версия документов ' + docs['version'])
+        assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+
+        launch_data = signed(telegram.cfg.token, subject, query_id='sl03-returning')
+        async with page.expect_response(session_url) as reopened:
+            await page.reload()
+        assert (await reopened.value).status == 200
+        await expect(page.get_by_role('button', name='Принять условия и продолжить')).to_be_hidden()
+        async with telegram.pool.acquire() as conn:
+            await telegram.svc.authorize(conn, user)
+        await telegram.handle(event(6002, '/start', chat=subject))
+        assert await telegram.svc.welcome_message(subject) is not None
+        print('MINIAPP_SL03=pass; SHARED_CONSENT=pass; LEGAL_VERSION=pass; PROFILE=pass')
+    finally:
+        await context.close()
 
 
 async def check_flux_confirmation(page, pool, owner, pending_jobs):
@@ -301,6 +449,7 @@ async def compare_model_cards(page, telegram, owner, tester):
 
 async def check_veo_video(page, telegram, owner, pending_jobs):
     from playwright.async_api import expect
+    from elevenbot.video import MODES
 
     model = 'clodex-video/veo-3.1'
     prompt = 'Маяк на рассвете'
@@ -314,10 +463,10 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
             if request.url.path.endswith('/estimate'):
                 return httpx.Response(200, json={'success': True, 'data': {'model': model, 'cost_usd': '0.45'}})
             assert request.url.path == '/v1/videos'
-            return httpx.Response(200, json={'id': 'veo-fixture'})
-        if request.url.path == '/v1/videos/veo-fixture/content':
+            return httpx.Response(200, json={'id': 'veo-fixture-' + str(calls.count(('POST', '/v1/videos')))})
+        if request.url.path.endswith('/content'):
             return httpx.Response(200, content=mp4, headers={'Content-Type': 'video/mp4'})
-        assert request.url.path == '/v1/videos/veo-fixture'
+        assert request.url.path in ('/v1/videos/veo-fixture-1', '/v1/videos/veo-fixture-2')
         return httpx.Response(200, json={'status': 'done'})
 
     telegram.video.api.transport = httpx.MockTransport(provider)
@@ -360,12 +509,38 @@ async def check_veo_video(page, telegram, owner, pending_jobs):
     chat, upload = telegram.bot.send_video.await_args.args
     assert chat == 100 and upload.data == mp4
     assert calls.count(('POST', '/v1/videos')) == 1
-    assert calls.count(('GET', '/v1/videos/veo-fixture/content')) == 1
+    assert calls.count(('GET', '/v1/videos/veo-fixture-1/content')) == 1
     # The bot's maintenance loop settles terminal work independently of polling.
     from elevenbot.task_wallet import settle_task_tokens
     await settle_task_tokens(telegram.pool)
     await settle_task_tokens(telegram.pool)
     assert await telegram.pool.fetchval("SELECT count(*) FROM ledger WHERE task_quote_id=$1::uuid AND kind='task_capture'", job) == 1
+
+    def button(label):
+        return next(item.callback_data for row in telegram.bot.sent[-1][1].inline_keyboard
+                    for item in row if item.text == label)
+
+    await telegram.handle(event(4011, callback='slist:current:video:0'))
+    await telegram.handle(event(4012, callback=button('Veo 3.1')))
+    await telegram.handle(event(4013, callback=button(MODES['standard'][2])))
+    await telegram.handle(event(4014, prompt))
+    confirm_telegram = button('Генерировать')
+    assert '450' in telegram.bot.sent[-1][0]
+    await telegram.handle(event(4015, callback=confirm_telegram))
+    assert await telegram.video.poll_one(telegram.bot)
+    await settle_task_tokens(telegram.pool)
+    await page.get_by_role('button', name='Мои работы').click()
+    telegram_work = page.locator('#works > li').filter(has_text='Видео')
+    await expect(telegram_work).to_have_count(2)
+    async with page.expect_download() as downloaded:
+        await telegram_work.first.get_by_role('button', name='Скачать').click()
+    assert (await (await downloaded.value).path()).read_bytes() == mp4
+    assert calls.count(('POST', '/v1/videos')) == 2
+    assert calls.count(('GET', '/v1/videos/veo-fixture-2/content')) == 1
+    assert await telegram.pool.fetchval("""
+        SELECT count(*) FROM ledger JOIN task_price_quotes q ON q.id=task_quote_id
+        WHERE q.user_id=$1 AND q.operation='video' AND ledger.kind='task_capture'
+        """, owner) == 2
     return job
 
 
@@ -380,15 +555,19 @@ async def check_speech(page, telegram, owner, pending_jobs):
     def buttons():
         return {b.text: b.callback_data for row in telegram.bot.sent[-1][1].inline_keyboard for b in row}
 
-    await telegram.callback(owner, 100, 'slist:current:speech:0')
-    await telegram.callback(owner, 100, buttons()['ElevenLabs v4'])
-    launch, = [data for data in buttons().values() if data.startswith('srun:')]
-    with patch('elevenbot.providers.voice_candidates', AsyncMock(return_value={'candidates': [
-            {'id': voice, 'name': 'Голос стенда'}]})):
-        await telegram.callback(owner, 100, launch)
-    await telegram.callback(owner, 100, buttons()['Голос стенда'])
-    await telegram.handle(event(4200, prompt))
-    assert 'Оценка: 80 ' in telegram.bot.sent[-1][0], telegram.bot.sent[-1][0]
+    async def telegram_quote(update_id):
+        await telegram.callback(owner, 100, 'slist:current:speech:0')
+        await telegram.callback(owner, 100, buttons()['ElevenLabs v4'])
+        launch, = [data for data in buttons().values() if data.startswith('srun:')]
+        with patch('elevenbot.providers.voice_candidates', AsyncMock(return_value={'candidates': [
+                {'id': voice, 'name': 'Голос стенда'}]})):
+            await telegram.callback(owner, 100, launch)
+        await telegram.callback(owner, 100, buttons()['Голос стенда'])
+        await telegram.handle(event(update_id, prompt))
+        assert 'Оценка: 80 ' in telegram.bot.sent[-1][0], telegram.bot.sent[-1][0]
+        return buttons()['Генерировать']
+
+    await telegram_quote(4200)
 
     await page.get_by_role('button', name='Каталог').click()
     await page.reload()
@@ -435,6 +614,19 @@ async def check_speech(page, telegram, owner, pending_jobs):
     await telegram.handle(event(4202, callback=callback))
     (args, _), = telegram.bot.audio
     assert args[0] == 100 and args[1].data == mp3
+    telegram_confirm = await telegram_quote(4203)
+    with patch.object(httpx, 'AsyncClient', side_effect=lambda **kw: client_class(transport=httpx.MockTransport(provider), **kw)):
+        await telegram.handle(event(4204, callback=telegram_confirm))
+    assert posts == [dict(model='eleven_v4', voice=voice, input=prompt)] * 2
+    await page.get_by_role('button', name='Мои работы').click()
+    await expect(work).to_have_count(2)
+    async with page.expect_download() as downloaded:
+        await work.first.get_by_role('button', name='Скачать').click()
+    assert (await (await downloaded.value).path()).read_bytes() == mp3
+    assert await telegram.pool.fetchval("""
+        SELECT count(*) FROM ledger JOIN task_price_quotes q ON q.id=task_quote_id
+        WHERE q.user_id=$1 AND q.operation='audio.speech' AND ledger.kind='task_capture'
+        """, owner) == 2
     return job
 
 
@@ -491,6 +683,9 @@ async def check_music(page, view, owner, client, base, token):
         await confirm.click()
         work = page.locator('#works > li').filter(has_text=MODEL)
         await expect(work).to_contain_text('В очереди')
+        status_url = base + '/api/v1/jobs/' + quote['quote_id']
+        queued = await client.get(status_url, headers=headers)
+        assert queued.status == 200 and (await queued.json())['state'] == 'pending'
         for _ in range(3):
             assert await bot.music.tick(bot.bot)
         assert creates == [dict(model=MODEL, prompt=prompt, n=1)]
@@ -498,6 +693,21 @@ async def check_music(page, view, owner, client, base, token):
         await expect(work).to_contain_text('Готово')
         job = quote['quote_id']
         assert await counts() == (1, 1)
+        await page.get_by_role('button', name='Открыть задание ' + job, exact=True).click()
+        await expect(page.locator('#job-status')).to_have_text('Завершено')
+        refreshed = asyncio.Event()
+
+        async def delay_library(route):
+            await refreshed.wait()
+            await route.continue_()
+
+        await page.route(lambda url: url == base + '/api/v1/works?page=0', delay_library, times=1)
+        try:
+            await page.get_by_role('button', name='Показать результат').click()
+            await expect(page.locator('#works > li')).to_have_count(0)
+        finally:
+            refreshed.set()
+        await expect(work).to_be_visible()
         replay = await client.post(base + '/api/v1/jobs', json={'quote_id': job},
                                    headers={**headers, 'Idempotency-Key': job})
         assert replay.status == 200 and (await replay.json())['id'] == job
@@ -529,6 +739,7 @@ async def check_music(page, view, owner, client, base, token):
         from elevenbot import admin_access
         bot.admin_access.sessions[100] = (admin_access.monotonic() - 1, bot.admin_access.sessions[100][1])
         assert not await view.music.miniapp_access(view.pool, 100)
+        assert (await client.get(status_url, headers=headers)).status == 404
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
         assert (await client.post(base + '/api/v1/quotes', headers=headers,
                                   json={'model': MODEL, 'prompt': prompt})).status == 403
@@ -554,3 +765,75 @@ async def check_music(page, view, owner, client, base, token):
         assert (await client.get(base + '/api/v1/works/music/' + job, headers=headers)).status == 404
         return job
 
+
+
+async def check_model_visibility(page, telegram, owner):
+    from playwright.async_api import expect
+
+    await telegram.pool.execute('''
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,'SETTINGS_OPERATOR','OP-01 visibility grant')
+    ''', owner)
+    await page.get_by_role('button', name='Администрирование').click()
+    models = page.get_by_label('Модель', exact=True)
+    await expect(models.locator('option').filter(has_text='Image · clodex')).to_contain_text('Видима')
+    await models.select_option(label='Image · clodex · images.generate · Видима')
+    await page.get_by_role('button', name='Предпросмотр скрытия').click()
+    await expect(page.get_by_text('Image · Видима → Скрыта')).to_be_visible()
+    await page.get_by_role('button', name='Подтвердить видимость').click()
+    await expect(models.locator('option').filter(has_text='Image · clodex')).to_contain_text('Скрыта')
+    # The same PostgreSQL value drives both catalogues, including a live refresh
+    # of the Mini App list after confirmation.
+    snapshot = telegram.catalogue_snapshot()
+    indices = await telegram.store_models(snapshot, 'image', None)
+    assert 'fixture/image' not in {snapshot['models'][i]['id'] for i in indices}
+    await page.get_by_role('button', name='Каталог', exact=True).click()
+    await expect(page.locator('#models')).not_to_contain_text('MA-01 Image')
+    await page.get_by_role('button', name='Администрирование').click()
+    await expect(models.locator('option').filter(has_text='Image · clodex')).to_contain_text('Скрыта')
+    await models.select_option(label='Image · clodex · images.generate · Скрыта')
+    await page.get_by_role('button', name='Предпросмотр отката').click()
+    await expect(page.get_by_text('Image · Скрыта → Видима')).to_be_visible()
+    await page.get_by_role('button', name='Подтвердить видимость').click()
+    await expect(models.locator('option').filter(has_text='Image · clodex')).to_contain_text('Видима')
+    await page.get_by_role('button', name='Каталог', exact=True).click()
+    await expect(page.locator('#models')).to_contain_text('MA-01 Image')
+
+    await telegram.pool.execute('''
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,NULL,'OP-01 visibility revoke')
+    ''', owner)
+    await page.get_by_role('button', name='Администрирование').click()
+    await expect(models).to_have_count(0)
+    await page.get_by_role('button', name='Каталог', exact=True).click()
+    await expect(page.locator('#models')).to_contain_text('MA-01 Image')
+
+
+async def check_operator_objects(page, telegram, owner):
+    from playwright.async_api import expect
+
+    await page.set_viewport_size({'width':360,'height':800})
+    await telegram.pool.execute("""
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,'READ_ONLY_ADMIN','OP-01 operations grant')
+    """, owner)
+    await page.get_by_role('button', name='Администрирование').click()
+    section = page.get_by_label('Операторский раздел')
+    await expect(section).to_be_visible()
+    await section.select_option('models')
+    await page.get_by_role('button', name='FLUX Schnell · VISIBLE', exact=True).click()
+    detail = page.get_by_label('Сведения об объекте')
+    await expect(detail).to_contain_text('Видимость: VISIBLE')
+    await section.select_option('wallets')
+    await page.locator('section').filter(has=section).last.locator('ul.cards button').first.click()
+    await expect(detail).to_contain_text('Доступно:')
+    assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    await telegram.pool.execute("""
+        INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason)
+        VALUES($1,$1,NULL,'OP-01 operations revoke')
+    """, owner)
+    await section.select_option('users')
+    await expect(page.get_by_text('Доступ к операторским разделам закрыт.')).to_be_visible()
+    await expect(detail).to_be_empty()
+    await page.get_by_role('button', name='Каталог', exact=True).click()
+    await expect(page.locator('#models')).to_contain_text('MA-01 Image')

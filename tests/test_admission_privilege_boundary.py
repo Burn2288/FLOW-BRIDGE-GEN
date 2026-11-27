@@ -175,3 +175,20 @@ async def test_populated_backup_restore_requires_acl_reapplication(privilege_env
             await restored.close()
         if created:
             await pool.execute(f'DROP DATABASE {dbname} WITH (FORCE)')
+
+async def test_http_admin_runtime_role_is_read_only(privilege_env,env):
+    pool, schema, (_, runtime, _), runtime_pool, _ = privilege_env
+    _, _, _, user = env
+    await pool.execute(f'GRANT SELECT ON {schema}.http_admin_role_events TO {runtime}')
+    assert await runtime_pool.fetchval('SELECT count(*) FROM http_admin_role_events') == 0
+    for statement in (
+        "INSERT INTO http_admin_role_events(subject_id,actor_id,role,reason) VALUES($1,$1,'OWNER_ADMIN','fixture')",
+        "UPDATE http_admin_role_events SET role='OWNER_ADMIN' WHERE subject_id=$1",
+        'DELETE FROM http_admin_role_events WHERE subject_id=$1',
+        "SELECT change_http_admin_role($1,$1,'OWNER_ADMIN',0,gen_random_uuid(),'fixture')",
+    ):
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await runtime_pool.execute(statement,user)
+    with pytest.raises(asyncpg.InsufficientPrivilegeError):
+        await runtime_pool.fetchval("SELECT nextval('http_admin_role_events_revision_seq')")
+    assert await pool.fetchval('SELECT count(*) FROM http_admin_role_events') == 0

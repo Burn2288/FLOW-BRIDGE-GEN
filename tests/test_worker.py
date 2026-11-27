@@ -68,6 +68,41 @@ async def test_A13_delivery(env, failure):
     assert await pool.fetchval('SELECT status FROM deliveries WHERE job_id=$1',j)=='sent'
     assert p.calls==1 and sender.calls==2
 
+
+async def test_telegram_delivery_claims_only_new_opted_in_jobs_for_their_owner(env):
+    pool, cfg, service, old_owner = env
+    provider = MockProvider()
+    worker = Worker(pool, cfg, provider)
+    old_quote, _ = await service.quote(old_owner, 'Older audio', 'demo')
+    old_job = await service.confirm(old_owner, old_quote)
+    assert await worker.run_one()
+    assert await service.confirm(old_owner, old_quote, telegram_delivery=True) == old_job
+
+    new_owner = await service.identity(101)
+    await service.accept(new_owner)
+    new_quote, _ = await service.quote(new_owner, 'Fresh audio', 'demo')
+    new_job = await service.confirm(new_owner, new_quote, telegram_delivery=True)
+    assert await worker.run_one()
+
+    sent = []
+
+    async def send(user, external_id, job):
+        sent.append((user, external_id, job))
+        return 500
+
+    restarted = Worker(pool, cfg, provider)
+    assert await restarted.delivery_one(telegram_delivery=send)
+    assert not await restarted.delivery_one(telegram_delivery=send)
+    assert not await restarted.run_one()
+    assert sent == [(new_owner, 101, new_job)]
+    assert provider.calls == 2
+    assert await pool.fetchval('SELECT status FROM deliveries WHERE job_id=$1', old_job) == 'pending'
+    stored = await pool.fetchrow(
+        'SELECT status, platform_message_id FROM deliveries WHERE job_id=$1', new_job)
+    assert tuple(stored) == ('sent', 500)
+    for job in (old_job, new_job):
+        assert await pool.fetchval("SELECT count(*) FROM ledger WHERE job_id=$1 AND kind='capture'", job) == 1
+
 async def test_A15_cleanup(env):
     pool,cfg,s,u=env;j=await new_job(s,u);w=Worker(pool,cfg,MockProvider());await w.run_one()
     path=w.storage.path((await s.owned(u,j))['storage_key'])

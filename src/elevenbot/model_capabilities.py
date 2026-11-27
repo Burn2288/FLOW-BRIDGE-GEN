@@ -112,7 +112,7 @@ async def stage(policy, user, external, provider, model, operation, schema):
     async with policy.app.pool.acquire() as conn, conn.transaction():
         await policy.app.pricing.admin(conn, user, external)
         await conn.execute('SELECT pg_advisory_xact_lock($1::bigint)', POLICY_LOCK)
-        if not await admitted(conn, provider, model, operation):
+        if not await admitted(conn, provider, model, operation, include_hidden=True):
             raise Rejected('Модель не допущена.')
         version = uuid4()
         await conn.execute('''INSERT INTO model_capability_versions(provider,model_id,operation,version,schema)
@@ -126,7 +126,7 @@ async def publish(policy, user, external, provider, model, operation, version):
     async with policy.app.pool.acquire() as conn, conn.transaction():
         await policy.app.pricing.admin(conn, user, external)
         await conn.execute('SELECT pg_advisory_xact_lock($1::bigint)', POLICY_LOCK)
-        if not await admitted(conn, provider, model, operation):
+        if not await admitted(conn, provider, model, operation, include_hidden=True):
             raise Rejected('Модель не допущена.')
         raw = await conn.fetchval('''SELECT schema::text FROM model_capability_versions
             WHERE provider=$1 AND model_id=$2 AND operation=$3 AND version=$4 FOR UPDATE''',
