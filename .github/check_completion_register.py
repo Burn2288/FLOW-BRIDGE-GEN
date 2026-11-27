@@ -22,7 +22,28 @@ def validate(old, register):
         rows = [t for t in new if t['owner'] == owner]
         assert [t['list_position'] for t in rows] == list(range(1, count + 1))
     assert [t['global_list_position'] for t in new] == list(range(1, 82))
-    assert all(t['target_level'] == 'FUNCTIONAL_TEST' and t['completed_level'] is None for t in new)
+    assert all(t['target_level'] == 'FUNCTIONAL_TEST' and t['completed_level'] in (None, 'FUNCTIONAL_TEST') for t in new)
+    completed = {t['task_id'] for t in new if t['completed_level'] is not None}
+    if completed:
+        record = register['acceptance_record']
+        assert set(record['task_ids']) == completed and len(record['task_ids']) == len(completed)
+        assert record['accepted_product_head'] != record['product_merge_sha']
+        for field in ('accepted_product_head', 'accepted_product_tree', 'product_merge_sha'):
+            assert SHA.fullmatch(record[field])
+        assert PR.fullmatch(record['product_pr_url'])
+        assert record['owner_approval_ref'].strip()
+        assert RUN.fullmatch(record['main_target_ci_url'])
+        reports = record['independent_audits']
+        assert len(reports) == 2 and len({r['auditor_id'] for r in reports}) == 2
+        for report in reports:
+            assert report['independence_confirmed'] is True
+            assert report['verdict'] == 'PASS_FUNCTIONAL_TEST'
+            assert report['checked_head'] == record['accepted_product_head']
+            assert report['checked_tree'] == record['accepted_product_tree']
+            assert re.fullmatch(r'[0-9a-f]{64}', report['report_sha256'])
+            assert report['report_ref'].strip()
+        # Offline structure only: reviewers must verify actual merge, permission, CI and report bytes separately.
+        # Existing implementation/global_audit_status fields retain their preacceptance historical snapshot.
     assert set(register['completion_levels']) == {'FUNCTIONAL_TEST', 'STANDARD', 'HIGH_PRODUCTION'}
     status_values = set(register['implementation_status_values'])
     assert {'NOT_ASSESSED','IN_PROGRESS','CANDIDATE_PREPARED','AWAITING_GLOBAL_ACCEPTANCE','BLOCKED','DEFERRED'} <= status_values

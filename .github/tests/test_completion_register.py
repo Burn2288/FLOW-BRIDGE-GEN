@@ -15,7 +15,11 @@ class CompletionRegisterTest(unittest.TestCase):
     def setUp(self):
         p = ROOT/'docs/planning'
         self.old = json.loads((p/'historical-tasks-v1.json').read_text(encoding='utf-8'))['tasks']
-        self.data = json.loads((p/'completion-level-register.json').read_text(encoding='utf-8'))
+        self.actual_data = json.loads((p/'completion-level-register.json').read_text(encoding='utf-8'))
+        self.data = copy.deepcopy(self.actual_data)
+        self.data.pop('acceptance_record', None)
+        for task in self.data['tasks']:
+            task['completed_level'] = None
         self.task = next(t for t in self.data['tasks'] if t.get('evidence'))
 
     def reject(self):
@@ -23,7 +27,7 @@ class CompletionRegisterTest(unittest.TestCase):
             checker.validate(self.old, self.data)
 
     def test_valid_registry(self):
-        self.assertGreater(checker.validate(self.old, self.data), 0)
+        self.assertGreater(checker.validate(self.old, self.actual_data), 0)
 
     def test_bad_sha(self):
         self.task['evidence'][0]['checkout_sha'] = 'bad'
@@ -39,6 +43,49 @@ class CompletionRegisterTest(unittest.TestCase):
 
     def test_premature_completion(self):
         self.task['completed_level'] = 'FUNCTIONAL_TEST'
+        self.reject()
+
+    def accepted_fixture(self):
+        self.task['completed_level'] = 'FUNCTIONAL_TEST'
+        self.data['acceptance_record'] = {
+            'task_ids': [self.task['task_id']],
+            'accepted_product_head': '1' * 40,
+            'accepted_product_tree': '2' * 40,
+            'product_merge_sha': '3' * 40,
+            'product_pr_url': 'https://github.com/Burn2288/FLOW-BRIDGE-GEN/pull/116',
+            'owner_approval_ref': 'TEST FIXTURE ONLY',
+            'main_target_ci_url': 'https://github.com/Burn2288/FLOW-BRIDGE-GEN/actions/runs/1',
+            'independent_audits': [dict(auditor_id=name, independence_confirmed=True,
+                verdict='PASS_FUNCTIONAL_TEST', checked_head='1' * 40, checked_tree='2' * 40,
+                report_sha256=digest * 64, report_ref='TEST FIXTURE ONLY')
+                for name, digest in [('auditor A', 'a'), ('auditor B', 'b')]],
+        }
+        return self.data['acceptance_record']
+
+    def test_documented_acceptance_is_structurally_valid(self):
+        self.accepted_fixture()
+        self.assertGreater(checker.validate(self.old, self.data), 0)
+
+    def test_acceptance_cannot_cover_another_task(self):
+        self.accepted_fixture()['task_ids'] = ['UNKNOWN-01']
+        self.reject()
+
+    def test_acceptance_rejects_same_auditor_twice(self):
+        record = self.accepted_fixture()
+        record['independent_audits'][1]['auditor_id'] = record['independent_audits'][0]['auditor_id']
+        self.reject()
+
+    def test_acceptance_rejects_different_tree(self):
+        record = self.accepted_fixture()
+        record['independent_audits'][1]['checked_tree'] = '4' * 40
+        self.reject()
+
+    def test_acceptance_requires_owner_approval_and_actual_merge(self):
+        record = self.accepted_fixture()
+        record['owner_approval_ref'] = ''
+        self.reject()
+        record['owner_approval_ref'] = 'TEST FIXTURE ONLY'
+        record['product_merge_sha'] = record['accepted_product_head']
         self.reject()
 
     def test_implementation_status_is_separate_from_completed_level(self):
